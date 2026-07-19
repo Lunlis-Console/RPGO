@@ -81,7 +81,11 @@ public sealed class WindowManager
             w.Update(gameTime, keyboard, ms);
         }
 
-        if (!anyDragging && toFront != null)
+        // Не поднимаем окно поверх модального диалога. Важно: модальное окно
+        // могло открыться внутри этого же кадра (например, QuantityDialog по
+        // клику в TradeWindow), поэтому проверяем наличие в самый последний момент.
+        bool hasModalNow = _windows.Any(w => w.Visible && w.IsModal);
+        if (!anyDragging && toFront != null && !hasModalNow)
             BringToFront(toFront);
     }
 

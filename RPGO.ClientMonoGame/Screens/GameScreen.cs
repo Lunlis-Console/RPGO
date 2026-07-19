@@ -254,6 +254,11 @@ public class GameScreen : IScreen
             OpenQuantity(item.Name, max, 1, q => _ = client.SendAsync("drop_item", new { ItemId = item.Id, Quantity = q }), showPrice: false);
         client.TradeOpened += data =>
         {
+            var inv = data.YourInventory ?? new List<TradeItemData>();
+            var grouped = inv.GroupBy(i => i.Id).Select(gr => $"{gr.First().Name} x{gr.Count()}").ToList();
+            Logger.Action($"ОБМЕН: получен trade_open с '{data.OtherName}', предметов в инвентаре={inv.Count} (уникальных={grouped.Count}), золото={data.YourGold}");
+            foreach (var line in grouped)
+                Logger.Debug($"ОБМЕН: инвентарь аккаунта -> {line}");
             _tradeWindow.Open(data);
             _windows.BringToFront(_tradeWindow);
         };
@@ -363,6 +368,10 @@ public class GameScreen : IScreen
         _tradeWindow.OfferChanged += (itemIds, gold) =>
         {
             _ = client.SendAsync("trade_offer", new { ItemIds = itemIds, Gold = gold });
+        };
+        _tradeWindow.RequestQuantity += (itemName, max, defaultQty, onConfirm) =>
+        {
+            OpenQuantity(itemName, max, 0, onConfirm, showPrice: false);
         };
         _tradeWindow.ConfirmRequested += () => _ = client.SendAsync("trade_confirm", null);
         _tradeWindow.CancelRequested += () => _ = client.SendAsync("trade_cancel", null);

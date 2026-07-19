@@ -149,9 +149,13 @@ public class TradeConfirmHandler : BaseHandler
     private static bool ValidateFinalOffer(Player player, List<string> itemIds, int gold)
     {
         if (gold > player.Gold) return false;
+        if (itemIds.Count != itemIds.Distinct().Count())
+            return false;
+
+        var owned = new HashSet<string>(player.Inventory.Select(i => i.Id));
         foreach (var id in itemIds)
         {
-            if (player.Inventory.FirstOrDefault(i => i.Id == id) == null)
+            if (string.IsNullOrEmpty(id) || !owned.Contains(id))
                 return false;
         }
         return true;

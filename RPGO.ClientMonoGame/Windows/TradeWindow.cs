@@ -38,6 +38,7 @@ namespace RPGGame.ClientMonoGame.Windows
 
         private MouseState _prevMouse;
         private bool _wasVisible;
+        private TradeItemData? _hoverItem;
 
         public event Action<List<string>, int>? OfferChanged;
         public event Action? ConfirmRequested;
@@ -86,28 +87,42 @@ namespace RPGGame.ClientMonoGame.Windows
             X = (g.PreferredBackBufferWidth - Width) / 2;
             Y = (g.PreferredBackBufferHeight - Height) / 2;
             Visible = true;
+
+            var grouped = _myInventoryItems
+                .GroupBy(i => i.Id)
+                .Select(gr => $"{gr.First().Name} x{gr.Count()}")
+                .ToList();
+            Logger.Action($"ОБМЕН ОТКРЫТ: с '{_otherName}', session={_sessionId}");
+            Logger.Info($"ОБМЕН: золото игрока={_myTotalGold}, золото противника={_theirGoldOffer}");
+            Logger.Info($"ОБМЕН: предметов в инвентаре={_myInventoryItems.Count} (уникальных={grouped.Count})");
+            foreach (var line in grouped)
+                Logger.Debug($"ОБМЕН: инвентарь -> {line}");
         }
 
         public void UpdateMyOffer(TradeOfferData data)
         {
             _myOfferItems = data.Offer?.Items ?? new List<TradeItemData>();
             _myGoldOffer = data.Offer?.Gold ?? 0;
+            Logger.Debug($"ОБМЕН: сервер обновил МОЙ оффер: предметов={_myOfferItems.Count}, золото={_myGoldOffer}");
         }
 
         public void UpdateTheirOffer(TradeOfferData data)
         {
             _theirOfferItems = data.Offer?.Items ?? new List<TradeItemData>();
             _theirGoldOffer = data.Offer?.Gold ?? 0;
+            Logger.Debug($"ОБМЕН: сервер обновил оффер ПРОТИВНИКА: предметов={_theirOfferItems.Count}, золото={_theirGoldOffer}");
         }
 
         public void UpdateConfirm(TradeConfirmData data)
         {
             _iConfirmed = data.YouConfirmed;
             _otherConfirmed = data.OtherConfirmed;
+            Logger.Info($"ОБМЕН: подтверждение: я={_iConfirmed}, противник={_otherConfirmed}");
         }
 
         public void HandleComplete(TradeCompleteData data)
         {
+            Logger.Action($"ОБМЕН ЗАВЕРШЁН: success={data.Success}, msg='{data.Message}'");
             if (data.Success)
                 Visible = false;
         }
@@ -152,7 +167,8 @@ namespace RPGGame.ClientMonoGame.Windows
             int invGridY = cy + 18;
             int offerGridY = invGridY + InvRows * (cellSize + Gap) + 20;
             int goldY = offerGridY + 2 * (cellSize + Gap) + 12;
-            return new Rectangle(cx + 50, goldY - 2, halfW - 50, 20);
+            int labelW = 70;
+            return new Rectangle(cx + labelW, goldY - 2, halfW - labelW, 20);
         }
 
         public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -194,15 +210,16 @@ namespace RPGGame.ClientMonoGame.Windows
 
             if (justClicked)
             {
+                var groupedInv = GetGroupedInventory();
                 for (int r = 0; r < InvRows; r++)
                     for (int c = 0; c < InvCols; c++)
                     {
                         var rect = GetInvSlotRect(c, r);
                         if (rect.Contains(mouse.X, mouse.Y))
                         {
-                            int idx = r * InvCols + c + _scrollOffset;
-                            if (idx < _myInventoryItems.Count)
-                                OnInventoryClick(idx);
+                            int uniqueIdx = r * InvCols + c + _scrollOffset;
+                            if (uniqueIdx < groupedInv.Count)
+                                OnInventoryClick(groupedInv[uniqueIdx].Key);
                             _prevMouse = mouse;
                             _prevKeyboard = keyboard;
                             return;
@@ -327,28 +344,53 @@ namespace RPGGame.ClientMonoGame.Windows
             _goldInputBuffer.Clear();
         }
 
-        private void OnInventoryClick(int idx)
+        private void OnInventoryClick(string itemId)
         {
-            if (idx < 0 || idx >= _myInventoryItems.Count) return;
-            var item = _myInventoryItems[idx];
-            int maxStack = Math.Max(1, item.MaxStack);
-            int alreadyInOffer = _myOfferItems.Count(o => o.Id == item.Id);
-            int available = maxStack - alreadyInOffer;
+            var availableInv = GetAvailableInventory();
+            var item = availableInv.FirstOrDefault(i => i.Id == itemId);
+            if (item == null) return;
+            int inInventory = availableInv.Count(i => i.Id == itemId);
+            int alreadyInOffer = _myOfferItems.Count(o => o.Id == itemId);
+            int available = inInventory - alreadyInOffer;
             if (available <= 0) return;
+
+            Logger.Debug($"ОБМЕН: клик по инвентарю '{item.Name}' (id={itemId}), доступно={available}");
 
             if (available > 1)
             {
                 RequestQuantity?.Invoke(item.Name, available, 1, qty =>
                 {
-                    for (int q = 0; q < qty; q++)
-                        _myOfferItems.Add(item);
+                    qty = Math.Min(qty, available);
+                    Logger.Debug($"ОБМЕН: добавление в оффер '{item.Name}' x{qty}");
+                    AddToOffer(itemId, qty);
                     NotifyOfferChanged();
                 });
             }
             else
             {
-                _myOfferItems.Add(item);
+                AddToOffer(itemId, 1);
                 NotifyOfferChanged();
+            }
+        }
+
+        private void AddToOffer(string itemId, int qty)
+        {
+            for (int q = 0; q < qty; q++)
+            {
+                var available = GetAvailableInventory();
+                var rec = available.FirstOrDefault(i => i.Id == itemId);
+                if (rec == null) break;
+                _myOfferItems.Add(rec);
+            }
+        }
+
+        private void RemoveFromOffer(string itemId, int qty)
+        {
+            for (int q = 0; q < qty; q++)
+            {
+                var target = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
+                if (target == null) break;
+                _myOfferItems.Remove(target);
             }
         }
 
@@ -361,18 +403,13 @@ namespace RPGGame.ClientMonoGame.Windows
             {
                 RequestQuantity?.Invoke("предмет", count, 1, qty =>
                 {
-                    for (int q = 0; q < qty; q++)
-                    {
-                        var target = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
-                        if (target != null) _myOfferItems.Remove(target);
-                    }
+                    RemoveFromOffer(itemId, qty);
                     NotifyOfferChanged();
                 });
             }
             else
             {
-                var target = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
-                if (target != null) _myOfferItems.Remove(target);
+                RemoveFromOffer(itemId, 1);
                 NotifyOfferChanged();
             }
         }
@@ -380,6 +417,26 @@ namespace RPGGame.ClientMonoGame.Windows
         private List<KeyValuePair<string, int>> GetGroupedOffer()
         {
             return _myOfferItems
+                .GroupBy(i => i.Id)
+                .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+                .ToList();
+        }
+
+        private List<TradeItemData> GetAvailableInventory()
+        {
+            var offered = new List<string>(_myOfferItems.Select(i => i.Id));
+            var result = new List<TradeItemData>(_myInventoryItems);
+            foreach (var id in offered)
+            {
+                int idx = result.FindIndex(i => i.Id == id);
+                if (idx >= 0) result.RemoveAt(idx);
+            }
+            return result;
+        }
+
+        private List<KeyValuePair<string, int>> GetGroupedInventory()
+        {
+            return GetAvailableInventory()
                 .GroupBy(i => i.Id)
                 .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
                 .ToList();
@@ -400,6 +457,7 @@ namespace RPGGame.ClientMonoGame.Windows
             var font = SpriteCache.FontSmall ?? SpriteCache.Font;
             if (font == null) return;
 
+            _hoverItem = null;
             var mouse = Mouse.GetState();
 
             sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, Width, Height), new Color(30, 32, 40));
@@ -418,15 +476,15 @@ namespace RPGGame.ClientMonoGame.Windows
             int invGridY = cy + 18;
             DrawText(sb, "Ваш инвентарь:", cx, cy, CGold, font);
 
-            int totalItems = _myInventoryItems.Count;
-            _maxScroll = Math.Max(0, (totalItems + InvCols - 1) / InvCols - InvRows);
+            var groupedInv = GetGroupedInventory();
+            _maxScroll = Math.Max(0, (groupedInv.Count + InvCols - 1) / InvCols - InvRows);
 
             for (int r = 0; r < InvRows; r++)
                 for (int c = 0; c < InvCols; c++)
                 {
                     var rect = GetInvSlotRect(c, r);
-                    int idx = r * InvCols + c + _scrollOffset;
-                    bool filled = idx < totalItems;
+                    int uniqueIdx = r * InvCols + c + _scrollOffset;
+                    bool filled = uniqueIdx < groupedInv.Count;
                     bool hover = rect.Contains(mouse.X, mouse.Y);
 
                     sb.Draw(SpriteCache.Pixel, rect, hover ? CFieldHover : CFieldBg);
@@ -434,12 +492,13 @@ namespace RPGGame.ClientMonoGame.Windows
 
                     if (filled)
                     {
-                        var item = _myInventoryItems[idx];
+                        var item = GetAvailableInventory().First(i => i.Id == groupedInv[uniqueIdx].Key);
+                        if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
 
-                        int count = _myInventoryItems.Count(o => o.Id == item.Id);
+                        int count = groupedInv[uniqueIdx].Value;
                         if (count > 1)
                             DrawText(sb, count.ToString(), rect.X + cellSize - 14, rect.Y + cellSize - 14, new Color(230, 230, 120), font);
                     }
@@ -475,6 +534,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     {
                         var kvp = groupedOffer[uniqueIdx];
                         var item = _myOfferItems.First(i => i.Id == kvp.Key);
+                        if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
@@ -519,6 +579,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     int x = rightX + c * (cellSize + Gap);
                     int y = theirGridY + r * (cellSize + Gap);
                     var rect = new Rectangle(x, y, cellSize, cellSize);
+                    bool hover = rect.Contains(mouse.X, mouse.Y);
 
                     sb.Draw(SpriteCache.Pixel, rect, CFieldBg);
                     DrawRectOutline(sb, rect, CFieldBorder);
@@ -528,6 +589,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     {
                         var kvp = groupedTheir[uniqueIdx];
                         var item = _theirOfferItems.First(i => i.Id == kvp.Key);
+                        if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
@@ -570,10 +632,63 @@ namespace RPGGame.ClientMonoGame.Windows
                 CancelRequested?.Invoke();
                 Visible = false;
             }
+
+            if (_hoverItem != null)
+                DrawTooltip(sb, _hoverItem, mouse);
+        }
+
+        private void DrawTooltip(SpriteBatch sb, TradeItemData item, MouseState mouse)
+        {
+            var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+            if (font == null) return;
+
+            var lines = new List<string>
+            {
+                item.Name ?? "",
+                $"Тип: {item.Type}",
+                $"Цена: {item.Value} золота"
+            };
+            if (item.Attack > 0) lines.Add($"Атака: +{item.Attack}");
+            if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
+            if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
+            if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
+            if (!string.IsNullOrEmpty(item.Description))
+                lines.Add(item.Description);
+
+            int pad = 8;
+            float tw = 0;
+            foreach (var l in lines) tw = Math.Max(tw, font.MeasureString(l).X);
+            int th = lines.Count * 18 + pad * 2;
+            int tx = mouse.X + 16;
+            int ty = mouse.Y + 16;
+            int ww = (int)tw + pad * 2;
+            var g = GameMain.Instance;
+            if (g != null)
+            {
+                int bw = g.Graphics.PreferredBackBufferWidth;
+                int bh = g.Graphics.PreferredBackBufferHeight;
+                if (tx + ww > bw) tx = bw - ww - 4;
+                if (ty + th > bh) ty = bh - th - 4;
+            }
+
+            sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, th), new Color(20, 22, 30, 230));
+            sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(80, 120, 200));
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var color = i == 0 ? new Color(230, 220, 140) : Color.White;
+                sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
+            }
         }
 
         private void NotifyOfferChanged()
         {
+            var grouped = _myOfferItems
+                .GroupBy(i => i.Id)
+                .Select(gr => $"{gr.First().Name} x{gr.Count()}")
+                .ToList();
+            Logger.Info($"ОБМЕН: отправка оффера на сервер: предметов={_myOfferItems.Count}, золото={_myGoldOffer}");
+            foreach (var line in grouped)
+                Logger.Debug($"ОБМЕН: оффер -> {line}");
             OfferChanged?.Invoke(MyOfferIds, _myGoldOffer);
         }
 
