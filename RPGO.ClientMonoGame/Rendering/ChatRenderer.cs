@@ -75,7 +75,8 @@ public class ChatRenderer
         if (TypedText.Length == 0 && !string.IsNullOrEmpty(CurrentPrefix))
             TypedText = CurrentPrefix;
 
-        var keyState = KeyboardLayoutHelper.GetCurrentKeyState(keyboard);
+        bool russian = KeyboardLayoutHelper.IsRussian();
+        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
         var pressed = keyboard.GetPressedKeys();
 
         foreach (var key in pressed)
@@ -91,9 +92,8 @@ public class ChatRenderer
                 key == Keys.Enter || key == Keys.Escape || key == Keys.Back)
                 continue;
 
-            var ch = KeyboardLayoutHelper.TranslateKey(key, keyState);
-            if (ch.HasValue)
-                TypedText += ch.Value;
+            if (KeyCharMap.TryGetChar(key, russian, shift, out char ch))
+                TypedText += ch;
         }
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
