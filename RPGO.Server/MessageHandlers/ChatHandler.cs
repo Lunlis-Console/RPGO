@@ -49,17 +49,11 @@ public class ChatHandler : BaseHandler
 
     private async Task RouteMessage(Player player, string text)
     {
-        if (text.StartsWith("/w", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/whisper", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/tell", StringComparison.OrdinalIgnoreCase))
+        // Команды проверяем по точному первому слову (с пробелом или концу строки),
+        // чтобы "/world" не ловился как "/w", а "/party" не как "/p".
+        if (HasPrefix(text, "/w") || HasPrefix(text, "/whisper") || HasPrefix(text, "/tell"))
         {
-            var rest = text.IndexOf(' ');
-            if (rest < 0)
-            {
-                await SystemToSelf(player, "Использование: /w <ник> <сообщение>");
-                return;
-            }
-            var after = text.Substring(rest + 1).TrimStart();
+            var after = StripPrefix(text).TrimStart();
             var sp = after.IndexOf(' ');
             if (sp < 0)
             {
@@ -72,39 +66,34 @@ public class ChatHandler : BaseHandler
             return;
         }
 
-        if (text.StartsWith("/p", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/party", StringComparison.OrdinalIgnoreCase))
+        if (HasPrefix(text, "/p") || HasPrefix(text, "/party"))
         {
             var msg = StripPrefix(text);
             await SendChatPartyAsync(player, player.Name, msg);
             return;
         }
 
-        if (text.StartsWith("/g", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/guild", StringComparison.OrdinalIgnoreCase))
+        if (HasPrefix(text, "/g") || HasPrefix(text, "/guild"))
         {
-            var msg = StripPrefix(text);
             await SystemToSelf(player, "Гильдии пока не реализованы.");
             return;
         }
 
-        if (text.StartsWith("/trade", StringComparison.OrdinalIgnoreCase))
+        if (HasPrefix(text, "/trade"))
         {
             var msg = StripPrefix(text);
             await BroadcastChatAsync(ChatChannel.Trade, player.Name, msg);
             return;
         }
 
-        if (text.StartsWith("/world", StringComparison.OrdinalIgnoreCase))
+        if (HasPrefix(text, "/world"))
         {
             var msg = StripPrefix(text);
             await BroadcastChatAsync(ChatChannel.World, player.Name, msg);
             return;
         }
 
-        if (text.StartsWith("/s", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/say", StringComparison.OrdinalIgnoreCase) ||
-            text.StartsWith("/local", StringComparison.OrdinalIgnoreCase))
+        if (HasPrefix(text, "/s") || HasPrefix(text, "/say") || HasPrefix(text, "/local"))
         {
             var msg = StripPrefix(text);
             await SendChatLocalAsync(player, ChatChannel.Local, player.Name, msg);
@@ -113,6 +102,14 @@ public class ChatHandler : BaseHandler
 
         // По умолчанию — локальный канал (мир живее)
         await SendChatLocalAsync(player, ChatChannel.Local, player.Name, text);
+    }
+
+    private static bool HasPrefix(string text, string cmd)
+    {
+        if (!text.StartsWith(cmd, StringComparison.OrdinalIgnoreCase))
+            return false;
+        // Точное совпадение команды или команда + пробел
+        return text.Length == cmd.Length || text[cmd.Length] == ' ';
     }
 
     private static string StripPrefix(string text)

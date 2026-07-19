@@ -32,7 +32,11 @@ public static class KeyboardLayoutHelper
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern IntPtr LoadKeyboardLayout(string pwszKLID, uint flags);
 
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
     private const uint KLF_ACTIVATE = 0x00000001;
+    private const uint MAPVK_VK_TO_VSC = 0;
 
     // Языковые идентификаторы
     private const int LANG_RU = 0x0419;
@@ -97,8 +101,9 @@ public static class KeyboardLayoutHelper
     public static char? TranslateKey(Keys key, byte[] keyState)
     {
         uint vk = (uint)key;
+        uint scan = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
         var sb = new StringBuilder(8);
-        int result = ToUnicode(vk, 0, keyState, sb, sb.Capacity, 0);
+        int result = ToUnicode(vk, scan, keyState, sb, sb.Capacity, 0);
         if (result > 0 && sb.Length > 0)
         {
             char c = sb[0];
