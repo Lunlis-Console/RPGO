@@ -40,7 +40,7 @@ public class EquipHandler : BaseHandler
         else if (item.Type == "accessory") { oldEquipped = player.Equipment.Accessory; player.Equipment.Accessory = item; }
 
         player.Inventory.Remove(item);
-        if (oldEquipped != null) player.Inventory.Add(oldEquipped);
+        if (oldEquipped != null) InventoryHelper.AddItem(player, oldEquipped);
 
         Log.Debug($"{player.Name} надел {item.Name}");
         string msg = oldEquipped != null

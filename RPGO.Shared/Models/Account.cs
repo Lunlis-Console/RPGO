@@ -50,6 +50,7 @@ public class Item
     public string TemplateId { get; set; } = "";
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
+    public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }

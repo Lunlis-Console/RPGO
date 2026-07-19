@@ -61,8 +61,8 @@ public class TradeSession
     public Player Initiator { get; }
     public Player Partner { get; }
 
-    public List<string> InitiatorItemIds { get; } = new();
-    public List<string> PartnerItemIds { get; } = new();
+    public List<TradeOfferEntry> InitiatorItemIds { get; } = new();
+    public List<TradeOfferEntry> PartnerItemIds { get; } = new();
     public int InitiatorGold { get; set; }
     public int PartnerGold { get; set; }
 

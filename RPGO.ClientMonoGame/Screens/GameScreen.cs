@@ -365,9 +365,9 @@ public class GameScreen : IScreen
         };
 
         // Взаимодействие с торговлей
-        _tradeWindow.OfferChanged += (itemIds, gold) =>
+        _tradeWindow.OfferChanged += (entries, gold) =>
         {
-            _ = client.SendAsync("trade_offer", new { ItemIds = itemIds, Gold = gold });
+            _ = client.SendAsync("trade_offer", new { Entries = entries, Gold = gold });
         };
         _tradeWindow.RequestQuantity += (itemName, max, defaultQty, onConfirm) =>
         {

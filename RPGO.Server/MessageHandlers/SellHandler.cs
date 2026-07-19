@@ -31,22 +31,45 @@ public class SellHandler : BaseHandler
             return;
         }
 
-        var matches = player.Inventory.Where(i =>
-            i.Name == first.Name && i.Type == first.Type &&
-            i.Attack == first.Attack && i.Defense == first.Defense &&
-            i.MaxHealthBonus == first.MaxHealthBonus && i.HealAmount == first.HealAmount &&
-            i.Value == first.Value && i.Description == first.Description).ToList();
+        int available = first.Quantity;
+        int toSell = Math.Min(qty, available);
+        if (toSell <= 0) return;
 
-        int toSell = Math.Min(qty, matches.Count);
         int sellPrice = Balance.SellPrice(first.Value);
         int totalGain = 0;
         for (int i = 0; i < toSell; i++)
         {
             player.Gold += sellPrice;
             totalGain += sellPrice;
-            player.Inventory.Remove(matches[i]);
-            player.BuybackItems.Add(matches[i]);
         }
+
+        InventoryHelper.RemoveFromRecord(player, sellItemId, toSell);
+
+        var buybackCopy = new Item
+        {
+            Id = Guid.NewGuid().ToString(),
+            TemplateId = first.TemplateId,
+            Name = first.Name,
+            Type = first.Type,
+            Value = first.Value,
+            Attack = first.Attack,
+            Defense = first.Defense,
+            MaxHealthBonus = first.MaxHealthBonus,
+            HealAmount = first.HealAmount,
+            Description = first.Description,
+            MaxStack = first.MaxStack,
+            Quantity = toSell,
+            BonusStrength = first.BonusStrength,
+            BonusStamina = first.BonusStamina,
+            BonusAgility = first.BonusAgility,
+            BonusCunning = first.BonusCunning,
+            BonusWisdom = first.BonusWisdom,
+            BonusWill = first.BonusWill,
+            BonusCritChance = first.BonusCritChance,
+            BonusCritDamage = first.BonusCritDamage,
+            BonusEvadeChance = first.BonusEvadeChance
+        };
+        player.BuybackItems.Add(buybackCopy);
         Log.Info($"{player.Name} продал {first.Name} x{toSell} за {totalGain} золота");
         await SendToClient(connection, new GameMessage
         {

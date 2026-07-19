@@ -83,31 +83,27 @@ public class TradeConfirmHandler : BaseHandler
             return;
         }
 
-        var initiatorItems = session.InitiatorItemIds
-            .Select(id => initiator.Inventory.FirstOrDefault(i => i.Id == id))
-            .Where(i => i != null)
-            .Select(i => i!)
-            .ToList();
-
-        var partnerItems = session.PartnerItemIds
-            .Select(id => partner.Inventory.FirstOrDefault(i => i.Id == id))
-            .Where(i => i != null)
-            .Select(i => i!)
-            .ToList();
-
         int initiatorGold = Math.Min(session.InitiatorGold, initiator.Gold);
         int partnerGold = Math.Min(session.PartnerGold, partner.Gold);
 
-        foreach (var item in initiatorItems)
+        // Списываем предметы у инициатора и кладём их партнёру
+        foreach (var e in session.InitiatorItemIds)
         {
-            initiator.Inventory.Remove(item);
-            partner.Inventory.Add(item);
+            var proto = initiator.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId);
+            if (proto == null) continue;
+            var copy = MakeCopy(proto, e.Quantity);
+            InventoryHelper.RemoveQuantity(initiator, e.TemplateId, e.Quantity);
+            InventoryHelper.AddItem(partner, copy);
         }
 
-        foreach (var item in partnerItems)
+        // Списываем предметы у партнёра и кладём их инициатору
+        foreach (var e in session.PartnerItemIds)
         {
-            partner.Inventory.Remove(item);
-            initiator.Inventory.Add(item);
+            var proto = partner.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId);
+            if (proto == null) continue;
+            var copy = MakeCopy(proto, e.Quantity);
+            InventoryHelper.RemoveQuantity(partner, e.TemplateId, e.Quantity);
+            InventoryHelper.AddItem(initiator, copy);
         }
 
         initiator.Gold -= initiatorGold;
@@ -141,21 +137,50 @@ public class TradeConfirmHandler : BaseHandler
 
         TradeManager.RemoveSession(session);
 
+        int iniTotal = session.InitiatorItemIds.Sum(e => e.Quantity);
+        int parTotal = session.PartnerItemIds.Sum(e => e.Quantity);
         Log.Info($"ТРЕЙД ВЫПОЛНЕН: {initiator.Name} ↔ {partner.Name} | " +
-                 $"{initiator.Name} отдал {initiatorItems.Count} предметов + {initiatorGold} золота; " +
-                 $"{partner.Name} отдал {partnerItems.Count} предметов + {partnerGold} золота");
+                 $"{initiator.Name} отдал {iniTotal} предметов + {initiatorGold} золота; " +
+                 $"{partner.Name} отдал {parTotal} предметов + {partnerGold} золота");
     }
 
-    private static bool ValidateFinalOffer(Player player, List<string> itemIds, int gold)
+    private static Item MakeCopy(Item proto, int qty)
+    {
+        return new Item
+        {
+            Id = Guid.NewGuid().ToString(),
+            TemplateId = proto.TemplateId,
+            Name = proto.Name,
+            Type = proto.Type,
+            Value = proto.Value,
+            Attack = proto.Attack,
+            Defense = proto.Defense,
+            MaxHealthBonus = proto.MaxHealthBonus,
+            HealAmount = proto.HealAmount,
+            Description = proto.Description,
+            MaxStack = proto.MaxStack,
+            Quantity = qty,
+            BonusStrength = proto.BonusStrength,
+            BonusStamina = proto.BonusStamina,
+            BonusAgility = proto.BonusAgility,
+            BonusCunning = proto.BonusCunning,
+            BonusWisdom = proto.BonusWisdom,
+            BonusWill = proto.BonusWill,
+            BonusCritChance = proto.BonusCritChance,
+            BonusCritDamage = proto.BonusCritDamage,
+            BonusEvadeChance = proto.BonusEvadeChance
+        };
+    }
+
+    private static bool ValidateFinalOffer(Player player, List<TradeOfferEntry> entries, int gold)
     {
         if (gold > player.Gold) return false;
-        if (itemIds.Count != itemIds.Distinct().Count())
-            return false;
-
-        var owned = new HashSet<string>(player.Inventory.Select(i => i.Id));
-        foreach (var id in itemIds)
+        foreach (var e in entries)
         {
-            if (string.IsNullOrEmpty(id) || !owned.Contains(id))
+            int available = player.Inventory
+                .Where(i => i.TemplateId == e.TemplateId)
+                .Sum(i => i.Quantity);
+            if (available < e.Quantity)
                 return false;
         }
         return true;

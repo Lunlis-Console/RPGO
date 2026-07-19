@@ -19,7 +19,7 @@ public class CollectHandler : BaseHandler
             return;
         }
 
-        player.Inventory.Add(lootItem);
+        InventoryHelper.AddItem(player, lootItem);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

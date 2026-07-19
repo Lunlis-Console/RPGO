@@ -30,24 +30,11 @@ public class DropItemHandler : BaseHandler
             return;
         }
 
-        int removed = 0;
-        for (int i = player.Inventory.Count - 1; i >= 0 && removed < quantity; i--)
-        {
-            var it = player.Inventory[i];
-            if (SameItem(it, proto))
-            {
-                player.Inventory.RemoveAt(i);
-                removed++;
-            }
-        }
+        int available = proto.Quantity;
+        int removed = Math.Min(quantity, available);
+        InventoryHelper.RemoveFromRecord(player, dropId, removed);
 
         Log.Info($"{player.Name} выбросил {proto.Name} x{removed}");
         await SendInventoryAndStatus(connection, player);
     }
-
-    private static bool SameItem(Item a, Item b) =>
-        a.Name == b.Name && a.Type == b.Type &&
-        a.Attack == b.Attack && a.Defense == b.Defense &&
-        a.MaxHealthBonus == b.MaxHealthBonus && a.HealAmount == b.HealAmount &&
-        a.Value == b.Value && a.Description == b.Description;
 }

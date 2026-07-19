@@ -31,16 +31,17 @@ public class TradeOfferHandler : BaseHandler
 
         if (message.Data is not JsonElement el) return;
 
-        var myItemIds = new List<string>();
-        if (el.TryGetProperty("ItemIds", out var itemsArr) && itemsArr.ValueKind == JsonValueKind.Array)
+        var myEntries = new List<TradeOfferEntry>();
+        if (el.TryGetProperty("Entries", out var entriesArr) && entriesArr.ValueKind == JsonValueKind.Array)
         {
-            foreach (var itemEl in itemsArr.EnumerateArray())
+            foreach (var entryEl in entriesArr.EnumerateArray())
             {
-                if (itemEl.ValueKind == JsonValueKind.String)
-                {
-                    string? id = itemEl.GetString();
-                    if (id != null) myItemIds.Add(id);
-                }
+                if (entryEl.ValueKind != JsonValueKind.Object) continue;
+                string? tid = entryEl.TryGetProperty("TemplateId", out var tEl) ? tEl.GetString() : null;
+                int qty = entryEl.TryGetProperty("Quantity", out var qEl) && qEl.ValueKind == JsonValueKind.Number
+                    ? Math.Max(1, qEl.GetInt32()) : 1;
+                if (!string.IsNullOrEmpty(tid))
+                    myEntries.Add(new TradeOfferEntry { TemplateId = tid, Quantity = qty });
             }
         }
 
@@ -51,32 +52,25 @@ public class TradeOfferHandler : BaseHandler
         var other = session.GetOther(player);
         if (other == null) return;
 
-        if (!ValidateItems(player, myItemIds))
+        if (!ValidateOffer(player, myEntries, myGold))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Некоторые предметы недоступны.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Некоторые предметы недоступны или количество превышено.");
             return;
         }
 
         myGold = Math.Min(myGold, player.Gold);
 
         bool isInitiator = player.Id == session.Initiator.Id;
-        if (isInitiator)
-        {
-            session.InitiatorItemIds.Clear();
-            session.InitiatorItemIds.AddRange(myItemIds);
-            session.InitiatorGold = myGold;
-        }
-        else
-        {
-            session.PartnerItemIds.Clear();
-            session.PartnerItemIds.AddRange(myItemIds);
-            session.PartnerGold = myGold;
-        }
+        var target = isInitiator ? session.InitiatorItemIds : session.PartnerItemIds;
+        target.Clear();
+        target.AddRange(myEntries);
+        if (isInitiator) session.InitiatorGold = myGold;
+        else session.PartnerGold = myGold;
 
         var otherConn = World.FindClientByPlayer(other);
         var myConn = World.FindClientByPlayer(player);
 
-        var myOffer = BuildOfferSummary(player, myItemIds, myGold);
+        var myOffer = BuildOfferSummary(player, myEntries, myGold);
 
         if (otherConn != null)
         {
@@ -104,32 +98,34 @@ public class TradeOfferHandler : BaseHandler
             });
         }
 
-        Log.Debug($"Трейд предложение: {player.Name} предложил {myItemIds.Count} предметов, {myGold} золота");
+        int totalItems = myEntries.Sum(e => e.Quantity);
+        Log.Debug($"Трейд предложение: {player.Name} предложил {totalItems} предметов ({myEntries.Count} типов), {myGold} золота");
     }
 
-    private static bool ValidateItems(Player player, List<string> itemIds)
+    private static bool ValidateOffer(Player player, List<TradeOfferEntry> entries, int gold)
     {
-        if (itemIds.Count != itemIds.Distinct().Count())
-            return false;
-
-        var owned = new HashSet<string>(player.Inventory.Select(i => i.Id));
-        foreach (var id in itemIds)
+        if (gold > player.Gold) return false;
+        foreach (var e in entries)
         {
-            if (string.IsNullOrEmpty(id) || !owned.Contains(id))
+            int available = player.Inventory
+                .Where(i => i.TemplateId == e.TemplateId)
+                .Sum(i => i.Quantity);
+            if (available < e.Quantity)
                 return false;
         }
         return true;
     }
 
-    private static object BuildOfferSummary(Player player, List<string> itemIds, int gold)
+    private static object BuildOfferSummary(Player player, List<TradeOfferEntry> entries, int gold)
     {
-        var items = itemIds
-            .Select(id => player.Inventory.FirstOrDefault(i => i.Id == id))
+        var items = entries
+            .Select(e => player.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId))
             .Where(i => i != null)
             .Select(i => new
             {
                 i!.Id, i.Name, i.Type, i.Value, i.Description,
-                i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.MaxStack
+                i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.MaxStack,
+                Quantity = entries.First(x => x.TemplateId == i.TemplateId).Quantity
             })
             .ToList();
 

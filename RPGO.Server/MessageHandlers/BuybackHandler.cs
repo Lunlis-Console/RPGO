@@ -49,7 +49,7 @@ public class BuybackHandler : BaseHandler
         for (int i = 0; i < toBuy; i++)
         {
             player.BuybackItems.Remove(matches[i]);
-            player.Inventory.Add(matches[i]);
+            InventoryHelper.AddItem(player, matches[i]);
         }
         Log.Info($"{player.Name} выкупил {first.Name} x{toBuy} за {totalCost} золота");
         await SendToClient(connection, new GameMessage

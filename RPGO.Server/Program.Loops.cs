@@ -191,7 +191,7 @@ public partial class Program
                 var lootItem = CollectibleManager.TryCollect(player.Interaction.X, player.Interaction.Y);
                 if (lootItem != null)
                 {
-                    player.Inventory.Add(lootItem);
+                    InventoryHelper.AddItem(player, lootItem);
                     Log.Debug($"{player.Name} собрал {lootItem.Name}");
                     await Hub.SendToClient(client, new GameMessage
                     {

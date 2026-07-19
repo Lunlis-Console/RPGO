@@ -47,11 +47,15 @@ public class CompleteQuestHandler : BaseHandler
         // Списываем предметы, нужные для сдачи квеста (collect)
         if (def.Type == "collect" && !string.IsNullOrEmpty(def.TargetItemId))
         {
-            int toRemove = Math.Min(def.Target, player.Inventory.Count(i => i.Id == def.TargetItemId));
-            for (int i = 0; i < toRemove; i++)
+            var records = player.Inventory.Where(i => i.TemplateId == def.TargetItemId || i.Id == def.TargetItemId).ToList();
+            int available = records.Sum(i => i.Quantity);
+            int toRemove = Math.Min(def.Target, available);
+            foreach (var rec in records)
             {
-                var item = player.Inventory.FirstOrDefault(it => it.Id == def.TargetItemId);
-                if (item != null) player.Inventory.Remove(item);
+                if (toRemove <= 0) break;
+                int take = Math.Min(toRemove, rec.Quantity);
+                InventoryHelper.RemoveFromRecord(player, rec.Id, take);
+                toRemove -= take;
             }
         }
 

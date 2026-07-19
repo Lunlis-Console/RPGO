@@ -103,7 +103,7 @@ public class TradeAcceptHandler : BaseHandler
         {
             i.Id, i.Name, i.Type, i.Value, i.Description,
             i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount,
-            i.MaxStack
+            i.MaxStack, i.Quantity
         }).Cast<object>().ToList();
         return (items, player.Gold);
     }

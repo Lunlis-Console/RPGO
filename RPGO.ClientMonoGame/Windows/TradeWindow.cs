@@ -40,7 +40,7 @@ namespace RPGGame.ClientMonoGame.Windows
         private bool _wasVisible;
         private TradeItemData? _hoverItem;
 
-        public event Action<List<string>, int>? OfferChanged;
+        public event Action<List<TradeOfferEntry>, int>? OfferChanged;
         public event Action? ConfirmRequested;
         public event Action? CancelRequested;
         public event Action<string, int, int, Action<int>>? RequestQuantity;
@@ -101,16 +101,47 @@ namespace RPGGame.ClientMonoGame.Windows
 
         public void UpdateMyOffer(TradeOfferData data)
         {
-            _myOfferItems = data.Offer?.Items ?? new List<TradeItemData>();
+            _myOfferItems = ExpandItems(data.Offer?.Items);
             _myGoldOffer = data.Offer?.Gold ?? 0;
-            Logger.Debug($"ОБМЕН: сервер обновил МОЙ оффер: предметов={_myOfferItems.Count}, золото={_myGoldOffer}");
+            int total = _myOfferItems.Sum(i => Math.Max(1, i.Quantity));
+            Logger.Debug($"ОБМЕН: сервер обновил МОЙ оффер: предметов={total}, золото={_myGoldOffer}");
         }
 
         public void UpdateTheirOffer(TradeOfferData data)
         {
-            _theirOfferItems = data.Offer?.Items ?? new List<TradeItemData>();
+            _theirOfferItems = ExpandItems(data.Offer?.Items);
             _theirGoldOffer = data.Offer?.Gold ?? 0;
-            Logger.Debug($"ОБМЕН: сервер обновил оффер ПРОТИВНИКА: предметов={_theirOfferItems.Count}, золото={_theirGoldOffer}");
+            int total = _theirOfferItems.Sum(i => Math.Max(1, i.Quantity));
+            Logger.Debug($"ОБМЕН: сервер обновил оффер ПРОТИВНИКА: предметов={total}, золото={_theirGoldOffer}");
+        }
+
+        private static List<TradeItemData> ExpandItems(List<TradeItemData>? items)
+        {
+            var result = new List<TradeItemData>();
+            if (items == null) return result;
+            foreach (var it in items)
+            {
+                int qty = Math.Max(1, it.Quantity);
+                for (int q = 0; q < qty; q++)
+                {
+                    result.Add(new TradeItemData
+                    {
+                        Id = it.Id,
+                        TemplateId = it.TemplateId,
+                        Name = it.Name,
+                        Type = it.Type,
+                        Value = it.Value,
+                        Description = it.Description,
+                        Attack = it.Attack,
+                        Defense = it.Defense,
+                        MaxHealthBonus = it.MaxHealthBonus,
+                        HealAmount = it.HealAmount,
+                        MaxStack = it.MaxStack,
+                        Quantity = 1
+                    });
+                }
+            }
+            return result;
         }
 
         public void UpdateConfirm(TradeConfirmData data)
@@ -384,32 +415,32 @@ namespace RPGGame.ClientMonoGame.Windows
             }
         }
 
-        private void RemoveFromOffer(string itemId, int qty)
+        private void RemoveFromOffer(string templateId, int qty)
         {
             for (int q = 0; q < qty; q++)
             {
-                var target = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
+                var target = _myOfferItems.FirstOrDefault(o => o.TemplateId == templateId);
                 if (target == null) break;
                 _myOfferItems.Remove(target);
             }
         }
 
-        private void OnOfferClick(string itemId)
+        private void OnOfferClick(string templateId)
         {
-            int count = _myOfferItems.Count(o => o.Id == itemId);
+            int count = _myOfferItems.Count(o => o.TemplateId == templateId);
             if (count <= 0) return;
 
             if (count > 1)
             {
                 RequestQuantity?.Invoke("предмет", count, 1, qty =>
                 {
-                    RemoveFromOffer(itemId, qty);
+                    RemoveFromOffer(templateId, qty);
                     NotifyOfferChanged();
                 });
             }
             else
             {
-                RemoveFromOffer(itemId, 1);
+                RemoveFromOffer(templateId, 1);
                 NotifyOfferChanged();
             }
         }
@@ -417,8 +448,8 @@ namespace RPGGame.ClientMonoGame.Windows
         private List<KeyValuePair<string, int>> GetGroupedOffer()
         {
             return _myOfferItems
-                .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+                .GroupBy(i => i.TemplateId)
+                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
@@ -445,8 +476,8 @@ namespace RPGGame.ClientMonoGame.Windows
         private List<KeyValuePair<string, int>> GetGroupedTheirOffer()
         {
             return _theirOfferItems
-                .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+                .GroupBy(i => i.TemplateId)
+                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
@@ -533,7 +564,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     if (filled)
                     {
                         var kvp = groupedOffer[uniqueIdx];
-                        var item = _myOfferItems.First(i => i.Id == kvp.Key);
+                        var item = _myOfferItems.First(i => i.TemplateId == kvp.Key);
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
@@ -588,7 +619,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     if (uniqueIdx < groupedTheir.Count)
                     {
                         var kvp = groupedTheir[uniqueIdx];
-                        var item = _theirOfferItems.First(i => i.Id == kvp.Key);
+                        var item = _theirOfferItems.First(i => i.TemplateId == kvp.Key);
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
@@ -682,17 +713,27 @@ namespace RPGGame.ClientMonoGame.Windows
 
         private void NotifyOfferChanged()
         {
-            var grouped = _myOfferItems
-                .GroupBy(i => i.Id)
-                .Select(gr => $"{gr.First().Name} x{gr.Count()}")
+            var entries = BuildOfferEntries();
+            var grouped = entries
+                .Select(e => $"{(e.TemplateId)} x{e.Quantity}")
                 .ToList();
-            Logger.Info($"ОБМЕН: отправка оффера на сервер: предметов={_myOfferItems.Count}, золото={_myGoldOffer}");
+            Logger.Info($"ОБМЕН: отправка оффера на сервер: типов={entries.Count}, золото={_myGoldOffer}");
             foreach (var line in grouped)
                 Logger.Debug($"ОБМЕН: оффер -> {line}");
-            OfferChanged?.Invoke(MyOfferIds, _myGoldOffer);
+            OfferChanged?.Invoke(entries, _myGoldOffer);
         }
 
-        public List<string> MyOfferIds => _myOfferItems.Select(i => i.Id).ToList();
+        public List<TradeOfferEntry> BuildOfferEntries()
+        {
+            return _myOfferItems
+                .GroupBy(i => i.TemplateId)
+                .Select(gr => new TradeOfferEntry
+                {
+                    TemplateId = gr.Key,
+                    Quantity = gr.Sum(i => Math.Max(1, i.Quantity))
+                })
+                .ToList();
+        }
 
         private static bool pressed(Rectangle rect, MouseState mouse)
         {

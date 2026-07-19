@@ -109,7 +109,7 @@ public class TakeLootHandler : BaseHandler
 
         foreach (var item in itemsToTake)
         {
-            player.Inventory.Add(item);
+            InventoryHelper.AddItem(player, item);
             myLoot.Items.Remove(item);
             takenNames.Add(item.Name);
         }

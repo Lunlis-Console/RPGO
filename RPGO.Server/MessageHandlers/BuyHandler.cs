@@ -43,12 +43,10 @@ public class BuyHandler : BaseHandler
             return;
         }
 
-        for (int i = 0; i < qty; i++)
-        {
-            player.Gold -= price;
-            var newItem = MerchantManager.CreatePlayerCopy(template);
-            player.Inventory.Add(newItem);
-        }
+        player.Gold -= totalCost;
+        var newItem = MerchantManager.CreatePlayerCopy(template);
+        newItem.Quantity = qty;
+        InventoryHelper.AddItem(player, newItem);
         Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {

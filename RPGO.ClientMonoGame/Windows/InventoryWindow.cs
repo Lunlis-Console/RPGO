@@ -96,12 +96,12 @@ public class InventoryWindow : GameWindow
         var items = _data.Items.Where(MatchesFilter).ToList();
         foreach (var it in items)
         {
-            int max = Math.Max(1, it.MaxStack);
-            int idx = result.FindIndex(s => SameItem(s.Item1, it) && s.Item2 < max);
+            int qty = Math.Max(1, it.Quantity);
+            int idx = result.FindIndex(s => SameItem(s.Item1, it));
             if (idx >= 0)
-                result[idx] = (result[idx].Item1, result[idx].Item2 + 1);
+                result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
             else
-                result.Add((it, 1));
+                result.Add((it, qty));
         }
         return result;
     }

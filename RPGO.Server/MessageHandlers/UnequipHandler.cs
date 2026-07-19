@@ -31,7 +31,7 @@ public class UnequipHandler : BaseHandler
 
         if (unequipped != null)
         {
-            player.Inventory.Add(unequipped);
+            InventoryHelper.AddItem(player, unequipped);
             Log.Debug($"{player.Name} снял {unequipped.Name}");
             await SendToClient(connection, new GameMessage
             {

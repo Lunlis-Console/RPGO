@@ -32,7 +32,7 @@ public class UseItemHandler : BaseHandler
         {
             int healed = Math.Min(item.HealAmount, player.MaxHealth - player.Health);
             player.Health += healed;
-            player.Inventory.Remove(item);
+            InventoryHelper.RemoveFromRecord(player, useItemId, 1);
             Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {healed} HP");
             var healMsg = new GameMessage
             {

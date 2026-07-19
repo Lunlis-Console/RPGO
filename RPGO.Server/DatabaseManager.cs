@@ -711,12 +711,43 @@ public static class DatabaseManager
 
     private static void InsertInventoryItem(SqliteConnection connection, string playerName, Item item)
     {
+        int qty = Math.Max(1, item.Quantity);
+
+        if (!string.IsNullOrEmpty(item.TemplateId) && item.MaxStack > 1)
+        {
+            var find = connection.CreateCommand();
+            find.CommandText = @"SELECT id, quantity FROM inventory
+                WHERE player_name = $name AND COALESCE(template_id,'') = $tid
+                ORDER BY quantity DESC LIMIT 1";
+            find.Parameters.AddWithValue("$name", playerName);
+            find.Parameters.AddWithValue("$tid", item.TemplateId);
+            using var reader = find.ExecuteReader();
+            if (reader.Read())
+            {
+                string existingId = reader.GetString(0);
+                int existingQty = reader.GetInt32(1);
+                int room = Math.Max(0, item.MaxStack - existingQty);
+                if (room > 0)
+                {
+                    int add = Math.Min(room, qty);
+                    var upd = connection.CreateCommand();
+                    upd.CommandText = "UPDATE inventory SET quantity = quantity + $q WHERE id = $id";
+                    upd.Parameters.AddWithValue("$q", add);
+                    upd.Parameters.AddWithValue("$id", existingId);
+                    upd.ExecuteNonQuery();
+                    qty -= add;
+                }
+            }
+        }
+
+        if (qty <= 0) return;
+
         var insertItem = connection.CreateCommand();
         insertItem.CommandText = @"
             INSERT INTO inventory (player_name, item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id)
+                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity)
             VALUES ($name, $itemid, $iname, $itype, $val, $atk, $def, $mhp, $heal, $desc,
-                $str, $sta, $agi, $cun, $wis, $wil, $cc, $cd, $ec, $tid)";
+                $str, $sta, $agi, $cun, $wis, $wil, $cc, $cd, $ec, $tid, $qty)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
@@ -737,6 +768,7 @@ public static class DatabaseManager
         insertItem.Parameters.AddWithValue("$cd", item.BonusCritDamage);
         insertItem.Parameters.AddWithValue("$ec", item.BonusEvadeChance);
         insertItem.Parameters.AddWithValue("$tid", item.TemplateId);
+        insertItem.Parameters.AddWithValue("$qty", qty);
         insertItem.ExecuteNonQuery();
     }
 
@@ -749,7 +781,7 @@ public static class DatabaseManager
 
             var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id
+                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -781,7 +813,8 @@ public static class DatabaseManager
                     BonusCritChance = reader.GetDouble(15),
                     BonusCritDamage = reader.GetDouble(16),
                     BonusEvadeChance = reader.GetDouble(17),
-                    TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18)
+                    TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18),
+                    Quantity = reader.IsDBNull(19) ? 1 : reader.GetInt32(19)
                 });
             }
 
@@ -857,7 +890,7 @@ public static class DatabaseManager
     {
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -885,7 +918,8 @@ public static class DatabaseManager
                 BonusCritChance = reader.GetDouble(15),
                 BonusCritDamage = reader.GetDouble(16),
                 BonusEvadeChance = reader.GetDouble(17),
-                TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18)
+                TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18),
+                Quantity = reader.IsDBNull(19) ? 1 : reader.GetInt32(19)
             };
             return SyncItemFromTemplate(connection, item);
         }

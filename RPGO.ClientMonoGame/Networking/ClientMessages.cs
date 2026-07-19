@@ -111,6 +111,8 @@ public sealed class TradeItemData
     public string? Id { get; set; }
     public string? Name { get; set; }
     public string? Type { get; set; }
+    public string? TemplateId { get; set; }
+    public int Quantity { get; set; }
     public int Value { get; set; }
     public string? Description { get; set; }
     public int Attack { get; set; }
@@ -136,6 +138,12 @@ public sealed class TradeConfirmData
 {
     public bool YouConfirmed { get; set; }
     public bool OtherConfirmed { get; set; }
+}
+
+public sealed class TradeOfferEntry
+{
+    public string? TemplateId { get; set; }
+    public int Quantity { get; set; }
 }
 
 public sealed class TradeCompleteData
