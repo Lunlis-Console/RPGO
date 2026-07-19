@@ -93,10 +93,7 @@ public class ChatRenderer
 
             var ch = KeyboardLayoutHelper.TranslateKey(key, keyState);
             if (ch.HasValue)
-            {
-                Logger.Debug($"CHAT KEY {key} -> '{(int)ch.Value:x4}' '{ch.Value}' (RU={KeyboardLayoutHelper.IsRussian()})");
                 TypedText += ch.Value;
-            }
         }
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
