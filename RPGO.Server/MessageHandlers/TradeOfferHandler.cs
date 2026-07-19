@@ -17,6 +17,7 @@ public class TradeOfferHandler : BaseHandler
         var session = TradeManager.GetSession(player.Id);
         if (session == null)
         {
+            Log.Warn($"TRADE OFFER: нет сессии у {player.Name} (id={player.Id})");
             await SendError(connection, ErrorCodes.InvalidRequest, "Нет активного обмена.");
             return;
         }

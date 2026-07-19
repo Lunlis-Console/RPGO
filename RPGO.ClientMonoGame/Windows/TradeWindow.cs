@@ -27,16 +27,22 @@ namespace RPGGame.ClientMonoGame.Windows
 
         private const int InvCols = 6;
         private const int InvRows = 4;
+        private const int OfferRows = 3;
         private const int Gap = 4;
 
         private int _scrollOffset;
         private int _maxScroll;
+        private int _offerScroll;
+        private int _offerMaxScroll;
+        private int _theirScroll;
+        private int _theirMaxScroll;
 
         private bool _goldInputActive;
         private StringBuilder _goldInputBuffer = new();
         private KeyboardState _prevKeyboard;
 
         private MouseState _prevMouse;
+        private int _prevScrollWheel;
         private bool _wasVisible;
         private TradeItemData? _hoverItem;
 
@@ -63,7 +69,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             Title = "Обмен";
             Width = 620;
-            Height = 540;
+            Height = 620;
             Visible = false;
         }
 
@@ -81,6 +87,8 @@ namespace RPGGame.ClientMonoGame.Windows
             _iConfirmed = false;
             _otherConfirmed = false;
             _scrollOffset = 0;
+            _offerScroll = 0;
+            _theirScroll = 0;
             _goldInputActive = false;
             _goldInputBuffer.Clear();
             var g = GameMain.Instance!.Graphics;
@@ -196,7 +204,8 @@ namespace RPGGame.ClientMonoGame.Windows
             int halfW = ContentW / 2 - 8;
             int invGridY = cy + 18;
             int offerGridY = invGridY + InvRows * (cellSize + Gap) + 20;
-            int goldY = offerGridY + 2 * (cellSize + Gap) + 12;
+            int offerAreaH = OfferRows * (cellSize + Gap);
+            int goldY = offerGridY + offerAreaH + 12;
             int labelW = 70;
             return new Rectangle(cx + labelW, goldY - 2, halfW - labelW, 20);
         }
@@ -213,6 +222,7 @@ namespace RPGGame.ClientMonoGame.Windows
             {
                 _wasVisible = true;
                 _prevMouse = mouse;
+                _prevScrollWheel = mouse.ScrollWheelValue;
                 _prevKeyboard = keyboard;
             }
 
@@ -256,13 +266,13 @@ namespace RPGGame.ClientMonoGame.Windows
                         }
                     }
 
-                for (int r = 0; r < 2; r++)
+                for (int r = 0; r < OfferRows; r++)
                     for (int c = 0; c < InvCols; c++)
                     {
                         var rect = GetOfferSlotRect(c, r);
                         if (rect.Contains(mouse.X, mouse.Y))
                         {
-                            int uniqueIdx = r * InvCols + c;
+                            int uniqueIdx = r * InvCols + c + _offerScroll;
                             var grouped = GetGroupedOffer();
                             if (uniqueIdx < grouped.Count)
                                 OnOfferClick(grouped[uniqueIdx].Key);
@@ -285,10 +295,49 @@ namespace RPGGame.ClientMonoGame.Windows
             }
 
             HandleScrollClick(mouse);
+            HandleMouseWheel(mouse);
 
             _prevMouse = mouse;
+            _prevScrollWheel = mouse.ScrollWheelValue;
             _prevKeyboard = keyboard;
             base.Update(gameTime, keyboard, mouse);
+        }
+
+        private void HandleMouseWheel(MouseState mouse)
+        {
+            int delta = mouse.ScrollWheelValue - _prevScrollWheel;
+            if (delta == 0) return;
+
+            int cellSize = ComputeCellSize();
+            int cx = ContentX;
+            int cy = ContentY;
+            int invGridY = cy + 18;
+            int halfW = ContentW / 2 - 8;
+            int gridW = InvCols * cellSize + (InvCols - 1) * Gap;
+
+            int offerGridY = invGridY + InvRows * (cellSize + Gap) + 20;
+            int offerAreaH = OfferRows * (cellSize + Gap);
+            var offerZone = new Rectangle(cx, offerGridY, gridW, offerAreaH);
+
+            int rightX = cx + halfW + 16;
+            var theirZone = new Rectangle(rightX, cy + 18, gridW, offerAreaH);
+
+            int step = InvCols;
+            if (offerZone.Contains(mouse.X, mouse.Y) && _offerMaxScroll > 0)
+            {
+                if (delta < 0) _offerScroll = Math.Min(_offerMaxScroll, _offerScroll + step);
+                else _offerScroll = Math.Max(0, _offerScroll - step);
+            }
+            else if (theirZone.Contains(mouse.X, mouse.Y) && _theirMaxScroll > 0)
+            {
+                if (delta < 0) _theirScroll = Math.Min(_theirMaxScroll, _theirScroll + step);
+                else _theirScroll = Math.Max(0, _theirScroll - step);
+            }
+            else if (_maxScroll > 0)
+            {
+                if (delta < 0) _scrollOffset = Math.Min(_maxScroll, _scrollOffset + step);
+                else _scrollOffset = Math.Max(0, _scrollOffset - step);
+            }
         }
 
         private void HandleScrollClick(MouseState mouse)
@@ -314,6 +363,39 @@ namespace RPGGame.ClientMonoGame.Windows
                 var dnBtn = new Rectangle(cx + gridW + 4, invGridY + InvRows * (cellSize + Gap) - 14, 14, 14);
                 if (dnBtn.Contains(mouse.X, mouse.Y))
                     _scrollOffset = Math.Min(_maxScroll, _scrollOffset + InvCols);
+            }
+
+            int halfW = ContentW / 2 - 8;
+            int offerGridY = invGridY + InvRows * (cellSize + Gap) + 20;
+            int offerAreaH = OfferRows * (cellSize + Gap);
+            int offerScrollX = cx + InvCols * cellSize + (InvCols - 1) * Gap + 4;
+
+            if (_offerScroll > 0)
+            {
+                var upBtn = new Rectangle(offerScrollX, offerGridY, 14, 14);
+                if (upBtn.Contains(mouse.X, mouse.Y))
+                    _offerScroll = Math.Max(0, _offerScroll - InvCols);
+            }
+            if (_offerScroll < _offerMaxScroll)
+            {
+                var dnBtn = new Rectangle(offerScrollX, offerGridY + offerAreaH - 14, 14, 14);
+                if (dnBtn.Contains(mouse.X, mouse.Y))
+                    _offerScroll = Math.Min(_offerMaxScroll, _offerScroll + InvCols);
+            }
+
+            int rightX = cx + halfW + 16;
+            int theirScrollX = rightX + InvCols * cellSize + (InvCols - 1) * Gap + 4;
+            if (_theirScroll > 0)
+            {
+                var upBtn = new Rectangle(theirScrollX, cy + 18, 14, 14);
+                if (upBtn.Contains(mouse.X, mouse.Y))
+                    _theirScroll = Math.Max(0, _theirScroll - InvCols);
+            }
+            if (_theirScroll < _theirMaxScroll)
+            {
+                var dnBtn = new Rectangle(theirScrollX, cy + 18 + offerAreaH - 14, 14, 14);
+                if (dnBtn.Contains(mouse.X, mouse.Y))
+                    _theirScroll = Math.Min(_theirMaxScroll, _theirScroll + InvCols);
             }
         }
 
@@ -587,11 +669,13 @@ namespace RPGGame.ClientMonoGame.Windows
             DrawText(sb, "Ваш оффер:", cx, offerGridY - 18, new Color(180, 200, 180), font);
 
             var groupedOffer = GetGroupedOffer();
-            for (int r = 0; r < 2; r++)
+            _offerMaxScroll = Math.Max(0, (groupedOffer.Count + InvCols - 1) / InvCols - OfferRows);
+            _offerScroll = Math.Min(_offerScroll, _offerMaxScroll);
+            for (int r = 0; r < OfferRows; r++)
                 for (int c = 0; c < InvCols; c++)
                 {
                     var rect = GetOfferSlotRect(c, r);
-                    int uniqueIdx = r * InvCols + c;
+                    int uniqueIdx = r * InvCols + c + _offerScroll;
                     bool filled = uniqueIdx < groupedOffer.Count;
                     bool hover = rect.Contains(mouse.X, mouse.Y);
 
@@ -612,7 +696,14 @@ namespace RPGGame.ClientMonoGame.Windows
                     }
                 }
 
-            int goldY = offerGridY + 2 * (cellSize + Gap) + 12;
+            int offerScrollX = cx + InvCols * cellSize + (InvCols - 1) * Gap + 4;
+            int offerAreaH = OfferRows * (cellSize + Gap);
+            if (_offerScroll > 0)
+                DrawText(sb, "^", offerScrollX + 3, offerGridY, CLight, font);
+            if (_offerScroll < _offerMaxScroll)
+                DrawText(sb, "v", offerScrollX + 3, offerGridY + offerAreaH - 14, CLight, font);
+
+            int goldY = offerGridY + offerAreaH + 12;
             DrawText(sb, "Золото:", cx, goldY, CGold, font);
 
             var goldRect = GetGoldInputRect();
@@ -641,7 +732,9 @@ namespace RPGGame.ClientMonoGame.Windows
 
             int theirGridY = cy + 18;
             var groupedTheir = GetGroupedTheirOffer();
-            for (int r = 0; r < 2; r++)
+            _theirMaxScroll = Math.Max(0, (groupedTheir.Count + InvCols - 1) / InvCols - OfferRows);
+            _theirScroll = Math.Min(_theirScroll, _theirMaxScroll);
+            for (int r = 0; r < OfferRows; r++)
                 for (int c = 0; c < InvCols; c++)
                 {
                     int x = rightX + c * (cellSize + Gap);
@@ -652,7 +745,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     sb.Draw(SpriteCache.Pixel, rect, CFieldBg);
                     DrawRectOutline(sb, rect, CFieldBorder);
 
-                    int uniqueIdx = r * InvCols + c;
+                    int uniqueIdx = r * InvCols + c + _theirScroll;
                     if (uniqueIdx < groupedTheir.Count)
                     {
                         var kvp = groupedTheir[uniqueIdx];
@@ -667,7 +760,13 @@ namespace RPGGame.ClientMonoGame.Windows
                     }
                 }
 
-            int theirGoldY = theirGridY + 2 * (cellSize + Gap) + 12;
+            int theirScrollX = rightX + InvCols * cellSize + (InvCols - 1) * Gap + 4;
+            if (_theirScroll > 0)
+                DrawText(sb, "^", theirScrollX + 3, theirGridY, CLight, font);
+            if (_theirScroll < _theirMaxScroll)
+                DrawText(sb, "v", theirScrollX + 3, theirGridY + offerAreaH - 14, CLight, font);
+
+            int theirGoldY = theirGridY + offerAreaH + 12;
             DrawText(sb, $"Золото: {_theirGoldOffer}", rightX, theirGoldY, CGold, font);
 
             int by = ContentY + ContentH - 56;
