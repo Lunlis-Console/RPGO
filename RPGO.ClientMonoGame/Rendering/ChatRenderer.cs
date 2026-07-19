@@ -28,17 +28,6 @@ public class ChatRenderer
         ChatChannel.System, ChatChannel.Combat
     };
 
-    // Соответствие латинской клавише -> русская буква (ЙЦУКЕН)
-    private static readonly Dictionary<Keys, char> RuMap = new()
-    {
-        { Keys.A, 'ф' }, { Keys.B, 'и' }, { Keys.C, 'с' }, { Keys.D, 'в' }, { Keys.E, 'у' },
-        { Keys.F, 'а' }, { Keys.G, 'п' }, { Keys.H, 'р' }, { Keys.I, 'ш' }, { Keys.J, 'о' },
-        { Keys.K, 'л' }, { Keys.L, 'д' }, { Keys.M, 'ь' }, { Keys.N, 'т' }, { Keys.O, 'щ' },
-        { Keys.P, 'з' }, { Keys.Q, 'й' }, { Keys.R, 'к' }, { Keys.S, 'ы' }, { Keys.T, 'е' },
-        { Keys.U, 'г' }, { Keys.V, 'м' }, { Keys.W, 'ц' }, { Keys.X, 'ч' }, { Keys.Y, 'н' },
-        { Keys.Z, 'я' },
-    };
-
     private static readonly Dictionary<ChatChannel, Color> ChannelColor = new()
     {
         { ChatChannel.System, Color.Gray },
@@ -79,49 +68,29 @@ public class ChatRenderer
 
     public void HandleInput(KeyboardState keyboard, KeyboardState prevKeyboard)
     {
-        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
-        bool ru = CurrentLayout == Layout.Ru;
+        // Синхронизируем индикатор с реальной раскладкой ОС
+        CurrentLayout = KeyboardLayoutHelper.IsRussian() ? Layout.Ru : Layout.En;
 
-        for (int k = (int)Keys.A; k <= (int)Keys.Z; k++)
+        var keyState = KeyboardLayoutHelper.GetCurrentKeyState(keyboard);
+        var pressed = keyboard.GetPressedKeys();
+
+        foreach (var key in pressed)
         {
-            if (keyboard.IsKeyDown((Keys)k) && prevKeyboard.IsKeyUp((Keys)k))
-            {
-                Keys key = (Keys)k;
-                char c;
-                if (ru && RuMap.TryGetValue(key, out var ruc))
-                    c = ruc;
-                else
-                    c = (char)('a' + k - (int)Keys.A);
-                if (shift)
-                    c = char.ToUpper(c);
-                TypedText += c;
-            }
-        }
+            bool justPressed = keyboard.IsKeyDown(key) && prevKeyboard.IsKeyUp(key);
+            if (!justPressed) continue;
 
-        string enShift = ")!@#$%^&*(";
-        string ruShift = ")!№;%:?*(\"";
-        for (int k = (int)Keys.D0; k <= (int)Keys.D9; k++)
-        {
-            if (keyboard.IsKeyDown((Keys)k) && prevKeyboard.IsKeyUp((Keys)k))
-            {
-                int d = k - (int)Keys.D0;
-                if (shift)
-                    TypedText += ru ? ruShift[d] : enShift[d];
-                else
-                    TypedText += (char)('0' + d);
-            }
-        }
+            // Пропускаем чисто модификаторы/управляющие клавиши
+            if (key == Keys.LeftShift || key == Keys.RightShift ||
+                key == Keys.LeftControl || key == Keys.RightControl ||
+                key == Keys.LeftAlt || key == Keys.RightAlt ||
+                key == Keys.CapsLock || key == Keys.Tab ||
+                key == Keys.Enter || key == Keys.Escape || key == Keys.Back)
+                continue;
 
-        if (keyboard.IsKeyDown(Keys.Space) && prevKeyboard.IsKeyUp(Keys.Space))
-            TypedText += ' ';
-        AddOem(keyboard, prevKeyboard, Keys.OemPeriod, shift ? '?' : '.', ru ? (shift ? '/' : '.') : (shift ? '?' : '.'));
-        AddOem(keyboard, prevKeyboard, Keys.OemComma, shift ? '<' : ',', ru ? (shift ? 'б' : 'б') : (shift ? '<' : ','));
-        AddOem(keyboard, prevKeyboard, Keys.OemMinus, shift ? '_' : '-', ru ? (shift ? '-' : '-') : (shift ? '_' : '-'));
-        AddOem(keyboard, prevKeyboard, Keys.OemQuestion, shift ? '/' : '/', ru ? (shift ? '.' : ',') : (shift ? '?' : '/'));
-        AddOem(keyboard, prevKeyboard, Keys.OemQuotes, shift ? '"' : '\'', ru ? (shift ? 'э' : 'ь') : (shift ? '"' : '\''));
-        AddOem(keyboard, prevKeyboard, Keys.OemOpenBrackets, shift ? '{' : '[', ru ? (shift ? 'х' : 'х') : (shift ? '{' : '['));
-        AddOem(keyboard, prevKeyboard, Keys.OemCloseBrackets, shift ? '}' : ']', ru ? (shift ? 'ъ' : 'ъ') : (shift ? '}' : ']'));
-        AddOem(keyboard, prevKeyboard, Keys.OemTilde, shift ? '~' : '`', ru ? (shift ? 'ё' : 'ё') : (shift ? '~' : '`'));
+            var ch = KeyboardLayoutHelper.TranslateKey(key, keyState);
+            if (ch.HasValue)
+                TypedText += ch.Value;
+        }
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
             TypedText = TypedText[..^1];
@@ -131,12 +100,6 @@ public class ChatRenderer
             TypedText = "";
             IsLangMenuOpen = false;
         }
-    }
-
-    private void AddOem(KeyboardState keyboard, KeyboardState prevKeyboard, Keys key, char enChar, char ruChar)
-    {
-        if (keyboard.IsKeyDown(key) && prevKeyboard.IsKeyUp(key))
-            TypedText += CurrentLayout == Layout.Ru ? ruChar : enChar;
     }
 
     private Rectangle GetTabRect(float x, float y, int index)
@@ -177,8 +140,8 @@ public class ChatRenderer
         {
             if (pressed)
             {
-                if (ruRect.Contains(mx, my)) { CurrentLayout = Layout.Ru; IsLangMenuOpen = false; return true; }
-                if (enRect.Contains(mx, my)) { CurrentLayout = Layout.En; IsLangMenuOpen = false; return true; }
+                if (ruRect.Contains(mx, my)) { KeyboardLayoutHelper.SetRussian(true); IsLangMenuOpen = false; return true; }
+                if (enRect.Contains(mx, my)) { KeyboardLayoutHelper.SetRussian(false); IsLangMenuOpen = false; return true; }
                 if (indRect.Contains(mx, my)) { IsLangMenuOpen = false; return true; }
             }
             return true;
