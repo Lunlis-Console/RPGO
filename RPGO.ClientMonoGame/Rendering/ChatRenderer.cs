@@ -71,6 +71,10 @@ public class ChatRenderer
         // Синхронизируем индикатор с реальной раскладкой ОС
         CurrentLayout = KeyboardLayoutHelper.IsRussian() ? Layout.Ru : Layout.En;
 
+        // При начале ввода подставляем префикс активной вкладки (если ещё ничего не набрано)
+        if (TypedText.Length == 0 && !string.IsNullOrEmpty(CurrentPrefix))
+            TypedText = CurrentPrefix;
+
         var keyState = KeyboardLayoutHelper.GetCurrentKeyState(keyboard);
         var pressed = keyboard.GetPressedKeys();
 
@@ -110,12 +114,47 @@ public class ChatRenderer
 
     private int TabCount => _tabs.Length + 1; // + "Все"
 
+    // Префикс, который подставляется в поле ввода при выборе вкладки
+    private static readonly Dictionary<ChatChannel, string> TabPrefix = new()
+    {
+        { ChatChannel.World, "/world " },
+        { ChatChannel.Local, "/local " },
+        { ChatChannel.Trade, "/trade " },
+        { ChatChannel.Party, "/p " },
+        { ChatChannel.Guild, "/g " },
+        { ChatChannel.Whisper, "/w " },
+        { ChatChannel.System, "" },
+        { ChatChannel.Combat, "" }
+    };
+
+    // Список всех префиксов для очистки старого при смене вкладки
+    private static readonly string[] AllPrefixes = { "/world ", "/local ", "/say ", "/s ", "/trade ", "/p ", "/party ", "/g ", "/guild ", "/w ", "/whisper ", "/tell " };
+
+    public string CurrentPrefix => ActiveTab.HasValue && TabPrefix.TryGetValue(ActiveTab.Value, out var p) ? p : "";
+
+    private void ApplyTabPrefix()
+    {
+        string prefix = CurrentPrefix;
+        // Убираем старый префикс, если он был
+        string trimmed = TypedText;
+        foreach (var old in AllPrefixes)
+        {
+            if (trimmed.StartsWith(old, StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = trimmed.Substring(old.Length);
+                break;
+            }
+        }
+        TypedText = prefix + trimmed;
+    }
+
+
     // Возвращает true, если клик обработан чатом
     public bool HandleClick(int mx, int my, float x, float y, float w, float h, bool pressed)
     {
         // Вкладки сверху
         var allRect = GetTabRect(x, y, 0);
-        if (pressed && allRect.Contains(mx, my)) { ActiveTab = null; _unread.Clear(); return true; }
+        if (pressed && allRect.Contains(mx, my)) { ActiveTab = null; _unread.Clear(); ApplyTabPrefix(); return true; }
         for (int i = 0; i < _tabs.Length; i++)
         {
             var r = GetTabRect(x, y, i + 1);
@@ -123,6 +162,7 @@ public class ChatRenderer
             {
                 ActiveTab = _tabs[i];
                 _unread[_tabs[i]] = 0;
+                ApplyTabPrefix();
                 return true;
             }
         }
@@ -261,8 +301,13 @@ public class ChatRenderer
         }
         else
         {
-            string hint = ActiveTab == null ? "Нажмите Enter для ввода (по умолч. Локальный)" :
-                $"[{ChannelLabel[ActiveTab.Value]}] Enter — ввод";
+            string hint;
+            if (ActiveTab == null)
+                hint = "Enter — ввод (Локальный). Вкладки задают канал.";
+            else if (ActiveTab == ChatChannel.Whisper)
+                hint = "[Личн] Enter — ввод. Допишите ник: /w <ник> текст";
+            else
+                hint = $"[{ChannelLabel[ActiveTab.Value]}] Enter — ввод. Префикс: {CurrentPrefix.Trim()}";
             sb.DrawString(fontSmall, hint, new Vector2(x + 8, inputY + 3), new Color(120, 120, 130));
         }
     }
