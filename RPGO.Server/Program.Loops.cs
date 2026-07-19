@@ -6,6 +6,18 @@ namespace RPGGame.Server;
 
 public partial class Program
 {
+    private static Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    {
+        if (conn == null) return Task.CompletedTask;
+        return Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    private static Task ChatToPlayer(Player? player, ChatChannel channel, string name, string text)
+    {
+        if (player == null) return Task.CompletedTask;
+        return ChatTo(World.FindClientByPlayer(player), channel, name, text);
+    }
+
     private static async Task RunMonsterWanderLoop()
     {
         while (true)
@@ -411,11 +423,7 @@ public partial class Program
                                 Type = "skill_cooldown",
                                 Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
                             });
-                            await Hub.SendToClient(client, new GameMessage
-                            {
-                                Type = "chat",
-                                Data = new { Name = "Бой", Text = $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}." }
-                            });
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
                         }
 
                         if (monsterDead)
@@ -424,11 +432,7 @@ public partial class Program
 
                             string critText = isCrit ? " (КРИТ!)" : "";
                             Log.Info($"{pl.Name} убил {monster.Name}!{critText}");
-                            await Hub.SendToClient(client, new GameMessage
-                            {
-                                Type = "chat",
-                                Data = new { Name = "Бой", Text = $"Вы нанесли {dmgToMonster} урона{critText} и убили {monster.Name}!" }
-                            });
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {dmgToMonster} урона{critText} и убили {monster.Name}!");
 
                             await Hub.SendToClient(client, new GameMessage
                             {
@@ -499,25 +503,13 @@ public partial class Program
                                     if (contribClient != null)
                                     {
                                         if (xpReward > 0)
-                                            await Hub.SendToClient(contribClient, new GameMessage
-                                            {
-                                                Type = "chat",
-                                                Data = new { Name = "Система", Text = $"[Группа] Вы получили {xpReward} опыта за {monster.Name} ({(int)(dmgShare * 100)}% урона)." }
-                                            });
+                                            await ChatTo(contribClient, ChatChannel.System, "Система", $"[Группа] Вы получили {xpReward} опыта за {monster.Name} ({(int)(dmgShare * 100)}% урона).");
 
                                         int personalItems = contributorLoot.Count;
                                         if (personalItems > 0 || goldReward > 0)
-                                            await Hub.SendToClient(contribClient, new GameMessage
-                                            {
-                                                Type = "chat",
-                                                Data = new { Name = "Система", Text = $"Тело {monster.Name} осталось на земле. Нажмите, чтобы забрать дроп ({personalItems} предм., {goldReward} зол.)." }
-                                            });
+                                            await ChatTo(contribClient, ChatChannel.System, "Система", $"Тело {monster.Name} осталось на земле. Нажмите, чтобы забрать дроп ({personalItems} предм., {goldReward} зол.).");
                                         else
-                                            await Hub.SendToClient(contribClient, new GameMessage
-                                            {
-                                                Type = "chat",
-                                                Data = new { Name = "Система", Text = $"Тело {monster.Name} осталось на земле. Дропа нет." }
-                                            });
+                                            await ChatTo(contribClient, ChatChannel.System, "Система", $"Тело {monster.Name} осталось на земле. Дропа нет.");
 
                                         var questResults = QuestManager.IncrementKillProgress(contributor, monster.TemplateId);
                                         foreach (var (title, current, target, completed) in questResults)
@@ -525,11 +517,7 @@ public partial class Program
                                             string msg = completed
                                                 ? $"[Задание] {title}: {current}/{target} — задание выполнено! Вернитесь на доску заданий, чтобы сдать."
                                                 : $"[Задание] {title}: {current}/{target}";
-                                            await Hub.SendToClient(contribClient, new GameMessage
-                                            {
-                                                Type = "chat",
-                                                Data = new { Name = "Система", Text = msg }
-                                            });
+                                            await ChatTo(contribClient, ChatChannel.System, "Система", msg);
                                         }
                                         await Hub.SendQuestLog(contribClient, contributor);
                                     }
@@ -646,11 +634,7 @@ public partial class Program
                             };
                             await Hub.SendToClient(client, hitMsg);
                             await Hub.SendDamageNearbyAsync(pl.X, pl.Y, hitMsg, pl);
-                            await Hub.SendToClient(client, new GameMessage
-                            {
-                                Type = "chat",
-                                Data = new { Name = "Бой", Text = $"{monster.Name} нанёс вам {dmgToPlayer} урона. ({pl.Health}/{pl.MaxHealth + pl.Equipment.GetBonusMaxHealth()}) HP" }
-                            });
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {dmgToPlayer} урона. ({pl.Health}/{pl.MaxHealth + pl.Equipment.GetBonusMaxHealth()}) HP");
                             if (pl.PartyId.HasValue)
                             {
                                 var party = PartyManager.GetParty(pl.PartyId.Value);
@@ -665,11 +649,7 @@ public partial class Program
                                 pl.Gold -= lostGold;
                                 pl.Combat.Cancel();
                                 Log.Info($"{pl.Name} погиб! Потеряно {lostGold} золота. Телепортация.");
-                                await Hub.SendToClient(client, new GameMessage
-                                {
-                                    Type = "chat",
-                                    Data = new { Name = "Система", Text = $"Вы погибли! Потеряно {lostGold} золота. Телепортация..." }
-                                });
+                                await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли! Потеряно {lostGold} золота. Телепортация...");
                                 await Hub.SendToClient(client, new GameMessage
                                 {
                                     Type = "combat_state",
@@ -736,11 +716,7 @@ public partial class Program
                         Type = "combat_update",
                         Data = new { MonsterName = monster.Name, MonsterHealth = monster.Health, MonsterMaxHealth = monster.MaxHealth }
                     });
-                    await Hub.SendToClient(client, new GameMessage
-                    {
-                        Type = "chat",
-                        Data = new { Name = "Бой", Text = $"{monster.Name} нанёс вам {damage} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP" }
-                    });
+                    await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {damage} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
 
                     if (player.PartyId.HasValue)
                     {
@@ -757,11 +733,7 @@ public partial class Program
                         player.Interaction.Clear();
                         player.Movement.Stop();
                         Log.Info($"{player.Name} погиб от {monster.Name}! Потеряно {lostGold} золота.");
-                        await Hub.SendToClient(client, new GameMessage
-                        {
-                            Type = "chat",
-                            Data = new { Name = "Система", Text = $"Вы погибли от {monster.Name}! Потеряно {lostGold} золота. Телепортация..." }
-                        });
+                        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли от {monster.Name}! Потеряно {lostGold} золота. Телепортация...");
                         await Hub.SendToClient(client, new GameMessage
                         {
                             Type = "combat_state",

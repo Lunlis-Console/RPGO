@@ -12,6 +12,8 @@ public interface INetworkHub
 {
     Task BroadcastMapAsync();
     Task BroadcastChatAsync(string playerName, string text);
+    Task BroadcastChatAsync(ChatChannel channel, string from, string text);
+    Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null);
     Task SendToClient(ClientConnection connection, GameMessage message);
     Task SendStatusAsync(ClientConnection connection, Player player);
     Task SendInventoryAndStatus(ClientConnection connection, Player player);

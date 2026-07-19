@@ -150,6 +150,24 @@ public sealed class GameServer : INetworkHub
         });
     }
 
+    public async Task BroadcastChatAsync(ChatChannel channel, string from, string text)
+    {
+        await BroadcastAsync(new GameMessage
+        {
+            Type = "chat",
+            Data = new { Channel = channel.ToString(), Name = from, Text = text }
+        });
+    }
+
+    public async Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null)
+    {
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "chat",
+            Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to }
+        });
+    }
+
     public async Task SendStatusAsync(ClientConnection connection, Player player)
     {
         await SendToClient(connection, new GameMessage

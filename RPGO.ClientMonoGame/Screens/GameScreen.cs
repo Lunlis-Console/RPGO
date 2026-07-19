@@ -6,6 +6,7 @@ using RPGGame.ClientMonoGame.Input;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.ClientMonoGame.Windows;
 using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 
 namespace RPGGame.ClientMonoGame.Screens;
 
@@ -115,13 +116,13 @@ public class GameScreen : IScreen
             var myId = GameMain.Instance!.Client.PlayerId;
             if (_lastPartyMemberCount == 0 && party.Members.Count >= 2)
             {
-                _chatRenderer.AddMessage("[Группа]", "Группа сформирована!");
+                _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа сформирована!");
             }
             else
             {
                 foreach (var m in party.Members)
                     if (m.PlayerId != myId && !_lastPartyMemberIds.Contains(m.PlayerId))
-                        _chatRenderer.AddMessage("[Группа]", $"{m.Name} присоединился к группе");
+                        _chatRenderer.AddMessage(ChatChannel.Party, "Группа", $"{m.Name} присоединился к группе");
             }
             _lastPartyMemberCount = party.Members.Count;
             _lastPartyMemberIds = party.Members.Select(m => m.PlayerId).ToHashSet();
@@ -129,7 +130,7 @@ public class GameScreen : IScreen
         client.PartyDisbanded += () =>
         {
             if (_lastPartyMemberCount > 0)
-                _chatRenderer.AddMessage("[Группа]", "Группа распущена.");
+                _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа распущена.");
             _lastPartyMemberCount = 0;
             _lastPartyMemberIds.Clear();
             _hudRenderer.ClearParty();
@@ -192,8 +193,14 @@ public class GameScreen : IScreen
             return false;
         };
         client.HotbarUpdated += slots => _inputManager.UpdateHotbar(slots);
-        client.ChatReceived += (name, text) => _chatRenderer.AddMessage(name, text);
-        client.SystemMessage += msg => _chatRenderer.AddMessage("Система", msg);
+        client.ChatReceived += (channel, name, text) =>
+        {
+            if (Enum.TryParse<ChatChannel>(channel, out var ch))
+                _chatRenderer.AddMessage(ch, name, text);
+            else
+                _chatRenderer.AddMessage(ChatChannel.System, name, text);
+        };
+        client.SystemMessage += msg => _chatRenderer.AddMessage(ChatChannel.System, "Система", msg);
         client.WelcomeReceived += () =>
         {
             _ = client.SendAsync("status", null);
@@ -355,13 +362,13 @@ public class GameScreen : IScreen
         {
             _tradeWindow.HandleComplete(done);
             if (!string.IsNullOrEmpty(done.Message))
-                _chatRenderer.AddMessage("[Обмен]", done.Message);
+                _chatRenderer.AddMessage(ChatChannel.System, "Обмен", done.Message);
         };
         client.TradeClosed += msg =>
         {
             _tradeWindow.Visible = false;
             if (!string.IsNullOrEmpty(msg))
-                _chatRenderer.AddMessage("[Обмен]", msg);
+                _chatRenderer.AddMessage(ChatChannel.System, "Обмен", msg);
         };
 
         // Взаимодействие с торговлей
