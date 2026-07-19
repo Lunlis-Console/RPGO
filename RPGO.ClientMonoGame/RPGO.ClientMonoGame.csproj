@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>RPGGame.ClientMonoGame</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <MonoGamePlatform>DesktopGL</MonoGamePlatform>
+    <MGCBTool>$(USERPROFILE)\.dotnet\tools\mgcb.exe</MGCBTool>
+    <ContentRootDir>$(MSBuildProjectDirectory)\Content</ContentRootDir>
+    <ContentOutputDir>$(MSBuildProjectDirectory)\Content\bin\$(MonoGamePlatform)\Content</ContentOutputDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.*" />
+    <PackageReference Include="Myra" Version="1.5.*" />
+    <PackageReference Include="System.Drawing.Common" Version="8.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RPGO.Shared\RPGO.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Content\Sprites\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Content\bin\$(MonoGamePlatform)\Content\**\*.*" Exclude="Content\bin\$(MonoGamePlatform)\Content\**\*.mgcb">
+      <Link>Content\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="BuildGameContent" BeforeTargets="BeforeCompile" Condition="Exists('$(MGCBTool)')">
+    <Exec Command="&quot;$(MGCBTool)&quot; /quiet /@:&quot;$(ContentRootDir)\Content.mgcb&quot; /platform:$(MonoGamePlatform) /outputDir:&quot;$(ContentOutputDir)&quot; /intermediateDir:&quot;$(ContentRootDir)\obj\$(MonoGamePlatform)\Content&quot; /workingDir:&quot;$(ContentRootDir)&quot;" />
+  </Target>
+
+</Project>

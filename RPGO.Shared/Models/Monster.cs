@@ -1,0 +1,72 @@
+namespace RPGGame.Shared.Models;
+
+public class Monster
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string TemplateId { get; set; } = "";   // id шаблона из таблицы monsters (M0001...)
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Health { get; set; }
+    public int MaxHealth { get; set; }
+    public int Attack { get; set; }
+    public int Defense { get; set; }
+    public int XpReward { get; set; }
+    public int GoldReward { get; set; }
+    public char Symbol { get; set; } = 'M';
+    public int Level { get; set; }
+
+    // Атрибуты (настраиваются в редакторе, по шаблону)
+    public int Strength { get; set; } = 1;
+    public int Stamina { get; set; } = 1;
+    public int Agility { get; set; } = 1;
+    public int Cunning { get; set; } = 1;
+    public int Wisdom { get; set; } = 1;
+    public int Will { get; set; } = 1;
+
+    // Регенерация
+    public DateTime LastDamagedTime { get; set; } = DateTime.MinValue;
+    public DateTime LastRegenTime { get; set; } = DateTime.MinValue;
+
+    // Базовые боевые параметры
+    public double CritChance { get; set; } = 1.0;   // %
+    public double CritDamage { get; set; } = 1.5;   // множитель
+    public double EvadeChance { get; set; } = 1.0;  // %
+
+    // --- Производные боевые характеристики ---
+    public int GetBaseDamage() => 1 + (Level - 1);
+    public int GetBaseDefense() => 1 + (Level - 1);
+
+    public int GetTotalAttack() => GetBaseDamage() + (Strength - 1) * 2;
+    public int GetTotalDefense() => GetBaseDefense() + (Stamina - 1) * 1;
+
+    public double GetCritChance() => CritChance + (Agility - 1) * 1.0;
+    public double GetCritDamage() => CritDamage + (Strength - 1) * 0.05;
+    public double GetEvadeChance() => EvadeChance + (Agility - 1) * 1.0;
+
+    public int SpawnX { get; set; }
+    public int SpawnY { get; set; }
+    public int WanderRadius { get; set; } = 4;
+
+    public int AggroRange { get; set; } = 5;
+    public Player? AggroTarget { get; set; }
+
+    public int MoveIntervalMs { get; set; } = 1500; // индивидуальная скорость
+    public DateTime LastMoveTime { get; set; } = DateTime.MinValue;
+
+    // Таблица урона: playerId → суммарный урон по этому монстру
+    public Dictionary<Guid, int> DamageTracker { get; set; } = new();
+}
+
+public class MonsterPosition
+{
+    public Guid Id { get; set; }
+    public string TemplateId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public int Health { get; set; }
+    public int MaxHealth { get; set; }
+    public char Symbol { get; set; } = 'M';
+    public int Level { get; set; }
+}

@@ -1,0 +1,33 @@
+## .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]uild/
+
+## Logs and runtime artifacts
+*.log
+*.txt
+!README.txt
+game.db-journal
+*~lock.*
+.DocumentLayout*.json
+.DocumentLayout*.backup.json
+
+## Rider / Copilot caches
+.idea/
+CopilotIndices/
+
+## macOS
+.DS_Store
+
+## Local database (keep schema, ignore local data)
+game.db
+*.db-journal
