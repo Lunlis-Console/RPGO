@@ -89,20 +89,20 @@ public class TradeConfirmHandler : BaseHandler
         // Списываем предметы у инициатора и кладём их партнёру
         foreach (var e in session.InitiatorItemIds)
         {
-            var proto = initiator.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId);
+            var proto = initiator.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
             if (proto == null) continue;
             var copy = MakeCopy(proto, e.Quantity);
-            InventoryHelper.RemoveQuantity(initiator, e.TemplateId, e.Quantity);
+            InventoryHelper.RemoveFromRecord(initiator, e.ItemId, e.Quantity);
             InventoryHelper.AddItem(partner, copy);
         }
 
         // Списываем предметы у партнёра и кладём их инициатору
         foreach (var e in session.PartnerItemIds)
         {
-            var proto = partner.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId);
+            var proto = partner.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
             if (proto == null) continue;
             var copy = MakeCopy(proto, e.Quantity);
-            InventoryHelper.RemoveQuantity(partner, e.TemplateId, e.Quantity);
+            InventoryHelper.RemoveFromRecord(partner, e.ItemId, e.Quantity);
             InventoryHelper.AddItem(initiator, copy);
         }
 
@@ -177,10 +177,8 @@ public class TradeConfirmHandler : BaseHandler
         if (gold > player.Gold) return false;
         foreach (var e in entries)
         {
-            int available = player.Inventory
-                .Where(i => i.TemplateId == e.TemplateId)
-                .Sum(i => i.Quantity);
-            if (available < e.Quantity)
+            var item = player.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
+            if (item == null || item.Quantity < e.Quantity)
                 return false;
         }
         return true;

@@ -37,11 +37,11 @@ public class TradeOfferHandler : BaseHandler
             foreach (var entryEl in entriesArr.EnumerateArray())
             {
                 if (entryEl.ValueKind != JsonValueKind.Object) continue;
-                string? tid = entryEl.TryGetProperty("TemplateId", out var tEl) ? tEl.GetString() : null;
+                string? iid = entryEl.TryGetProperty("ItemId", out var iEl) ? iEl.GetString() : null;
                 int qty = entryEl.TryGetProperty("Quantity", out var qEl) && qEl.ValueKind == JsonValueKind.Number
                     ? Math.Max(1, qEl.GetInt32()) : 1;
-                if (!string.IsNullOrEmpty(tid))
-                    myEntries.Add(new TradeOfferEntry { TemplateId = tid, Quantity = qty });
+                if (!string.IsNullOrEmpty(iid))
+                    myEntries.Add(new TradeOfferEntry { ItemId = iid, Quantity = qty });
             }
         }
 
@@ -52,8 +52,15 @@ public class TradeOfferHandler : BaseHandler
         var other = session.GetOther(player);
         if (other == null) return;
 
+        Log.Debug($"TRADE OFFER от {player.Name}: " +
+            string.Join(", ", myEntries.Select(e => $"{e.ItemId}x{e.Quantity}")) +
+            $" | золото={myGold}");
+
         if (!ValidateOffer(player, myEntries, myGold))
         {
+            var details = string.Join("; ", myEntries.Select(e =>
+                $"{e.ItemId}: нужно {e.Quantity}, есть {player.Inventory.FirstOrDefault(i => i.Id == e.ItemId)?.Quantity ?? 0}"));
+            Log.Warn($"TRADE OFFER НЕ прошёл валидацию у {player.Name}: {details}");
             await SendError(connection, ErrorCodes.InvalidRequest, "Некоторые предметы недоступны или количество превышено.");
             return;
         }
@@ -107,10 +114,8 @@ public class TradeOfferHandler : BaseHandler
         if (gold > player.Gold) return false;
         foreach (var e in entries)
         {
-            int available = player.Inventory
-                .Where(i => i.TemplateId == e.TemplateId)
-                .Sum(i => i.Quantity);
-            if (available < e.Quantity)
+            var item = player.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
+            if (item == null || item.Quantity < e.Quantity)
                 return false;
         }
         return true;
@@ -119,13 +124,13 @@ public class TradeOfferHandler : BaseHandler
     private static object BuildOfferSummary(Player player, List<TradeOfferEntry> entries, int gold)
     {
         var items = entries
-            .Select(e => player.Inventory.FirstOrDefault(i => i.TemplateId == e.TemplateId))
+            .Select(e => player.Inventory.FirstOrDefault(i => i.Id == e.ItemId))
             .Where(i => i != null)
             .Select(i => new
             {
-                i!.Id, i.Name, i.Type, i.Value, i.Description,
+                i!.Id, i.TemplateId, i.Name, i.Type, i.Value, i.Description,
                 i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.MaxStack,
-                Quantity = entries.First(x => x.TemplateId == i.TemplateId).Quantity
+                Quantity = entries.First(x => x.ItemId == i.Id).Quantity
             })
             .ToList();
 

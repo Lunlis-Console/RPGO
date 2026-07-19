@@ -101,7 +101,10 @@ namespace RPGGame.ClientMonoGame.Windows
 
         public void UpdateMyOffer(TradeOfferData data)
         {
-            _myOfferItems = ExpandItems(data.Offer?.Items);
+            var incoming = data.Offer?.Items;
+            Logger.Debug($"ОБМЕН: пришёл trade_offer_update (IsFromMe), записей от сервера={incoming?.Count ?? 0}" +
+                (incoming != null ? ", itemIds=[" + string.Join(",", incoming.Select(i => i.Id + "x" + i.Quantity)) + "]" : ""));
+            _myOfferItems = ExpandItems(incoming);
             _myGoldOffer = data.Offer?.Gold ?? 0;
             int total = _myOfferItems.Sum(i => Math.Max(1, i.Quantity));
             Logger.Debug($"ОБМЕН: сервер обновил МОЙ оффер: предметов={total}, золото={_myGoldOffer}");
@@ -121,25 +124,21 @@ namespace RPGGame.ClientMonoGame.Windows
             if (items == null) return result;
             foreach (var it in items)
             {
-                int qty = Math.Max(1, it.Quantity);
-                for (int q = 0; q < qty; q++)
+                result.Add(new TradeItemData
                 {
-                    result.Add(new TradeItemData
-                    {
-                        Id = it.Id,
-                        TemplateId = it.TemplateId,
-                        Name = it.Name,
-                        Type = it.Type,
-                        Value = it.Value,
-                        Description = it.Description,
-                        Attack = it.Attack,
-                        Defense = it.Defense,
-                        MaxHealthBonus = it.MaxHealthBonus,
-                        HealAmount = it.HealAmount,
-                        MaxStack = it.MaxStack,
-                        Quantity = 1
-                    });
-                }
+                    Id = it.Id,
+                    TemplateId = it.TemplateId,
+                    Name = it.Name,
+                    Type = it.Type,
+                    Value = it.Value,
+                    Description = it.Description,
+                    Attack = it.Attack,
+                    Defense = it.Defense,
+                    MaxHealthBonus = it.MaxHealthBonus,
+                    HealAmount = it.HealAmount,
+                    MaxStack = it.MaxStack,
+                    Quantity = Math.Max(1, it.Quantity)
+                });
             }
             return result;
         }
@@ -380,8 +379,8 @@ namespace RPGGame.ClientMonoGame.Windows
             var availableInv = GetAvailableInventory();
             var item = availableInv.FirstOrDefault(i => i.Id == itemId);
             if (item == null) return;
-            int inInventory = availableInv.Count(i => i.Id == itemId);
-            int alreadyInOffer = _myOfferItems.Count(o => o.Id == itemId);
+            int inInventory = item.Quantity;
+            int alreadyInOffer = _myOfferItems.Where(o => o.Id == itemId).Sum(o => Math.Max(1, o.Quantity));
             int available = inInventory - alreadyInOffer;
             if (available <= 0) return;
 
@@ -406,41 +405,61 @@ namespace RPGGame.ClientMonoGame.Windows
 
         private void AddToOffer(string itemId, int qty)
         {
-            for (int q = 0; q < qty; q++)
+            var item = _myInventoryItems.FirstOrDefault(i => i.Id == itemId);
+            if (item == null) return;
+            var existing = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
+            if (existing != null)
             {
-                var available = GetAvailableInventory();
-                var rec = available.FirstOrDefault(i => i.Id == itemId);
-                if (rec == null) break;
-                _myOfferItems.Add(rec);
+                existing.Quantity += qty;
+                return;
             }
+            _myOfferItems.Add(MakeTradeItem(item, qty));
         }
 
-        private void RemoveFromOffer(string templateId, int qty)
+        private static TradeItemData MakeTradeItem(TradeItemData src, int qty)
         {
-            for (int q = 0; q < qty; q++)
+            return new TradeItemData
             {
-                var target = _myOfferItems.FirstOrDefault(o => o.TemplateId == templateId);
-                if (target == null) break;
-                _myOfferItems.Remove(target);
-            }
+                Id = src.Id,
+                TemplateId = src.TemplateId,
+                Name = src.Name,
+                Type = src.Type,
+                Value = src.Value,
+                Description = src.Description,
+                Attack = src.Attack,
+                Defense = src.Defense,
+                MaxHealthBonus = src.MaxHealthBonus,
+                HealAmount = src.HealAmount,
+                MaxStack = src.MaxStack,
+                Quantity = qty
+            };
         }
 
-        private void OnOfferClick(string templateId)
+        private void RemoveFromOffer(string itemId, int qty)
         {
-            int count = _myOfferItems.Count(o => o.TemplateId == templateId);
+            var existing = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
+            if (existing == null) return;
+            existing.Quantity -= qty;
+            if (existing.Quantity <= 0)
+                _myOfferItems.Remove(existing);
+        }
+
+        private void OnOfferClick(string itemId)
+        {
+            int count = _myOfferItems.Where(o => o.Id == itemId).Sum(o => Math.Max(1, o.Quantity));
             if (count <= 0) return;
 
             if (count > 1)
             {
                 RequestQuantity?.Invoke("предмет", count, 1, qty =>
                 {
-                    RemoveFromOffer(templateId, qty);
+                    RemoveFromOffer(itemId, qty);
                     NotifyOfferChanged();
                 });
             }
             else
             {
-                RemoveFromOffer(templateId, 1);
+                RemoveFromOffer(itemId, 1);
                 NotifyOfferChanged();
             }
         }
@@ -448,19 +467,37 @@ namespace RPGGame.ClientMonoGame.Windows
         private List<KeyValuePair<string, int>> GetGroupedOffer()
         {
             return _myOfferItems
-                .GroupBy(i => i.TemplateId)
+                .GroupBy(i => i.Id)
                 .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
         private List<TradeItemData> GetAvailableInventory()
         {
-            var offered = new List<string>(_myOfferItems.Select(i => i.Id));
-            var result = new List<TradeItemData>(_myInventoryItems);
-            foreach (var id in offered)
+            var offeredQty = _myOfferItems
+                .GroupBy(i => i.Id)
+                .ToDictionary(g => g.Key, g => g.Sum(i => Math.Max(1, i.Quantity)));
+
+            var result = new List<TradeItemData>();
+            foreach (var inv in _myInventoryItems)
             {
-                int idx = result.FindIndex(i => i.Id == id);
-                if (idx >= 0) result.RemoveAt(idx);
+                int avail = inv.Quantity - (offeredQty.TryGetValue(inv.Id, out var q) ? q : 0);
+                if (avail <= 0) continue;
+                result.Add(new TradeItemData
+                {
+                    Id = inv.Id,
+                    TemplateId = inv.TemplateId,
+                    Name = inv.Name,
+                    Type = inv.Type,
+                    Value = inv.Value,
+                    Description = inv.Description,
+                    Attack = inv.Attack,
+                    Defense = inv.Defense,
+                    MaxHealthBonus = inv.MaxHealthBonus,
+                    HealAmount = inv.HealAmount,
+                    MaxStack = inv.MaxStack,
+                    Quantity = avail
+                });
             }
             return result;
         }
@@ -469,14 +506,14 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             return GetAvailableInventory()
                 .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
+                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
         private List<KeyValuePair<string, int>> GetGroupedTheirOffer()
         {
             return _theirOfferItems
-                .GroupBy(i => i.TemplateId)
+                .GroupBy(i => i.Id)
                 .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
@@ -564,7 +601,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     if (filled)
                     {
                         var kvp = groupedOffer[uniqueIdx];
-                        var item = _myOfferItems.First(i => i.TemplateId == kvp.Key);
+                        var item = _myOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
@@ -619,7 +656,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     if (uniqueIdx < groupedTheir.Count)
                     {
                         var kvp = groupedTheir[uniqueIdx];
-                        var item = _theirOfferItems.First(i => i.TemplateId == kvp.Key);
+                        var item = _theirOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItemType(item.Type);
                         if (spr != null)
@@ -715,7 +752,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             var entries = BuildOfferEntries();
             var grouped = entries
-                .Select(e => $"{(e.TemplateId)} x{e.Quantity}")
+                .Select(e => $"{(e.ItemId)} x{e.Quantity}")
                 .ToList();
             Logger.Info($"ОБМЕН: отправка оффера на сервер: типов={entries.Count}, золото={_myGoldOffer}");
             foreach (var line in grouped)
@@ -726,10 +763,10 @@ namespace RPGGame.ClientMonoGame.Windows
         public List<TradeOfferEntry> BuildOfferEntries()
         {
             return _myOfferItems
-                .GroupBy(i => i.TemplateId)
+                .GroupBy(i => i.Id)
                 .Select(gr => new TradeOfferEntry
                 {
-                    TemplateId = gr.Key,
+                    ItemId = gr.Key,
                     Quantity = gr.Sum(i => Math.Max(1, i.Quantity))
                 })
                 .ToList();

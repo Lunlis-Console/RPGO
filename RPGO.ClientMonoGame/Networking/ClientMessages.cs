@@ -142,7 +142,7 @@ public sealed class TradeConfirmData
 
 public sealed class TradeOfferEntry
 {
-    public string? TemplateId { get; set; }
+    public string? ItemId { get; set; }
     public int Quantity { get; set; }
 }
 
