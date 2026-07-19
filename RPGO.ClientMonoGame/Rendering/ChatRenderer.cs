@@ -93,8 +93,16 @@ public class ChatRenderer
                 continue;
 
             if (KeyCharMap.TryGetChar(key, russian, shift, out char ch))
+            {
                 TypedText += ch;
+            }
         }
+
+        // OEM-клавиши (точка, запятая, скобки, ё/х/ъ/ж/э/б/ю и т.д.), которые
+        // MonoGame возвращает как Keys.None, обрабатываем через нативный опрос.
+        KeyboardLayoutHelper.CollectOemChars(shift, out var oemChars);
+        foreach (var ch in oemChars)
+            TypedText += ch;
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
             TypedText = TypedText[..^1];

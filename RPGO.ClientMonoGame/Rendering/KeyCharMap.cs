@@ -56,19 +56,6 @@ public static class KeyCharMap
         Add(Keys.D7, '7', '&', '7', '?');
         Add(Keys.D8, '8', '*', '8', '*');
         Add(Keys.D9, '9', '(', '9', '(');
-
-        // OEM-символы (английская раскладка)
-        Add(Keys.OemPeriod, '.', '?', '.', ',');
-        Add(Keys.OemComma, ',', '<', 'б', 'Б');
-        Add(Keys.OemMinus, '-', '_', '-', '_');
-        Add(Keys.OemPlus, '=', '+', '=', '+');
-        Add(Keys.OemSemicolon, ';', ':', 'ж', 'Ж');
-        Add(Keys.OemQuotes, '\'', '"', 'э', 'Э');
-        Add(Keys.OemOpenBrackets, '[', '{', 'х', 'Х');
-        Add(Keys.OemCloseBrackets, ']', '}', 'ъ', 'Ъ');
-        Add(Keys.OemBackslash, '\\', '|', 'ё', 'Ё');
-        Add(Keys.OemTilde, '`', '~', 'ё', 'Ё');
-        Add(Keys.OemQuestion, '/', '?', '.', ',');
     }
 
     private static void Add(Keys key, char enN, char enS, char ruN, char ruS)

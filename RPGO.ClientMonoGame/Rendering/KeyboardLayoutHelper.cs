@@ -140,4 +140,49 @@ public static class KeyboardLayoutHelper
     private const int VK_CONTROL = 0x11;
     private const int VK_MENU = 0x12;
     private const int VK_CAPITAL = 0x14;
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
+    private const uint MAPVK_VSC_TO_VK = 1;
+
+    // Scan-коды OEM-клавиш (фиксированны в PS/2 Set 1), для которых MonoGame
+    // возвращает Keys.None. Обрабатываем их через нативный ToUnicode по scan code.
+    private static readonly int[] OemScans = { 0x33, 0x34, 0x27, 0x28, 0x1A, 0x1B, 0x0C, 0x0D, 0x2B, 0x29, 0x35 };
+
+    private static readonly Dictionary<int, bool> _prevOemDown = new();
+
+    /// <summary>
+    /// Возвращает символы OEM-клавиш (точка, запятая, скобки, точка с запятой и т.д.),
+    /// которые MonoGame не распознаёт как Keys. Работает через нативный опрос по scan code.
+    /// </summary>
+    public static void CollectOemChars(bool shift, out List<char> chars)
+    {
+        chars = new List<char>();
+        var keyState = new byte[256];
+        GetKeyboardState(keyState);
+        keyState[VK_SHIFT] = shift ? (byte)0x80 : (byte)0x00;
+
+        foreach (var scan in OemScans)
+        {
+            uint vk = MapVirtualKey((uint)scan, MAPVK_VSC_TO_VK);
+            short state = GetAsyncKeyState((int)vk);
+            bool down = (state & 0x8000) != 0;
+            bool wasDown = _prevOemDown.TryGetValue(scan, out var w) && w;
+            _prevOemDown[scan] = down;
+
+            if (down && !wasDown)
+            {
+                keyState[vk] |= 0x80;
+                var sb = new StringBuilder(8);
+                int result = ToUnicode(vk, (uint)scan, keyState, sb, sb.Capacity, 0);
+                if (result > 0 && sb.Length > 0)
+                {
+                    char c = sb[0];
+                    if (!char.IsControl(c) && c != '\r' && c != '\n' && c != '\t')
+                        chars.Add(c);
+                }
+            }
+        }
+    }
 }
