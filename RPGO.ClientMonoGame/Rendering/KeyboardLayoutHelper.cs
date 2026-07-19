@@ -102,6 +102,8 @@ public static class KeyboardLayoutHelper
     {
         uint vk = (uint)key;
         uint scan = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+        // ToUnicode требует, чтобы сама клавиша была помечена как нажатая
+        keyState[vk] |= 0x80;
         var sb = new StringBuilder(8);
         int result = ToUnicode(vk, scan, keyState, sb, sb.Capacity, 0);
         if (result > 0 && sb.Length > 0)
@@ -116,6 +118,9 @@ public static class KeyboardLayoutHelper
 
     public static byte[] GetCurrentKeyState(KeyboardState state)
     {
+        // Берём реальное состояние клавиш из ОС (включает Shift/Ctrl/Alt/CapsLock
+        // и текущую раскладку). Дополнительно синхронизируем модификаторы из
+        // MonoGame-состояния, чтобы моментальные нажатия учитывались корректно.
         var keyState = new byte[256];
         GetKeyboardState(keyState);
         ApplyMod(keyState, VK_SHIFT, state.IsKeyDown(Keys.LeftShift) || state.IsKeyDown(Keys.RightShift));

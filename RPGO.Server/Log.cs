@@ -1,4 +1,5 @@
 using Serilog;
+using System.Text;
 
 namespace RPGGame.Server;
 
@@ -16,6 +17,7 @@ public static class Log
             .WriteTo.File("logs/server-.log",
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 14,
+                encoding: Encoding.UTF8,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff} {Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
     }
