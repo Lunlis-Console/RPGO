@@ -1,25 +1,14 @@
 using System.Runtime.InteropServices;
-using System.Text;
-using Microsoft.Xna.Framework.Input;
 
 namespace RPGGame.ClientMonoGame.Rendering;
 
 /// <summary>
-/// Помогает корректно переводить нажатия клавиш в символы с учётом
-/// текущей раскладки Windows и Shift/CapsLock через нативный ToUnicode,
-/// а также переключает раскладку ОС (RU/EN) по клику в чате.
-/// Работает только на Windows (целевая платформа игры).
+/// Определяет раскладку активного окна (RU/EN) и переключает раскладку ОС
+/// по клику в чате. Сам ввод символов идёт через детерминированную таблицу
+/// VK->char (KeyCharMap), без ненадёжного ToUnicode. Работает на Windows.
 /// </summary>
 public static class KeyboardLayoutHelper
 {
-    [DllImport("user32.dll")]
-    private static extern int ToUnicode(
-        uint virtualKey, uint scanCode, byte[] keyState,
-        [Out] StringBuilder pwszBuff, int cchBuff, uint flags);
-
-    [DllImport("user32.dll")]
-    private static extern bool GetKeyboardState(byte[] lpKeyState);
-
     [DllImport("user32.dll")]
     private static extern IntPtr GetKeyboardLayout(uint idThread);
 
@@ -33,10 +22,15 @@ public static class KeyboardLayoutHelper
     private static extern IntPtr LoadKeyboardLayout(string pwszKLID, uint flags);
 
     [DllImport("user32.dll")]
-    private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     private const uint KLF_ACTIVATE = 0x00000001;
-    private const uint MAPVK_VK_TO_VSC = 0;
 
     // Языковые идентификаторы
     private const int LANG_RU = 0x0419;
@@ -53,6 +47,28 @@ public static class KeyboardLayoutHelper
         catch
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Раскладка именно АКТИВНОГО (foreground) окна, а не потока игры.
+    /// Для оконной игры GetKeyboardLayout(0) часто возвращает не ту раскладку,
+    /// которую видит пользователь, из-за чего ввод кириллицы ломался.
+    /// </summary>
+    public static bool IsRussianForeground()
+    {
+        try
+        {
+            IntPtr hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return IsRussian();
+            uint threadId = GetWindowThreadProcessId(hwnd, out _);
+            IntPtr hkl = GetKeyboardLayout(threadId);
+            int langId = (int)(hkl.ToInt64() & 0xFFFF);
+            return langId == LANG_RU;
+        }
+        catch
+        {
+            return IsRussian();
         }
     }
 
@@ -94,50 +110,23 @@ public static class KeyboardLayoutHelper
         SetRussian(!IsRussian());
     }
 
+    /// <summary>Нажат ли Shift прямо сейчас (по состоянию ОС).</summary>
+    public static bool IsShiftDown()
+    {
+        return (GetAsyncKeyState(0x10) & 0x8000) != 0;
+    }
+
     /// <summary>
-    /// Возвращает символ для виртуальной клавиши с учётом раскладки ОС
-    /// и модификаторов из keyState. null — непечатный символ.
+    /// Возвращает VK всех клавиш, нажатых прямо сейчас (независимо от MonoGame).
+    /// Используется вместо GetPressedKeys(), который ломается на русской раскладке.
     /// </summary>
-    public static char? TranslateKey(Keys key, byte[] keyState)
+    public static IEnumerable<uint> GetPressedVks()
     {
-        uint vk = (uint)key;
-        uint scan = MapVirtualKey(vk, MAPVK_VK_TO_VSC);
-        // ToUnicode требует, чтобы сама клавиша была помечена как нажатая
-        keyState[vk] |= 0x80;
-        var sb = new StringBuilder(8);
-        int result = ToUnicode(vk, scan, keyState, sb, sb.Capacity, 0);
-        if (result > 0 && sb.Length > 0)
+        for (uint vk = 1; vk < 256; vk++)
         {
-            char c = sb[0];
-            if (c == '\r' || c == '\n' || c == '\t') return null;
-            if (char.IsControl(c)) return null;
-            return c;
+            // 0x8000 — клавиша нажата в данный момент
+            if ((GetAsyncKeyState((int)vk) & 0x8000) != 0)
+                yield return vk;
         }
-        return null;
     }
-
-    public static byte[] GetCurrentKeyState(KeyboardState state)
-    {
-        // Берём реальное состояние клавиш из ОС (включает Shift/Ctrl/Alt/CapsLock
-        // и текущую раскладку). Дополнительно синхронизируем модификаторы из
-        // MonoGame-состояния, чтобы моментальные нажатия учитывались корректно.
-        var keyState = new byte[256];
-        GetKeyboardState(keyState);
-        ApplyMod(keyState, VK_SHIFT, state.IsKeyDown(Keys.LeftShift) || state.IsKeyDown(Keys.RightShift));
-        ApplyMod(keyState, VK_CONTROL, state.IsKeyDown(Keys.LeftControl) || state.IsKeyDown(Keys.RightControl));
-        ApplyMod(keyState, VK_MENU, state.IsKeyDown(Keys.LeftAlt) || state.IsKeyDown(Keys.RightAlt));
-        ApplyMod(keyState, VK_CAPITAL, state.IsKeyDown(Keys.CapsLock));
-        return keyState;
-    }
-
-    private static void ApplyMod(byte[] keyState, int vk, bool down)
-    {
-        keyState[vk] = down ? (byte)0x80 : (byte)0x00;
-    }
-
-    // VK-коды для модификаторов (используются в массиве состояния GetKeyboardState)
-    private const int VK_SHIFT = 0x10;
-    private const int VK_CONTROL = 0x11;
-    private const int VK_MENU = 0x12;
-    private const int VK_CAPITAL = 0x14;
 }

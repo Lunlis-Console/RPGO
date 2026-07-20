@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.Shared.Network;
+using RPGGame.ClientMonoGame.Rendering;
 
 namespace RPGGame.ClientMonoGame.Rendering;
 
@@ -12,6 +13,9 @@ public class ChatRenderer
 
     public bool IsTyping { get; set; }
     public string TypedText { get; set; } = "";
+
+    // VK, нажатые в предыдущем кадре (для отслеживания "только что нажатых")
+    private HashSet<uint> _prevDownVks = new();
 
     public enum Layout { En, Ru }
     public Layout CurrentLayout { get; set; } = Layout.En;
@@ -68,33 +72,34 @@ public class ChatRenderer
 
     public void HandleInput(KeyboardState keyboard, KeyboardState prevKeyboard)
     {
-        // Синхронизируем индикатор с реальной раскладкой ОС
-        CurrentLayout = KeyboardLayoutHelper.IsRussian() ? Layout.Ru : Layout.En;
+        // Синхронизируем индикатор с раскладкой АКТИВНОГО окна (ту, что видит пользователь)
+        bool russian = KeyboardLayoutHelper.IsRussianForeground();
+        CurrentLayout = russian ? Layout.Ru : Layout.En;
 
         // При начале ввода подставляем префикс активной вкладки (если ещё ничего не набрано)
         if (TypedText.Length == 0 && !string.IsNullOrEmpty(CurrentPrefix))
             TypedText = CurrentPrefix;
 
-        bool russian = KeyboardLayoutHelper.IsRussian();
-        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
-        var pressed = keyboard.GetPressedKeys();
-
-        foreach (var key in pressed)
+        // Ввод символов: опрашиваем нажатые VK напрямую у ОС (GetAsyncKeyState)
+        // и переводим каждый в символ по детерминированной таблице VK->char.
+        // Это обходит баг MonoGame DesktopGL (GetPressedKeys даёт Keys.None для
+        // OEM-клавиш на русской раскладке).
+        bool shiftDown = KeyboardLayoutHelper.IsShiftDown();
+        var nowDown = new HashSet<uint>(KeyboardLayoutHelper.GetPressedVks());
+        foreach (var vk in nowDown)
         {
-            bool justPressed = keyboard.IsKeyDown(key) && prevKeyboard.IsKeyUp(key);
-            if (!justPressed) continue;
+            if (_prevDownVks.Contains(vk)) continue; // только что нажатая клавиша
 
             // Пропускаем чисто модификаторы/управляющие клавиши
-            if (key == Keys.LeftShift || key == Keys.RightShift ||
-                key == Keys.LeftControl || key == Keys.RightControl ||
-                key == Keys.LeftAlt || key == Keys.RightAlt ||
-                key == Keys.CapsLock || key == Keys.Tab ||
-                key == Keys.Enter || key == Keys.Escape || key == Keys.Back)
+            if (vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x14 ||
+                vk == 0x09 /*Tab*/ || vk == 0x0D /*Enter*/ ||
+                vk == 0x1B /*Escape*/ || vk == 0x08 /*Back*/)
                 continue;
 
-            if (KeyCharMap.TryGetChar(key, russian, shift, out char ch))
+            if (KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
                 TypedText += ch;
         }
+        _prevDownVks = nowDown;
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
             TypedText = TypedText[..^1];
