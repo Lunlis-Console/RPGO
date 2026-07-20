@@ -34,6 +34,7 @@ public class GameScreen : IScreen
     private readonly LogoutConfirmWindow _logoutConfirmWindow = new();
     private readonly PartyInviteWindow _partyInviteWindow = new();
     private readonly TradeRequestWindow _tradeRequestWindow = new();
+    private readonly SocialWindow _socialWindow;
     private readonly HashSet<string> _lootedCorpses = new();
     // Авто-подход к игроку для обмена
     private string? _pendingTradeTarget;
@@ -73,6 +74,12 @@ public class GameScreen : IScreen
         _hudRenderer = new HudRenderer();
         _chatRenderer = new ChatRenderer();
         _inputManager = new InputManager();
+        _socialWindow = new SocialWindow(client);
+        _socialWindow.WhisperRequested += name =>
+        {
+            _chatRenderer.IsTyping = true;
+            _chatRenderer.TypedText = $"/w {name} ";
+        };
 
         // Привязка событий GameClient → рендеринг
         client.MapUpdated += map =>
@@ -482,6 +489,7 @@ public class GameScreen : IScreen
         _windows.Add(_logoutConfirmWindow);
         _windows.Add(_partyInviteWindow);
         _windows.Add(_tradeRequestWindow);
+        _windows.Add(_socialWindow);
 
         _partyInviteWindow.Accepted += inviterName => _ = client.SendAsync("party_accept", new { InviterName = inviterName });
         _partyInviteWindow.Declined += inviterName => _ = client.SendAsync("party_decline", new { InviterName = inviterName });
@@ -762,7 +770,10 @@ public class GameScreen : IScreen
                             _equipmentWindow.Visible = !_equipmentWindow.Visible;
                             if (_equipmentWindow.Visible) CenterWindow(_equipmentWindow);
                             break;
-                        case 4: _chatRenderer.IsTyping = !_chatRenderer.IsTyping; break;
+                        case 4:
+                            if (_socialWindow.Visible) _socialWindow.Visible = false;
+                            else _socialWindow.Open();
+                            break;
                         case 5:
                             _questLogWindow.Visible = !_questLogWindow.Visible;
                             if (_questLogWindow.Visible) CenterWindow(_questLogWindow);

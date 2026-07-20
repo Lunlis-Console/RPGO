@@ -1044,4 +1044,94 @@ public static class DatabaseManager
 
     public static Skill? GetSkill(string id)
         => LoadSkills().FirstOrDefault(s => s.Id == id);
+
+    // ----- Друзья -----
+
+    public static void AddFriend(string ownerName, string friendName)
+    {
+        lock (_lock)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT OR IGNORE INTO friends (owner_name, friend_name, created_at)
+                VALUES ($owner, $friend, $now)";
+            cmd.Parameters.AddWithValue("$owner", ownerName);
+            cmd.Parameters.AddWithValue("$friend", friendName);
+            cmd.Parameters.AddWithValue("$now", DateTime.UtcNow.ToString("o"));
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public static void RemoveFriend(string ownerName, string friendName)
+    {
+        lock (_lock)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                DELETE FROM friends WHERE owner_name = $owner AND friend_name = $friend";
+            cmd.Parameters.AddWithValue("$owner", ownerName);
+            cmd.Parameters.AddWithValue("$friend", friendName);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public static List<string> GetFriendNames(string ownerName)
+    {
+        var names = new List<string>();
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT friend_name FROM friends WHERE owner_name = $owner ORDER BY friend_name";
+        cmd.Parameters.AddWithValue("$owner", ownerName);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            names.Add(reader.GetString(0));
+        return names;
+    }
+
+    public static bool FriendExists(string ownerName, string friendName)
+    {
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            SELECT 1 FROM friends WHERE owner_name = $owner AND friend_name = $friend LIMIT 1";
+        cmd.Parameters.AddWithValue("$owner", ownerName);
+        cmd.Parameters.AddWithValue("$friend", friendName);
+        return cmd.ExecuteScalar() != null;
+    }
+
+    /// <summary>Возвращает имена игроков, у которых ownerName есть в друзьях (обратные ссылки).</summary>
+    public static List<string> GetReverseFriendNames(string ownerName)
+    {
+        var names = new List<string>();
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT owner_name FROM friends WHERE friend_name = $owner";
+        cmd.Parameters.AddWithValue("$owner", ownerName);
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+            names.Add(reader.GetString(0));
+        return names;
+    }
+
+    /// <summary>Существует ли зарегистрированный персонаж с таким именем.</summary>
+    public static bool PlayerNameExists(string playerName)
+    {
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM accounts WHERE player_name = $name LIMIT 1";
+        cmd.Parameters.AddWithValue("$name", playerName);
+        return cmd.ExecuteScalar() != null;
+    }
+
+    /// <summary>Максимальное число друзей у одного игрока (как в классических ММО).</summary>
+    public const int MaxFriends = 50;
+
 }

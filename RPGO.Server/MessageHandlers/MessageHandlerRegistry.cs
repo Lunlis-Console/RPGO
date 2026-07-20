@@ -69,5 +69,6 @@ public static class MessageHandlerRegistry
         Register("trade_cancel", new TradeCancelHandler(world, hub));
         Register("client_log", new ClientLogHandler(world, hub));
         Register("logout", new LogoutHandler(world, hub));
+        Register("friend", new FriendHandler(world, hub));
     }
 }

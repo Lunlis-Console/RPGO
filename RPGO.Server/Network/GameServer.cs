@@ -321,6 +321,29 @@ public sealed class GameServer : INetworkHub
         }
     }
 
+    public async Task SendFriendListToAsync(ClientConnection connection, Player player)
+    {
+        var names = DatabaseManager.GetFriendNames(player.Name);
+        var onlineNames = new HashSet<string>(
+            _world.GetPlayersSnapshot().Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+
+        var friends = new List<FriendInfo>();
+        foreach (var name in names)
+        {
+            var info = new FriendInfo { Name = name, Online = onlineNames.Contains(name) };
+            var pl = _world.GetPlayersSnapshot().FirstOrDefault(p =>
+                p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (pl != null) info.Level = pl.Level;
+            friends.Add(info);
+        }
+
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "friend_list",
+            Data = new FriendListData { Friends = friends }
+        });
+    }
+
     public StatsBreakdown BuildBreakdown(Player player)
     {
         return new StatsBreakdown

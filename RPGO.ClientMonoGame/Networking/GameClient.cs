@@ -58,6 +58,10 @@ public sealed class GameClient
     public event Action<TradeCompleteData>? TradeCompleted;
     public event Action<string>? TradeClosed;
 
+    // Друзья
+    public event Action<List<FriendInfo>>? FriendListUpdated;
+    public event Action<bool, string>? FriendResultReceived;
+
     // HUD
     public event Action<bool, string?, int, int>? CombatStateUpdated;
     public event Action<PartyData>? PartyUpdated;
@@ -97,6 +101,15 @@ public sealed class GameClient
     {
         _ = SendAsync("login_auth", new { Login = login, Password = password });
     }
+
+    public void RequestFriendList()
+        => _ = SendAsync("friend", new { Action = "list" });
+
+    public void AddFriend(string targetName)
+        => _ = SendAsync("friend", new { Action = "add", TargetName = targetName });
+
+    public void RemoveFriend(string targetName)
+        => _ = SendAsync("friend", new { Action = "remove", TargetName = targetName });
 
     public void OnConnected()
     {
@@ -418,6 +431,21 @@ public sealed class GameClient
                 case "board_open":
                 case "open_board":
                     Ui(() => BoardOpened?.Invoke());
+                    break;
+
+                case "friend_list":
+                    var fl = message.Deserialize<FriendListData>();
+                    if (fl != null)
+                        Ui(() => FriendListUpdated?.Invoke(fl.Friends));
+                    break;
+
+                case "friend_result":
+                    if (message.Data is JsonElement frEl)
+                    {
+                        bool ok = frEl.TryGetProperty("Success", out var okEl) && okEl.GetBoolean();
+                        string msg = frEl.TryGetProperty("Message", out var mEl) ? (mEl.GetString() ?? "") : "";
+                        Ui(() => FriendResultReceived?.Invoke(ok, msg));
+                    }
                     break;
 
                 case "attack_cooldown":
