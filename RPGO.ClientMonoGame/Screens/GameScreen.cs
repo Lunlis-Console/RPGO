@@ -88,10 +88,17 @@ public class GameScreen : IScreen
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
         };
-        client.FloatingTextReceived += (x, y, text, argb) =>
+        client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
-            var color = new Color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF);
-            _mapRenderer.SpawnFloatingText(x, y, text, color);
+            // argb — uint в формате 0xAARRGGBB. Важно явно работать как uint,
+            // иначе неявное преобразование в int даёт арифметический сдвиг и белый цвет.
+            uint a = argb;
+            var color = new Color(
+                (byte)((a >> 16) & 0xFFu),
+                (byte)((a >> 8) & 0xFFu),
+                (byte)(a & 0xFFu));
+            Logger.Debug($"FLT screen argb={argb:X8} -> rgb=({color.R},{color.G},{color.B}) text={text}");
+            _mapRenderer.SpawnFloatingText(x, y, text, color, isCrit);
         };
         client.CombatStateUpdated += (inCombat, targetName, hp, maxHp) =>
             _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp);

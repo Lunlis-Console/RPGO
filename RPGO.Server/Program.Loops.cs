@@ -335,24 +335,46 @@ public partial class Program
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
                     if (dist > Balance.AttackRange)
                     {
-                        // Подойти к цели на расстояние 1 клетки (_Manhattan_)
+                        // Подойти к цели на расстояние 1 клетки (манхэттен).
+                        // Двигаемся СТРОГО по 4 сторонам: при диагонали делаем шаг
+                        // только по одной оси, чтобы не пытаться встать в клетку цели
+                        // (иначе игрок и монстр упираются друг в друга по диагонали).
                         int stepX = Math.Sign(monster.X - pl.X);
                         int stepY = Math.Sign(monster.Y - pl.Y);
 
                         int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
                         if ((DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs) continue;
 
-                        int nx = pl.X + stepX;
-                        int ny = pl.Y + stepY;
+                        // Выбираем одну ось для шага (4-направленное движение)
+                        int mx = 0, my = 0;
+                        if (stepX != 0 && stepY != 0)
+                        {
+                            // Диагональ: пробуем сначала ось X, если там свободно, иначе Y
+                            if (pl.X + stepX >= 0 && pl.X + stepX < World.Map.Width
+                                && MonsterManager.FindMonsterAt(pl.X + stepX, pl.Y) == null)
+                                mx = stepX;
+                            else
+                                my = stepY;
+                        }
+                        else if (stepX != 0)
+                            mx = stepX;
+                        else if (stepY != 0)
+                            my = stepY;
+
+                        int nx = pl.X + mx;
+                        int ny = pl.Y + my;
 
                         // Не двигаться на клетку с другим монстром
-                        if (nx >= 0 && nx < World.Map.Width && ny >= 0 && ny < World.Map.Height
-                            && MonsterManager.FindMonsterAt(nx, ny) == null)
+                        if (mx != 0 || my != 0)
                         {
-                            pl.X = nx;
-                            pl.Y = ny;
-                            pl.Movement.LastMoveTime = DateTime.UtcNow;
-                            changed = true;
+                            if (nx >= 0 && nx < World.Map.Width && ny >= 0 && ny < World.Map.Height
+                                && MonsterManager.FindMonsterAt(nx, ny) == null)
+                            {
+                                pl.X = nx;
+                                pl.Y = ny;
+                                pl.Movement.LastMoveTime = DateTime.UtcNow;
+                                changed = true;
+                            }
                         }
                     }
                     else
@@ -424,6 +446,19 @@ public partial class Program
                                 Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
                             });
                             await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
+                        }
+
+                        // Сообщаем об уроне, который игрок нанёс монстру (при каждом ударе,
+                        // не только когда монстр умирает — иначе в логе боя только атаки по игроку).
+                        if (!monsterDead)
+                        {
+                            if (isEvaded)
+                                await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} уклонился от вашей атаки.");
+                            else
+                            {
+                                string critText = isCrit ? " (КРИТ!)" : "";
+                                await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {dmgToMonster} урона{critText} {monster.Name}.");
+                            }
                         }
 
                         if (monsterDead)

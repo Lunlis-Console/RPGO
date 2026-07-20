@@ -50,7 +50,7 @@ public sealed class GameClient
     public event Action<List<QuestInfo>, List<QuestInfo>>? QuestLogUpdated;
     public event Action<string>? ErrorReceived;
     public event Action<GameMessage>? UnknownMessage;
-    public event Action<int, int, string, uint>? FloatingTextReceived;
+    public event Action<int, int, string, uint, bool>? FloatingTextReceived;
     public event Action<ShopData>? ShopUpdated;
     public event Action<TradeOpenData>? TradeOpened;
     public event Action<TradeOfferData>? TradeOfferUpdated;
@@ -284,9 +284,36 @@ public sealed class GameClient
                         int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
                         int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
                         string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
-                        uint color = target == "monster" ? 0xFF32CD32u : 0xFFDC143Cu;
-                        string text = (amount > 0 ? "-" : "") + amount + (isCrit ? "!" : "");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, text, color));
+
+                        // Цветовое различие: урон по монстру — красный, по игроку — оранжево-красный,
+                        // крит — жёлтый (крупнее), промах — серый.
+                        uint color;
+                        string text;
+                        bool crit = isCrit;
+                        if (amount <= 0)
+                        {
+                            color = 0xFFAAAAAAu;   // серый
+                            text = "Промах";
+                            crit = false;
+                        }
+                        else if (crit)
+                        {
+                            color = 0xFFFFD040u;   // жёлтый (крит)
+                            text = "-" + amount + "!";
+                        }
+                        else if (target == "player")
+                        {
+                            color = 0xFFF06040u;   // оранжево-красный (по игроку)
+                            text = "-" + amount;
+                        }
+                        else
+                        {
+                            color = 0xFFE04040u;   // красный (по монстру/НПС)
+                            text = "-" + amount;
+                        }
+
+                        Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
                     }
                     break;
 
@@ -296,7 +323,9 @@ public sealed class GameClient
                         int amount = healEl.TryGetProperty("Amount", out var ham) ? ham.GetInt32() : 0;
                         int x = healEl.TryGetProperty("X", out var hxp) ? hxp.GetInt32() : 0;
                         int y = healEl.TryGetProperty("Y", out var hyp) ? hyp.GetInt32() : 0;
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF32CD32u));
+                        // Зелёный для лечения — визуально отличается от красного урона
+                        Logger.Debug($"FLT heal argb={0xFF40E060u:X8} text=+{amount}");
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF40E060u, false));
                     }
                     break;
 

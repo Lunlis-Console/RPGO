@@ -28,6 +28,7 @@ public class MapRenderer
 
     // Всплывающий текст
     private readonly List<FloatingText> _floatingTexts = new();
+    private static readonly Random _rng = new();
 
     // Видимая область
     private int _viewStartX, _viewStartY, _viewEndX, _viewEndY;
@@ -72,13 +73,20 @@ public class MapRenderer
         InvalidateVisual();
     }
 
-    public void SpawnFloatingText(float mapX, float mapY, string text, Color color)
+    public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
     {
         lock (_stateLock)
         {
+            // Небольшой случайный разброс по X, чтобы цифры не накладывались друг на друга
+            float jitterX = (float)(_rng.NextDouble() - 0.5) * 0.6f;
             _floatingTexts.Add(new FloatingText
             {
-                X = mapX, Y = mapY, Text = text, Color = color, StartTime = DateTime.UtcNow
+                X = mapX + jitterX,
+                Y = mapY,
+                Text = text,
+                Color = color,
+                StartTime = DateTime.UtcNow,
+                Scale = isCrit ? 1.35f : 1f
             });
         }
     }
@@ -538,7 +546,18 @@ public class MapRenderer
                 float fpx = _gridOX + (ft.X - startX) * _cellW + _cellW / 2;
                 float fpy = _gridOY + (ft.Y - startY - rise) * _cellH - 4;
                 var c = new Color(ft.Color.R, ft.Color.G, ft.Color.B, (byte)alpha);
-                sb.DrawString(font, ft.Text, new Vector2(fpx - 8, fpy), c);
+                Vector2 origin = font.MeasureString(ft.Text) / 2f;
+                float scale = ft.Scale;
+                // Чёрная обводка (4 смещённые копии) для чёткости и читаемости
+                // поверх любого фона — стандартный приём ММОРПГ для всплывающего текста.
+                var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.8f));
+                float o = 1f * scale;
+                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                // Цветной текст поверх обводки
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
             }
         }
 
@@ -659,4 +678,5 @@ public sealed class FloatingText
     public Color Color;
     public DateTime StartTime;
     public int DurationMs = 1000;
+    public float Scale = 1f;
 }

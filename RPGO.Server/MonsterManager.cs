@@ -156,10 +156,26 @@ public static class MonsterManager
                 int stepX = Math.Sign(m.AggroTarget.X - m.X);
                 int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
 
-                if (!TryMoveTowards(m, stepX, stepY) && stepX != 0 && stepY != 0)
+                // Движение СТРОГО по 4 сторонам (без диагональных шагов), чтобы
+                // сущности не упирались друг в друга по диагонали. При диагонали
+                // шагаем только по одной оси, не наступая на клетку цели.
+                int mx = 0, my = 0;
+                if (stepX != 0 && stepY != 0)
                 {
-                    TryMoveTowards(m, stepX, 0);
-                    TryMoveTowards(m, 0, stepY);
+                    if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y)
+                        mx = stepX; // шаг по X не ведёт прямо в клетку цели
+                    else
+                        my = stepY;
+                }
+                else if (stepX != 0)
+                    mx = stepX;
+                else if (stepY != 0)
+                    my = stepY;
+
+                if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
+                    || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
+                {
+                    TryMoveTowards(m, mx, my);
                 }
                 continue;
             }

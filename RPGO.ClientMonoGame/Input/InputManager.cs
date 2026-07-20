@@ -66,7 +66,8 @@ public class InputManager
         if (string.IsNullOrEmpty(slot) || !slot!.StartsWith("item:")) return 0;
         var name = slot["item:".Length..];
         if (_inventory?.Items == null) return 0;
-        return _inventory.Items.Count(i => i.Name == name);
+        // Суммируем Quantity по всем стакам с этим именем (а не число записей)
+        return _inventory.Items.Where(i => i.Name == name).Sum(i => i.Quantity);
     }
 
     public void HandleHotbarKeys(KeyboardState keyboard, KeyboardState prevKeyboard)
