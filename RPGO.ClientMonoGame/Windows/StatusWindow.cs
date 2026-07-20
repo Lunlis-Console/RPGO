@@ -12,9 +12,17 @@ public class StatusWindow : GameWindow
     private MouseState _prevMouse;
     private Rectangle[] _attrBtnRects = Array.Empty<Rectangle>();
 
+    private int _scrollY;
+    private int _contentHeight;
+    private int _prevWheel;
+    private bool _scrollDragging;
+    private int _scrollDragStartY;
+    private int _scrollDragStart;
+
     private const int RowH = 24;
     private const int BtnW = 26;
     private const int BtnH = 20;
+    private const int ScrollW = 10;
 
     private static readonly Color TitleGold = new Color(220, 200, 120);
     private static readonly Color StatColor = new Color(200, 200, 210);
@@ -31,11 +39,37 @@ public class StatusWindow : GameWindow
     {
         Title = "Персонаж";
         Width = 440;
-        Height = 880;
+        Height = 640;
         Visible = false;
     }
 
     public void UpdateData(StatusData data) => _data = data;
+
+    private int Viewport => Height - TitleH - 8;
+    private int MaxScroll() => Math.Max(0, _contentHeight - Viewport);
+
+    private void ClampScroll()
+    {
+        int max = MaxScroll();
+        if (_scrollY < 0) _scrollY = 0;
+        if (_scrollY > max) _scrollY = max;
+    }
+
+    private (Rectangle track, Rectangle thumb) GetScrollBarRects()
+    {
+        int trackX = X + Width - ScrollW - 3;
+        int trackY = Y + TitleH + 2;
+        int trackH = Height - TitleH - 6;
+        var track = new Rectangle(trackX, trackY, ScrollW, trackH);
+
+        int max = MaxScroll();
+        int thumbH = max <= 0 ? trackH : Math.Max(28, trackH * Viewport / Math.Max(1, _contentHeight));
+        int thumbY = trackY;
+        if (max > 0)
+            thumbY = trackY + (int)((float)_scrollY / max * (trackH - thumbH));
+        var thumb = new Rectangle(trackX, thumbY, ScrollW, thumbH);
+        return (track, thumb);
+    }
 
     private (string Key, string Label, int Value, string Desc)[] GetAttrDefs()
     {
@@ -56,12 +90,56 @@ public class StatusWindow : GameWindow
         if (!Visible || _data == null)
         {
             _prevMouse = mouse;
+            _prevWheel = mouse.ScrollWheelValue;
             return;
         }
 
         bool clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
+        bool released = mouse.LeftButton == ButtonState.Released && _prevMouse.LeftButton == ButtonState.Pressed;
+        bool overWindow = Contains(new Point(mouse.X, mouse.Y));
 
-        if (clicked && _data.AttributePoints > 0)
+        // Колесо мыши
+        int wheel = mouse.ScrollWheelValue;
+        if (overWindow && wheel != _prevWheel)
+        {
+            _scrollY -= (wheel - _prevWheel) / 120 * RowH;
+            ClampScroll();
+        }
+        _prevWheel = wheel;
+
+        // Полоса прокрутки
+        var (track, thumb) = GetScrollBarRects();
+        if (clicked && track.Contains(mouse.X, mouse.Y))
+        {
+            if (!thumb.Contains(mouse.X, mouse.Y))
+            {
+                int max = MaxScroll();
+                if (max > 0)
+                {
+                    float ratio = (mouse.Y - track.Y - thumb.Height / 2) / (float)(track.Height - thumb.Height);
+                    _scrollY = (int)(ratio * max);
+                    ClampScroll();
+                }
+            }
+            _scrollDragging = true;
+            _scrollDragStartY = mouse.Y;
+            _scrollDragStart = _scrollY;
+        }
+        if (_scrollDragging && mouse.LeftButton == ButtonState.Pressed)
+        {
+            int max = MaxScroll();
+            int span = track.Height - thumb.Height;
+            if (max > 0 && span > 0)
+            {
+                float ratio = (mouse.Y - _scrollDragStartY) / (float)span;
+                _scrollY = _scrollDragStart + (int)(ratio * max);
+                ClampScroll();
+            }
+        }
+        if (released) _scrollDragging = false;
+
+        // Распределение атрибутов
+        if (clicked && !_scrollDragging && _data.AttributePoints > 0)
         {
             var attrs = GetAttrDefs();
             for (int i = 0; i < _attrBtnRects.Length && i < attrs.Length; i++)
@@ -87,7 +165,16 @@ public class StatusWindow : GameWindow
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
-        int cx = ContentX, cy = ContentY, cw = ContentW;
+        var oldScissor = sb.GraphicsDevice.ScissorRectangle;
+        sb.End();
+        sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp, null,
+            new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None });
+        var clip = new Rectangle(X, Y + TitleH, Width, Height - TitleH - 2);
+        sb.GraphicsDevice.ScissorRectangle = clip;
+
+        int cx = ContentX, cw = ContentW;
+        int startCy = ContentY - _scrollY;
+        int cy = startCy;
 
         // === Шапка: портрет + имя/уровень ===
         int portrait = 92;
@@ -139,12 +226,13 @@ public class StatusWindow : GameWindow
         cy += 4;
         cy = DrawSection(sb, "СНАРЯЖЕНИЕ", cx, cy, cw);
 
-        DrawEquipRow(sb, "Оружие", _data.WeaponName, "weapon", cx, cy, cw);
-        cy += RowH + 2;
-        DrawEquipRow(sb, "Броня", _data.ArmorName, "armor", cx, cy, cw);
-        cy += RowH + 2;
-        DrawEquipRow(sb, "Аксессуар", _data.AccessoryName, "accessory", cx, cy, cw);
-        cy += RowH + 6;
+        foreach (var slot in RPGGame.Shared.Models.EquipmentSlots.All)
+        {
+            _data.Equipped.TryGetValue(slot.Id, out var name);
+            DrawEquipRow(sb, slot.NameRu, name, SlotIconType(slot.Id), cx, cy, cw);
+            cy += RowH + 2;
+        }
+        cy += RowH + 4;
 
         // === Атрибуты с распределением ===
         cy += 4;
@@ -176,6 +264,17 @@ public class StatusWindow : GameWindow
         }
 
         DrawBreakdown(sb, ref cy, cx, cw);
+
+        _contentHeight = cy - startCy;
+
+        // Полоса прокрутки
+        var (track, thumb) = GetScrollBarRects();
+        sb.Draw(SpriteCache.Pixel, track, new Color(50, 52, 62));
+        sb.Draw(SpriteCache.Pixel, thumb, new Color(120, 130, 150));
+
+        sb.End();
+        sb.GraphicsDevice.ScissorRectangle = oldScissor;
+        sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
     }
 
     private void DrawEquipRow(SpriteBatch sb, string slot, string? name, string type, int x, int y, int w)
@@ -187,6 +286,13 @@ public class StatusWindow : GameWindow
         DrawText(sb, slot, x + RowH + 4, y + 3, DimColor);
         DrawText(sb, name ?? "— пусто —", x + 110, y + 3, name != null ? StatColor : new Color(100, 100, 110));
     }
+
+    private static string SlotIconType(string slotId) => slotId switch
+    {
+        "rhand" or "lhand" => "weapon",
+        "head" or "torso" or "legs" or "feet" => "armor",
+        _ => "accessory"
+    };
 
     private void DrawButton(SpriteBatch sb, string text, int x, int y, int w, int h, Color bg, MouseState mouse, MouseState prevMouse)
     {

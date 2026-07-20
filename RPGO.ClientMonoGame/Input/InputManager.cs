@@ -91,6 +91,9 @@ public class InputManager
 
     private TimeSpan _lastMoveSent;
 
+    // Последнее направление взгляда игрока ("down" | "up" | "left" | "right").
+    public string Facing { get; private set; } = "down";
+
     public void HandleMovement(KeyboardState keyboard, KeyboardState prevKeyboard, GameClient client, MapRenderer mapRenderer)
     {
         int dx = 0, dy = 0;
@@ -100,6 +103,12 @@ public class InputManager
         if (keyboard.IsKeyDown(Keys.D) || keyboard.IsKeyDown(Keys.Right)) dx = 1;
 
         if (dx == 0 && dy == 0) return;
+
+        // Обновляем направление взгляда по последнему нажатию (приоритет по горизонтали).
+        if (dx < 0) Facing = "left";
+        else if (dx > 0) Facing = "right";
+        else if (dy < 0) Facing = "up";
+        else Facing = "down";
 
         // Непрерывное движение при удержании клавиши с учётом серверного интервала
         int intervalMs = client.Status?.MoveIntervalMs ?? 500;

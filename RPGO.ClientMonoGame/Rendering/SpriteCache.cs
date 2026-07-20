@@ -1,12 +1,47 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Reflection;
+using System.Text.Json;
 
 namespace RPGGame.ClientMonoGame.Rendering;
+
+/// <summary>
+/// Описание анимации из спрайт-листа (атласа PNG): сетка кадров cols x rows,
+/// кадры перебираются по времени с заданной частотой (fps).
+/// </summary>
+public sealed class SpriteAnimation
+{
+    public Texture2D Sheet { get; }
+    public int Cols { get; }
+    public int Rows { get; }
+    public int FrameWidth { get; }
+    public int FrameHeight { get; }
+    public float FrameDuration { get; } // секунды на кадр
+
+    public int FrameCount => Cols * Rows;
+
+    public SpriteAnimation(Texture2D sheet, int cols, int rows, int frameWidth, int frameHeight, float frameDuration)
+    {
+        Sheet = sheet;
+        Cols = Math.Max(1, cols);
+        Rows = Math.Max(1, rows);
+        FrameWidth = frameWidth;
+        FrameHeight = frameHeight;
+        FrameDuration = frameDuration > 0 ? frameDuration : 0.125f;
+    }
+
+    public Rectangle GetSourceRect(int frameIndex)
+    {
+        int c = frameIndex % Cols;
+        int r = frameIndex / Cols;
+        return new Rectangle(c * FrameWidth, r * FrameHeight, FrameWidth, FrameHeight);
+    }
+}
 
 public static class SpriteCache
 {
     private static readonly Dictionary<string, Texture2D> _textures = new();
+    private static readonly Dictionary<string, SpriteAnimation> _animations = new();
     private static Texture2D _pixel = null!;
     private static SpriteFont _font = null!;
     private static SpriteFont _fontSmall = null!;
@@ -44,7 +79,8 @@ public static class SpriteCache
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
             "trader", "quest_desk",
             "icon_communication", "icon_inventory", "icon_settings", "icon_skills", "icon_status",
-            "skill"
+            "skill",
+            "Character_Sprite_1", "Character_Sprite_2_Left", "Character_Sprite_3_Right", "Character_Sprite_4"
         };
         foreach (var name in spriteNames)
             LoadTexture(name);
@@ -84,7 +120,72 @@ public static class SpriteCache
     public static Texture2D? GetMonsterSprite(string templateId) =>
         MonsterSpriteMap.TryGetValue(templateId, out var key) ? Get(key) : null;
 
-    public static Texture2D? GetPlayerSprite() => Get("player");
+    public static Texture2D? GetPlayerSprite() => Get("Character_Sprite_1");
+
+    // Направление взгляда игрока: "down" | "up" | "left" | "right"
+    public static Texture2D? GetPlayerSprite(string dir) => dir switch
+    {
+        "left" => Get("Character_Sprite_2_Left"),
+        "right" => Get("Character_Sprite_3_Right"),
+        "up" => Get("Character_Sprite_4"),
+        _ => Get("Character_Sprite_1")
+    };
+
+    public static SpriteAnimation? GetAnimation(string key) =>
+        _animations.TryGetValue(key, out var a) ? a : null;
+
+    public static SpriteAnimation? GetPlayerAnimation() => GetAnimation("player");
+
+    // Загружает описания анимаций (animations.json) и спрайт-листы из папки Content.
+    // contentRoot — папка Content рядом с исполняемым файлом клиента.
+    public static void LoadAnimations(string contentRoot)
+    {
+        _animations.Clear();
+        try
+        {
+            string jsonPath = Path.Combine(contentRoot, "animations.json");
+            if (!File.Exists(jsonPath)) return;
+            var entries = JsonSerializer.Deserialize<List<AnimEntry>>(File.ReadAllText(jsonPath));
+            if (entries == null) return;
+
+            string animDir = Path.Combine(contentRoot, "Animations");
+            foreach (var e in entries)
+            {
+                if (string.IsNullOrWhiteSpace(e?.Key) || string.IsNullOrWhiteSpace(e.Sheet)) continue;
+                string sheetPath = Path.Combine(animDir, e.Sheet);
+                if (!File.Exists(sheetPath)) continue;
+                try
+                {
+                    using var stream = File.OpenRead(sheetPath);
+                    var tex = Texture2D.FromStream(_device, stream);
+                    int cols = Math.Max(1, e.Cols);
+                    int rows = Math.Max(1, e.Rows);
+                    int fw = tex.Width / cols;
+                    int fh = tex.Height / rows;
+                    float fd = e.Fps > 0 ? 1f / e.Fps : 0.125f;
+                    _animations[e.Key] = new SpriteAnimation(tex, cols, rows, fw, fh, fd);
+                    Logger.Info($"SpriteCache: анимация '{e.Key}' загружена ({cols}x{rows}, {e.Fps} fps)");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"SpriteCache: не удалось загрузить анимацию '{e.Key}'", ex);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("SpriteCache.LoadAnimations failed", ex);
+        }
+    }
+
+    private sealed class AnimEntry
+    {
+        public string Key { get; set; } = "";
+        public string Sheet { get; set; } = "";
+        public int Cols { get; set; } = 1;
+        public int Rows { get; set; } = 1;
+        public int Fps { get; set; } = 8;
+    }
 
     public static Texture2D? GetTraderSprite() => Get("trader");
     public static Texture2D? GetBoardSprite() => Get("quest_desk");

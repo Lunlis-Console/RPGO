@@ -47,6 +47,8 @@ public sealed class StatusData
     public string? WeaponName { get; set; }
     public string? ArmorName { get; set; }
     public string? AccessoryName { get; set; }
+    // slot id -> имя надетого предмета (для окна статуса)
+    public Dictionary<string, string> Equipped { get; set; } = new();
     public int Strength { get; set; }
     public int Stamina { get; set; }
     public int Agility { get; set; }
@@ -73,9 +75,8 @@ public sealed class InventoryData
 
 public sealed class EquipmentData
 {
-    public Item? Weapon { get; set; }
-    public Item? Armor { get; set; }
-    public Item? Accessory { get; set; }
+    // slot id (см. EquipmentSlots) -> предмет
+    public Dictionary<string, Item> Slots { get; set; } = new();
 }
 
 public sealed class ShopData

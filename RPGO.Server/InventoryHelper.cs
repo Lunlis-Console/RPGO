@@ -9,17 +9,18 @@ public static class InventoryHelper
     public static void AddItem(Player player, Item item)
     {
         int qty = Math.Max(1, item.Quantity);
+        int cap = Balance.MaxStackForType(item.Type);
 
-        if (!string.IsNullOrEmpty(item.TemplateId) && item.MaxStack > 1)
+        if (cap > 1 && !string.IsNullOrEmpty(item.TemplateId))
         {
             var stack = player.Inventory
-                .Where(i => i.TemplateId == item.TemplateId && i.Quantity < i.MaxStack)
+                .Where(i => i.TemplateId == item.TemplateId && i.Quantity < cap)
                 .OrderByDescending(i => i.Quantity)
                 .FirstOrDefault();
 
             if (stack != null)
             {
-                int room = item.MaxStack - stack.Quantity;
+                int room = cap - stack.Quantity;
                 int add = Math.Min(room, qty);
                 stack.Quantity += add;
                 qty -= add;
@@ -28,7 +29,7 @@ public static class InventoryHelper
 
         while (qty > 0)
         {
-            int take = item.MaxStack > 1 ? Math.Min(item.MaxStack, qty) : 1;
+            int take = cap > 1 ? Math.Min(cap, qty) : 1;
             var clone = new Item
             {
                 Id = Guid.NewGuid().ToString(),
@@ -41,7 +42,7 @@ public static class InventoryHelper
                 MaxHealthBonus = item.MaxHealthBonus,
                 HealAmount = item.HealAmount,
                 Description = item.Description,
-                MaxStack = item.MaxStack,
+                MaxStack = cap,
                 Quantity = take,
                 BonusStrength = item.BonusStrength,
                 BonusStamina = item.BonusStamina,

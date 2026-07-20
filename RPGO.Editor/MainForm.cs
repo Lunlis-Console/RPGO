@@ -1,4 +1,6 @@
 using System.Data;
+using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using RPGGame.Shared.Migrations;
 
@@ -21,6 +23,18 @@ public partial class MainForm : Form
     private int _worldHeight = 100;
     private ComboBox _itemTypeSelector = null!;
     private CheckedListBox _merchantStockList = null!;
+
+    // --- Анимации (спрайт-листы) ---
+    private DataGridView _animGrid = null!;
+    private PictureBox _animPreview = null!;
+    private System.Windows.Forms.Timer _animTimer = null!;
+    private Button _animAddBtn = null!;
+    private Button _animDelBtn = null!;
+    private Button _animSaveBtn = null!;
+    // Оригинальный путь к выбранному PNG (чтобы копировать его при сохранении)
+    private readonly Dictionary<string, string> _animSrcPaths = new();
+    private System.Drawing.Image? _animPreviewImage;
+    private readonly Stopwatch _animStopwatch = new();
 
     public MainForm(string dbFile)
     {
@@ -47,7 +61,7 @@ public partial class MainForm : Form
             Dock = DockStyle.Left,
             Width = 150,
             DropDownStyle = ComboBoxStyle.DropDownList,
-            Items = { "все", "weapon", "armor", "accessory", "consumable", "collectible", "trophy" },
+            Items = { "все", "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove_r", "glove_l", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" },
         };
         _itemTypeSelector.SelectedIndex = 0;
         _itemTypeSelector.SelectedIndexChanged += (s, e) => ApplyItemTypeView();
@@ -207,6 +221,7 @@ public partial class MainForm : Form
         _tabs.TabPages.Add(questsTab);
         _tabs.TabPages.Add(worldTab);
         _tabs.TabPages.Add(merchantTab);
+        _tabs.TabPages.Add(BuildAnimationsTab());
 
         Controls.Add(_tabs);
 
@@ -367,7 +382,7 @@ public partial class MainForm : Form
     private void LoadItems()
     {
         _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed
             FROM items ORDER BY id");
         SetupItemsTypeColumn();
         ApplyItemTypeView();
@@ -385,7 +400,7 @@ public partial class MainForm : Form
                 Name = "type",
                 HeaderText = "Тип",
                 DataPropertyName = "type",
-                Items = { "weapon", "armor", "accessory", "consumable", "collectible", "trophy" },
+                Items = { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove_r", "glove_l", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" },
             };
             _itemsGrid.Columns.Insert(idx, combo);
         }
@@ -403,14 +418,14 @@ public partial class MainForm : Form
         }
 
         // Базовые колонки, видимые всегда
-        var alwaysVisible = new HashSet<string> { "id", "name", "type", "value", "stock", "description" };
+        var alwaysVisible = new HashSet<string> { "id", "name", "type", "value", "stock", "description", "two_handed" };
 
         // Колонки, относящиеся к типам
         var relevant = selected switch
         {
-            "weapon" => new HashSet<string> { "attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-            "armor" => new HashSet<string> { "defense", "max_health_bonus", "bonus_stamina", "bonus_will", "bonus_evade_chance" },
-            "accessory" => new HashSet<string> { "attack", "defense", "max_health_bonus",
+            "weapon" or "twohand" => new HashSet<string> { "attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+            "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "defense", "max_health_bonus", "bonus_stamina", "bonus_will", "bonus_evade_chance" },
+            "accessory" or "necklace" or "ring" => new HashSet<string> { "attack", "defense", "max_health_bonus",
                 "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will",
                 "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
             "consumable" => new HashSet<string> { "heal_amount", "max_health_bonus" },
@@ -456,8 +471,8 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                        bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance)
-                    VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec)";
+                        bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed)
+                    VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
@@ -477,6 +492,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$cc", ToDouble(row["bonus_crit_chance"]));
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["bonus_crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["bonus_evade_chance"]));
+                cmd.Parameters.AddWithValue("$th", ToInt(row["two_handed"]));
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -957,6 +973,257 @@ public partial class MainForm : Form
         catch (Exception ex)
         {
             SetStatus("Ошибка (лут): " + ex.Message);
+        }
+    }
+
+    // ===== Анимации (спрайт-листы) =====
+    private sealed class AnimEntry
+    {
+        public string Key { get; set; } = "";
+        public string Sheet { get; set; } = "";
+        public int Cols { get; set; } = 1;
+        public int Rows { get; set; } = 1;
+        public int Fps { get; set; } = 8;
+    }
+
+    private string ClientBinContent()
+    {
+        var solRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        return Path.Combine(solRoot, "RPGO.ClientMonoGame", "bin", "Debug", "net8.0", "Content");
+    }
+
+    private string ClientSrcContent()
+    {
+        var solRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+        return Path.Combine(solRoot, "RPGO.ClientMonoGame", "Content");
+    }
+
+    private string? ResolveSheetPath(string sheet)
+    {
+        if (_animSrcPaths.TryGetValue(sheet, out var src) && File.Exists(src)) return src;
+        string binPath = Path.Combine(ClientBinContent(), "Animations", sheet);
+        if (File.Exists(binPath)) return binPath;
+        string srcPath = Path.Combine(ClientSrcContent(), "Animations", sheet);
+        if (File.Exists(srcPath)) return srcPath;
+        return null;
+    }
+
+    private TabPage BuildAnimationsTab()
+    {
+        var tab = new TabPage("Анимации");
+        var panel = new Panel { Dock = DockStyle.Fill };
+
+        var top = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(6, 4, 6, 4) };
+        _animAddBtn = new Button { Text = "Добавить…", Dock = DockStyle.Left, Width = 110 };
+        _animAddBtn.Click += (s, e) => AddAnimation();
+        _animDelBtn = new Button { Text = "Удалить", Dock = DockStyle.Left, Width = 90 };
+        _animDelBtn.Click += (s, e) => DeleteAnimation();
+        _animSaveBtn = new Button { Text = "Сохранить анимации", Dock = DockStyle.Right, Width = 160 };
+        _animSaveBtn.Click += (s, e) => SaveAnimations();
+        top.Controls.Add(_animSaveBtn);
+        top.Controls.Add(_animDelBtn);
+        top.Controls.Add(_animAddBtn);
+
+        _animGrid = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect
+        };
+        _animGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "key", HeaderText = "Ключ (entity)", DataPropertyName = "key" });
+        _animGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "sheet", HeaderText = "Файл спрайт-листа", DataPropertyName = "sheet", ReadOnly = true });
+        _animGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "cols", HeaderText = "Колонки", DataPropertyName = "cols" });
+        _animGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "rows", HeaderText = "Строки", DataPropertyName = "rows" });
+        _animGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "fps", HeaderText = "Кадров/сек", DataPropertyName = "fps" });
+        _animGrid.SelectionChanged += (s, e) => UpdateAnimPreview();
+        _animGrid.CellValueChanged += (s, e) => UpdateAnimPreview();
+
+        _animPreview = new PictureBox
+        {
+            Dock = DockStyle.Right,
+            Width = 170,
+            BackColor = System.Drawing.Color.FromArgb(30, 30, 35),
+            SizeMode = PictureBoxSizeMode.CenterImage
+        };
+
+        var leftPanel = new Panel { Dock = DockStyle.Fill };
+        leftPanel.Controls.Add(_animGrid);
+
+        var split = new Panel { Dock = DockStyle.Fill };
+        split.Controls.Add(_animPreview);
+        split.Controls.Add(leftPanel);
+
+        panel.Controls.Add(split);
+        panel.Controls.Add(top);
+        tab.Controls.Add(panel);
+
+        _animTimer = new System.Windows.Forms.Timer { Interval = 100 };
+        _animTimer.Tick += (s, e) => DrawAnimPreviewFrame();
+        _animStopwatch.Restart();
+        _animTimer.Start();
+
+        LoadAnimationsGrid();
+        return tab;
+    }
+
+    private void LoadAnimationsGrid()
+    {
+        _animGrid.Rows.Clear();
+        _animSrcPaths.Clear();
+        string jsonPath = Path.Combine(ClientBinContent(), "animations.json");
+        if (!File.Exists(jsonPath)) return;
+        try
+        {
+            var entries = JsonSerializer.Deserialize<List<AnimEntry>>(File.ReadAllText(jsonPath));
+            if (entries == null) return;
+            foreach (var e in entries)
+                _animGrid.Rows.Add(e.Key, e.Sheet, e.Cols, e.Rows, e.Fps);
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Ошибка чтения animations.json: " + ex.Message);
+        }
+    }
+
+    private void AddAnimation()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Filter = "PNG спрайт-лист|*.png",
+            Title = "Выберите PNG спрайт-лист"
+        };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+
+        string path = dlg.FileName;
+        string fileName = Path.GetFileName(path);
+        string key = Path.GetFileNameWithoutExtension(path);
+
+        int cols = 4, rows = 1, fps = 8;
+        try
+        {
+            using var img = System.Drawing.Image.FromFile(path);
+            int guess = (int)Math.Round((double)img.Width / Math.Max(1, img.Height));
+            if (guess >= 1) cols = guess;
+        }
+        catch { }
+
+        foreach (DataGridViewRow r in _animGrid.Rows)
+        {
+            if (r.Cells["key"].Value?.ToString() == key)
+            {
+                r.Cells["sheet"].Value = fileName;
+                r.Cells["cols"].Value = cols;
+                r.Cells["rows"].Value = rows;
+                r.Cells["fps"].Value = fps;
+                _animSrcPaths[fileName] = path;
+                UpdateAnimPreview();
+                SetStatus($"Анимация '{key}' обновлена");
+                return;
+            }
+        }
+
+        _animGrid.Rows.Add(key, fileName, cols, rows, fps);
+        _animSrcPaths[fileName] = path;
+        UpdateAnimPreview();
+        SetStatus($"Анимация '{key}' добавлена (отредактируйте колонки/строки/кадры в таблице)");
+    }
+
+    private void DeleteAnimation()
+    {
+        if (_animGrid.SelectedRows.Count == 0) return;
+        var row = _animGrid.SelectedRows[0];
+        string? sheet = row.Cells["sheet"].Value?.ToString();
+        _animGrid.Rows.Remove(row);
+        if (sheet != null && _animSrcPaths.ContainsKey(sheet)) _animSrcPaths.Remove(sheet);
+        UpdateAnimPreview();
+    }
+
+    private void UpdateAnimPreview()
+    {
+        _animPreviewImage?.Dispose();
+        _animPreviewImage = null;
+        _animPreview.Image = null;
+        if (_animGrid.SelectedRows.Count == 0) return;
+        var row = _animGrid.SelectedRows[0];
+        string sheet = row.Cells["sheet"].Value?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(sheet)) return;
+        string? path = ResolveSheetPath(sheet);
+        if (path == null || !File.Exists(path)) return;
+        try { _animPreviewImage = System.Drawing.Image.FromFile(path); }
+        catch { _animPreviewImage = null; }
+        _animStopwatch.Restart();
+    }
+
+    private void DrawAnimPreviewFrame()
+    {
+        if (_animPreviewImage == null || _animGrid.SelectedRows.Count == 0) return;
+        var row = _animGrid.SelectedRows[0];
+        int cols = Math.Max(1, ToInt(row.Cells["cols"].Value));
+        int rows = Math.Max(1, ToInt(row.Cells["rows"].Value));
+        int fps = Math.Max(1, ToInt(row.Cells["fps"].Value));
+        int fw = _animPreviewImage.Width / cols;
+        int fh = _animPreviewImage.Height / rows;
+        int total = cols * rows;
+        int frame = (int)(_animStopwatch.Elapsed.TotalSeconds * fps) % total;
+        int c = frame % cols;
+        int r = frame / cols;
+        var src = new System.Drawing.Rectangle(c * fw, r * fh, fw, fh);
+
+        int targetW = Math.Max(1, Math.Min(_animPreview.Width - 20, fw * 3));
+        int targetH = (int)((double)targetW / fw * fh);
+        if (targetH < 1) targetH = 1;
+        var bmp = new System.Drawing.Bitmap(targetW, targetH);
+        using (var g = System.Drawing.Graphics.FromImage(bmp))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+            g.DrawImage(_animPreviewImage, new System.Drawing.Rectangle(0, 0, targetW, targetH), src, System.Drawing.GraphicsUnit.Pixel);
+        }
+        var old = _animPreview.Image;
+        _animPreview.Image = bmp;
+        old?.Dispose();
+    }
+
+    private void SaveAnimations()
+    {
+        try
+        {
+            var entries = new List<AnimEntry>();
+            foreach (DataGridViewRow row in _animGrid.Rows)
+            {
+                if (row.IsNewRow) continue;
+                string key = row.Cells["key"].Value?.ToString() ?? "";
+                string sheet = row.Cells["sheet"].Value?.ToString() ?? "";
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(sheet)) continue;
+                entries.Add(new AnimEntry
+                {
+                    Key = key,
+                    Sheet = sheet,
+                    Cols = Math.Max(1, ToInt(row.Cells["cols"].Value)),
+                    Rows = Math.Max(1, ToInt(row.Cells["rows"].Value)),
+                    Fps = Math.Max(1, ToInt(row.Cells["fps"].Value))
+                });
+            }
+
+            string json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true });
+            foreach (var content in new[] { ClientBinContent(), ClientSrcContent() })
+            {
+                Directory.CreateDirectory(content);
+                Directory.CreateDirectory(Path.Combine(content, "Animations"));
+                File.WriteAllText(Path.Combine(content, "animations.json"), json);
+                foreach (var e in entries)
+                {
+                    if (_animSrcPaths.TryGetValue(e.Sheet, out var src) && File.Exists(src))
+                        File.Copy(src, Path.Combine(content, "Animations", e.Sheet), true);
+                }
+            }
+            SetStatus($"Анимации сохранены: {entries.Count} (записано в bin и исходники клиента)");
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Ошибка (анимации): " + ex.Message);
         }
     }
 }

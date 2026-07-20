@@ -147,4 +147,25 @@ public class CombatTests
         // Monster: BaseDmg=10 + (10-1)*2=28. Player def: 10+(10-1)*1=19. → 9
         Assert.Equal(9, dmgToP);
     }
+
+    [Fact]
+    public void PlayerVsPlayer_UsesICombatant()
+    {
+        // Фундамент PvP: CalculateCombat теперь принимает любой ICombatant.
+        // Игрок-агрессор бьёт другого игрока (цель не мутируется здесь —
+        // применение урона к игроку добавится в PvP-цикле позже).
+        var attacker = CreatePlayer(level: 5, str: 11, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
+        var defender = CreatePlayer(level: 5, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
+
+        var (dmgToDefender, dmgToAttacker, dead, _, _) =
+            MonsterManager.CalculateCombat(attacker, defender);
+
+        // Attacker atk = 1 + (11-1)*2 = 21, defender def = 1 → 20
+        Assert.Equal(20, dmgToDefender);
+        // Defender atk = 1, attacker def = 1 → 1 (counter)
+        Assert.Equal(1, dmgToAttacker);
+        Assert.False(dead);
+        // Защитник-игрок не получает урон напрямую через этот метод (PvP-применение — отдельно)
+        Assert.Equal(100, defender.Health);
+    }
 }

@@ -184,9 +184,10 @@ public static class MonsterManager
 
             if (World.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
 
-            int dx = World.NextRandom(-1, 2);
-            int dy = World.NextRandom(-1, 2);
-            if (dx == 0 && dy == 0) continue;
+            // Блуждание строго по 4 сторонам: один случайный ортогональный шаг.
+            int dir = World.NextRandom(0, 4); // 0=вверх, 1=вниз, 2=влево, 3=вправо
+            int dx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
+            int dy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
 
             int nx = m.X + dx;
             int ny = m.Y + dy;
@@ -277,40 +278,47 @@ public static class MonsterManager
         }
     }
 
-    public static (int damageToMonster, int damageToPlayer, bool monsterDead, bool isCrit, bool isEvaded) CalculateCombat(Player player, Monster monster, bool applyMonsterDamage = true)
+    /// <summary>
+    /// Универсальный расчёт боя между двумя бойцами (Player/Monster/...).
+    /// Заложен как фундамент для PvP: в будущем attacker/defender могут быть
+    /// любыми ICombatant (например, игрок против игрока).
+    /// </summary>
+    public static (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
+        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true)
     {
         var rng = new Random();
 
-        bool monsterEvaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
-        int playerDamage = 0;
+        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < defender.GetEvadeChance();
+        int attackerDamage = 0;
         bool isCrit = false;
-        if (!monsterEvaded)
+        if (!defenderEvaded)
         {
-            isCrit = rng.Next(Balance.ChanceRollMax) < player.GetCritChance();
-            int baseDamage = Math.Max(Balance.MinDamage, player.GetTotalAttack() - monster.GetTotalDefense());
-            playerDamage = isCrit ? (int)(baseDamage * player.GetCritDamage()) : baseDamage;
-            if (applyMonsterDamage)
+            isCrit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            int baseDamage = Math.Max(Balance.MinDamage, attacker.GetTotalAttack() - defender.GetTotalDefense());
+            attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
+            if (applyDefenderDamage && defender is Monster mon)
             {
-                monster.Health -= playerDamage;
-                monster.LastDamagedTime = DateTime.UtcNow;
-                monster.DamageTracker[player.Id] = monster.DamageTracker.GetValueOrDefault(player.Id) + playerDamage;
+                mon.Health -= attackerDamage;
+                mon.LastDamagedTime = DateTime.UtcNow;
+                if (attacker is Player pl)
+                    mon.DamageTracker[pl.Id] = mon.DamageTracker.GetValueOrDefault(pl.Id) + attackerDamage;
             }
         }
-        bool monsterDead = monster.Health <= 0;
+        bool targetDead = defender.Health <= 0;
 
-        int monsterDamage = 0;
+        int defenderDamage = 0;
         bool isEvaded = false;
-        if (!monsterDead)
+        if (!targetDead)
         {
-            isEvaded = rng.Next(Balance.ChanceRollMax) < player.GetEvadeChance();
+            isEvaded = rng.Next(Balance.ChanceRollMax) < attacker.GetEvadeChance();
             if (!isEvaded)
             {
-                bool monsterCrit = rng.Next(Balance.ChanceRollMax) < monster.GetCritChance();
-                int baseDamage = Math.Max(Balance.MinDamage, monster.GetTotalAttack() - player.GetTotalDefense());
-                monsterDamage = monsterCrit ? (int)(baseDamage * monster.GetCritDamage()) : baseDamage;
+                bool defenderCrit = rng.Next(Balance.ChanceRollMax) < defender.GetCritChance();
+                int baseDamage = Math.Max(Balance.MinDamage, defender.GetTotalAttack() - attacker.GetTotalDefense());
+                defenderDamage = defenderCrit ? (int)(baseDamage * defender.GetCritDamage()) : baseDamage;
             }
         }
 
-        return (playerDamage, monsterDamage, monsterDead, isCrit, isEvaded);
+        return (attackerDamage, defenderDamage, targetDead, isCrit, isEvaded);
     }
 }

@@ -1,6 +1,6 @@
 namespace RPGGame.Shared.Models;
 
-public class Monster
+public class Monster : ICombatant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string TemplateId { get; set; } = "";   // id шаблона из таблицы monsters (M0001...)

@@ -625,13 +625,6 @@ public static class DatabaseManager
                 InsertInventoryItem(connection, player.Name, item);
             }
 
-            if (player.Equipment.Weapon != null)
-                SaveInventoryItem(connection, player.Name, player.Equipment.Weapon);
-            if (player.Equipment.Armor != null)
-                SaveInventoryItem(connection, player.Name, player.Equipment.Armor);
-            if (player.Equipment.Accessory != null)
-                SaveInventoryItem(connection, player.Name, player.Equipment.Accessory);
-
             SaveQuests(connection, player.Name, player.ActiveQuests);
         }
     }
@@ -713,7 +706,7 @@ public static class DatabaseManager
     {
         int qty = Math.Max(1, item.Quantity);
 
-        if (!string.IsNullOrEmpty(item.TemplateId) && item.MaxStack > 1)
+        if (!string.IsNullOrEmpty(item.TemplateId) && Balance.MaxStackForType(item.Type) > 1)
         {
             var find = connection.CreateCommand();
             find.CommandText = @"SELECT id, quantity FROM inventory
@@ -726,7 +719,7 @@ public static class DatabaseManager
             {
                 string existingId = reader.GetString(0);
                 int existingQty = reader.GetInt32(1);
-                int room = Math.Max(0, item.MaxStack - existingQty);
+                int room = Math.Max(0, Balance.MaxStackForType(item.Type) - existingQty);
                 if (room > 0)
                 {
                     int add = Math.Min(room, qty);
@@ -818,10 +811,51 @@ public static class DatabaseManager
                 });
             }
 
+            var result = new List<Item>();
             foreach (var item in items)
+            {
                 SyncItemFromTemplate(connection, item);
+                item.MaxStack = Balance.MaxStackForType(item.Type);
 
-            return items;
+                if (item.MaxStack <= 1 && item.Quantity > 1)
+                {
+                    // Предметы экипировки не стакаются: разбиваем стек на отдельные записи
+                    for (int k = 0; k < item.Quantity; k++)
+                    {
+                        result.Add(new Item
+                        {
+                            Id = Guid.NewGuid().ToString(),
+                            TemplateId = item.TemplateId,
+                            Name = item.Name,
+                            Type = item.Type,
+                            Value = item.Value,
+                            Attack = item.Attack,
+                            Defense = item.Defense,
+                            MaxHealthBonus = item.MaxHealthBonus,
+                            HealAmount = item.HealAmount,
+                            Description = item.Description,
+                            MaxStack = item.MaxStack,
+                            Quantity = 1,
+                            BonusStrength = item.BonusStrength,
+                            BonusStamina = item.BonusStamina,
+                            BonusAgility = item.BonusAgility,
+                            BonusCunning = item.BonusCunning,
+                            BonusWisdom = item.BonusWisdom,
+                            BonusWill = item.BonusWill,
+                            BonusCritChance = item.BonusCritChance,
+                            BonusCritDamage = item.BonusCritDamage,
+                            BonusEvadeChance = item.BonusEvadeChance,
+                            TwoHanded = item.TwoHanded
+                        });
+                    }
+                }
+                else
+                {
+                    result.Add(item);
+                }
+            }
+
+            return result;
         }
     }
 
@@ -829,33 +863,37 @@ public static class DatabaseManager
     {
         var ids = new HashSet<string>();
         var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT weapon_id, armor_id, accessory_id FROM accounts WHERE player_name = $name";
+        cmd.CommandText = "SELECT item_id FROM player_equipment WHERE player_name = $name";
         cmd.Parameters.AddWithValue("$name", playerName);
 
         using var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        while (reader.Read())
         {
             if (!reader.IsDBNull(0)) ids.Add(reader.GetString(0));
-            if (!reader.IsDBNull(1)) ids.Add(reader.GetString(1));
-            if (!reader.IsDBNull(2)) ids.Add(reader.GetString(2));
         }
         return ids;
     }
 
     private static void SaveEquipment(SqliteConnection connection, string playerName, Equipment equipment)
     {
-        var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            UPDATE accounts SET
-                weapon_id = $wid,
-                armor_id = $aid,
-                accessory_id = $accid
-            WHERE player_name = $name";
-        cmd.Parameters.AddWithValue("$wid", equipment.Weapon?.Id ?? "");
-        cmd.Parameters.AddWithValue("$aid", equipment.Armor?.Id ?? "");
-        cmd.Parameters.AddWithValue("$accid", equipment.Accessory?.Id ?? "");
-        cmd.Parameters.AddWithValue("$name", playerName);
-        cmd.ExecuteNonQuery();
+        using (var del = connection.CreateCommand())
+        {
+            del.CommandText = "DELETE FROM player_equipment WHERE player_name = $name";
+            del.Parameters.AddWithValue("$name", playerName);
+            del.ExecuteNonQuery();
+        }
+
+        foreach (var kv in equipment.Slots)
+        {
+            if (kv.Value == null) continue;
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = "INSERT INTO player_equipment (player_name, slot, item_id, item_data) VALUES ($name, $slot, $id, $data)";
+            cmd.Parameters.AddWithValue("$name", playerName);
+            cmd.Parameters.AddWithValue("$slot", kv.Key);
+            cmd.Parameters.AddWithValue("$id", kv.Value.Id);
+            cmd.Parameters.AddWithValue("$data", System.Text.Json.JsonSerializer.Serialize(kv.Value));
+            cmd.ExecuteNonQuery();
+        }
     }
 
     private static Equipment LoadEquipment(SqliteConnection connection, string playerName)
@@ -863,24 +901,30 @@ public static class DatabaseManager
         var equipment = new Equipment();
 
         var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT weapon_id, armor_id, accessory_id FROM accounts WHERE player_name = $name";
+        cmd.CommandText = "SELECT slot, item_id, item_data FROM player_equipment WHERE player_name = $name";
         cmd.Parameters.AddWithValue("$name", playerName);
 
         using var reader = cmd.ExecuteReader();
-        if (reader.Read())
+        while (reader.Read())
         {
-            string wid = reader.IsDBNull(0) ? "" : reader.GetString(0);
-            string aid = reader.IsDBNull(1) ? "" : reader.GetString(1);
-            string accid = reader.IsDBNull(2) ? "" : reader.GetString(2);
-            reader.Close();
+            string slot = reader.IsDBNull(0) ? "" : reader.GetString(0);
+            if (string.IsNullOrEmpty(slot)) continue;
 
-            if (!string.IsNullOrEmpty(wid)) equipment.Weapon = FindInventoryItem(connection, playerName, wid);
-            if (!string.IsNullOrEmpty(aid)) equipment.Armor = FindInventoryItem(connection, playerName, aid);
-            if (!string.IsNullOrEmpty(accid)) equipment.Accessory = FindInventoryItem(connection, playerName, accid);
-        }
-        else
-        {
-            reader.Close();
+            // Полный предмет хранится прямо в player_equipment
+            if (!reader.IsDBNull(2))
+            {
+                var json = reader.GetString(2);
+                var item = System.Text.Json.JsonSerializer.Deserialize<Item>(json);
+                if (item != null) { equipment[slot] = item; continue; }
+            }
+
+            // Старые записи без item_data — пробуем найти в инвентаре по item_id
+            string itemId = reader.IsDBNull(1) ? "" : reader.GetString(1);
+            if (!string.IsNullOrEmpty(itemId))
+            {
+                var item = FindInventoryItem(connection, playerName, itemId);
+                if (item != null) equipment[slot] = item;
+            }
         }
 
         return equipment;

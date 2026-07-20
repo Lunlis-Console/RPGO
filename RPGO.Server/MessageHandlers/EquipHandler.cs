@@ -28,24 +28,118 @@ public class EquipHandler : BaseHandler
             return;
         }
 
-        if (item.Type != "weapon" && item.Type != "armor" && item.Type != "accessory")
+        if (!EquipmentSlots.IsEquippableType(item.Type))
         {
             await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя надеть!");
             return;
         }
 
-        Item? oldEquipped = null;
-        if (item.Type == "weapon") { oldEquipped = player.Equipment.Weapon; player.Equipment.Weapon = item; }
-        else if (item.Type == "armor") { oldEquipped = player.Equipment.Armor; player.Equipment.Armor = item; }
-        else if (item.Type == "accessory") { oldEquipped = player.Equipment.Accessory; player.Equipment.Accessory = item; }
+        bool twoHanded = EquipmentSlots.IsTwoHanded(item.Type, item.TwoHanded);
 
-        player.Inventory.Remove(item);
-        if (oldEquipped != null) InventoryHelper.AddItem(player, oldEquipped);
+        // Целевой слот: явный (из клиента) или первый подходящий
+        string? targetSlot = equipEl.TryGetProperty("TargetSlot", out var ts) ? ts.GetString() : null;
 
-        Log.Debug($"{player.Name} надел {item.Name}");
-        string msg = oldEquipped != null
-            ? $"Вы надели {item.Name}, сняв {oldEquipped.Name}"
-            : $"Вы надели {item.Name}";
+        var validSlots = EquipmentSlots.SlotsForItemType(item.Type);
+        List<string> slotsToFill;
+        if (targetSlot != null)
+        {
+            if (!validSlots.Contains(targetSlot))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Предмет нельзя надеть в этот слот.");
+                return;
+            }
+            if (twoHanded && targetSlot != EquipmentSlots.RightHand)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Двуручное оружие можно надеть только в правую руку.");
+                return;
+            }
+            slotsToFill = new List<string> { targetSlot };
+        }
+        else
+        {
+            // Для кольца — первая свободная; иначе первая подходящая
+            if (item.Type == "ring")
+                slotsToFill = validSlots.Where(s => player.Equipment[s] == null).Take(1).ToList();
+            else
+                slotsToFill = validSlots.Take(1).ToList();
+
+            if (slotsToFill.Count == 0)
+                slotsToFill = validSlots.Take(1).ToList(); // кольцо: обе заняты — заменим первую
+        }
+
+        // Слот не должен быть заблокирован двуручным оружием
+        foreach (var s in slotsToFill)
+        {
+            if (EquipmentSlots.IsBlockedByTwoHanded(s, player.Equipment))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Слот заблокирован двуручным оружием.");
+                return;
+            }
+        }
+
+        // Из стека надеваем ровно одну штуку; остаток остаётся в инвентаре.
+        Item equipped;
+        if (item.Quantity > 1)
+        {
+            item.Quantity -= 1;
+            equipped = new Item
+            {
+                Id = Guid.NewGuid().ToString(),
+                TemplateId = item.TemplateId,
+                Name = item.Name,
+                Type = item.Type,
+                Value = item.Value,
+                Attack = item.Attack,
+                Defense = item.Defense,
+                MaxHealthBonus = item.MaxHealthBonus,
+                HealAmount = item.HealAmount,
+                Description = item.Description,
+                MaxStack = item.MaxStack,
+                Quantity = 1,
+                BonusStrength = item.BonusStrength,
+                BonusStamina = item.BonusStamina,
+                BonusAgility = item.BonusAgility,
+                BonusCunning = item.BonusCunning,
+                BonusWisdom = item.BonusWisdom,
+                BonusWill = item.BonusWill,
+                BonusCritChance = item.BonusCritChance,
+                BonusCritDamage = item.BonusCritDamage,
+                BonusEvadeChance = item.BonusEvadeChance,
+                TwoHanded = item.TwoHanded
+            };
+        }
+        else
+        {
+            player.Inventory.Remove(item);
+            equipped = item;
+        }
+
+        var returned = new List<Item>();
+        foreach (var slot in slotsToFill)
+        {
+            var old = player.Equipment[slot];
+            player.Equipment[slot] = equipped;
+            if (old != null && old.Id != equipped.Id) returned.Add(old);
+        }
+
+        // Двуручное оружие освобождает левую руку
+        if (twoHanded)
+        {
+            var leftOld = player.Equipment[EquipmentSlots.LeftHand];
+            if (leftOld != null && leftOld.Id != equipped.Id)
+            {
+                player.Equipment[EquipmentSlots.LeftHand] = null;
+                returned.Add(leftOld);
+            }
+        }
+
+        foreach (var r in returned)
+            InventoryHelper.AddItem(player, r);
+
+        Log.Debug($"{player.Name} надел {equipped.Name} (слоты: {string.Join(",", slotsToFill)})");
+        string msg = returned.Count > 0
+            ? $"Вы надели {equipped.Name}, сняв {string.Join(", ", returned.Select(r => r.Name))}"
+            : $"Вы надели {equipped.Name}";
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

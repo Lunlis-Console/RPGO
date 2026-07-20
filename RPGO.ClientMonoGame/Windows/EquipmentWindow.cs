@@ -10,187 +10,289 @@ namespace RPGGame.ClientMonoGame.Windows;
 public class EquipmentWindow : GameWindow
 {
     private EquipmentData? _data;
-    private MouseState _prevMouse;
 
-    private Rectangle _weaponSlot;
-    private Rectangle _armorSlot;
-    private Rectangle _accessorySlot;
+    public Action<string>? UnequipItem; // slot id
+    public Action? CloseRequested;
+
+    // Тип предмета, который сейчас перетаскивается (для подсветки слотов)
+    public string? DraggingType { get; set; }
+
+    // Источник перетаскивания из этого окна (для глобального оверлея)
+    public Action<Item?>? DragStateChanged;
+
+    // true, если точка находится над окном инвентаря (для дропа "снять")
+    public Func<Point, bool>? IsOverInventory;
+
+    private Rectangle[] _rowRects = Array.Empty<Rectangle>();
+    private Rectangle _closeRect;
     private Item? _hoverItem;
 
-    public Action<string>? UnequipItem;
+    private MouseState _prevMouseLocal;
 
-    // Тип предмета, который сейчас перетаскивают из инвентаря (для подсветки ячейки)
-    public string? DraggingType { get; set; }
+    // Состояние перетаскивания ПРЕДМЕТА ИЗ СЛОТА (для снятия drag-n-drop)
+    private string? _dragSlotId;
+    private Item? _dragItem;
+    private Point _dragStart;
+    private bool _dragging;
+
+    private const int Cols = 3;
+    private const int Gap = 5;
+    private const int DragThreshold = 6;
 
     public EquipmentWindow()
     {
         Title = "Снаряжение";
-        Width = 380;
-        Height = 460;
-        Visible = false;
+        Width = 306;
+        Height = 459;
     }
 
     public void UpdateData(EquipmentData data) => _data = data;
 
-    // Возвращает true, если точка попадает в слот снаряжения; slot — имя слота
-    public bool TryGetSlotAt(Point p, out string slot)
+    private int CellSize()
     {
-        slot = "";
-        if (_data == null) return false;
-        if (_weaponSlot.Contains(p)) { slot = "weapon"; return true; }
-        if (_armorSlot.Contains(p)) { slot = "armor"; return true; }
-        if (_accessorySlot.Contains(p)) { slot = "accessory"; return true; }
-        return false;
+        int cw = ContentW;
+        return (cw - (Cols - 1) * Gap) / Cols;
+    }
+
+    private void ComputeLayout()
+    {
+        int count = EquipmentSlots.All.Count;
+        var cells = new Rectangle[count];
+        int cell = CellSize();
+        int cx = ContentX;
+        int top = ContentY + 4;
+        for (int i = 0; i < count; i++)
+        {
+            int r = i / Cols, c = i % Cols;
+            int x = cx + c * (cell + Gap);
+            int y = top + r * (cell + Gap);
+            cells[i] = new Rectangle(x, y, cell, cell);
+        }
+        _rowRects = cells;
+        _closeRect = new Rectangle(ContentX, Y + Height - 26, ContentW, 22);
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
-        if (!Visible || _data == null)
+        if (!Visible)
         {
-            _prevMouse = mouse;
+            _prevMouseLocal = mouse;
             return;
         }
 
-        bool rclicked = mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released;
-        if (rclicked)
+        ComputeLayout();
+
+        bool leftPressed = mouse.LeftButton == ButtonState.Pressed && _prevMouseLocal.LeftButton == ButtonState.Released;
+        bool rightPressed = mouse.RightButton == ButtonState.Pressed && _prevMouseLocal.RightButton == ButtonState.Released;
+        bool leftReleased = mouse.LeftButton == ButtonState.Released && _prevMouseLocal.LeftButton == ButtonState.Pressed;
+
+        // Кнопка "Закрыть"
+        if (leftPressed && _closeRect.Contains(mouse.X, mouse.Y))
         {
-            if (_weaponSlot.Contains(mouse.X, mouse.Y) && _data.Weapon != null)
-                UnequipItem?.Invoke("weapon");
-            else if (_armorSlot.Contains(mouse.X, mouse.Y) && _data.Armor != null)
-                UnequipItem?.Invoke("armor");
-            else if (_accessorySlot.Contains(mouse.X, mouse.Y) && _data.Accessory != null)
-                UnequipItem?.Invoke("accessory");
+            Visible = false;
+            CloseRequested?.Invoke();
+            _prevMouseLocal = mouse;
+            return;
+        }
+
+        // Правая кнопка по надетому слоту — снять
+        if (rightPressed && _data != null)
+        {
+            for (int i = 0; i < _rowRects.Length; i++)
+            {
+                if (_rowRects[i].Contains(mouse.X, mouse.Y))
+                {
+                    var slot = EquipmentSlots.All[i];
+                    if (_data.Slots.TryGetValue(slot.Id, out var it) && it != null)
+                        UnequipItem?.Invoke(slot.Id);
+                    break;
+                }
+            }
+        }
+
+        // Левая кнопка по надетому слоту — начало перетаскивания (снятие drag-n-drop)
+        if (leftPressed && _data != null && _dragSlotId == null)
+        {
+            for (int i = 0; i < _rowRects.Length; i++)
+            {
+                if (_rowRects[i].Contains(mouse.X, mouse.Y))
+                {
+                    var slot = EquipmentSlots.All[i];
+                    if (_data.Slots.TryGetValue(slot.Id, out var it) && it != null)
+                    {
+                        _dragSlotId = slot.Id;
+                        _dragItem = it;
+                        _dragStart = new Point(mouse.X, mouse.Y);
+                        _dragging = false;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Движение перетаскивания
+        if (_dragSlotId != null && mouse.LeftButton == ButtonState.Pressed)
+        {
+            int moved = Math.Abs(mouse.X - _dragStart.X) + Math.Abs(mouse.Y - _dragStart.Y);
+            if (!_dragging && moved >= DragThreshold)
+            {
+                _dragging = true;
+                DragStateChanged?.Invoke(_dragItem); // поднимаем оверлей + подсветку
+            }
+        }
+
+        // Отпускание — дроп на инвентарь = снять
+        if (leftReleased && _dragSlotId != null)
+        {
+            if (_dragging)
+            {
+                var pt = new Point(mouse.X, mouse.Y);
+                if (IsOverInventory?.Invoke(pt) == true)
+                    UnequipItem?.Invoke(_dragSlotId);
+                DragStateChanged?.Invoke(null); // гасим оверлей/подсветку
+            }
+            _dragSlotId = null;
+            _dragItem = null;
+            _dragging = false;
         }
 
         base.Update(gameTime, keyboard, mouse);
-        _prevMouse = mouse;
+        _prevMouseLocal = mouse;
     }
 
     public override void Draw(SpriteBatch sb)
     {
-        if (!Visible || _data == null) return;
-        var mouse = Mouse.GetState();
-        base.Draw(sb, mouse);
+        if (!Visible) return;
+        base.Draw(sb, Mouse.GetState());
 
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
+        var mouse = Mouse.GetState();
 
-        int cx = ContentX, cy = ContentY, cw = ContentW;
+        ComputeLayout();
 
-        int dollW = 150;
-        int dollX = cx + (cw - dollW) / 2;
-        DrawPaperDoll(sb, dollX, cy, dollW);
-
-        // Размер слота
-        int slot = 56;
-        int slotY = cy + 70;
-
-        // Оружие — в правой руке
-        _weaponSlot = new Rectangle(dollX + dollW - slot - 4, slotY + 40, slot, slot);
-        // Броня — на торсе
-        _armorSlot = new Rectangle(dollX + (dollW - slot) / 2, slotY, slot, slot);
-        // Аксессуар — на шее
-        _accessorySlot = new Rectangle(dollX + (dollW - slot) / 2, cy + 18, slot, slot);
+        bool dragging = DraggingType != null;
+        var validTargets = dragging
+            ? new HashSet<string>(EquipmentSlots.SlotsForItemType(DraggingType))
+            : null;
 
         _hoverItem = null;
-        DrawSlot(sb, _weaponSlot, _data.Weapon, "weapon", mouse);
-        DrawSlot(sb, _armorSlot, _data.Armor, "armor", mouse);
-        DrawSlot(sb, _accessorySlot, _data.Accessory, "accessory", mouse);
 
-        // Подсветка подходящей ячейки при перетаскивании предмета
-        if (!string.IsNullOrEmpty(DraggingType))
+        for (int i = 0; i < _rowRects.Length; i++)
         {
-            Rectangle? hl = DraggingType switch
+            var slot = EquipmentSlots.All[i];
+            var r = _rowRects[i];
+
+            // Фон ячейки (тусклый)
+            sb.Draw(SpriteCache.Pixel, r, new Color(30, 32, 40));
+            sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y, r.Width, 1), new Color(55, 60, 72));
+            sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y, 1, r.Height), new Color(55, 60, 72));
+
+            Item? it = null;
+            bool filled = _data != null && _data.Slots.TryGetValue(slot.Id, out it) && it != null;
+
+            if (filled && it != null)
             {
-                "weapon" => _weaponSlot,
-                "armor" => _armorSlot,
-                "accessory" => _accessorySlot,
-                _ => null
-            };
-            if (hl.HasValue)
-                sb.Draw(SpriteCache.Pixel, new Rectangle(hl.Value.X - 2, hl.Value.Y - 2, hl.Value.Width + 4, hl.Value.Height + 4), new Color(80, 200, 80, 180));
+                // Надетый предмет — иконка строго по центру (подпись слота скрыта)
+                var spr = SpriteCache.ForItemType(it.Type);
+                if (spr != null)
+                    sb.Draw(spr, new Rectangle(r.X + 6, r.Y + 6, r.Width - 12, r.Height - 12), Color.White);
+
+                // Тултип при наведении (когда не тащим)
+                if (!_dragging && _dragSlotId == null && r.Contains(mouse.X, mouse.Y))
+                    _hoverItem = it;
+            }
+            else
+            {
+                // Пустой слот — название слота по центру ячейки (тускло, с переносом)
+                var lines = WrapText(font, slot.NameRu, r.Width - 8);
+                int ly = r.Y + (r.Height - lines.Count * (int)font.LineSpacing) / 2;
+                foreach (var line in lines)
+                {
+                    var sz = font.MeasureString(line);
+                    sb.DrawString(font, line, new Vector2(r.X + (r.Width - sz.X) / 2, ly), new Color(95, 100, 115));
+                    ly += (int)font.LineSpacing;
+                }
+            }
+
+            // Подсветка допустимой цели при перетаскивании
+            if (dragging && validTargets != null && validTargets.Contains(slot.Id))
+            {
+                bool over = r.Contains(mouse.X, mouse.Y);
+                var border = over ? new Color(120, 220, 120) : new Color(70, 120, 70);
+                sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y, r.Width, 2), border);
+                sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y + r.Height - 2, r.Width, 2), border);
+                sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y, 2, r.Height), border);
+                sb.Draw(SpriteCache.Pixel, new Rectangle(r.X + r.Width - 2, r.Y, 2, r.Height), border);
+                if (over)
+                    sb.Draw(SpriteCache.Pixel, r, new Color(60, 120, 60, 70));
+            }
         }
 
-        int listX = cx;
-        int listY = cy + 250;
-        DrawText(sb, "=== БОНУСЫ ОТ СНАРЯЖЕНИЯ ===", listX, listY, new Color(220, 200, 120));
-        listY += 24;
-
-        int atk = (_data.Weapon?.Attack ?? 0) + (_data.Armor?.Attack ?? 0) + (_data.Accessory?.Attack ?? 0);
-        int def = (_data.Weapon?.Defense ?? 0) + (_data.Armor?.Defense ?? 0) + (_data.Accessory?.Defense ?? 0);
-        int hp = (_data.Weapon?.MaxHealthBonus ?? 0) + (_data.Armor?.MaxHealthBonus ?? 0) + (_data.Accessory?.MaxHealthBonus ?? 0);
-        int str = (_data.Weapon?.BonusStrength ?? 0) + (_data.Armor?.BonusStrength ?? 0) + (_data.Accessory?.BonusStrength ?? 0);
-        int sta = (_data.Weapon?.BonusStamina ?? 0) + (_data.Armor?.BonusStamina ?? 0) + (_data.Accessory?.BonusStamina ?? 0);
-        int agi = (_data.Weapon?.BonusAgility ?? 0) + (_data.Armor?.BonusAgility ?? 0) + (_data.Accessory?.BonusAgility ?? 0);
-        int wis = (_data.Weapon?.BonusWisdom ?? 0) + (_data.Armor?.BonusWisdom ?? 0) + (_data.Accessory?.BonusWisdom ?? 0);
-        int wil = (_data.Weapon?.BonusWill ?? 0) + (_data.Armor?.BonusWill ?? 0) + (_data.Accessory?.BonusWill ?? 0);
-        int crit = (int)((_data.Weapon?.BonusCritChance ?? 0) + (_data.Armor?.BonusCritChance ?? 0) + (_data.Accessory?.BonusCritChance ?? 0));
-        int eva = (int)((_data.Weapon?.BonusEvadeChance ?? 0) + (_data.Armor?.BonusEvadeChance ?? 0) + (_data.Accessory?.BonusEvadeChance ?? 0));
-
-        var lines = new List<string>();
-        if (atk > 0) lines.Add($"Атака: +{atk}");
-        if (def > 0) lines.Add($"Защита: +{def}");
-        if (hp > 0) lines.Add($"Здоровье: +{hp}");
-        if (str > 0) lines.Add($"Сила: +{str}");
-        if (sta > 0) lines.Add($"Выносл.: +{sta}");
-        if (agi > 0) lines.Add($"Ловкость: +{agi}");
-        if (wis > 0) lines.Add($"Мудрость: +{wis}");
-        if (wil > 0) lines.Add($"Воля: +{wil}");
-        if (crit > 0) lines.Add($"Крит %: +{crit}");
-        if (eva > 0) lines.Add($"Уклон %: +{eva}");
-        if (lines.Count == 0) lines.Add("Нет надетого снаряжения");
-
-        foreach (var l in lines)
-        {
-            DrawText(sb, l, listX, listY, Color.White);
-            listY += 20;
-        }
-
-        DrawText(sb, "ПКМ по слоту — снять предмет", cx, Y + Height - 22, new Color(150, 150, 160));
+        DrawButton(sb, "Закрыть", _closeRect, mouse);
 
         if (_hoverItem != null)
             DrawTooltip(sb, _hoverItem, mouse);
     }
 
-    private void DrawPaperDoll(SpriteBatch sb, int x, int y, int w)
+    public bool TryGetSlotAt(Point p, string? itemType, out string? slotId)
     {
-        var skin = new Color(60, 64, 78);
-        // Голова
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 - 16, y, 32, 32), skin);
-        // Шея
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 - 8, y + 32, 16, 10), skin);
-        // Торс
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 - 26, y + 42, 52, 70), skin);
-        // Руки
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 - 40, y + 44, 14, 60), skin);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 + 26, y + 44, 14, 60), skin);
-        // Ноги
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 - 22, y + 112, 18, 60), skin);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x + w / 2 + 4, y + 112, 18, 60), skin);
+        ComputeLayout();
+        slotId = null;
+        var t = itemType ?? DraggingType;
+        if (string.IsNullOrEmpty(t)) return false;
+        for (int i = 0; i < _rowRects.Length; i++)
+        {
+            if (_rowRects[i].Contains(p))
+            {
+                var slot = EquipmentSlots.All[i];
+                if (EquipmentSlots.SlotsForItemType(t).Contains(slot.Id))
+                {
+                    slotId = slot.Id;
+                    return true;
+                }
+                return false;
+            }
+        }
+        return false;
     }
 
-    private void DrawSlot(SpriteBatch sb, Rectangle r, Item? item, string type, MouseState mouse)
+    private static List<string> WrapText(SpriteFont font, string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        if (string.IsNullOrEmpty(text)) return lines;
+        foreach (var paragraph in text.Split('\n'))
+        {
+            var words = paragraph.Split(' ');
+            var cur = "";
+            foreach (var w in words)
+            {
+                var test = cur.Length == 0 ? w : cur + " " + w;
+                if (font.MeasureString(test).X > maxWidth && cur.Length > 0)
+                {
+                    lines.Add(cur);
+                    cur = w;
+                }
+                else
+                {
+                    cur = test;
+                }
+            }
+            if (cur.Length > 0) lines.Add(cur);
+        }
+        return lines;
+    }
+
+    private void DrawButton(SpriteBatch sb, string text, Rectangle r, MouseState mouse)
     {
         bool hover = r.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, r, hover ? new Color(70, 75, 95) : new Color(40, 42, 52));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(r.X, r.Y, r.Width, 2), new Color(90, 95, 115));
-
-        var spr = SpriteCache.ForItemType(type);
-        if (spr != null)
-            sb.Draw(spr, new Rectangle(r.X + 6, r.Y + 6, r.Width - 12, r.Height - 12), item != null ? Color.White : new Color(120, 120, 130) * 0.4f);
-
-        if (item != null)
+        var bg = new Color(60, 80, 120);
+        sb.Draw(SpriteCache.Pixel, r, hover ? Color.Lerp(bg, Color.White, 0.15f) : bg);
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font != null)
         {
-            _hoverItem = hover ? item : _hoverItem;
-            var f = SpriteCache.FontSmall ?? SpriteCache.Font;
-            if (f != null)
-            {
-                var sz = f.MeasureString(item.Name);
-                int tx = r.X + (r.Width - (int)sz.X) / 2;
-                int ty = r.Y + r.Height + 2;
-                sb.Draw(SpriteCache.Pixel, new Rectangle(tx - 3, ty - 1, (int)sz.X + 6, (int)sz.Y + 2), new Color(20, 22, 30, 210));
-                sb.DrawString(f, item.Name, new Vector2(tx, ty), Color.White);
-            }
+            var sz = font.MeasureString(text);
+            sb.DrawString(font, text, new Vector2(r.X + (r.Width - sz.X) / 2, r.Y + (r.Height - sz.Y) / 2), Color.White);
         }
     }
 
@@ -209,13 +311,6 @@ public class EquipmentWindow : GameWindow
         if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
         if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
         if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
-        if (item.BonusStrength > 0) lines.Add($"Сила: +{item.BonusStrength}");
-        if (item.BonusStamina > 0) lines.Add($"Выносл.: +{item.BonusStamina}");
-        if (item.BonusAgility > 0) lines.Add($"Ловкость: +{item.BonusAgility}");
-        if (item.BonusWisdom > 0) lines.Add($"Мудрость: +{item.BonusWisdom}");
-        if (item.BonusWill > 0) lines.Add($"Воля: +{item.BonusWill}");
-        if (item.BonusCritChance > 0) lines.Add($"Крит %: +{item.BonusCritChance}");
-        if (item.BonusEvadeChance > 0) lines.Add($"Уклон %: +{item.BonusEvadeChance}");
         if (!string.IsNullOrEmpty(item.Description))
             lines.Add(item.Description);
 
@@ -243,11 +338,23 @@ public class EquipmentWindow : GameWindow
     private static string TypeLabel(string t) => t switch
     {
         "weapon" => "Оружие",
-        "armor" => "Броня",
+        "twohand" => "Двуручное оружие",
+        "shield" => "Щит",
+        "helmet" => "Шлем",
+        "cloak" => "Плащ",
+        "chest" => "Нагрудник",
+        "legs" => "Поножи",
+        "boots" => "Сапоги",
+        "glove_r" => "Правая перчатка",
+        "glove_l" => "Левая перчатка",
+        "necklace" => "Ожерелье",
+        "ring" => "Кольцо",
         "accessory" => "Аксессуар",
+        "armor" => "Броня",
         "consumable" => "Расходник",
         "collectible" => "Коллекция",
         "material" => "Материал",
+        "trophy" => "Трофей",
         _ => t
     };
 }

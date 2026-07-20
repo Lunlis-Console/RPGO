@@ -136,6 +136,141 @@ public class PartyHandler : BaseHandler
                 });
             }
         }
+        else if (action == "party_transfer")
+        {
+            string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
+            if (string.IsNullOrEmpty(targetName))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Укажите имя игрока");
+                return;
+            }
+
+            if (!player.PartyId.HasValue)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не в группе");
+                return;
+            }
+
+            var party = PartyManager.GetParty(player.PartyId.Value);
+            if (party == null)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
+                return;
+            }
+
+            if (party.LeaderId != player.Id)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Передать лидерство может только лидер");
+                return;
+            }
+
+            if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Игрок {targetName} не найден");
+                return;
+            }
+
+            if (target.Id == player.Id)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя передать лидерство себе");
+                return;
+            }
+
+            if (!party.Members.Contains(target.Id))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} не состоит в вашей группе");
+                return;
+            }
+
+            party.LeaderId = target.Id;
+            party.LeaderName = target.Name;
+            Log.Info($"{player.Name} передал лидерство {target.Name}");
+            await PartyManager.SendPartyUpdateAsync(party);
+
+            var targetConn = World.FindClientByPlayer(target);
+            if (targetConn != null)
+                await SendToClient(targetConn, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = $"Вы теперь лидер группы." }
+                });
+        }
+        else if (action == "party_kick")
+        {
+            string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
+            if (string.IsNullOrEmpty(targetName))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Укажите имя игрока");
+                return;
+            }
+
+            if (!player.PartyId.HasValue)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не в группе");
+                return;
+            }
+
+            var party = PartyManager.GetParty(player.PartyId.Value);
+            if (party == null)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
+                return;
+            }
+
+            if (party.LeaderId != player.Id)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Исключить может только лидер");
+                return;
+            }
+
+            if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Игрок {targetName} не найден");
+                return;
+            }
+
+            if (target.Id == player.Id)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя исключить себя");
+                return;
+            }
+
+            if (!party.Members.Contains(target.Id))
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} не состоит в вашей группе");
+                return;
+            }
+
+            Log.Info($"{player.Name} исключил {target.Name} из группы");
+
+            // Исключённый покидает группу
+            PartyManager.LeaveParty(target);
+
+            // Уведомляем исключённого
+            var targetConn = World.FindClientByPlayer(target);
+            if (targetConn != null)
+            {
+                await SendToClient(targetConn, new GameMessage
+                {
+                    Type = "party_disbanded",
+                    Data = (object?)null
+                });
+                await SendToClient(targetConn, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = $"Вы исключены из группы ({party.LeaderName})." }
+                });
+            }
+
+            if (party.Members.Count >= 2)
+            {
+                await PartyManager.SendPartyUpdateAsync(party);
+            }
+            else
+            {
+                await PartyManager.DisbandAndNotifyAsync(party.Id);
+            }
+        }
         else if (action == "party_leave")
         {
             if (!player.PartyId.HasValue)
@@ -151,22 +286,29 @@ public class PartyHandler : BaseHandler
             {
                 Log.Info($"{player.Name} покинул пати");
 
-                // Уведомляем ушедшего игрока
-                await SendToClient(connection, new GameMessage
-                {
-                    Type = "party_disbanded",
-                    Data = (object?)null
-                });
-
                 if (party.Members.Count >= 2)
                 {
+                    // Группа жива: шлём обновлённый состав (с возможно новым лидером)
                     await PartyManager.SendPartyUpdateAsync(party);
                 }
                 else
                 {
+                    // Группа распущена (остался 1 или 0): DisbandAndNotifyAsync
+                    // разошлёт party_disbanded оставшимся. Самому ушедшему (уже не в
+                    // Members) шлём отдельно, иначе у него в HUD висит панель группы.
+                    await DisbandNotifySelf(connection);
                     await PartyManager.DisbandAndNotifyAsync(party.Id);
                 }
             }
         }
+    }
+
+    private async Task DisbandNotifySelf(ClientConnection connection)
+    {
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "party_disbanded",
+            Data = (object?)null
+        });
     }
 }

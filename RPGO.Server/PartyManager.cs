@@ -58,6 +58,16 @@ public class PartyManager
 
             party.Members.Remove(player.Id);
             player.PartyId = null;
+
+            // Если вышел лидер и в группе ещё кто-то остался — назначаем
+            // нового лидера (первого по списку), иначе группа «застрянет»
+            // с LeaderId удалённого игрока и никто не сможет приглашать.
+            if (party.LeaderId == player.Id && party.Members.Count > 0)
+            {
+                party.LeaderId = party.Members[0];
+                party.LeaderName = Program.World.TryGetPlayer(party.Members[0], out var newLeader) && newLeader != null
+                    ? newLeader.Name : party.LeaderName;
+            }
         }
     }
 
@@ -160,12 +170,16 @@ public class PartyManager
         foreach (var memberId in party.Members)
         {
             if (!Program.World.TryGetPlayer(memberId, out var member) || member == null) continue;
+            // MaxHealth с учётом бонуса экипировки (как в status/inventory),
+            // иначе в окне группы ХП показывается заниженным после надевания брони.
+            int maxHp = member.MaxHealth + member.Equipment.GetBonusMaxHealth();
+            int health = Math.Min(member.Health, maxHp);
             info.Members.Add(new PartyMemberInfo
             {
                 PlayerId = member.Id,
                 Name = member.Name,
-                Health = member.Health,
-                MaxHealth = member.MaxHealth,
+                Health = health,
+                MaxHealth = maxHp,
                 Level = member.Level
             });
         }

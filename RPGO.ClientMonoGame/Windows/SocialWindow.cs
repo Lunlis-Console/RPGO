@@ -11,12 +11,18 @@ namespace RPGGame.ClientMonoGame.Windows;
 
 public class SocialWindow : GameWindow
 {
-    private enum Tab { Friends, Guild }
+    private enum Tab { Friends, Group, Guild }
 
     private Tab _activeTab = Tab.Friends;
     private readonly List<FriendInfo> _friends = new();
     private string _resultMessage = "";
     private float _resultTimer;
+
+    // Текущее состояние группы (для вкладки "Пати")
+    private PartyData? _party;
+    private int _selectedMemberIndex = -1;
+    private Rectangle _transferBtnRect;
+    private Rectangle _kickBtnRect;
 
     private Rectangle _addFieldRect;
     private Rectangle _addBtnRect;
@@ -33,6 +39,7 @@ public class SocialWindow : GameWindow
     private bool _inParty;
     private bool _isPartyLeader;
     private bool _showLeaderTip;
+    private readonly HashSet<string> _partyMemberNames = new(StringComparer.OrdinalIgnoreCase);
 
     // Собственный prevMouse (НЕ базовый, т.к. base.Update затирает свой)
     private MouseState _prevMouseSocial;
@@ -55,6 +62,19 @@ public class SocialWindow : GameWindow
         _client.FriendListUpdated += OnFriendList;
         _client.FriendResultReceived += (ok, msg) => { _resultMessage = msg; _resultTimer = 3f; };
         _client.PartyUpdated += OnPartyUpdated;
+        _client.PartyDisbanded += OnPartyDisbanded;
+    }
+
+    private void OnPartyDisbanded()
+    {
+        // Группа распущена/покинута: сбрасываем состояние UI, иначе кнопка
+        // "В группу" остаётся заблокированной (тултип "только лидер может приглашать"),
+        // хотя сервер уже удалил группу и игрок может приглашать снова.
+        _inParty = false;
+        _isPartyLeader = false;
+        _partyMemberNames.Clear();
+        _party = null;
+        _selectedMemberIndex = -1;
     }
 
     private void OnFriendList(List<FriendInfo> friends)
@@ -68,6 +88,12 @@ public class SocialWindow : GameWindow
     {
         _inParty = data.Members.Count > 0;
         _isPartyLeader = data.LeaderId == _client.PlayerId;
+        _partyMemberNames.Clear();
+        foreach (var m in data.Members)
+            _partyMemberNames.Add(m.Name);
+        _party = data;
+        if (_selectedMemberIndex >= (data.Members?.Count ?? 0))
+            _selectedMemberIndex = -1;
     }
 
     public void Open()
@@ -99,10 +125,12 @@ public class SocialWindow : GameWindow
         int cy = ContentY;
 
         var friendsTab = new Rectangle(cx, cy, 100, 24);
-        var guildTab = new Rectangle(cx + 104, cy, 100, 24);
+        var groupTab = new Rectangle(cx + 104, cy, 100, 24);
+        var guildTab = new Rectangle(cx + 208, cy, 100, 24);
         if (clicked)
         {
             if (friendsTab.Contains(mouse.X, mouse.Y)) _activeTab = Tab.Friends;
+            else if (groupTab.Contains(mouse.X, mouse.Y)) _activeTab = Tab.Group;
             else if (guildTab.Contains(mouse.X, mouse.Y)) _activeTab = Tab.Guild;
         }
 
@@ -161,6 +189,52 @@ public class SocialWindow : GameWindow
 
             HandleNameInput();
         }
+        else if (_activeTab == Tab.Group)
+        {
+            int listY = cy + 32;
+            int rowH = 30;
+            var members = _party?.Members;
+            int count = members?.Count ?? 0;
+            for (int i = 0; i < count; i++)
+            {
+                var row = new Rectangle(cx, listY + i * rowH, ContentW, rowH);
+                if (clicked && row.Contains(mouse.X, mouse.Y))
+                    _selectedMemberIndex = i;
+            }
+
+            if (_selectedMemberIndex >= 0 && _selectedMemberIndex < count)
+            {
+                var sel = members![_selectedMemberIndex];
+                int by = listY + count * rowH + 8;
+                int btnW = (ContentW - 8) / 2;
+                _transferBtnRect = new Rectangle(cx, by, btnW, 26);
+                _kickBtnRect = new Rectangle(cx + btnW + 8, by, btnW, 26);
+
+                // Кнопка "сделать лидером" только для лидера и не для самого себя
+                bool canTransfer = _isPartyLeader && sel.PlayerId != _client.PlayerId;
+                if (clicked && _transferBtnRect.Contains(mouse.X, mouse.Y) && canTransfer)
+                {
+                    _client.SendAsync("party_transfer", new { TargetName = sel.Name });
+                    _resultMessage = $"Лидерство передано {sel.Name}";
+                    _resultTimer = 3f;
+                    _selectedMemberIndex = -1;
+                }
+
+                bool canKick = _isPartyLeader && sel.PlayerId != _client.PlayerId;
+                if (clicked && _kickBtnRect.Contains(mouse.X, mouse.Y) && canKick)
+                {
+                    _client.SendAsync("party_kick", new { TargetName = sel.Name });
+                    _resultMessage = $"{sel.Name} исключён из группы";
+                    _resultTimer = 3f;
+                    _selectedMemberIndex = -1;
+                }
+            }
+            else
+            {
+                _transferBtnRect = Rectangle.Empty;
+                _kickBtnRect = Rectangle.Empty;
+            }
+        }
 
         _prevMouseSocial = mouse;
     }
@@ -168,6 +242,10 @@ public class SocialWindow : GameWindow
     private bool CanInvite(FriendInfo friend)
     {
         if (!friend.Online) return false;
+        // Нельзя приглашать того, кто уже в твоей группе (защита на стороне UI;
+        // сервер тоже запрещает — шлёт "уже в группе").
+        if (_inParty && _partyMemberNames.Contains(friend.Name))
+            return false;
         // Можно приглашать, если нет группы, либо ты её лидер
         if (!_inParty) return true;
         return _isPartyLeader;
@@ -213,7 +291,8 @@ public class SocialWindow : GameWindow
         int cy = ContentY;
 
         DrawTab(sb, "Друзья", new Rectangle(cx, cy, 100, 24), _activeTab == Tab.Friends, mouse);
-        DrawTab(sb, "Гильдия", new Rectangle(cx + 104, cy, 100, 24), _activeTab == Tab.Guild, mouse);
+        DrawTab(sb, "Группа", new Rectangle(cx + 104, cy, 100, 24), _activeTab == Tab.Group, mouse);
+        DrawTab(sb, "Гильдия", new Rectangle(cx + 208, cy, 100, 24), _activeTab == Tab.Guild, mouse);
 
         if (_activeTab == Tab.Friends)
         {
@@ -272,6 +351,55 @@ public class SocialWindow : GameWindow
             // привязана к курсору; показывается при наведении на "В группу" когда заблокировано
             if (_showLeaderTip)
                 DrawTooltip(sb, new[] { "Только лидер может приглашать" }, mouse);
+        }
+        else if (_activeTab == Tab.Group)
+        {
+            int listY = cy + 32;
+            int rowH = 30;
+            var members = _party?.Members;
+            int count = members?.Count ?? 0;
+
+            if (!_inParty || count == 0)
+            {
+                DrawText(sb, "Вы не состоите в группе.", cx, listY, new Color(150, 150, 160));
+            }
+            else
+            {
+                var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+                for (int i = 0; i < count; i++)
+                {
+                    var m = members![i];
+                    var row = new Rectangle(cx, listY + i * rowH, ContentW, rowH);
+                    if (i == _selectedMemberIndex)
+                        sb.Draw(SpriteCache.Pixel, row, new Color(60, 70, 95));
+                    bool isLeader = m.PlayerId == _party!.LeaderId;
+                    string nameStr = (isLeader ? "★ " : "  ") + m.Name + $" (ур. {m.Level})";
+                    Color c = isLeader ? new Color(220, 200, 100) : new Color(200, 200, 210);
+                    DrawText(sb, nameStr, cx + 4, listY + i * rowH + 6, c);
+                    if (font != null)
+                        DrawText(sb, $"{m.Health}/{m.MaxHealth}", cx + ContentW - 90, listY + i * rowH + 6, new Color(180, 180, 190));
+                }
+
+                if (_selectedMemberIndex >= 0 && _selectedMemberIndex < count)
+                {
+                    var sel = members![_selectedMemberIndex];
+                    int by = listY + count * rowH + 8;
+                    int btnW = (ContentW - 8) / 2;
+                    _transferBtnRect = new Rectangle(cx, by, btnW, 26);
+                    _kickBtnRect = new Rectangle(cx + btnW + 8, by, btnW, 26);
+
+                    bool canTransfer = _isPartyLeader && sel.PlayerId != _client.PlayerId;
+                    Color trColor = canTransfer ? new Color(90, 110, 70) : new Color(70, 70, 78);
+                    DrawButton(sb, "Сделать лидером", _transferBtnRect, trColor, mouse, _prevMouseSocial);
+
+                    bool canKick = _isPartyLeader && sel.PlayerId != _client.PlayerId;
+                    Color kickColor = canKick ? new Color(140, 60, 60) : new Color(70, 70, 78);
+                    DrawButton(sb, "Исключить", _kickBtnRect, kickColor, mouse, _prevMouseSocial);
+                }
+            }
+
+            if (_resultTimer > 0)
+                DrawText(sb, _resultMessage, cx, ContentY + ContentH - 20, new Color(220, 220, 150));
         }
         else
         {

@@ -83,7 +83,7 @@ public class InventoryWindow : GameWindow
 
     private bool MatchesFilter(Item i) => _filter switch
     {
-        "equipment" => i.Type is "weapon" or "armor" or "accessory",
+        "equipment" => EquipmentSlots.IsEquippableType(i.Type),
         "consumable" => i.Type == "consumable",
         "material" => i.Type is "material" or "collectible" or "trophy",
         _ => true
@@ -97,14 +97,30 @@ public class InventoryWindow : GameWindow
         foreach (var it in items)
         {
             int qty = Math.Max(1, it.Quantity);
-            int idx = result.FindIndex(s => SameItem(s.Item1, it));
-            if (idx >= 0)
-                result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
-            else
+            if (IsStackable(it))
+            {
+                int idx = result.FindIndex(s => SameItem(s.Item1, it));
+                if (idx >= 0)
+                {
+                    result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
+                    continue;
+                }
                 result.Add((it, qty));
+            }
+            else
+            {
+                // Нестакаемые предметы (экипировка) — каждый экземпляр в отдельной ячейке,
+                // без объединения в стек (даже если Quantity > 1).
+                for (int k = 0; k < qty; k++)
+                    result.Add((it, 1));
+            }
         }
         return result;
     }
+
+    // Стакаются только расходники/ресурсы (как на сервере в Balance.MaxStackForType).
+    private static bool IsStackable(Item it) =>
+        it.Type is "consumable" or "collectible" or "trophy" or "material";
 
     private static bool SameItem(Item a, Item b) =>
         a.Name == b.Name && a.Type == b.Type &&
@@ -149,6 +165,7 @@ public class InventoryWindow : GameWindow
 
         int cx = ContentX, cy = ContentY, cw = ContentW;
         _stacks = BuildStacks();
+        ComputeTabRects();
 
         // Вкладки
         for (int i = 0; i < 4; i++)
@@ -182,7 +199,6 @@ public class InventoryWindow : GameWindow
         {
             int idx = _dragIndex;
             _dragIndex = -1;
-            DragStateChanged?.Invoke(null);
             var moved = Math.Abs(mouse.X - _dragStart.X) + Math.Abs(mouse.Y - _dragStart.Y);
 
             if (_trashRect.Contains(mouse.X, mouse.Y))
@@ -219,6 +235,10 @@ public class InventoryWindow : GameWindow
                         HandleInventoryClick(item);
                     }
                 }
+
+                // Сброс состояния перетаскивания — ПОСЛЕ всех действий дропа,
+                // иначе DraggingType обнуляется раньше времени и TryGetSlotAt не сработает.
+                DragStateChanged?.Invoke(null);
         }
 
         // Кнопка сортировки
@@ -240,7 +260,7 @@ public class InventoryWindow : GameWindow
         if (!isDouble) return;
 
         _lastClickIdx = -1;
-        if (item.Type is "weapon" or "armor" or "accessory")
+        if (EquipmentSlots.IsEquippableType(item.Type))
             EquipItem?.Invoke(item.Id);
         else if (item.Type == "consumable" && item.HealAmount > 0)
             UseItem?.Invoke(item.Id);
@@ -269,6 +289,15 @@ public class InventoryWindow : GameWindow
             SellItem?.Invoke(item.Id, 1);
     }
 
+    private void ComputeTabRects()
+    {
+        int cx = ContentX, cw = ContentW;
+        int btnW = cw / 4 - 2;
+        _tabRects = new Rectangle[4];
+        for (int i = 0; i < 4; i++)
+            _tabRects[i] = new Rectangle(cx + i * (btnW + 2), ContentY, btnW, TabH);
+    }
+
     public override void Draw(SpriteBatch sb)
     {
         if (!Visible || _data == null) return;
@@ -281,12 +310,10 @@ public class InventoryWindow : GameWindow
         int cx = ContentX, cy = ContentY, cw = ContentW;
 
         // Вкладки
-        int btnW = cw / 4 - 2;
-        _tabRects = new Rectangle[4];
+        ComputeTabRects();
         for (int i = 0; i < 4; i++)
         {
-            var r = new Rectangle(cx + i * (btnW + 2), cy, btnW, TabH);
-            _tabRects[i] = r;
+            var r = _tabRects[i];
             bool active = _filter == Filters[i];
             sb.Draw(SpriteCache.Pixel, r, active ? new Color(80, 120, 200) : new Color(50, 55, 65));
             var sz = font.MeasureString(FilterLabels[i]);

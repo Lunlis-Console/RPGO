@@ -21,9 +21,9 @@ public class InventoryRequestHandler : BaseHandler
                 Gold = player.Gold,
                 Equipment = new
                 {
-                    Weapon = player.Equipment.Weapon,
-                    Armor = player.Equipment.Armor,
-                    Accessory = player.Equipment.Accessory
+                    Slots = player.Equipment.Slots
+                        .Where(kv => kv.Value != null)
+                        .ToDictionary(kv => kv.Key, kv => kv.Value!)
                 },
                 BonusAttack = player.Equipment.GetBonusAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),

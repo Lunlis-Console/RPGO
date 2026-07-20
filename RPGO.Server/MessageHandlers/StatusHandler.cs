@@ -34,9 +34,9 @@ public class StatusHandler : BaseHandler
                 player.X,
                 player.Y,
                 player.Experience,
-                WeaponName = player.Equipment.Weapon?.Name ?? "нет",
-                ArmorName = player.Equipment.Armor?.Name ?? "нет",
-                AccessoryName = player.Equipment.Accessory?.Name ?? "нет",
+                Equipped = player.Equipment.Slots
+                    .Where(kv => kv.Value != null)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value!.Name),
                 player.Strength,
                 player.Stamina,
                 player.Agility,

@@ -12,6 +12,9 @@ public class MapRenderer
     private string _playerName = "";
     private int _playerLevel = 1;
 
+    // Имена участников группы (без себя) — для подсветки ников на карте.
+    private readonly HashSet<string> _partyMemberNames = new(StringComparer.OrdinalIgnoreCase);
+
     // Выбор сущности
     private string? _selectedEntityType;
     private string? _selectedEntityName;
@@ -64,6 +67,75 @@ public class MapRenderer
 
     public void SetPlayerName(string name) => _playerName = name;
     public void SetPlayerLevel(int level) => _playerLevel = level;
+
+    // Направление взгляда локального игрока ("down" | "up" | "left" | "right").
+    // Вычисляется в AdvanceVisPositions по фактическому вектору движения.
+    private string _localFacing = "down";
+
+    // Игрок в данный момент движется (интерполяция не завершена).
+    private bool _isMoving;
+
+    // Итоговое направление локального игрока:
+    //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
+    //    (иначе «идёт боком»);
+    //  - когда стоит и действует с выбранной целью (атака монстра,
+    //    сбор/лут предмета) — поворот в её сторону.
+    // Хорошая основа для будущих анимаций.
+    private string GetLocalFacing()
+    {
+        if (_isMoving) return _localFacing;
+
+        var map = _currentMap;
+        if (map != null && _selectedEntityType != null && _selectedEntityType != "move"
+            && !(_selectedEntityType == "player" && _selectedEntityName == _playerName))
+        {
+            int? tx = null, ty = null;
+            if (_selectedEntityType == "monster" && _selectedEntityId != null)
+            {
+                var m = map.Monsters.FirstOrDefault(mm => mm.Id.ToString() == _selectedEntityId);
+                if (m != null) { tx = m.X; ty = m.Y; }
+            }
+            else if (_selectedEntityType == "player" && _selectedEntityName != null)
+            {
+                var pl = map.Players.FirstOrDefault(pp => pp.Name == _selectedEntityName);
+                if (pl != null) { tx = pl.X; ty = pl.Y; }
+            }
+            else { tx = _selectedEntityX; ty = _selectedEntityY; }
+
+        if (tx.HasValue && ty.HasValue)
+        {
+            var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
+            if (me != null)
+            {
+                int ddx = tx.Value - me.X;
+                int ddy = ty.Value - me.Y;
+                int manhattan = Math.Abs(ddx) + Math.Abs(ddy);
+                // Смотрим на цель только когда игрок уже у неё (на соседней/
+                // той же клетке). Пока в пути — смотрим по движению, иначе
+                // из-за пауз между шагами сервера спрайт мерцает (цель↔движение).
+                if (manhattan <= 1 && (ddx != 0 || ddy != 0))
+                {
+                    // Запоминаем показанный взгляд в _localFacing, чтобы после
+                    // снятия цели (смерть моба) спрайт не «прыгал» на
+                    // устаревшее направление движения, а оставался куда смотрел.
+                    string dir = (Math.Abs(ddx) > Math.Abs(ddy))
+                        ? (ddx < 0 ? "left" : "right")
+                        : (ddy < 0 ? "up" : "down");
+                    _localFacing = dir;
+                    return dir;
+                }
+            }
+        }
+        }
+        return _localFacing;
+    }
+
+    /// <summary>Обновляет список ников участников группы (без себя) для подсветки на карте.</summary>
+    public void SetPartyMembers(IEnumerable<string> names)
+    {
+        _partyMemberNames.Clear();
+        foreach (var n in names) _partyMemberNames.Add(n);
+    }
     public int GetPlayerX() => GetCenterX();
     public int GetPlayerY() => GetCenterY();
 
@@ -89,6 +161,18 @@ public class MapRenderer
                 Scale = isCrit ? 1.35f : 1f
             });
         }
+    }
+
+    // Всплывающий текст над самим игроком (опыт / повышение уровня)
+    public void SpawnFloatingTextAtPlayer(string text, Color color, bool isCrit = false)
+    {
+        (float X, float Y) v;
+        lock (_stateLock)
+        {
+            if (!_visPos.TryGetValue($"player:{_playerName}", out v))
+                return;
+        }
+        SpawnFloatingText(v.X, v.Y - 0.6f, text, color, isCrit);
     }
 
     public EntityInfo? GetSelectedEntity()
@@ -141,7 +225,11 @@ public class MapRenderer
         _selectedEntityX = mapX;
         _selectedEntityY = mapY;
         _selectedEntityId = entity.Id;
-        _moveTargetX = _moveTargetY = -1;
+        // Запоминаем клетку назначения для отрисовки пути (вейпоинта)
+        // не только для пустой клетки ("move"), но и для целей действия
+        // (монстр/труп/предмет) — чтобы путь рисовался и при движении к цели.
+        _moveTargetX = mapX;
+        _moveTargetY = mapY;
         SelectionChanged?.Invoke(GetSelection());
         InvalidateVisual();
     }
@@ -208,7 +296,7 @@ public class MapRenderer
             MoveRequested?.Invoke(mapX, mapY);
             return;
         }
-        ClearSelectedEntity();
+        ClearSelection();
         _selectedEntityType = "move";
         _selectedEntityName = "Точка назначения";
         _selectedEntityX = mapX; _selectedEntityY = mapY;
@@ -233,10 +321,11 @@ public class MapRenderer
         StartInteraction(entity, mapX, mapY);
     }
 
-    private void ClearSelectedEntity()
+    public void ClearSelection()
     {
         _selectedEntityType = null; _selectedEntityName = null;
         _selectedEntityX = _selectedEntityY = 0; _selectedEntityId = null;
+        _moveTargetX = _moveTargetY = -1;
         SelectionChanged?.Invoke(null);
     }
 
@@ -506,6 +595,14 @@ public class MapRenderer
                 };
                 sb.DrawString(font, m.Symbol.ToString(), new Vector2(px, py), color);
             }
+
+            // Имя + уровень монстра (над спрайтом)
+            string mname = $"{m.Name} [{m.Level}]";
+            var mnameSize = fontSmall.MeasureString(mname);
+            float mnx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - mnameSize.X / 2;
+            float mny = py - 14;
+            sb.DrawString(fontSmall, mname, new Vector2(mnx + 1, mny + 1), Color.Black);
+            sb.DrawString(fontSmall, mname, new Vector2(mnx, mny), Color.White);
         }
 
         // Игроки
@@ -517,19 +614,40 @@ public class MapRenderer
             float px = _gridOX + (v.X - startX) * _cellW + 3;
             float py = _gridOY + (v.Y - startY) * _cellH;
 
-            var playerSprite = SpriteCache.GetPlayerSprite();
-            if (playerSprite != null)
-                sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
-            else
-                sb.DrawString(font, "P", new Vector2(px, py), p.Name == _playerName ? Color.Goldenrod : Color.Green);
+            // Цвет: себя — золотой, участника группы — зелёный, остальных — серый.
+            Color groupColor = new Color(110, 230, 130);
+            Color nickColor = p.Name == _playerName
+                ? Color.Goldenrod
+                : (_partyMemberNames.Contains(p.Name) ? groupColor : Color.LightGray);
 
-            // Имя
-            string nick = p.Name;
+            var playerAnim = SpriteCache.GetPlayerAnimation();
+            if (playerAnim != null)
+            {
+                int frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / playerAnim.FrameDuration) % playerAnim.FrameCount;
+                var src = playerAnim.GetSourceRect(frame);
+                sb.Draw(playerAnim.Sheet, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), src, Color.White);
+            }
+            else
+            {
+                // Локальный игрок отрисовывается спрайтом по направлению
+                // (либо в сторону действия/цели, либо по движению);
+                // остальные игроки — спрайтом «вниз» по умолчанию.
+                var playerSprite = p.Name == _playerName
+                    ? SpriteCache.GetPlayerSprite(GetLocalFacing())
+                    : SpriteCache.GetPlayerSprite("down");
+                if (playerSprite != null)
+                    sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
+                else
+                    sb.DrawString(font, "P", new Vector2(px, py), nickColor);
+            }
+
+            // Имя + уровень
+            string nick = $"{p.Name} [{p.Level}]";
             var nickSize = fontSmall.MeasureString(nick);
             float nx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - nickSize.X / 2;
             float ny = py - 14;
             sb.DrawString(fontSmall, nick, new Vector2(nx + 1, ny + 1), Color.Black);
-            sb.DrawString(fontSmall, nick, new Vector2(nx, ny), p.Name == _playerName ? Color.Goldenrod : Color.LightGray);
+            sb.DrawString(fontSmall, nick, new Vector2(nx, ny), nickColor);
         }
 
         // Всплывающий текст
@@ -592,7 +710,7 @@ public class MapRenderer
             sb.DrawString(font, sym, new Vector2(offsetX + x, legendY), symColor);
             sb.DrawString(fontSmall, label, new Vector2(offsetX + x + 12, legendY + 2), Color.Black);
         }
-        Legend(4, "P", Color.Green, "вы");
+        Legend(4, "P", Color.Goldenrod, "вы");
         Legend(50, "$", Color.Gold, "торговец");
         Legend(130, "Q", Color.MediumPurple, "доска заданий");
         Legend(250, "*", Color.LimeGreen, "сбор");
@@ -600,6 +718,7 @@ public class MapRenderer
         Legend(200, "■", Color.Gray, "равный");
         Legend(260, "■", Color.Orange, "сложный");
         Legend(320, "■", Color.Red, "опасный");
+        Legend(380, "P", new Color(110, 230, 130), "группа");
     }
 
     private void DrawRect(SpriteBatch sb, float x, float y, float w, float h, Color color, int thickness = 1)
@@ -638,6 +757,7 @@ public class MapRenderer
             step = VisCellsPerSec * dt;
         }
         if (step < 0.0001f) step = 0.0001f;
+        _isMoving = false;
         lock (_stateLock)
         {
             foreach (var kv in _visTarget)
@@ -646,6 +766,19 @@ public class MapRenderer
                 if (!_visPos.TryGetValue(key, out var v)) { _visPos[key] = (tgt.X, tgt.Y); continue; }
                 float dx = tgt.X - v.X, dy = tgt.Y - v.Y;
                 float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                // Направление взгляда локального игрока — по вектору его движения.
+                // Работает и для WASD, и для перемещения кликом/вейпоинтом.
+                if (key == $"player:{_playerName}")
+                {
+                    if (dist > 0.0001f)
+                    {
+                        _isMoving = true;
+                        if (Math.Abs(dx) > Math.Abs(dy)) _localFacing = dx < 0 ? "left" : "right";
+                        else _localFacing = dy < 0 ? "up" : "down";
+                    }
+                }
+
                 if (dist <= step || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
                 else { float inv = step / dist; _visPos[key] = (v.X + dx * inv, v.Y + dy * inv); }
             }

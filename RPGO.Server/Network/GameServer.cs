@@ -192,9 +192,7 @@ public sealed class GameServer : INetworkHub
                 player.X,
                 player.Y,
                 player.Experience,
-                WeaponName = player.Equipment.Weapon?.Name ?? "нет",
-                ArmorName = player.Equipment.Armor?.Name ?? "нет",
-                AccessoryName = player.Equipment.Accessory?.Name ?? "нет",
+                Equipped = BuildEquipped(player),
                 player.Strength,
                 player.Stamina,
                 player.Agility,
@@ -222,9 +220,7 @@ public sealed class GameServer : INetworkHub
                 Gold = player.Gold,
                 Equipment = new
                 {
-                    Weapon = player.Equipment.Weapon,
-                    Armor = player.Equipment.Armor,
-                    Accessory = player.Equipment.Accessory
+                    Slots = BuildEquipSlots(player)
                 },
                 BonusAttack = player.Equipment.GetBonusAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
@@ -253,9 +249,7 @@ public sealed class GameServer : INetworkHub
                 player.X,
                 player.Y,
                 player.Experience,
-                WeaponName = player.Equipment.Weapon?.Name ?? "нет",
-                ArmorName = player.Equipment.Armor?.Name ?? "нет",
-                AccessoryName = player.Equipment.Accessory?.Name ?? "нет",
+                Equipped = BuildEquipped(player),
                 player.Strength,
                 player.Stamina,
                 player.Agility,
@@ -343,6 +337,16 @@ public sealed class GameServer : INetworkHub
             Data = new FriendListData { Friends = friends }
         });
     }
+
+    private static Dictionary<string, string> BuildEquipped(Player player) =>
+        player.Equipment.Slots
+            .Where(kv => kv.Value != null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value!.Name);
+
+    private static Dictionary<string, Item> BuildEquipSlots(Player player) =>
+        player.Equipment.Slots
+            .Where(kv => kv.Value != null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value!);
 
     public StatsBreakdown BuildBreakdown(Player player)
     {

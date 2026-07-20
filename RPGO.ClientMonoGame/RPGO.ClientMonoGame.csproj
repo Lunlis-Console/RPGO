@@ -34,6 +34,17 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Content\Animations\**\*.*" Exclude="Content\Animations\**\*.mgcb">
+      <Link>Content\Animations\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Content\animations.json" Condition="Exists('Content\animations.json')">
+      <Link>Content\animations.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <Target Name="BuildGameContent" BeforeTargets="BeforeCompile" Condition="Exists('$(MGCBTool)')">
     <Exec Command="&quot;$(MGCBTool)&quot; /quiet /@:&quot;$(ContentRootDir)\Content.mgcb&quot; /platform:$(MonoGamePlatform) /outputDir:&quot;$(ContentOutputDir)&quot; /intermediateDir:&quot;$(ContentRootDir)\obj\$(MonoGamePlatform)\Content&quot; /workingDir:&quot;$(ContentRootDir)&quot;" />
   </Target>

@@ -72,4 +72,7 @@ public class Item
     public double BonusCritChance { get; set; }   // %
     public double BonusCritDamage { get; set; }   // множитель
     public double BonusEvadeChance { get; set; }  // %
+
+    // Двуручное оружие: занимает основную руку и блокирует вторую руку
+    public bool TwoHanded { get; set; }
 }

@@ -1,6 +1,6 @@
 ﻿namespace RPGGame.Shared.Models;
 
-public class Player
+public class Player : ICombatant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Незнакомец";

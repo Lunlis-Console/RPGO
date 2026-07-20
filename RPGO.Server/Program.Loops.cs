@@ -64,6 +64,16 @@ public partial class Program
 
                     var next = pl.Movement.Path[0];
                     pl.Movement.Path.RemoveAt(0);
+
+                    // Защита последнего рубежа: никогда не ставим игрока в стену/препятствие.
+                    if (next.X < 0 || next.X >= World.Map.Width
+                        || next.Y < 0 || next.Y >= World.Map.Height
+                        || World.Map.IsObstacle(next.X, next.Y))
+                    {
+                        pl.Movement.Stop();
+                        continue;
+                    }
+
                     pl.X = next.X;
                     pl.Y = next.Y;
                     pl.Movement.LastMoveTime = DateTime.UtcNow;
@@ -465,9 +475,26 @@ public partial class Program
                         {
                             pl.Combat.Cancel();
 
+                            // Показываемый урон не превышает оставшееся ХП монстра
+                            // (monster.Health уже уменьшено на dmgToMonster, поэтому
+                            //  прежнее ХП = monster.Health + dmgToMonster).
+                            int shownDmg = Math.Max(0, monster.Health + dmgToMonster);
+
                             string critText = isCrit ? " (КРИТ!)" : "";
                             Log.Info($"{pl.Name} убил {monster.Name}!{critText}");
-                            await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {dmgToMonster} урона{critText} и убили {monster.Name}!");
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {shownDmg} урона{critText} и убили {monster.Name}!");
+
+                            // Всплывающая цифра последнего (смертельного) удара по монстру
+                            if (!isEvaded)
+                            {
+                                var killDmgMsg = new GameMessage
+                                {
+                                    Type = "damage",
+                                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = shownDmg, IsCrit = isCrit }
+                                };
+                                await Hub.SendToClient(client, killDmgMsg);
+                                await Hub.SendDamageNearbyAsync(monster.X, monster.Y, killDmgMsg, pl);
+                            }
 
                             await Hub.SendToClient(client, new GameMessage
                             {
