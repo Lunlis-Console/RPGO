@@ -30,31 +30,10 @@ public static class InventoryHelper
         while (qty > 0)
         {
             int take = cap > 1 ? Math.Min(cap, qty) : 1;
-            var clone = new Item
-            {
-                Id = Guid.NewGuid().ToString(),
-                TemplateId = item.TemplateId,
-                Name = item.Name,
-                Type = item.Type,
-                Value = item.Value,
-                MaxHealthBonus = item.MaxHealthBonus,
-                HealAmount = item.HealAmount,
-                Description = item.Description,
-                MaxStack = cap,
-                Quantity = take,
-                BonusStrength = item.BonusStrength,
-                BonusEndurance = item.BonusEndurance,
-                BonusAgility = item.BonusAgility,
-                BonusCunning = item.BonusCunning,
-                BonusIntellect = item.BonusIntellect,
-                BonusWisdom = item.BonusWisdom,
-                BonusCritChance = item.BonusCritChance,
-                BonusCritDamage = item.BonusCritDamage,
-                BonusEvadeChance = item.BonusEvadeChance,
-                TwoHanded = item.TwoHanded,
-                DamageType = item.DamageType,
-                AttackSpeedModifier = item.AttackSpeedModifier
-            };
+            var clone = item.Clone();
+            clone.Id = Guid.NewGuid().ToString();
+            clone.Quantity = take;
+            clone.MaxStack = cap;
             player.Inventory.Add(clone);
             qty -= take;
         }

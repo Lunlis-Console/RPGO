@@ -86,19 +86,5 @@ public class Equipment
         return eq;
     }
 
-    private static Item CloneItem(Item src) => new Item
-    {
-        Id = src.Id, Name = src.Name, Type = src.Type, Value = src.Value,
-        MaxHealthBonus = src.MaxHealthBonus, HealAmount = src.HealAmount,
-        Description = src.Description,
-        BonusStrength = src.BonusStrength, BonusEndurance = src.BonusEndurance,
-        BonusAgility = src.BonusAgility, BonusCunning = src.BonusCunning,
-        BonusIntellect = src.BonusIntellect, BonusWisdom = src.BonusWisdom,
-        BonusPhysAttack = src.BonusPhysAttack, BonusMagAttack = src.BonusMagAttack,
-        BonusDefense = src.BonusDefense, BonusResistance = src.BonusResistance,
-        BonusCritChance = src.BonusCritChance, BonusCritDamage = src.BonusCritDamage,
-        BonusEvadeChance = src.BonusEvadeChance, BonusAttackSpeed = src.BonusAttackSpeed,
-        TwoHanded = src.TwoHanded, DamageType = src.DamageType,
-        AttackSpeedModifier = src.AttackSpeedModifier, WeaponSubtype = src.WeaponSubtype
-    };
+    private static Item CloneItem(Item src) => src.Clone();
 }

@@ -82,4 +82,6 @@ public class Item
 
     // Двуручное оружие
     public bool TwoHanded { get; set; }
+
+    public Item Clone() => (Item)MemberwiseClone();
 }

@@ -82,31 +82,9 @@ public class EquipHandler : BaseHandler
         if (item.Quantity > 1)
         {
             item.Quantity -= 1;
-            equipped = new Item
-            {
-                Id = Guid.NewGuid().ToString(),
-                TemplateId = item.TemplateId,
-                Name = item.Name,
-                Type = item.Type,
-                Value = item.Value,
-                MaxHealthBonus = item.MaxHealthBonus,
-                HealAmount = item.HealAmount,
-                Description = item.Description,
-                MaxStack = item.MaxStack,
-                Quantity = 1,
-                BonusStrength = item.BonusStrength,
-                BonusEndurance = item.BonusEndurance,
-                BonusAgility = item.BonusAgility,
-                BonusCunning = item.BonusCunning,
-                BonusIntellect = item.BonusIntellect,
-                BonusWisdom = item.BonusWisdom,
-                BonusCritChance = item.BonusCritChance,
-                BonusCritDamage = item.BonusCritDamage,
-                BonusEvadeChance = item.BonusEvadeChance,
-                TwoHanded = item.TwoHanded,
-                DamageType = item.DamageType,
-                AttackSpeedModifier = item.AttackSpeedModifier
-            };
+            equipped = item.Clone();
+            equipped.Id = Guid.NewGuid().ToString();
+            equipped.Quantity = 1;
         }
         else
         {

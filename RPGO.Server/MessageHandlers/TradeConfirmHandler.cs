@@ -147,36 +147,10 @@ public class TradeConfirmHandler : BaseHandler
 
     private static Item MakeCopy(Item proto, int qty)
     {
-        return new Item
-        {
-            Id = Guid.NewGuid().ToString(),
-            TemplateId = proto.TemplateId,
-            Name = proto.Name,
-            Type = proto.Type,
-            Value = proto.Value,
-            MaxHealthBonus = proto.MaxHealthBonus,
-            HealAmount = proto.HealAmount,
-            Description = proto.Description,
-            MaxStack = proto.MaxStack,
-            Quantity = qty,
-            BonusStrength = proto.BonusStrength,
-            BonusEndurance = proto.BonusEndurance,
-            BonusAgility = proto.BonusAgility,
-            BonusCunning = proto.BonusCunning,
-            BonusIntellect = proto.BonusIntellect,
-            BonusWisdom = proto.BonusWisdom,
-            BonusPhysAttack = proto.BonusPhysAttack,
-            BonusMagAttack = proto.BonusMagAttack,
-            BonusDefense = proto.BonusDefense,
-            BonusResistance = proto.BonusResistance,
-            BonusCritChance = proto.BonusCritChance,
-            BonusCritDamage = proto.BonusCritDamage,
-            BonusEvadeChance = proto.BonusEvadeChance,
-            BonusAttackSpeed = proto.BonusAttackSpeed,
-            TwoHanded = proto.TwoHanded,
-            DamageType = proto.DamageType,
-            AttackSpeedModifier = proto.AttackSpeedModifier
-        };
+        var copy = proto.Clone();
+        copy.Id = Guid.NewGuid().ToString();
+        copy.Quantity = qty;
+        return copy;
     }
 
     private static bool ValidateFinalOffer(Player player, List<TradeOfferEntry> entries, int gold)

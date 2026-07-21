@@ -55,29 +55,8 @@ public static class MerchantManager
 
     public static Item CreatePlayerCopy(Item template)
     {
-        return new Item
-        {
-            Id = Guid.NewGuid().ToString(),
-            TemplateId = template.TemplateId,
-            Name = template.Name,
-            Type = template.Type,
-            Value = template.Value,
-            MaxHealthBonus = template.MaxHealthBonus,
-            HealAmount = template.HealAmount,
-            Description = template.Description,
-            MaxStack = template.MaxStack,
-            BonusStrength = template.BonusStrength,
-            BonusEndurance = template.BonusEndurance,
-            BonusAgility = template.BonusAgility,
-            BonusCunning = template.BonusCunning,
-            BonusIntellect = template.BonusIntellect,
-            BonusWisdom = template.BonusWisdom,
-            BonusCritChance = template.BonusCritChance,
-            BonusCritDamage = template.BonusCritDamage,
-            BonusEvadeChance = template.BonusEvadeChance,
-            TwoHanded = template.TwoHanded,
-            DamageType = template.DamageType,
-            AttackSpeedModifier = template.AttackSpeedModifier
-        };
+        var copy = template.Clone();
+        copy.Id = Guid.NewGuid().ToString();
+        return copy;
     }
 }

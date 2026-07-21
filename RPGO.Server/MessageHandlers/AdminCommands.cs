@@ -72,31 +72,9 @@ public static class AdminCommands
 
         for (int i = 0; i < count; i++)
         {
-            var clone = new Item
-            {
-                TemplateId = template.TemplateId,
-                Name = template.Name,
-                Type = template.Type,
-                Value = template.Value,
-                MaxHealthBonus = template.MaxHealthBonus,
-                HealAmount = template.HealAmount,
-                Description = template.Description,
-                BonusStrength = template.BonusStrength,
-                BonusEndurance = template.BonusEndurance,
-                BonusAgility = template.BonusAgility,
-                BonusCunning = template.BonusCunning,
-                BonusIntellect = template.BonusIntellect,
-                BonusWisdom = template.BonusWisdom,
-                BonusCritChance = template.BonusCritChance,
-                BonusCritDamage = template.BonusCritDamage,
-                BonusEvadeChance = template.BonusEvadeChance,
-                TwoHanded = template.TwoHanded,
-                DamageType = template.DamageType,
-                AttackSpeedModifier = template.AttackSpeedModifier,
-                WeaponSubtype = template.WeaponSubtype,
-                MaxStack = template.MaxStack,
-                Quantity = 1
-            };
+            var clone = template.Clone();
+            clone.Id = Guid.NewGuid().ToString();
+            clone.Quantity = 1;
             player.Inventory.Add(clone);
         }
 
