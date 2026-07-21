@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 using System.Text.Json.Serialization;
 
 namespace RPGGame.ClientMonoGame.Networking;
@@ -146,12 +147,6 @@ public sealed class TradeConfirmData
     public bool OtherConfirmed { get; set; }
 }
 
-public sealed class TradeOfferEntry
-{
-    public string? ItemId { get; set; }
-    public int Quantity { get; set; }
-}
-
 public sealed class TradeCompleteData
 {
     public bool Success { get; set; }
@@ -183,14 +178,6 @@ public sealed class BreakdownData
     public EffectiveData? Effective { get; set; }
 }
 
-public sealed class BreakdownPart
-{
-    public double Base { get; set; }
-    public double AttrBonus { get; set; }
-    public double EquipBonus { get; set; }
-    public double Total { get; set; }
-}
-
 public sealed class EffectiveData
 {
     public int Strength { get; set; }
@@ -208,22 +195,6 @@ public sealed class DebuffInfo
     public double Value { get; set; }
     public int RemainingMs { get; set; }
     public int DurationMs { get; set; }
-}
-
-public sealed class PartyMemberInfo
-{
-    public Guid PlayerId { get; set; }
-    public string? Name { get; set; }
-    public int Health { get; set; }
-    public int MaxHealth { get; set; }
-    public int Level { get; set; }
-}
-
-public sealed class PartyData
-{
-    public Guid LeaderId { get; set; }
-    public string LeaderName { get; set; } = "";
-    public List<PartyMemberInfo> Members { get; set; } = new();
 }
 
 public sealed class ClientSkillInfo

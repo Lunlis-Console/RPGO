@@ -8,6 +8,7 @@ using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Rendering;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 
 namespace RPGGame.ClientMonoGame.Windows
 {

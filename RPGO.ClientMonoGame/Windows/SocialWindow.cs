@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.ClientMonoGame.Rendering;
+using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Collections.Generic;
 
@@ -19,7 +20,7 @@ public class SocialWindow : GameWindow
     private float _resultTimer;
 
     // Текущее состояние группы (для вкладки "Пати")
-    private PartyData? _party;
+    private PartyInfo? _party;
     private int _selectedMemberIndex = -1;
     private Rectangle _transferBtnRect;
     private Rectangle _kickBtnRect;
@@ -84,7 +85,7 @@ public class SocialWindow : GameWindow
         if (_selectedFriendIndex >= _friends.Count) _selectedFriendIndex = -1;
     }
 
-    private void OnPartyUpdated(PartyData data)
+    private void OnPartyUpdated(PartyInfo data)
     {
         _inParty = data.Members.Count > 0;
         _isPartyLeader = data.LeaderId == _client.PlayerId;

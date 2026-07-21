@@ -12,7 +12,7 @@ public class HudRenderer
     private bool _inCombat;
     private string? _targetName;
     private int _targetHp, _targetMaxHp;
-    private PartyData? _party;
+    private PartyInfo? _party;
     private EntityInfo? _selectedEntity;
 
     // Позиции UI-элементов
@@ -27,7 +27,7 @@ public class HudRenderer
         _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp;
     }
     public void ClearTarget() { _selectedEntity = null; }
-    public void UpdateParty(PartyData party)
+    public void UpdateParty(PartyInfo party)
     {
         // Лидер всегда первым в списке (для HUD-панели группы).
         if (party.Members.Count > 1)
@@ -36,7 +36,7 @@ public class HudRenderer
                 .OrderBy(m => m.PlayerId == party.LeaderId ? 0 : 1)
                 .ThenBy(m => m.Name)
                 .ToList();
-            _party = new PartyData
+            _party = new PartyInfo
             {
                 LeaderId = party.LeaderId,
                 LeaderName = party.LeaderName,
@@ -49,7 +49,7 @@ public class HudRenderer
         }
     }
     public void ClearParty() => _party = null;
-    public PartyData? Party => _party;
+    public PartyInfo? Party => _party;
     public void SetSelectedEntity(EntityInfo? entity) => _selectedEntity = entity;
 
     public void DrawLeftPanel(SpriteBatch sb, float x, float y, float w, float h)

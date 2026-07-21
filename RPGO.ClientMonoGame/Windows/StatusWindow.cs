@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.ClientMonoGame.Rendering;
+using RPGGame.Shared.Models;
 
 namespace RPGGame.ClientMonoGame.Windows;
 

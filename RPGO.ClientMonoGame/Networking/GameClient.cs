@@ -64,7 +64,7 @@ public sealed class GameClient
 
     // HUD
     public event Action<bool, string?, int, int>? CombatStateUpdated;
-    public event Action<PartyData>? PartyUpdated;
+    public event Action<PartyInfo>? PartyUpdated;
     public event Action? PartyDisbanded;
     public event Action<string, string>? PartyInviteReceived;
     public event Action<string>? TradeRequestReceived;
@@ -366,7 +366,7 @@ public sealed class GameClient
                     break;
 
                 case "party_update":
-                    var party = message.Deserialize<PartyData>();
+                    var party = message.Deserialize<PartyInfo>();
                     if (party != null)
                         Ui(() => PartyUpdated?.Invoke(party));
                     break;

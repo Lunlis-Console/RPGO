@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 
 namespace RPGGame.Server;
 

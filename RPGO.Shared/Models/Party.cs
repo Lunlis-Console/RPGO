@@ -16,3 +16,11 @@ public class PartyMemberInfo
     public int MaxHealth { get; set; }
     public int Level { get; set; }
 }
+
+public class PartyData
+{
+    public Guid Id { get; set; }
+    public Guid LeaderId { get; set; }
+    public string LeaderName { get; set; } = "";
+    public List<Guid> Members { get; set; } = new();
+}

@@ -1,4 +1,4 @@
-namespace RPGGame.Server;
+namespace RPGGame.Shared.Network;
 
 public sealed class TradeOfferEntry
 {
