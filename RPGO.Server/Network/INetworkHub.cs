@@ -22,5 +22,7 @@ public interface INetworkHub
     Task SendHotbar(ClientConnection connection, Player player);
     Task SendSkills(ClientConnection connection);
     Task SendError(ClientConnection connection, string code, string message);
+    Task SendFriendListToAsync(ClientConnection connection, Player player);
     StatsBreakdown BuildBreakdown(Player player);
+    Task KickPlayer(ClientConnection connection, string reason);
 }

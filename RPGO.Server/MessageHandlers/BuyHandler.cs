@@ -33,8 +33,7 @@ public class BuyHandler : BaseHandler
         int stock = Math.Max(1, template.Stock);
         if (qty > stock) qty = stock;
 
-        int buyDiscount = Balance.ShopDiscountPct(player.Cunning);
-        int price = Balance.BuyPrice(template.Value, buyDiscount);
+        int price = Balance.BuyPrice(template.Value);
         int totalCost = price * qty;
 
         if (player.Gold < totalCost)

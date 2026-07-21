@@ -1,0 +1,77 @@
+[22:23:20 INF] Загрузка аккаунтов...
+[Migrations] Checking for pending migrations...
+[Migrations] Found 11 VersionInfo rows — removing duplicates...
+-------------------------------------------------------------------------------
+12: ConvertItemsToNewSlots migrating
+-------------------------------------------------------------------------------
+Beginning Transaction
+ExecuteSqlStatement UPDATE items SET type='ring'  WHERE type='accessory'
+ExecuteSqlStatement UPDATE items SET type='chest' WHERE type='armor'
+ExecuteSqlStatement UPDATE player_equipment SET slot='rhand'  WHERE slot='weapon'
+ExecuteSqlStatement UPDATE player_equipment SET slot='torso'  WHERE slot='armor'
+ExecuteSqlStatement UPDATE player_equipment SET slot='ring_r' WHERE slot='accessory'
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0201','Железный шлем','helmet',15,0,2,5,0,1,'Простой защитный шлем.',0,0,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0202','Стальной шлем','helmet',40,0,5,12,0,1,'Крепкий шлем из стали.',0,1,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0203','Поношенный плащ','cloak',10,0,1,0,0,1,'Лёгкий плащ, чуть укрывает от ударов.',0,0,0,0,0,0,0,0,2,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0204','Шёлковый плащ','cloak',35,0,2,0,0,1,'Тонкий плащ, ускользает от врагов.',0,0,1,0,1,0,0,0,5,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0205','Железные поножи','legs',15,0,2,5,0,1,'Защита для ног.',0,0,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0206','Стальные поножи','legs',45,0,5,15,0,1,'Тяжёлые поножи.',0,2,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0207','Кожаные сапоги','boots',10,0,1,0,0,1,'Удобная обувь.',0,0,1,0,0,0,0,0,3,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0208','Стальные сапоги','boots',35,0,3,0,0,1,'Прочные сапоги.',0,0,2,0,0,0,0,0,6,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0209','Кожаные перчатки','gloves',10,0,1,0,0,1,'Лёгкие перчатки.',0,0,1,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0210','Стальные перчатки','gloves',30,1,2,0,0,1,'Боевые перчатки.',0,0,2,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0211','Деревянный щит','shield',15,0,3,0,0,1,'Простой щит.',0,0,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0212','Стальной щит','shield',40,0,7,0,0,1,'Надёжный щит.',0,1,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0213','Серебряное ожерелье','necklace',25,1,1,5,0,1,'Украшение с магией.',0,0,0,0,0,0,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0214','Ожерелье мудреца','necklace',60,0,0,10,0,1,'Хранит знание.',0,0,0,0,2,3,0,0,0,0
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0215','Двуручный топор','twohand',50,9,0,0,0,1,'Тяжёлый топор, требует обеих рук.',2,0,0,0,0,0,0,0,0,1
+ExecuteSqlStatement INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed) SELECT 'I0216','Двуручный меч','twohand',70,14,0,0,0,1,'Огромный клинок.',3,0,1,0,0,0,0,0,0,1
+Committing Transaction
+12: ConvertItemsToNewSlots migrated
+[Migrations] Done.
+[22:23:21 INF] База данных инициализирована
+[22:23:21 INF] Загрузка контента (магазин, квесты)...
+[22:23:21 INF] Загружено предметов магазина: 30
+[22:23:21 INF] Загружено квестов: 6
+[22:23:21 INF] Loot table loaded: 28 entries
+[22:23:21 INF] Создание монстров...
+[22:23:21 INF] Сервер запущен на порту 7777
+[22:23:21 INF] Время: 20.07.2026 22:23:21
+[22:23:21 INF] Мир: 100x100
+[22:23:21 INF] Аккаунтов: 3
+[22:23:21 INF] IP адреса для подключения:
+[22:23:21 INF]   127.0.0.1 (localhost)
+[22:23:21 INF]   192.168.0.26
+[22:23:21 INF] Ожидание игроков...

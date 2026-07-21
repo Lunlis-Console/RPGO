@@ -36,7 +36,7 @@ public class MonsterStatsTests
     [Fact]
     public void GetTotalDefense_Level3_Sta5_Returns7()
     {
-        var m = new Monster { Level = 3, Stamina = 5 };
+        var m = new Monster { Level = 3, Endurance = 5 };
         // BaseDef=3 + (5-1)*1=4 = 7
         Assert.Equal(7, m.GetTotalDefense());
     }

@@ -12,7 +12,6 @@ public class ShopRequestHandler : BaseHandler
     {
         if (player == null) return;
 
-        int discountPct = Balance.ShopDiscountPct(player.Cunning);
         await SendToClient(connection, new GameMessage
         {
             Type = "shop_response",
@@ -21,13 +20,13 @@ public class ShopRequestHandler : BaseHandler
                 MerchantX = MerchantManager.MerchantX,
                 MerchantY = MerchantManager.MerchantY,
                 MerchantName = "Торговец",
-                Discount = discountPct,
+                Discount = 0,
                 Items = MerchantManager.ShopItems.Select(i => new
                 {
                     i.Id, i.Name, i.Type,
-                    Value = Balance.BuyPrice(i.Value, discountPct),
+                    Value = Balance.BuyPrice(i.Value),
                     OriginalValue = i.Value,
-                    i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.Description,
+                    i.MaxHealthBonus, i.HealAmount, i.Description,
                     i.Stock,
                     IsBuyback = false
                 }).ToList(),
@@ -36,7 +35,7 @@ public class ShopRequestHandler : BaseHandler
                     i.Id, i.Name, i.Type,
                     Value = Balance.BuybackPrice(i.Value),
                     OriginalValue = i.Value,
-                    i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.Description,
+                    i.MaxHealthBonus, i.HealAmount, i.Description,
                     IsBuyback = true
                 }).ToList(),
                 PlayerGold = player.Gold

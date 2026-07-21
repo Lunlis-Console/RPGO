@@ -42,7 +42,7 @@ public sealed class GameClient
     public event Action? Connected;
     public event Action<string>? Disconnected;
     public event Action<string>? SystemMessage;
-    public event Action<string, string, string>? ChatReceived;
+    public event Action<string, string, string, bool>? ChatReceived;
     public event Action? WelcomeReceived;
     public event Action<WorldMap>? MapUpdated;
     public event Action<StatusData>? StatusUpdated;
@@ -50,13 +50,17 @@ public sealed class GameClient
     public event Action<List<QuestInfo>, List<QuestInfo>>? QuestLogUpdated;
     public event Action<string>? ErrorReceived;
     public event Action<GameMessage>? UnknownMessage;
-    public event Action<int, int, string, uint>? FloatingTextReceived;
+    public event Action<int, int, string, uint, bool>? FloatingTextReceived;
     public event Action<ShopData>? ShopUpdated;
     public event Action<TradeOpenData>? TradeOpened;
     public event Action<TradeOfferData>? TradeOfferUpdated;
     public event Action<TradeConfirmData>? TradeConfirmUpdated;
     public event Action<TradeCompleteData>? TradeCompleted;
     public event Action<string>? TradeClosed;
+
+    // Друзья
+    public event Action<List<FriendInfo>>? FriendListUpdated;
+    public event Action<bool, string>? FriendResultReceived;
 
     // HUD
     public event Action<bool, string?, int, int>? CombatStateUpdated;
@@ -98,6 +102,15 @@ public sealed class GameClient
         _ = SendAsync("login_auth", new { Login = login, Password = password });
     }
 
+    public void RequestFriendList()
+        => _ = SendAsync("friend", new { Action = "list" });
+
+    public void AddFriend(string targetName)
+        => _ = SendAsync("friend", new { Action = "add", TargetName = targetName });
+
+    public void RemoveFriend(string targetName)
+        => _ = SendAsync("friend", new { Action = "remove", TargetName = targetName });
+
     public void OnConnected()
     {
         IsConnected = true;
@@ -121,11 +134,16 @@ public sealed class GameClient
             Mana = player.Mana, MaxMana = player.MaxMana,
             Gold = player.Gold, Experience = (int)player.Experience,
             AttributePoints = player.AttributePoints,
-            Strength = player.Strength, Stamina = player.Stamina,
+            Strength = player.Strength, Endurance = player.Endurance,
             Agility = player.Agility, Cunning = player.Cunning,
-            Wisdom = player.Wisdom, Will = player.Will,
-            TotalAttack = player.Attack, TotalDefense = player.Defense,
-            X = player.X, Y = player.Y
+            Intellect = player.Intellect, Wisdom = player.Wisdom,
+            PhysAttack = player.Attack, Defense = player.Defense,
+            X = player.X, Y = player.Y,
+            ActiveDebuffs = player.ActiveDebuffs.Select(d => new DebuffInfo
+            {
+                Type = d.Type, DisplayName = d.DisplayName,
+                Value = d.Value, RemainingMs = d.RemainingMs, DurationMs = d.DurationMs
+            }).ToList()
         };
         Ui(() => StatusUpdated?.Invoke(Status));
     }
@@ -175,7 +193,7 @@ public sealed class GameClient
                     if (chat != null)
                     {
                         string channel = chat.Channel ?? "System";
-                        Ui(() => ChatReceived?.Invoke(channel, chat.Name ?? "Система", chat.Text ?? ""));
+                        Ui(() => ChatReceived?.Invoke(channel, chat.Name ?? "Система", chat.Text ?? "", chat.IsAdmin));
                     }
                     break;
 
@@ -271,9 +289,36 @@ public sealed class GameClient
                         int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
                         int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
                         string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
-                        uint color = target == "monster" ? 0xFF32CD32u : 0xFFDC143Cu;
-                        string text = (amount > 0 ? "-" : "") + amount + (isCrit ? "!" : "");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, text, color));
+
+                        // Цветовое различие: урон по монстру — красный, по игроку — оранжево-красный,
+                        // крит — жёлтый (крупнее), промах — серый.
+                        uint color;
+                        string text;
+                        bool crit = isCrit;
+                        if (amount <= 0)
+                        {
+                            color = 0xFFAAAAAAu;   // серый
+                            text = "Промах";
+                            crit = false;
+                        }
+                        else if (crit)
+                        {
+                            color = 0xFFFFD040u;   // жёлтый (крит)
+                            text = "-" + amount + "!";
+                        }
+                        else if (target == "player")
+                        {
+                            color = 0xFFF06040u;   // оранжево-красный (по игроку)
+                            text = "-" + amount;
+                        }
+                        else
+                        {
+                            color = 0xFFE04040u;   // красный (по монстру/НПС)
+                            text = "-" + amount;
+                        }
+
+                        Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
                     }
                     break;
 
@@ -283,7 +328,9 @@ public sealed class GameClient
                         int amount = healEl.TryGetProperty("Amount", out var ham) ? ham.GetInt32() : 0;
                         int x = healEl.TryGetProperty("X", out var hxp) ? hxp.GetInt32() : 0;
                         int y = healEl.TryGetProperty("Y", out var hyp) ? hyp.GetInt32() : 0;
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF32CD32u));
+                        // Зелёный для лечения — визуально отличается от красного урона
+                        Logger.Debug($"FLT heal argb={0xFF40E060u:X8} text=+{amount}");
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF40E060u, false));
                     }
                     break;
 
@@ -305,17 +352,17 @@ public sealed class GameClient
 
                 case "party_invite_sent":
                     if (message.Data is JsonElement pis && pis.TryGetProperty("TargetName", out var ptn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"Приглашение отправлено {ptn.GetString()}"));
+                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"Приглашение отправлено {ptn.GetString()}", false));
                     break;
 
                 case "party_invite_declined":
                     if (message.Data is JsonElement pdec && pdec.TryGetProperty("TargetName", out var pdn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"{pdn.GetString()} отказал(а) от приглашения"));
+                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"{pdn.GetString()} отказал(а) от приглашения", false));
                     break;
 
                 case "trade_request_sent":
                     if (message.Data is JsonElement trs && trs.TryGetProperty("TargetName", out var trn))
-                        Ui(() => ChatReceived?.Invoke("System", "Трейд", $"Запрос обмена отправлен {trn.GetString()}"));
+                        Ui(() => ChatReceived?.Invoke("System", "Трейд", $"Запрос обмена отправлен {trn.GetString()}", false));
                     break;
 
                 case "party_update":
@@ -418,6 +465,21 @@ public sealed class GameClient
                 case "board_open":
                 case "open_board":
                     Ui(() => BoardOpened?.Invoke());
+                    break;
+
+                case "friend_list":
+                    var fl = message.Deserialize<FriendListData>();
+                    if (fl != null)
+                        Ui(() => FriendListUpdated?.Invoke(fl.Friends));
+                    break;
+
+                case "friend_result":
+                    if (message.Data is JsonElement frEl)
+                    {
+                        bool ok = frEl.TryGetProperty("Success", out var okEl) && okEl.GetBoolean();
+                        string msg = frEl.TryGetProperty("Message", out var mEl) ? (mEl.GetString() ?? "") : "";
+                        Ui(() => FriendResultReceived?.Invoke(ok, msg));
+                    }
                     break;
 
                 case "attack_cooldown":

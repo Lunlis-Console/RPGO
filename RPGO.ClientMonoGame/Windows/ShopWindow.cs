@@ -274,30 +274,11 @@ public class ShopWindow : GameWindow
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)
     {
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null) return;
-        var lines = new List<string> { item.Name, $"Цена: {DiscountedPrice(item)} золота" };
-        if (item.Attack > 0) lines.Add($"Атака: +{item.Attack}");
-        if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
-        if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
-        if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
         int stock = Math.Max(1, item.Stock);
-        if (stock > 1) lines.Add($"В наличии: {stock}");
-        if (!string.IsNullOrEmpty(item.Description)) lines.Add(item.Description);
-
-        int pad = 8;
-        float tw = 0;
-        foreach (var l in lines) tw = Math.Max(tw, font.MeasureString(l).X);
-        int th = lines.Count * 18 + pad * 2;
-        int tx = mouse.X + 16, ty = mouse.Y + 16, ww = (int)tw + pad * 2;
-        if (tx + ww > GameMain.Instance!.Graphics.PreferredBackBufferWidth) tx = GameMain.Instance!.Graphics.PreferredBackBufferWidth - ww - 4;
-        if (ty + th > GameMain.Instance!.Graphics.PreferredBackBufferHeight) ty = GameMain.Instance!.Graphics.PreferredBackBufferHeight - th - 4;
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, th), new Color(20, 22, 30, 230));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(160, 130, 80));
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var color = i == 0 ? new Color(230, 220, 140) : Color.White;
-            sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
-        }
+        var lines = ItemTooltip.BuildLines(item, overrideValue: DiscountedPrice(item), stockOverride: stock);
+        var g = GameMain.Instance;
+        int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
+        int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
+        TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
     }
 }

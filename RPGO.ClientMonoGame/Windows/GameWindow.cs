@@ -36,7 +36,7 @@ public class GameWindow
     private static readonly Color CloseHover = new Color(200, 60, 60);
     private static readonly Color CloseNormal = new Color(140, 40, 40);
 
-    private MouseState _prevMouse;
+    protected MouseState _prevMouse;
 
     public virtual void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {

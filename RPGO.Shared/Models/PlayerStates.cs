@@ -31,6 +31,7 @@ public class CombatState
     public bool InCombat { get; set; }
     public Guid? TargetMonsterId { get; set; }
     public DateTime LastAttackTime { get; set; } = DateTime.MinValue;
+    public DateTime OffHandLastAttackTime { get; set; } = DateTime.MinValue;
 
     public bool HasTarget => TargetMonsterId != null;
 
@@ -39,6 +40,7 @@ public class CombatState
         TargetMonsterId = monsterId;
         InCombat = true;
         movement.Stop();
+        OffHandLastAttackTime = DateTime.MinValue;
     }
 
     public void Cancel()

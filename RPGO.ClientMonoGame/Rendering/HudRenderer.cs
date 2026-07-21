@@ -27,7 +27,27 @@ public class HudRenderer
         _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp;
     }
     public void ClearTarget() { _selectedEntity = null; }
-    public void UpdateParty(PartyData party) => _party = party;
+    public void UpdateParty(PartyData party)
+    {
+        // Лидер всегда первым в списке (для HUD-панели группы).
+        if (party.Members.Count > 1)
+        {
+            var ordered = party.Members
+                .OrderBy(m => m.PlayerId == party.LeaderId ? 0 : 1)
+                .ThenBy(m => m.Name)
+                .ToList();
+            _party = new PartyData
+            {
+                LeaderId = party.LeaderId,
+                LeaderName = party.LeaderName,
+                Members = ordered
+            };
+        }
+        else
+        {
+            _party = party;
+        }
+    }
     public void ClearParty() => _party = null;
     public PartyData? Party => _party;
     public void SetSelectedEntity(EntityInfo? entity) => _selectedEntity = entity;

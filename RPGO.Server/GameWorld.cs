@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 
 namespace RPGGame.Server;
 
@@ -71,11 +72,45 @@ public sealed class GameWorld
             _players.RemoveAll(p => p.Name.Equals(player.Name, StringComparison.OrdinalIgnoreCase));
             _players.Add(player);
         }
+        // Друзьям игрока — обновить списки и сообщить о входе
+        NotifyFriendsAsync(player.Name, online: true);
     }
 
     public void RemovePlayer(Player player)
     {
         lock (_lock) _players.Remove(player);
+        // Друзьям игрока — обновить списки и сообщить о выходе
+        NotifyFriendsAsync(player.Name, online: false);
+    }
+
+    /// <summary>
+    /// Рассылает обновлённый список друзей всем, у кого этот игрок в друзьях
+    /// (чтобы онлайн-статус менялся в реальном времени, без перезахода в окно),
+    /// и оповещает в системный чат о входе/выходе друга.
+    /// </summary>
+    private void NotifyFriendsAsync(string playerName, bool online)
+    {
+        try
+        {
+            var friendOwners = DatabaseManager.GetReverseFriendNames(playerName);
+            foreach (var owner in friendOwners)
+            {
+                if (!this.TryGetPlayerByName(owner, out var ownerPlayer) || ownerPlayer == null) continue;
+                var conn = FindClientByPlayer(ownerPlayer);
+                if (conn == null) continue;
+
+                _ = Program.Hub.SendFriendListToAsync(conn, ownerPlayer);
+
+                string text = online
+                    ? $"Друг {playerName} зашёл(а) в игру"
+                    : $"Друг {playerName} вышел(а) из игры";
+                _ = Program.Hub.SendChatToAsync(conn, ChatChannel.System, "Друзья", text);
+            }
+        }
+        catch
+        {
+            // Не падаем сервер из-за уведомления друзей
+        }
     }
 
     public List<Player> GetPlayersSnapshot()
@@ -135,6 +170,12 @@ public List<ClientConnection> GetAllConnectionsSnapshot()
     public ClientConnection? FindClientByPlayer(Player player)
     {
         lock (_lock) return _clients.FirstOrDefault(c => c.Player == player);
+    }
+
+    public void DisconnectPlayer(ClientConnection connection)
+    {
+        RemoveClient(connection);
+        try { connection.Client.Close(); } catch { /* already closing */ }
     }
 
     // --- Монстры ---

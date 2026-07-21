@@ -6,8 +6,10 @@ public static class Pathfinding
 {
     private static GameMap Map => Program.World.Map;
 
-    private static readonly int[] Dx = { 0, 0, -1, 1, -1, -1, 1, 1 };
-    private static readonly int[] Dy = { -1, 1, 0, 0, -1, 1, -1, 1 };
+    // Только 4 ортогональных направления — движение строго по сторонам света,
+    // без диагональных шагов (ни для игроков, ни для мобов).
+    private static readonly int[] Dx = { 0, 0, -1, 1 };
+    private static readonly int[] Dy = { -1, 1, 0, 0 };
 
     public static List<(int X, int Y)> FindPath(int startX, int startY, int targetX, int targetY)
     {
@@ -35,7 +37,7 @@ public static class Pathfinding
                 break;
             }
 
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < Dx.Length; i++)
             {
                 int nx = cx + Dx[i];
                 int ny = cy + Dy[i];
@@ -44,22 +46,7 @@ public static class Pathfinding
                 if (visited[nx, ny]) continue;
                 if (nx == MerchantManager.MerchantX && ny == MerchantManager.MerchantY) continue;
                 if (nx == QuestManager.BoardX && ny == QuestManager.BoardY) continue;
-
-                // Диагональные движения: нельзя срезать углы через блокированные клетки
-                if (i >= 4) // диагональ
-                {
-                    int ox1 = cx + Dx[i];
-                    int oy1 = cy;
-                    int ox2 = cx;
-                    int oy2 = cy + Dy[i];
-                    if ((ox1 == MerchantManager.MerchantX && oy1 == MerchantManager.MerchantY) ||
-                        (ox1 == QuestManager.BoardX && oy1 == QuestManager.BoardY) ||
-                        (ox2 == MerchantManager.MerchantX && oy2 == MerchantManager.MerchantY) ||
-                        (ox2 == QuestManager.BoardX && oy2 == QuestManager.BoardY))
-                    {
-                        continue; // срезаем угол через препятствие
-                    }
-                }
+                if (Map.IsObstacle(nx, ny)) continue;
 
                 visited[nx, ny] = true;
                 parent[nx, ny] = (cx, cy);

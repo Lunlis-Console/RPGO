@@ -21,11 +21,11 @@ public class AllocateAttributeHandler : BaseHandler
         switch (attrName)
         {
             case "strength": player.Strength++; break;
-            case "stamina": player.Stamina++; player.MaxHealth += Balance.MaxHealthPerStamina; break;
+            case "endurance": player.Endurance++; player.MaxHealth += Balance.MaxHealthPerEndurance; break;
             case "agility": player.Agility++; break;
             case "cunning": player.Cunning++; break;
+            case "intellect": player.Intellect++; break;
             case "wisdom": player.Wisdom++; break;
-            case "will": player.Will++; break;
             default: valid = false; break;
         }
 
@@ -33,7 +33,6 @@ public class AllocateAttributeHandler : BaseHandler
 
         player.AttributePoints--;
         Log.Debug($"{player.Name} повысил {attrName} (+1). Очков: {player.AttributePoints}");
-        // Сохраняем сразу, чтобы изменения не потерялись при выходе без корректного logout
         DatabaseManager.SavePlayerProgress(player);
         await SendToClient(connection, new GameMessage
         {

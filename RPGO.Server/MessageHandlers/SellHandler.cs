@@ -52,22 +52,28 @@ public class SellHandler : BaseHandler
             Name = first.Name,
             Type = first.Type,
             Value = first.Value,
-            Attack = first.Attack,
-            Defense = first.Defense,
             MaxHealthBonus = first.MaxHealthBonus,
             HealAmount = first.HealAmount,
             Description = first.Description,
             MaxStack = first.MaxStack,
             Quantity = toSell,
             BonusStrength = first.BonusStrength,
-            BonusStamina = first.BonusStamina,
+            BonusEndurance = first.BonusEndurance,
             BonusAgility = first.BonusAgility,
             BonusCunning = first.BonusCunning,
+            BonusIntellect = first.BonusIntellect,
             BonusWisdom = first.BonusWisdom,
-            BonusWill = first.BonusWill,
+            BonusPhysAttack = first.BonusPhysAttack,
+            BonusMagAttack = first.BonusMagAttack,
+            BonusDefense = first.BonusDefense,
+            BonusResistance = first.BonusResistance,
             BonusCritChance = first.BonusCritChance,
             BonusCritDamage = first.BonusCritDamage,
-            BonusEvadeChance = first.BonusEvadeChance
+            BonusEvadeChance = first.BonusEvadeChance,
+            BonusAttackSpeed = first.BonusAttackSpeed,
+            TwoHanded = first.TwoHanded,
+            DamageType = first.DamageType,
+            AttackSpeedModifier = first.AttackSpeedModifier
         };
         player.BuybackItems.Add(buybackCopy);
         Log.Info($"{player.Name} продал {first.Name} x{toSell} за {totalGain} золота");
@@ -87,7 +93,7 @@ public class SellHandler : BaseHandler
                     b.Id, b.Name, b.Type,
                     Value = Balance.BuybackPrice(b.Value),
                     OriginalValue = b.Value,
-                    b.Attack, b.Defense, b.MaxHealthBonus, b.HealAmount, b.Description,
+                    b.MaxHealthBonus, b.HealAmount, b.Description,
                     IsBuyback = true
                 }).ToList()
             }

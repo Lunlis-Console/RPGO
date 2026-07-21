@@ -2,8 +2,10 @@ namespace RPGGame.Shared.Models;
 
 public class StatsBreakdown
 {
-    public BreakdownPart Attack { get; set; } = new();
+    public BreakdownPart PhysAttack { get; set; } = new();
+    public BreakdownPart MagAttack { get; set; } = new();
     public BreakdownPart Defense { get; set; } = new();
+    public BreakdownPart Resistance { get; set; } = new();
     public BreakdownPart Crit { get; set; } = new();
     public BreakdownPart CritDmg { get; set; } = new();
     public BreakdownPart Evade { get; set; } = new();
@@ -21,9 +23,9 @@ public class BreakdownPart
 public class EffectiveAttrs
 {
     public int Strength { get; set; }
-    public int Stamina { get; set; }
+    public int Endurance { get; set; }
     public int Agility { get; set; }
     public int Cunning { get; set; }
+    public int Intellect { get; set; }
     public int Wisdom { get; set; }
-    public int Will { get; set; }
 }

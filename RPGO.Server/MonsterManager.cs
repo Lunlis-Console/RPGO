@@ -18,6 +18,7 @@ public static class MonsterManager
         World.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
         World.ClearMonsters();
         SpawnMonsters(Balance.MonsterSpawnCount);
+        SpawnMannequin();
     }
 
     public static void SpawnMonsters(int count)
@@ -66,15 +67,46 @@ public static class MonsterManager
             LastMoveTime = DateTime.UtcNow.AddMilliseconds(-World.NextRandom(0, Balance.MonsterSpawnJitterMaxMs))
         };
         monster.Strength = template.Strength;
-        monster.Stamina = template.Stamina;
+        monster.Endurance = template.Endurance;
         monster.Agility = template.Agility;
         monster.Cunning = template.Cunning;
+        monster.Intellect = template.Intellect;
         monster.Wisdom = template.Wisdom;
-        monster.Will = template.Will;
         monster.CritChance = template.CritChance;
         monster.CritDamage = template.CritDamage;
         monster.EvadeChance = template.EvadeChance;
         World.AddMonster(monster);
+    }
+
+    public static void SpawnMannequin()
+    {
+        int mx = World.Map.MerchantX + Balance.MannequinOffsetX;
+        int my = World.Map.MerchantY + Balance.MannequinOffsetY;
+        mx = Math.Clamp(mx, 0, World.Map.Width - 1);
+        my = Math.Clamp(my, 0, World.Map.Height - 1);
+
+        var mannequin = new Monster
+        {
+            Name = "Манекен",
+            TemplateId = "MANNEQUIN",
+            X = mx,
+            Y = my,
+            SpawnX = mx,
+            SpawnY = my,
+            WanderRadius = 0,
+            Health = Balance.MannequinHealth,
+            MaxHealth = Balance.MannequinHealth,
+            XpReward = 0,
+            GoldReward = 0,
+            Symbol = 'D',
+            Level = 1,
+            MoveIntervalMs = 999999,
+            IsMannequin = true,
+            AggroRange = 0,
+            CritChance = 0,
+            EvadeChance = 0,
+        };
+        World.AddMonster(mannequin);
     }
 
     public static void SpawnOneMonsterPublic() => SpawnOneMonster();
@@ -156,10 +188,26 @@ public static class MonsterManager
                 int stepX = Math.Sign(m.AggroTarget.X - m.X);
                 int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
 
-                if (!TryMoveTowards(m, stepX, stepY) && stepX != 0 && stepY != 0)
+                // Движение СТРОГО по 4 сторонам (без диагональных шагов), чтобы
+                // сущности не упирались друг в друга по диагонали. При диагонали
+                // шагаем только по одной оси, не наступая на клетку цели.
+                int mx = 0, my = 0;
+                if (stepX != 0 && stepY != 0)
                 {
-                    TryMoveTowards(m, stepX, 0);
-                    TryMoveTowards(m, 0, stepY);
+                    if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y)
+                        mx = stepX; // шаг по X не ведёт прямо в клетку цели
+                    else
+                        my = stepY;
+                }
+                else if (stepX != 0)
+                    mx = stepX;
+                else if (stepY != 0)
+                    my = stepY;
+
+                if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
+                    || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
+                {
+                    TryMoveTowards(m, mx, my);
                 }
                 continue;
             }
@@ -168,9 +216,10 @@ public static class MonsterManager
 
             if (World.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
 
-            int dx = World.NextRandom(-1, 2);
-            int dy = World.NextRandom(-1, 2);
-            if (dx == 0 && dy == 0) continue;
+            // Блуждание строго по 4 сторонам: один случайный ортогональный шаг.
+            int dir = World.NextRandom(0, 4); // 0=вверх, 1=вниз, 2=влево, 3=вправо
+            int dx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
+            int dy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
 
             int nx = m.X + dx;
             int ny = m.Y + dy;
@@ -219,7 +268,8 @@ public static class MonsterManager
             Health = m.Health,
             MaxHealth = m.MaxHealth,
             Symbol = m.Symbol,
-            Level = m.Level
+            Level = m.Level,
+            IsMannequin = m.IsMannequin
         }).ToList();
     }
 
@@ -261,40 +311,114 @@ public static class MonsterManager
         }
     }
 
-    public static (int damageToMonster, int damageToPlayer, bool monsterDead, bool isCrit, bool isEvaded) CalculateCombat(Player player, Monster monster, bool applyMonsterDamage = true)
+    /// <summary>
+    /// Универсальный расчёт боя между двумя бойцами (Player/Monster/...).
+    /// Заложен как фундамент для PvP: в будущем attacker/defender могут быть
+    /// любыми ICombatant (например, игрок против игрока).
+    /// </summary>
+    public static (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
+        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true)
     {
         var rng = new Random();
 
-        bool monsterEvaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
-        int playerDamage = 0;
+        // Модификаторы дебаффов
+        double armorPen = DebuffManager.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        double dmgReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageReduction);
+        double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        double accuracyReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
+
+        double effectiveDefenderDefense = defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
+        double effectiveAttackerAttack = attacker.GetTotalAttack() * (1.0 + dmgBonus);
+
+        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100);
+        int attackerDamage = 0;
         bool isCrit = false;
-        if (!monsterEvaded)
+        if (!defenderEvaded)
         {
-            isCrit = rng.Next(Balance.ChanceRollMax) < player.GetCritChance();
-            int baseDamage = Math.Max(Balance.MinDamage, player.GetTotalAttack() - monster.GetTotalDefense());
-            playerDamage = isCrit ? (int)(baseDamage * player.GetCritDamage()) : baseDamage;
-            if (applyMonsterDamage)
+            isCrit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
+            attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
+            attackerDamage = Math.Max(Balance.MinDamage, (int)(attackerDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
+            if (applyDefenderDamage && defender is Monster mon)
             {
-                monster.Health -= playerDamage;
-                monster.LastDamagedTime = DateTime.UtcNow;
-                monster.DamageTracker[player.Id] = monster.DamageTracker.GetValueOrDefault(player.Id) + playerDamage;
+                mon.Health -= attackerDamage;
+                mon.LastDamagedTime = DateTime.UtcNow;
+                if (attacker is Player pl)
+                    mon.DamageTracker[pl.Id] = mon.DamageTracker.GetValueOrDefault(pl.Id) + attackerDamage;
             }
         }
-        bool monsterDead = monster.Health <= 0;
+        bool targetDead = defender.Health <= 0;
 
-        int monsterDamage = 0;
+        int defenderDamage = 0;
         bool isEvaded = false;
-        if (!monsterDead)
+        if (!targetDead && !(defender is Monster m && m.IsMannequin))
         {
-            isEvaded = rng.Next(Balance.ChanceRollMax) < player.GetEvadeChance();
+            isEvaded = rng.Next(Balance.ChanceRollMax) < attacker.GetEvadeChance();
             if (!isEvaded)
             {
-                bool monsterCrit = rng.Next(Balance.ChanceRollMax) < monster.GetCritChance();
-                int baseDamage = Math.Max(Balance.MinDamage, monster.GetTotalAttack() - player.GetTotalDefense());
-                monsterDamage = monsterCrit ? (int)(baseDamage * monster.GetCritDamage()) : baseDamage;
+                bool defenderCrit = rng.Next(Balance.ChanceRollMax) < defender.GetCritChance();
+                int baseDamage = Math.Max(Balance.MinDamage, defender.GetTotalAttack() - attacker.GetTotalDefense());
+                defenderDamage = defenderCrit ? (int)(baseDamage * defender.GetCritDamage()) : baseDamage;
             }
         }
 
-        return (playerDamage, monsterDamage, monsterDead, isCrit, isEvaded);
+        return (attackerDamage, defenderDamage, targetDead, isCrit, isEvaded);
+    }
+
+    /// <summary>
+    /// Расчёт урона off-hand оружия (dual wield). Без контр-удара монстра.
+    /// Возвращает (damage, isCrit, isEvaded). Урон уже умножен на OffHandDamageFraction.
+    /// GetTotalAttack() уже включает бонус атаки от ВСЕХ предметов (включая оружие в левой руке),
+    /// поэтому используем его напрямую — off-hand оружие уже "учтено" в общей атаке.
+    /// </summary>
+    public static (int damage, bool isCrit, bool isEvaded)
+        CalculateOffHandAttack(Player attacker, Monster target)
+    {
+        var rng = new Random();
+        if (!attacker.Equipment.IsDualWielding()) return (0, false, false);
+
+        bool evaded = rng.Next(Balance.ChanceRollMax) < target.GetEvadeChance();
+        if (evaded) return (0, false, true);
+
+        bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+        int baseDmg = Math.Max(Balance.MinDamage, attacker.GetTotalAttack() - target.GetTotalDefense());
+        int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
+        finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * Equipment.OffHandDamageFraction));
+        return (finalDmg, crit, false);
+    }
+
+    public static void CalculateCleave(Player attacker, Monster primaryTarget)
+    {
+        var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
+        int cleaveDmg = Math.Max(Balance.MinDamage,
+            (int)((attacker.GetTotalAttack() - primaryTarget.GetTotalDefense()) * Balance.CleaveDamageFraction));
+
+        foreach (var (cx, cy) in positions)
+        {
+            var monster = FindMonsterAt(cx, cy);
+            if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
+
+            bool evaded = new Random().Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+            if (evaded) continue;
+
+            bool crit = new Random().Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            int dmg = crit ? (int)(cleaveDmg * attacker.GetCritDamage()) : cleaveDmg;
+            dmg = Math.Max(Balance.MinDamage, dmg);
+            monster.Health -= dmg;
+            monster.LastDamagedTime = DateTime.UtcNow;
+            monster.DamageTracker[attacker.Id] = monster.DamageTracker.GetValueOrDefault(attacker.Id) + dmg;
+        }
+    }
+
+    private static List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
+    {
+        return facing switch
+        {
+            "up"    => new List<(int, int)> { (px - 1, py - 1), (px, py - 1), (px + 1, py - 1) },
+            "down"  => new List<(int, int)> { (px - 1, py + 1), (px, py + 1), (px + 1, py + 1) },
+            "left"  => new List<(int, int)> { (px - 1, py - 1), (px - 1, py), (px - 1, py + 1) },
+            "right" => new List<(int, int)> { (px + 1, py - 1), (px + 1, py), (px + 1, py + 1) },
+            _       => new List<(int, int)>()
+        };
     }
 }

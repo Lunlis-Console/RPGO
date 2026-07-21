@@ -21,11 +21,12 @@ public class InventoryRequestHandler : BaseHandler
                 Gold = player.Gold,
                 Equipment = new
                 {
-                    Weapon = player.Equipment.Weapon,
-                    Armor = player.Equipment.Armor,
-                    Accessory = player.Equipment.Accessory
+                    Slots = player.Equipment.Slots
+                        .Where(kv => kv.Value != null)
+                        .ToDictionary(kv => kv.Key, kv => kv.Value!)
                 },
-                BonusAttack = player.Equipment.GetBonusAttack(),
+                BonusPhysAttack = player.Equipment.GetBonusPhysAttack(),
+                BonusMagAttack = player.Equipment.GetBonusMagAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
                 BonusMaxHealth = player.Equipment.GetBonusMaxHealth()
             }

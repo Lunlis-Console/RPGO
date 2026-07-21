@@ -1,6 +1,6 @@
 ﻿namespace RPGGame.Shared.Models;
 
-public class Player
+public class Player : ICombatant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Незнакомец";
@@ -10,8 +10,6 @@ public class Player
     public int MaxHealth { get; set; } = 100;
     public int Level { get; set; } = 1;
     public int Experience { get; set; }
-    public int Attack { get; set; } = 10;
-    public int Defense { get; set; } = 5;
     public int Gold { get; set; }
 
     // Мана (MP)
@@ -28,13 +26,13 @@ public class Player
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
 
-    // Атрибуты
-    public int Strength { get; set; } = 1;   // +Атака, +крит урон
-    public int Stamina { get; set; } = 1;    // +Защита, +MaxHP
-    public int Agility { get; set; } = 1;    // +уклонение, +шанс крита
-    public int Cunning { get; set; } = 1;    // -цены в магазине
-    public int Wisdom { get; set; } = 1;     // +урон магией
-    public int Will { get; set; } = 1;       // +мана
+    // Первичные атрибуты (качаются с уровнем)
+    public int Strength { get; set; } = 1;   // +физ.атака, +крит урон
+    public int Endurance { get; set; } = 1;  // +MaxHP, +сопротивление физ.эффектам
+    public int Agility { get; set; } = 1;    // +физ.атака, +скорость атаки
+    public int Cunning { get; set; } = 1;    // +шанс крита, +уклонение
+    public int Intellect { get; set; } = 1;  // +маг.атака, +шанс маг.эффекта
+    public int Wisdom { get; set; } = 1;     // +MaxMP, +сопротивление маг.эффектам
     public int AttributePoints { get; set; }
 
     // Базовые боевые параметры (редактируются позже бонусами экипировки/умений)
@@ -43,26 +41,49 @@ public class Player
     public double BaseEvadeChance { get; set; } = 1.0;  // %
 
     // --- Производные боевые характеристики ---
-    public int GetBaseDamage() => 1 + (Level - 1); // на 1 уровне = 1, +1 за каждый уровень
-    public int GetBaseDefense() => 1 + (Level - 1); // на 1 уровне = 1, +1 за каждый уровень
 
     // Эффективные атрибуты (с учётом бонусов экипировки)
     public int GetEffStrength() => Strength + Equipment.GetBonusStrength();
-    public int GetEffStamina() => Stamina + Equipment.GetBonusStamina();
+    public int GetEffEndurance() => Endurance + Equipment.GetBonusEndurance();
     public int GetEffAgility() => Agility + Equipment.GetBonusAgility();
     public int GetEffCunning() => Cunning + Equipment.GetBonusCunning();
+    public int GetEffIntellect() => Intellect + Equipment.GetBonusIntellect();
     public int GetEffWisdom() => Wisdom + Equipment.GetBonusWisdom();
-    public int GetEffWill() => Will + Equipment.GetBonusWill();
 
-    public int GetTotalAttack()
-        => GetBaseDamage() + (GetEffStrength() - 1) * 2 + Equipment.GetBonusAttack();
+    public int GetPhysAttack()
+        => GetBaseDamage() + (GetEffStrength() - 1) * BalanceStatic.AttackPerStrength
+           + (GetEffAgility() - 1) * BalanceStatic.AttackPerAgility
+           + Equipment.GetBonusPhysAttack();
 
-    public int GetTotalDefense()
-        => GetBaseDefense() + (GetEffStamina() - 1) * 1 + Equipment.GetBonusDefense();
+    public int GetMagAttack()
+        => GetBaseDamage() + (GetEffIntellect() - 1) * BalanceStatic.AttackPerIntellect
+           + Equipment.GetBonusMagAttack();
 
-    public double GetCritChance() => BaseCritChance + (GetEffAgility() - 1) * 1.0 + Equipment.GetBonusCritChance(); // %
-    public double GetCritDamage() => BaseCritDamage + (GetEffStrength() - 1) * 0.05 + Equipment.GetBonusCritDamage();
-    public double GetEvadeChance() => BaseEvadeChance + (GetEffAgility() - 1) * 1.0 + Equipment.GetBonusEvadeChance(); // %
+    public int GetDefense()
+        => GetBaseDefense() + (GetEffEndurance() - 1) * BalanceStatic.DefensePerEndurance
+           + Equipment.GetBonusDefense();
+
+    public int GetResistance()
+        => GetBaseDefense() + (GetEffWisdom() - 1) * BalanceStatic.ResistancePerWisdom
+           + Equipment.GetBonusResistance();
+
+    public double GetCritChance()
+        => BaseCritChance + (GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning
+           + Equipment.GetBonusCritChance();
+
+    public double GetCritDamage()
+        => BaseCritDamage + (GetEffStrength() - 1) * BalanceStatic.CritDamagePerStrength
+           + Equipment.GetBonusCritDamage();
+
+    public double GetEvadeChance()
+        => BaseEvadeChance + (GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning
+           + Equipment.GetBonusEvadeChance();
+
+    // Совместимость с ICombatant (физ. атака/защита)
+    public int GetBaseDamage() => 1 + (Level - 1);
+    public int GetBaseDefense() => 1 + (Level - 1);
+    public int GetTotalAttack() => GetPhysAttack();
+    public int GetTotalDefense() => GetDefense();
 
     public int Speed { get; set; } = 1;   // определяет интервал перемещения
 
@@ -75,14 +96,23 @@ public class Player
     public CombatState Combat { get; set; } = new();
     public InteractionState Interaction { get; set; } = new();
 
+    // Направление взгляда (для cleave и т.д.)
+    public string Facing { get; set; } = "down";
+
+    // Активные дебаффы
+    public List<ActiveDebuff> ActiveDebuffs { get; set; } = new();
+
     // Панель быстрого доступа (10 слотов, хранятся ID предметов)
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
 
-    public List<Item> BuybackItems { get; set; } = new();  // проданное, доступно для выкупа (сбрасывается при перезаходе)
+    public List<Item> BuybackItems { get; set; } = new();
 
     // Пати
     public Guid? PartyId { get; set; }
 
     // Обмен
     public bool IsTrading { get; set; }
+
+    // Администрирование
+    public bool IsAdmin { get; set; }
 }

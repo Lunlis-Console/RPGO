@@ -32,7 +32,7 @@ public class BuybackHandler : BaseHandler
 
         var matches = player.BuybackItems.Where(i =>
             i.Name == first.Name && i.Type == first.Type &&
-            i.Attack == first.Attack && i.Defense == first.Defense &&
+            i.BonusPhysAttack == first.BonusPhysAttack && i.BonusDefense == first.BonusDefense &&
             i.MaxHealthBonus == first.MaxHealthBonus && i.HealAmount == first.HealAmount &&
             i.Value == first.Value && i.Description == first.Description).ToList();
         int toBuy = Math.Min(qty, matches.Count);
@@ -65,7 +65,7 @@ public class BuybackHandler : BaseHandler
                 b.Id, b.Name, b.Type,
                 Value = Balance.BuybackPrice(b.Value),
                 OriginalValue = b.Value,
-                b.Attack, b.Defense, b.MaxHealthBonus, b.HealAmount, b.Description,
+                b.MaxHealthBonus, b.HealAmount, b.Description,
                 IsBuyback = true
             }).ToList() }
         });

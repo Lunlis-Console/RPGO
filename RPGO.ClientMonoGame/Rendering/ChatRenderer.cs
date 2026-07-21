@@ -2,16 +2,22 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.Shared.Network;
+using RPGGame.ClientMonoGame.Rendering;
 
 namespace RPGGame.ClientMonoGame.Rendering;
 
 public class ChatRenderer
 {
-    private readonly List<(ChatChannel channel, string name, string text, DateTime time)> _messages = new();
+    private static readonly Color AdminNameColor = new Color(0, 255, 200);
+
+    private readonly List<(ChatChannel channel, string name, string text, DateTime time, bool isAdmin)> _messages = new();
     private const int MaxMessages = 400;
 
     public bool IsTyping { get; set; }
     public string TypedText { get; set; } = "";
+
+    // VK, нажатые в предыдущем кадре (для отслеживания "только что нажатых")
+    private HashSet<uint> _prevDownVks = new();
 
     public enum Layout { En, Ru }
     public Layout CurrentLayout { get; set; } = Layout.En;
@@ -30,7 +36,7 @@ public class ChatRenderer
 
     private static readonly Dictionary<ChatChannel, Color> ChannelColor = new()
     {
-        { ChatChannel.System, Color.Gray },
+        { ChatChannel.System, new Color(255, 220, 80) },
         { ChatChannel.World, Color.White },
         { ChatChannel.Local, new Color(230, 220, 130) },
         { ChatChannel.Trade, new Color(150, 220, 150) },
@@ -52,9 +58,9 @@ public class ChatRenderer
         { ChatChannel.Combat, "Бой" }
     };
 
-    public void AddMessage(ChatChannel channel, string name, string text)
+    public void AddMessage(ChatChannel channel, string name, string text, bool isAdmin = false)
     {
-        _messages.Add((channel, name, text, DateTime.UtcNow));
+        _messages.Add((channel, name, text, DateTime.UtcNow, isAdmin));
         if (_messages.Count > MaxMessages)
             _messages.RemoveAt(0);
 
@@ -64,45 +70,38 @@ public class ChatRenderer
 
     // Обратная совместимость: сообщения без канала -> Система
     public void AddMessage(string name, string text)
-        => AddMessage(ChatChannel.System, name, text);
+        => AddMessage(ChatChannel.System, name, text, false);
 
     public void HandleInput(KeyboardState keyboard, KeyboardState prevKeyboard)
     {
-        // Синхронизируем индикатор с реальной раскладкой ОС
-        CurrentLayout = KeyboardLayoutHelper.IsRussian() ? Layout.Ru : Layout.En;
+        // Синхронизируем индикатор с раскладкой АКТИВНОГО окна (ту, что видит пользователь)
+        bool russian = KeyboardLayoutHelper.IsRussianForeground();
+        CurrentLayout = russian ? Layout.Ru : Layout.En;
 
         // При начале ввода подставляем префикс активной вкладки (если ещё ничего не набрано)
         if (TypedText.Length == 0 && !string.IsNullOrEmpty(CurrentPrefix))
             TypedText = CurrentPrefix;
 
-        bool russian = KeyboardLayoutHelper.IsRussian();
-        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
-        var pressed = keyboard.GetPressedKeys();
-
-        foreach (var key in pressed)
+        // Ввод символов: опрашиваем нажатые VK напрямую у ОС (GetAsyncKeyState)
+        // и переводим каждый в символ по детерминированной таблице VK->char.
+        // Это обходит баг MonoGame DesktopGL (GetPressedKeys даёт Keys.None для
+        // OEM-клавиш на русской раскладке).
+        bool shiftDown = KeyboardLayoutHelper.IsShiftDown();
+        var nowDown = new HashSet<uint>(KeyboardLayoutHelper.GetPressedVks());
+        foreach (var vk in nowDown)
         {
-            bool justPressed = keyboard.IsKeyDown(key) && prevKeyboard.IsKeyUp(key);
-            if (!justPressed) continue;
+            if (_prevDownVks.Contains(vk)) continue; // только что нажатая клавиша
 
             // Пропускаем чисто модификаторы/управляющие клавиши
-            if (key == Keys.LeftShift || key == Keys.RightShift ||
-                key == Keys.LeftControl || key == Keys.RightControl ||
-                key == Keys.LeftAlt || key == Keys.RightAlt ||
-                key == Keys.CapsLock || key == Keys.Tab ||
-                key == Keys.Enter || key == Keys.Escape || key == Keys.Back)
+            if (vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x14 ||
+                vk == 0x09 /*Tab*/ || vk == 0x0D /*Enter*/ ||
+                vk == 0x1B /*Escape*/ || vk == 0x08 /*Back*/)
                 continue;
 
-            if (KeyCharMap.TryGetChar(key, russian, shift, out char ch))
-            {
+            if (KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
                 TypedText += ch;
-            }
         }
-
-        // OEM-клавиши (точка, запятая, скобки, ё/х/ъ/ж/э/б/ю и т.д.), которые
-        // MonoGame возвращает как Keys.None, обрабатываем через нативный опрос.
-        KeyboardLayoutHelper.CollectOemChars(shift, out var oemChars);
-        foreach (var ch in oemChars)
-            TypedText += ch;
+        _prevDownVks = nowDown;
 
         if (keyboard.IsKeyDown(Keys.Back) && prevKeyboard.IsKeyUp(Keys.Back) && TypedText.Length > 0)
             TypedText = TypedText[..^1];
@@ -241,7 +240,7 @@ public class ChatRenderer
             Color chColor = ChannelColor.TryGetValue(msg.channel, out var cc) ? cc : Color.White;
             string tag = ChannelLabel.TryGetValue(msg.channel, out var lbl) ? $"[{lbl}] " : "";
             string prefix = $"{tag}{msg.name}: ";
-            Color nameColor = chColor;
+            Color nameColor = msg.isAdmin ? AdminNameColor : chColor;
 
             string full = prefix + msg.text;
             var words = full.Split(' ');

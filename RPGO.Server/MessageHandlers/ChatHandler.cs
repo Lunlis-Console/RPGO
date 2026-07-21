@@ -44,6 +44,12 @@ public class ChatHandler : BaseHandler
             return;
         }
 
+        if (text.StartsWith("/"))
+        {
+            if (await AdminCommands.TryHandle(connection, player, text, World, Hub))
+                return;
+        }
+
         await RouteMessage(player, text);
     }
 

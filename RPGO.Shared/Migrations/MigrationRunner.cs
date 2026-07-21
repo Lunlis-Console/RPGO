@@ -48,6 +48,22 @@ public static class DbMigrationRunner
             var retryRunner = retryProvider.GetRequiredService<IMigrationRunner>();
             retryRunner.MigrateUp();
         }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Migrations] Failed: {ex.Message}");
+            // Удаляем запись о неудачной миграции, чтобы при следующем запуске она перезапустилась
+            try
+            {
+                using var conn = new SqliteConnection(connectionString);
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DELETE FROM VersionInfo WHERE Version = (SELECT MAX(Version) FROM VersionInfo)";
+                cmd.ExecuteNonQuery();
+                Console.WriteLine("[Migrations] Removed failed migration from VersionInfo, will retry on next start.");
+            }
+            catch { /* ignore cleanup errors */ }
+            throw;
+        }
     }
 
     private static void RepairVersionInfo(string connectionString)

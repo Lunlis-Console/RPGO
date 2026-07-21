@@ -143,28 +143,31 @@ public sealed class GameServer : INetworkHub
 
     public async Task BroadcastChatAsync(string playerName, string text)
     {
+        bool isAdmin = _world.TryGetPlayerByName(playerName, out var sender) && sender.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
-            Data = new { Name = playerName, Text = text }
+            Data = new { Name = playerName, Text = text, IsAdmin = isAdmin }
         });
     }
 
     public async Task BroadcastChatAsync(ChatChannel channel, string from, string text)
     {
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
-            Data = new { Channel = channel.ToString(), Name = from, Text = text }
+            Data = new { Channel = channel.ToString(), Name = from, Text = text, IsAdmin = isAdmin }
         });
     }
 
     public async Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null)
     {
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to }
+            Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to, IsAdmin = isAdmin }
         });
     }
 
@@ -192,21 +195,29 @@ public sealed class GameServer : INetworkHub
                 player.X,
                 player.Y,
                 player.Experience,
-                WeaponName = player.Equipment.Weapon?.Name ?? "нет",
-                ArmorName = player.Equipment.Armor?.Name ?? "нет",
-                AccessoryName = player.Equipment.Accessory?.Name ?? "нет",
+                Equipped = BuildEquipped(player),
                 player.Strength,
-                player.Stamina,
+                player.Endurance,
                 player.Agility,
                 player.Cunning,
+                player.Intellect,
                 player.Wisdom,
-                player.Will,
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(GetAttackSpeed(player)),
-                Breakdown = BuildBreakdown(player)
+                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
+                Breakdown = BuildBreakdown(player),
+                ActiveDebuffs = player.ActiveDebuffs.Select(d => new
+                {
+                    Type = d.Type.ToString(),
+                    d.DisplayName,
+                    Value = Math.Round(d.Value, 2),
+                    d.RemainingMs,
+                    DurationMs = d.DurationMs
+                }).ToList()
             }
         });
     }
@@ -222,12 +233,12 @@ public sealed class GameServer : INetworkHub
                 Gold = player.Gold,
                 Equipment = new
                 {
-                    Weapon = player.Equipment.Weapon,
-                    Armor = player.Equipment.Armor,
-                    Accessory = player.Equipment.Accessory
+                    Slots = BuildEquipSlots(player)
                 },
-                BonusAttack = player.Equipment.GetBonusAttack(),
+                BonusPhysAttack = player.Equipment.GetBonusPhysAttack(),
+                BonusMagAttack = player.Equipment.GetBonusMagAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
+                BonusResistance = player.Equipment.GetBonusResistance(),
                 BonusMaxHealth = player.Equipment.GetBonusMaxHealth()
             }
         });
@@ -242,10 +253,10 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                BaseAttack = player.GetBaseDamage(),
-                BaseDefense = player.GetBaseDefense(),
-                TotalAttack = player.GetTotalAttack(),
-                TotalDefense = player.GetTotalDefense(),
+                PhysAttack = player.GetPhysAttack(),
+                MagAttack = player.GetMagAttack(),
+                Defense = player.GetDefense(),
+                Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
@@ -253,20 +264,20 @@ public sealed class GameServer : INetworkHub
                 player.X,
                 player.Y,
                 player.Experience,
-                WeaponName = player.Equipment.Weapon?.Name ?? "нет",
-                ArmorName = player.Equipment.Armor?.Name ?? "нет",
-                AccessoryName = player.Equipment.Accessory?.Name ?? "нет",
+                Equipped = BuildEquipped(player),
                 player.Strength,
-                player.Stamina,
+                Endurance = player.Endurance,
                 player.Agility,
                 player.Cunning,
+                Intellect = player.Intellect,
                 player.Wisdom,
-                player.Will,
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(GetAttackSpeed(player)),
+                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player)
             }
         });
@@ -321,53 +332,101 @@ public sealed class GameServer : INetworkHub
         }
     }
 
+    public async Task SendFriendListToAsync(ClientConnection connection, Player player)
+    {
+        var names = DatabaseManager.GetFriendNames(player.Name);
+        var onlineNames = new HashSet<string>(
+            _world.GetPlayersSnapshot().Select(p => p.Name), StringComparer.OrdinalIgnoreCase);
+
+        var friends = new List<FriendInfo>();
+        foreach (var name in names)
+        {
+            var info = new FriendInfo { Name = name, Online = onlineNames.Contains(name) };
+            var pl = _world.GetPlayersSnapshot().FirstOrDefault(p =>
+                p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            if (pl != null) info.Level = pl.Level;
+            friends.Add(info);
+        }
+
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "friend_list",
+            Data = new FriendListData { Friends = friends }
+        });
+    }
+
+    private static Dictionary<string, string> BuildEquipped(Player player) =>
+        player.Equipment.Slots
+            .Where(kv => kv.Value != null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value!.Name);
+
+    private static Dictionary<string, Item> BuildEquipSlots(Player player) =>
+        player.Equipment.Slots
+            .Where(kv => kv.Value != null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value!);
+
     public StatsBreakdown BuildBreakdown(Player player)
     {
         return new StatsBreakdown
         {
-            Attack = new BreakdownPart
+            PhysAttack = new BreakdownPart
             {
                 Base = player.GetBaseDamage(),
-                AttrBonus = (player.GetEffStrength() - 1) * 2,
-                EquipBonus = player.Equipment.GetBonusAttack(),
-                Total = player.GetTotalAttack()
+                AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.AttackPerStrength
+                           + (player.GetEffAgility() - 1) * BalanceStatic.AttackPerAgility,
+                EquipBonus = player.Equipment.GetBonusPhysAttack(),
+                Total = player.GetPhysAttack()
+            },
+            MagAttack = new BreakdownPart
+            {
+                Base = player.GetBaseDamage(),
+                AttrBonus = (player.GetEffIntellect() - 1) * BalanceStatic.AttackPerIntellect,
+                EquipBonus = player.Equipment.GetBonusMagAttack(),
+                Total = player.GetMagAttack()
             },
             Defense = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                AttrBonus = (player.GetEffStamina() - 1) * 1,
+                AttrBonus = (player.GetEffEndurance() - 1) * BalanceStatic.DefensePerEndurance,
                 EquipBonus = player.Equipment.GetBonusDefense(),
-                Total = player.GetTotalDefense()
+                Total = player.GetDefense()
+            },
+            Resistance = new BreakdownPart
+            {
+                Base = player.GetBaseDefense(),
+                AttrBonus = (player.GetEffWisdom() - 1) * BalanceStatic.ResistancePerWisdom,
+                EquipBonus = player.Equipment.GetBonusResistance(),
+                Total = player.GetResistance()
             },
             Crit = new BreakdownPart
             {
                 Base = player.BaseCritChance,
-                AttrBonus = (player.GetEffAgility() - 1) * 1.0,
+                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning,
                 EquipBonus = player.Equipment.GetBonusCritChance(),
                 Total = Math.Round(player.GetCritChance(), 2)
             },
             CritDmg = new BreakdownPart
             {
                 Base = player.BaseCritDamage,
-                AttrBonus = (player.GetEffStrength() - 1) * 0.05,
+                AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.CritDamagePerStrength,
                 EquipBonus = player.Equipment.GetBonusCritDamage(),
                 Total = Math.Round(player.GetCritDamage(), 2)
             },
             Evade = new BreakdownPart
             {
                 Base = player.BaseEvadeChance,
-                AttrBonus = (player.GetEffAgility() - 1) * 1.0,
+                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning,
                 EquipBonus = player.Equipment.GetBonusEvadeChance(),
                 Total = Math.Round(player.GetEvadeChance(), 2)
             },
             Effective = new EffectiveAttrs
             {
                 Strength = player.GetEffStrength(),
-                Stamina = player.GetEffStamina(),
+                Endurance = player.GetEffEndurance(),
                 Agility = player.GetEffAgility(),
                 Cunning = player.GetEffCunning(),
-                Wisdom = player.GetEffWisdom(),
-                Will = player.GetEffWill()
+                Intellect = player.GetEffIntellect(),
+                Wisdom = player.GetEffWisdom()
             }
         };
     }
@@ -376,5 +435,15 @@ public sealed class GameServer : INetworkHub
     {
         // Делегируем существующей логике Program, чтобы не дублировать формулу.
         return Program.GetAttackSpeed(player);
+    }
+
+    public async Task KickPlayer(ClientConnection connection, string reason)
+    {
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "disconnect",
+            Data = new { Reason = reason }
+        });
+        _world.DisconnectPlayer(connection);
     }
 }

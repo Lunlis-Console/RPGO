@@ -41,20 +41,11 @@ public class BalanceTests
         => Assert.Equal(500, Balance.XpNeededForNextLevel(10));
 
     [Fact]
-    public void ShopDiscountPct_CappingAt30()
+    public void BuyPrice_ReturnsCorrectly()
     {
-        Assert.Equal(0, Balance.ShopDiscountPct(0));
-        Assert.Equal(10, Balance.ShopDiscountPct(5));
-        Assert.Equal(30, Balance.ShopDiscountPct(20));
-        Assert.Equal(30, Balance.ShopDiscountPct(50));
-    }
-
-    [Fact]
-    public void BuyPrice_WithDiscount_CalculatesCorrectly()
-    {
-        Assert.Equal(100, Balance.BuyPrice(100, 0));
-        Assert.Equal(90, Balance.BuyPrice(100, 10));
-        Assert.Equal(70, Balance.BuyPrice(100, 30));
+        Assert.Equal(100, Balance.BuyPrice(100));
+        Assert.Equal(90, Balance.BuyPrice(90));
+        Assert.Equal(70, Balance.BuyPrice(70));
     }
 
     [Fact]

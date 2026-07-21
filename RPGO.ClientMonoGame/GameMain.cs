@@ -89,6 +89,7 @@ public class GameMain : Game
         Content.RootDirectory = "Content";
         SpriteBatch = new SpriteBatch(GraphicsDevice);
         SpriteCache.Load(GraphicsDevice, Content);
+        SpriteCache.LoadAnimations(Path.Combine(AppContext.BaseDirectory, "Content"));
     }
 
     public void ShowSettings()

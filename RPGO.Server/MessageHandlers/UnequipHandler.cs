@@ -21,28 +21,28 @@ public class UnequipHandler : BaseHandler
 
         if (slot == null) return;
 
-        Item? unequipped = null;
-        if (slot == "weapon" && player.Equipment.Weapon != null)
-        { unequipped = player.Equipment.Weapon; player.Equipment.Weapon = null; }
-        else if (slot == "armor" && player.Equipment.Armor != null)
-        { unequipped = player.Equipment.Armor; player.Equipment.Armor = null; }
-        else if (slot == "accessory" && player.Equipment.Accessory != null)
-        { unequipped = player.Equipment.Accessory; player.Equipment.Accessory = null; }
-
-        if (unequipped != null)
-        {
-            InventoryHelper.AddItem(player, unequipped);
-            Log.Debug($"{player.Name} снял {unequipped.Name}");
-            await SendToClient(connection, new GameMessage
-            {
-                Type = "chat",
-                Data = new { Name = "Система", Text = $"Вы сняли {unequipped.Name}" }
-            });
-            await SendInventoryAndStatus(connection, player);
-        }
-        else
+        var item = player.Equipment[slot];
+        if (item == null)
         {
             await SendError(connection, ErrorCodes.SlotEmpty, "Слот пуст — нечего снимать.");
+            return;
         }
+
+        // Снимаем сам слот и все прочие слоты с тем же предметом (напр. перчатки на обеих руках)
+        string itemId = item.Id;
+        foreach (var s in EquipmentSlots.All)
+            if (player.Equipment[s.Id]?.Id == itemId)
+                player.Equipment[s.Id] = null;
+
+        // Возвращаем предмет в инвентарь один раз
+        InventoryHelper.AddItem(player, item);
+
+        Log.Debug($"{player.Name} снял {item.Name}");
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "chat",
+            Data = new { Name = "Система", Text = $"Вы сняли {item.Name}" }
+        });
+        await SendInventoryAndStatus(connection, player);
     }
 }

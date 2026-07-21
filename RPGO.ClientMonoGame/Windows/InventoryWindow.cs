@@ -83,7 +83,7 @@ public class InventoryWindow : GameWindow
 
     private bool MatchesFilter(Item i) => _filter switch
     {
-        "equipment" => i.Type is "weapon" or "armor" or "accessory",
+        "equipment" => EquipmentSlots.IsEquippableType(i.Type),
         "consumable" => i.Type == "consumable",
         "material" => i.Type is "material" or "collectible" or "trophy",
         _ => true
@@ -97,18 +97,34 @@ public class InventoryWindow : GameWindow
         foreach (var it in items)
         {
             int qty = Math.Max(1, it.Quantity);
-            int idx = result.FindIndex(s => SameItem(s.Item1, it));
-            if (idx >= 0)
-                result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
-            else
+            if (IsStackable(it))
+            {
+                int idx = result.FindIndex(s => SameItem(s.Item1, it));
+                if (idx >= 0)
+                {
+                    result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
+                    continue;
+                }
                 result.Add((it, qty));
+            }
+            else
+            {
+                // Нестакаемые предметы (экипировка) — каждый экземпляр в отдельной ячейке,
+                // без объединения в стек (даже если Quantity > 1).
+                for (int k = 0; k < qty; k++)
+                    result.Add((it, 1));
+            }
         }
         return result;
     }
 
+    // Стакаются только расходники/ресурсы (как на сервере в Balance.MaxStackForType).
+    private static bool IsStackable(Item it) =>
+        it.Type is "consumable" or "collectible" or "trophy" or "material";
+
     private static bool SameItem(Item a, Item b) =>
         a.Name == b.Name && a.Type == b.Type &&
-        a.Attack == b.Attack && a.Defense == b.Defense &&
+        a.BonusPhysAttack == b.BonusPhysAttack && a.BonusDefense == b.BonusDefense &&
         a.MaxHealthBonus == b.MaxHealthBonus && a.HealAmount == b.HealAmount &&
         a.Value == b.Value && a.Description == b.Description;
 
@@ -149,6 +165,7 @@ public class InventoryWindow : GameWindow
 
         int cx = ContentX, cy = ContentY, cw = ContentW;
         _stacks = BuildStacks();
+        ComputeTabRects();
 
         // Вкладки
         for (int i = 0; i < 4; i++)
@@ -182,24 +199,30 @@ public class InventoryWindow : GameWindow
         {
             int idx = _dragIndex;
             _dragIndex = -1;
-            DragStateChanged?.Invoke(null);
             var moved = Math.Abs(mouse.X - _dragStart.X) + Math.Abs(mouse.Y - _dragStart.Y);
 
             if (_trashRect.Contains(mouse.X, mouse.Y))
             {
-                var stack = _stacks[idx];
-                if (stack.count > 1 && stack.item.MaxStack > 1)
-                    PendingDrop?.Invoke(stack.item, stack.count);
+                var item = _stacks[idx].item;
+                if (item.Quantity > 1 && item.MaxStack > 1)
+                    PendingDrop?.Invoke(item, item.Quantity);
                 else
-                    _confirm = stack;
+                    _confirm = (item, item.Quantity);
             }
             else if (moved >= 6 && idx < _stacks.Count)
             {
                 // Перетаскивание — пробуем продать в магазин или надеть на слот снаряжения
                 var item = _stacks[idx].item;
-                bool handled = DropOnSell?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
-                if (!handled)
-                    DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
+                if (ShopMode && IsStackable(item) && item.Quantity > 1)
+                {
+                    PendingSell?.Invoke(item, item.Quantity);
+                }
+                else
+                {
+                    bool handled = DropOnSell?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
+                    if (!handled)
+                        DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
+                }
                 // иначе — возврат в инвентарь (ничего не делаем)
             }
                 else if (moved < 6 && idx < _stacks.Count)
@@ -219,6 +242,10 @@ public class InventoryWindow : GameWindow
                         HandleInventoryClick(item);
                     }
                 }
+
+                // Сброс состояния перетаскивания — ПОСЛЕ всех действий дропа,
+                // иначе DraggingType обнуляется раньше времени и TryGetSlotAt не сработает.
+                DragStateChanged?.Invoke(null);
         }
 
         // Кнопка сортировки
@@ -240,7 +267,7 @@ public class InventoryWindow : GameWindow
         if (!isDouble) return;
 
         _lastClickIdx = -1;
-        if (item.Type is "weapon" or "armor" or "accessory")
+        if (EquipmentSlots.IsEquippableType(item.Type))
             EquipItem?.Invoke(item.Id);
         else if (item.Type == "consumable" && item.HealAmount > 0)
             UseItem?.Invoke(item.Id);
@@ -262,11 +289,19 @@ public class InventoryWindow : GameWindow
 
     private void RequestSell(Item item)
     {
-        int count = _stacks.FirstOrDefault(s => s.item == item).Item2;
-        if (count > 1)
-            PendingSell?.Invoke(item, count);
+        if (item.Quantity > 1)
+            PendingSell?.Invoke(item, item.Quantity);
         else
             SellItem?.Invoke(item.Id, 1);
+    }
+
+    private void ComputeTabRects()
+    {
+        int cx = ContentX, cw = ContentW;
+        int btnW = cw / 4 - 2;
+        _tabRects = new Rectangle[4];
+        for (int i = 0; i < 4; i++)
+            _tabRects[i] = new Rectangle(cx + i * (btnW + 2), ContentY, btnW, TabH);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -281,12 +316,10 @@ public class InventoryWindow : GameWindow
         int cx = ContentX, cy = ContentY, cw = ContentW;
 
         // Вкладки
-        int btnW = cw / 4 - 2;
-        _tabRects = new Rectangle[4];
+        ComputeTabRects();
         for (int i = 0; i < 4; i++)
         {
-            var r = new Rectangle(cx + i * (btnW + 2), cy, btnW, TabH);
-            _tabRects[i] = r;
+            var r = _tabRects[i];
             bool active = _filter == Filters[i];
             sb.Draw(SpriteCache.Pixel, r, active ? new Color(80, 120, 200) : new Color(50, 55, 65));
             var sz = font.MeasureString(FilterLabels[i]);
@@ -417,52 +450,10 @@ public class InventoryWindow : GameWindow
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)
     {
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null) return;
-
-        var lines = new List<string>
-        {
-            item.Name,
-            $"Тип: {TypeLabel(item.Type)}",
-            $"Цена: {item.Value} золота"
-        };
-        if (item.Attack > 0) lines.Add($"Атака: +{item.Attack}");
-        if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
-        if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
-        if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
-        if (!string.IsNullOrEmpty(item.Description))
-            lines.Add(item.Description);
-
-        int pad = 8;
-        float tw = 0;
-        foreach (var l in lines) tw = Math.Max(tw, font.MeasureString(l).X);
-        int th = lines.Count * 18 + pad * 2;
-        int tx = mouse.X + 16;
-        int ty = mouse.Y + 16;
-        int ww = (int)tw + pad * 2;
-        if (tx + ww > GameMain.Instance!.Graphics.PreferredBackBufferWidth)
-            tx = GameMain.Instance!.Graphics.PreferredBackBufferWidth - ww - 4;
-        if (ty + th > GameMain.Instance!.Graphics.PreferredBackBufferHeight)
-            ty = GameMain.Instance!.Graphics.PreferredBackBufferHeight - th - 4;
-
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, th), new Color(20, 22, 30, 230));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(80, 120, 200));
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var color = i == 0 ? new Color(230, 220, 140) : Color.White;
-            sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
-        }
+        var lines = ItemTooltip.BuildLines(item);
+        var g = GameMain.Instance;
+        int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
+        int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
+        TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
     }
-
-    private static string TypeLabel(string t) => t switch
-    {
-        "weapon" => "Оружие",
-        "armor" => "Броня",
-        "accessory" => "Аксессуар",
-        "consumable" => "Расходник",
-        "collectible" => "Коллекция",
-        "material" => "Материал",
-        "trophy" => "Трофей",
-        _ => t
-    };
 }

@@ -34,6 +34,7 @@ public class GameScreen : IScreen
     private readonly LogoutConfirmWindow _logoutConfirmWindow = new();
     private readonly PartyInviteWindow _partyInviteWindow = new();
     private readonly TradeRequestWindow _tradeRequestWindow = new();
+    private readonly SocialWindow _socialWindow;
     private readonly HashSet<string> _lootedCorpses = new();
     // Авто-подход к игроку для обмена
     private string? _pendingTradeTarget;
@@ -65,6 +66,10 @@ public class GameScreen : IScreen
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
 
+    // Отслеживание опыта/уровня для всплывающих подсказок
+    private int _lastXp = -1;
+    private int _lastLevel = -1;
+
     public GameScreen()
     {
         var client = GameMain.Instance!.Client;
@@ -73,6 +78,12 @@ public class GameScreen : IScreen
         _hudRenderer = new HudRenderer();
         _chatRenderer = new ChatRenderer();
         _inputManager = new InputManager();
+        _socialWindow = new SocialWindow(client);
+        _socialWindow.WhisperRequested += name =>
+        {
+            _chatRenderer.IsTyping = true;
+            _chatRenderer.TypedText = $"/w {name} ";
+        };
 
         // Привязка событий GameClient → рендеринг
         client.MapUpdated += map =>
@@ -81,13 +92,25 @@ public class GameScreen : IScreen
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
         };
-        client.FloatingTextReceived += (x, y, text, argb) =>
+        client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
-            var color = new Color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF);
-            _mapRenderer.SpawnFloatingText(x, y, text, color);
+            // argb — uint в формате 0xAARRGGBB. Важно явно работать как uint,
+            // иначе неявное преобразование в int даёт арифметический сдвиг и белый цвет.
+            uint a = argb;
+            var color = new Color(
+                (byte)((a >> 16) & 0xFFu),
+                (byte)((a >> 8) & 0xFFu),
+                (byte)(a & 0xFFu));
+            Logger.Debug($"FLT screen argb={argb:X8} -> rgb=({color.R},{color.G},{color.B}) text={text}");
+            _mapRenderer.SpawnFloatingText(x, y, text, color, isCrit);
         };
         client.CombatStateUpdated += (inCombat, targetName, hp, maxHp) =>
+        {
             _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp);
+            // Бой завершён — снимаем выбор цели на карте, иначе игрок
+            // продолжает «смотреть» на уже неактуальную цель.
+            if (!inCombat) _mapRenderer.ClearSelection();
+        };
         client.AttackCooldownUpdated += (skillId, remainingMs, totalMs) =>
         {
             // Ставим/обновляем кулдаун хотбара только по реальному подтверждению от сервера,
@@ -108,10 +131,22 @@ public class GameScreen : IScreen
                 _pendingSent = false;
             }
         };
-        client.TargetCleared += _ => _hudRenderer.ClearTarget();
+        client.TargetCleared += _ =>
+        {
+            _hudRenderer.ClearTarget();
+            _mapRenderer.ClearSelection();
+        };
         client.PartyUpdated += party =>
         {
             _hudRenderer.UpdateParty(party);
+
+            // Подсветка ников группы на карте (без себя)
+            var myName = GameMain.Instance!.Client.PlayerName;
+            var groupNames = party.Members
+                .Where(m => !string.Equals(m.Name, myName, StringComparison.OrdinalIgnoreCase))
+                .Select(m => m.Name)
+                .ToList();
+            _mapRenderer.SetPartyMembers(groupNames);
 
             var myId = GameMain.Instance!.Client.PlayerId;
             if (_lastPartyMemberCount == 0 && party.Members.Count >= 2)
@@ -134,6 +169,7 @@ public class GameScreen : IScreen
             _lastPartyMemberCount = 0;
             _lastPartyMemberIds.Clear();
             _hudRenderer.ClearParty();
+            _mapRenderer.SetPartyMembers(Array.Empty<string>());
         };
         client.PartyInviteReceived += (inviterName, _) =>
         {
@@ -146,6 +182,19 @@ public class GameScreen : IScreen
             _statusWindow.UpdateData(status);
             _playerGoldCache = status.Gold;
             _skillsWindow.SetPlayerLevel(status.Level);
+
+            // Всплывающие подсказки: +XP и «Новый уровень!»
+            if (_lastXp < 0) { _lastXp = status.Experience; _lastLevel = status.Level; }
+            else
+            {
+                int xpGain = status.Experience - _lastXp;
+                if (xpGain > 0)
+                    _mapRenderer.SpawnFloatingTextAtPlayer($"+{xpGain} XP", new Color(120, 220, 255));
+                if (status.Level > _lastLevel)
+                    _mapRenderer.SpawnFloatingTextAtPlayer("Новый уровень!", Color.Gold, true);
+                _lastXp = status.Experience;
+                _lastLevel = status.Level;
+            }
         };
         client.SkillsUpdated += skills =>
         {
@@ -159,11 +208,19 @@ public class GameScreen : IScreen
             _equipmentWindow.UpdateData(inv.Equipment);
         };
         _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
+        _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;
         _inventoryWindow.DragStateChanged += item =>
         {
             _equipmentWindow.DraggingType = item?.Type;
             _dragOverlayItem = item;
         };
+        // Перетаскивание предмета ИЗ слота экипировки (для снятия drag-n-drop)
+        _equipmentWindow.DragStateChanged += item =>
+        {
+            _equipmentWindow.DraggingType = item?.Type;
+            _dragOverlayItem = item;
+        };
+        _equipmentWindow.IsOverInventory = pt => _inventoryWindow.Contains(pt);
         _lootWindow.DragStateChanged += item =>
         {
             _dragOverlayItem = item;
@@ -181,24 +238,20 @@ public class GameScreen : IScreen
         _inventoryWindow.DropOnEquip += (pt, item) =>
         {
             if (!_equipmentWindow.Visible) return false;
-            if (!_equipmentWindow.TryGetSlotAt(pt, out var slot)) return false;
-            bool match = (slot == "weapon" && item.Type == "weapon") ||
-                         (slot == "armor" && item.Type == "armor") ||
-                         (slot == "accessory" && item.Type == "accessory");
-            if (match)
+            if (_equipmentWindow.TryGetSlotAt(pt, item.Type, out var slot) && slot != null)
             {
-                _ = client.SendAsync("equip", new { ItemId = item.Id });
+                _ = client.SendAsync("equip", new { ItemId = item.Id, TargetSlot = slot });
                 return true;
             }
             return false;
         };
         client.HotbarUpdated += slots => _inputManager.UpdateHotbar(slots);
-        client.ChatReceived += (channel, name, text) =>
+        client.ChatReceived += (channel, name, text, isAdmin) =>
         {
             if (Enum.TryParse<ChatChannel>(channel, out var ch))
-                _chatRenderer.AddMessage(ch, name, text);
+                _chatRenderer.AddMessage(ch, name, text, isAdmin);
             else
-                _chatRenderer.AddMessage(ChatChannel.System, name, text);
+                _chatRenderer.AddMessage(ChatChannel.System, name, text, isAdmin);
         };
         client.SystemMessage += msg => _chatRenderer.AddMessage(ChatChannel.System, "Система", msg);
         client.WelcomeReceived += () =>
@@ -482,6 +535,7 @@ public class GameScreen : IScreen
         _windows.Add(_logoutConfirmWindow);
         _windows.Add(_partyInviteWindow);
         _windows.Add(_tradeRequestWindow);
+        _windows.Add(_socialWindow);
 
         _partyInviteWindow.Accepted += inviterName => _ = client.SendAsync("party_accept", new { InviterName = inviterName });
         _partyInviteWindow.Declined += inviterName => _ = client.SendAsync("party_decline", new { InviterName = inviterName });
@@ -737,6 +791,10 @@ public class GameScreen : IScreen
         if (!_chatRenderer.IsTyping)
             _inputManager.HandleMovement(keyboard, _prevKeyboard, client, _mapRenderer);
 
+        // Направление взгляда игрока вычисляется внутри MapRenderer
+        // (AdvanceVisPositions) по фактическому вектору движения — работает
+        // и для WASD, и для перемещения кликом/вейпоинтом.
+
         // Иконки (правый нижний угол)
         bool clickedIcon = false;
         if (_iconRects.Length >= 6 &&
@@ -762,7 +820,10 @@ public class GameScreen : IScreen
                             _equipmentWindow.Visible = !_equipmentWindow.Visible;
                             if (_equipmentWindow.Visible) CenterWindow(_equipmentWindow);
                             break;
-                        case 4: _chatRenderer.IsTyping = !_chatRenderer.IsTyping; break;
+                        case 4:
+                            if (_socialWindow.Visible) _socialWindow.Visible = false;
+                            else _socialWindow.Open();
+                            break;
                         case 5:
                             _questLogWindow.Visible = !_questLogWindow.Visible;
                             if (_questLogWindow.Visible) CenterWindow(_questLogWindow);
@@ -871,13 +932,15 @@ public class GameScreen : IScreen
         _hudRenderer.SetSelectedEntity(_mapRenderer.GetSelectedEntity());
         _hudRenderer.DrawTargetBar(spriteBatch, w);
 
-        // Кнопка «Пригласить в группу» — под TargetBar, если выбран игрок и мы лидер
+        // Кнопки под TargetBar, если выбран игрок: «Пригласить в группу» / «В группе» + «Обмен»
         var sel = _mapRenderer.GetSelectedEntity();
         _invitePartyRect = Rectangle.Empty;
         _tradePlayerRect = Rectangle.Empty;
         var party = _hudRenderer.Party;
         bool canInvite = sel != null && sel.Type == "player" &&
             (party == null || party.Members.Count == 0 || GameMain.Instance!.Client.PlayerId == party.LeaderId);
+        bool targetInParty = party != null && sel != null && sel.Type == "player" &&
+            party.Members.Any(m => m.Name == sel.Name);
         if (sel != null && sel.Type == "player")
         {
             var font = SpriteCache.FontSmall ?? SpriteCache.Font;
@@ -897,6 +960,16 @@ public class GameScreen : IScreen
                     var txt = "Пригласить в группу";
                     var ts = font.MeasureString(txt);
                     spriteBatch.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), Color.White);
+                    btnY += btnH + 4;
+                }
+                else if (targetInParty)
+                {
+                    // Уже в группе — неактивная кнопка вместо приглашения
+                    var infoRect = new Rectangle(btnX, btnY, btnW, btnH);
+                    spriteBatch.Draw(SpriteCache.Pixel, infoRect, new Color(70, 75, 90));
+                    var txt = "В группе";
+                    var ts = font.MeasureString(txt);
+                    spriteBatch.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), new Color(180, 185, 195));
                     btnY += btnH + 4;
                 }
 
@@ -1082,7 +1155,7 @@ public class GameScreen : IScreen
 
         if (client.Status != null)
         {
-            var info = $"Золото: {client.Status.Gold}  |  ATK {client.Status.TotalAttack}  DEF {client.Status.TotalDefense}";
+            var info = $"Золото: {client.Status.Gold}  |  ATK {client.Status.PhysAttack}  DEF {client.Status.Defense}";
             sb.DrawString(font, info, new Vector2(350, 10), new Color(60, 60, 70));
         }
     }

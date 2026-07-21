@@ -45,12 +45,34 @@ public class TakeLootHandler : BaseHandler
             }
 
             player.Movement.Path.Clear();
-            int tx = corpse.X - Math.Sign(corpse.X - player.X);
-            int ty = corpse.Y - Math.Sign(corpse.Y - player.Y);
-            tx = Math.Clamp(tx, 0, World.Map.Width - 1);
-            ty = Math.Clamp(ty, 0, World.Map.Height - 1);
-            var path = Pathfinding.FindPath(player.X, player.Y, tx, ty);
-            if (path.Count == 0 && (player.X != tx || player.Y != ty))
+
+            int[] dx = { 0, 0, -1, 1 };
+            int[] dy = { -1, 1, 0, 0 };
+            int bestX = -1, bestY = -1;
+            int bestDist = int.MaxValue;
+            for (int i = 0; i < 4; i++)
+            {
+                int nx = corpse.X + dx[i];
+                int ny = corpse.Y + dy[i];
+                if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
+                if (MonsterManager.FindMonsterAt(nx, ny) != null) continue;
+                int d = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestX = nx;
+                    bestY = ny;
+                }
+            }
+
+            if (bestX < 0)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нет свободной клетки рядом с трупом");
+                return;
+            }
+
+            var path = Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+            if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");
                 return;

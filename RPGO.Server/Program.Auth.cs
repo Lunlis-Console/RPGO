@@ -56,6 +56,17 @@ public partial class Program
 
                     if (success && account != null)
                     {
+                        if (account.IsBanned)
+                        {
+                            await hub.SendToClient(connection, new GameMessage
+                            {
+                                Type = "auth_response",
+                                Data = new { Success = false, Message = $"Вы заблокированы. Причина: {account.BanReason}" }
+                            });
+                            Log.Info($"Заблокированный игрок пытался войти: {account.Login}");
+                            return false;
+                        }
+
                         int spawnX, spawnY;
                         if (account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)
                         {
@@ -79,22 +90,21 @@ public partial class Program
                             Experience = account.PlayerData.Experience,
                             Health = account.PlayerData.Health,
                             MaxHealth = account.PlayerData.MaxHealth,
-                            Attack = account.PlayerData.Attack,
-                            Defense = account.PlayerData.Defense,
                             Gold = account.PlayerData.Gold,
                             Strength = account.PlayerData.Strength,
-                            Stamina = account.PlayerData.Stamina,
+                            Endurance = account.PlayerData.Endurance,
                             Agility = account.PlayerData.Agility,
                             Cunning = account.PlayerData.Cunning,
+                            Intellect = account.PlayerData.Intellect,
                             Wisdom = account.PlayerData.Wisdom,
-                            Will = account.PlayerData.Will,
                             AttributePoints = account.PlayerData.AttributePoints,
                             Speed = account.PlayerData.Speed,
                             Inventory = account.PlayerData.Inventory,
                             Equipment = account.PlayerData.Equipment,
                             ActiveQuests = account.PlayerData.ActiveQuests,
                             HotbarSlots = account.PlayerData.HotbarSlots,
-                            MaxMana = Balance.MaxMana(account.PlayerData.Will)
+                            MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
+                            IsAdmin = account.IsAdmin
                         };
                         player.Mana = player.MaxMana;
 

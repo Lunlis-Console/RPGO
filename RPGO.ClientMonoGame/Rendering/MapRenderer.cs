@@ -12,6 +12,9 @@ public class MapRenderer
     private string _playerName = "";
     private int _playerLevel = 1;
 
+    // Имена участников группы (без себя) — для подсветки ников на карте.
+    private readonly HashSet<string> _partyMemberNames = new(StringComparer.OrdinalIgnoreCase);
+
     // Выбор сущности
     private string? _selectedEntityType;
     private string? _selectedEntityName;
@@ -24,10 +27,10 @@ public class MapRenderer
     private readonly Dictionary<string, (int X, int Y)> _visTarget = new();
     private readonly object _stateLock = new();
     private DateTime _lastVisTime = DateTime.UtcNow;
-    private const float VisCellsPerSec = 6f;
 
     // Всплывающий текст
     private readonly List<FloatingText> _floatingTexts = new();
+    private static readonly Random _rng = new();
 
     // Видимая область
     private int _viewStartX, _viewStartY, _viewEndX, _viewEndY;
@@ -49,6 +52,7 @@ public class MapRenderer
     // Плавная позиция камеры (float), следует за интерполированной позицией игрока
     private float _camX = 50f;
     private float _camY = 50f;
+    private DateTime _lastFrameTime = DateTime.UtcNow;
 
     // Базовые размеры клеток
     private const float BaseCellW = 22f;
@@ -63,24 +67,111 @@ public class MapRenderer
 
     public void SetPlayerName(string name) => _playerName = name;
     public void SetPlayerLevel(int level) => _playerLevel = level;
+
+    // Направление взгляда локального игрока ("down" | "up" | "left" | "right").
+    // Вычисляется в AdvanceVisPositions по фактическому вектору движения.
+    private string _localFacing = "down";
+
+    // Игрок в данный момент движется (интерполяция не завершена).
+    private bool _isMoving;
+
+    // Итоговое направление локального игрока:
+    //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
+    //    (иначе «идёт боком»);
+    //  - когда стоит и действует с выбранной целью (атака монстра,
+    //    сбор/лут предмета) — поворот в её сторону.
+    // Хорошая основа для будущих анимаций.
+    private string GetLocalFacing()
+    {
+        if (_isMoving) return _localFacing;
+
+        var map = _currentMap;
+        if (map != null && _selectedEntityType != null && _selectedEntityType != "move"
+            && !(_selectedEntityType == "player" && _selectedEntityName == _playerName))
+        {
+            int? tx = null, ty = null;
+            if (_selectedEntityType == "monster" && _selectedEntityId != null)
+            {
+                var m = map.Monsters.FirstOrDefault(mm => mm.Id.ToString() == _selectedEntityId);
+                if (m != null) { tx = m.X; ty = m.Y; }
+            }
+            else if (_selectedEntityType == "player" && _selectedEntityName != null)
+            {
+                var pl = map.Players.FirstOrDefault(pp => pp.Name == _selectedEntityName);
+                if (pl != null) { tx = pl.X; ty = pl.Y; }
+            }
+            else { tx = _selectedEntityX; ty = _selectedEntityY; }
+
+        if (tx.HasValue && ty.HasValue)
+        {
+            var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
+            if (me != null)
+            {
+                int ddx = tx.Value - me.X;
+                int ddy = ty.Value - me.Y;
+                int manhattan = Math.Abs(ddx) + Math.Abs(ddy);
+                // Смотрим на цель только когда игрок уже у неё (на соседней/
+                // той же клетке). Пока в пути — смотрим по движению, иначе
+                // из-за пауз между шагами сервера спрайт мерцает (цель↔движение).
+                if (manhattan <= 1 && (ddx != 0 || ddy != 0))
+                {
+                    // Запоминаем показанный взгляд в _localFacing, чтобы после
+                    // снятия цели (смерть моба) спрайт не «прыгал» на
+                    // устаревшее направление движения, а оставался куда смотрел.
+                    string dir = (Math.Abs(ddx) > Math.Abs(ddy))
+                        ? (ddx < 0 ? "left" : "right")
+                        : (ddy < 0 ? "up" : "down");
+                    _localFacing = dir;
+                    return dir;
+                }
+            }
+        }
+        }
+        return _localFacing;
+    }
+
+    /// <summary>Обновляет список ников участников группы (без себя) для подсветки на карте.</summary>
+    public void SetPartyMembers(IEnumerable<string> names)
+    {
+        _partyMemberNames.Clear();
+        foreach (var n in names) _partyMemberNames.Add(n);
+    }
     public int GetPlayerX() => GetCenterX();
     public int GetPlayerY() => GetCenterY();
 
     public void SetMap(WorldMap map)
     {
         lock (_stateLock) { _currentMap = map; }
-        InvalidateVisual();
     }
 
-    public void SpawnFloatingText(float mapX, float mapY, string text, Color color)
+    public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
     {
         lock (_stateLock)
         {
+            // Небольшой случайный разброс по X, чтобы цифры не накладывались друг на друга
+            float jitterX = (float)(_rng.NextDouble() - 0.5) * 0.6f;
             _floatingTexts.Add(new FloatingText
             {
-                X = mapX, Y = mapY, Text = text, Color = color, StartTime = DateTime.UtcNow
+                X = mapX + jitterX,
+                Y = mapY,
+                Text = text,
+                Color = color,
+                StartTime = DateTime.UtcNow,
+                Scale = isCrit ? 1.35f : 1f
             });
         }
+    }
+
+    // Всплывающий текст над самим игроком (опыт / повышение уровня)
+    public void SpawnFloatingTextAtPlayer(string text, Color color, bool isCrit = false)
+    {
+        (float X, float Y) v;
+        lock (_stateLock)
+        {
+            if (!_visPos.TryGetValue($"player:{_playerName}", out v))
+                return;
+        }
+        SpawnFloatingText(v.X, v.Y - 0.6f, text, color, isCrit);
     }
 
     public EntityInfo? GetSelectedEntity()
@@ -133,9 +224,12 @@ public class MapRenderer
         _selectedEntityX = mapX;
         _selectedEntityY = mapY;
         _selectedEntityId = entity.Id;
-        _moveTargetX = _moveTargetY = -1;
+        // Запоминаем клетку назначения для отрисовки пути (вейпоинта)
+        // не только для пустой клетки ("move"), но и для целей действия
+        // (монстр/труп/предмет) — чтобы путь рисовался и при движении к цели.
+        _moveTargetX = mapX;
+        _moveTargetY = mapY;
         SelectionChanged?.Invoke(GetSelection());
-        InvalidateVisual();
     }
 
     private EntityInfo? GetSelection()
@@ -152,7 +246,13 @@ public class MapRenderer
     public void HandleClick(float screenX, float screenY, float offsetX, float offsetY, float areaW, float areaH)
     {
         if (_currentMap == null) return;
-        lock (_stateLock) { ComputeView(_currentMap, GetCenterX(), GetCenterY(), offsetX, offsetY, areaW, areaH); }
+        int clickCX = (int)Math.Round(_camX);
+        int clickCY = (int)Math.Round(_camY);
+        lock (_stateLock) { ComputeView(_currentMap, clickCX, clickCY, offsetX, offsetY, areaW, areaH); }
+        float subCellX = (_camX - clickCX) * _cellW;
+        float subCellY = (_camY - clickCY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
 
         var entitiesOnCell = GetEntitiesAt(mapX, mapY);
@@ -200,13 +300,12 @@ public class MapRenderer
             MoveRequested?.Invoke(mapX, mapY);
             return;
         }
-        ClearSelectedEntity();
+        ClearSelection();
         _selectedEntityType = "move";
         _selectedEntityName = "Точка назначения";
         _selectedEntityX = mapX; _selectedEntityY = mapY;
         _moveTargetX = _moveTargetY = -1;
         SelectionChanged?.Invoke(GetSelection());
-        InvalidateVisual();
     }
 
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
@@ -225,10 +324,11 @@ public class MapRenderer
         StartInteraction(entity, mapX, mapY);
     }
 
-    private void ClearSelectedEntity()
+    public void ClearSelection()
     {
         _selectedEntityType = null; _selectedEntityName = null;
         _selectedEntityX = _selectedEntityY = 0; _selectedEntityId = null;
+        _moveTargetX = _moveTargetY = -1;
         SelectionChanged?.Invoke(null);
     }
 
@@ -306,7 +406,9 @@ public class MapRenderer
         mapX = mapY = -1;
         int col = (int)((sx - _gridOX) / _cellW);
         int row = (int)((sy - _gridOY) / _cellH);
-        if (col < 0 || row < 0) return false;
+        if (col < -1 || row < -1) return false;
+        col = Math.Clamp(col, 0, (int)(areaW / _cellW));
+        row = Math.Clamp(row, 0, (int)(areaH / _cellH));
         mapX = _viewStartX + col; mapY = _viewStartY + row;
         if (mapX < 0 || mapX >= (_currentMap?.Width ?? 100) || mapY < 0 || mapY >= (_currentMap?.Height ?? 100)) return false;
         return true;
@@ -319,6 +421,11 @@ public class MapRenderer
 
     public void Draw(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
     {
+        var now = DateTime.UtcNow;
+        float dt = (float)(now - _lastFrameTime).TotalSeconds;
+        if (dt > 0.1f) dt = 0.1f;
+        _lastFrameTime = now;
+
         WorldMap? map;
         lock (_stateLock) { map = _currentMap; }
 
@@ -337,8 +444,19 @@ public class MapRenderer
 
         var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
 
-        // Целевая позиция камеры: интерполированная позиция игрока (плавная),
-        // либо дискретная клетка, если интерполяция ещё не готова.
+        // Визуальная интерполяция — ДО чтения позиции камеры,
+        // чтобы камера следовала за ТЕКУЩЕЙ, а не вчерашней визуальной позицией.
+        var liveKeys = new HashSet<string>();
+        foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
+        foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
+        lock (_stateLock)
+        {
+            foreach (var k in _visTarget.Keys.ToList())
+                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
+        }
+        AdvanceVisPositions();
+
+        // Целевая позиция камеры: интерполированная позиция игрока (плавная).
         float targetX = me?.X ?? (map.Merchant?.X ?? 50);
         float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
         if (me != null)
@@ -353,44 +471,41 @@ public class MapRenderer
             }
         }
 
-        // Плавное следование камеры за целью (lerp). Чем меньше camLerp, тем мягче.
-        float camLerp = 0.12f;
-        _camX += (targetX - _camX) * camLerp;
-        _camY += (targetY - _camY) * camLerp;
+        // Камера = визуальная (уже плавная) позиция игрока.
+        _camX = targetX;
+        _camY = targetY;
 
-        int centerX = (int)Math.Round(_camX);
-        int centerY = (int)Math.Round(_camY);
+        int centerX = (int)Math.Floor(_camX);
+        int centerY = (int)Math.Floor(_camY);
 
         ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
 
-        // Тайлы (слой земли) — спрайт травы на каждую клетку (размер подогнан под экран)
+        // Sub-cell offset: сдвигаем всю сетку на дробную часть позиции камеры,
+        // чтобы тайлы и сущности рисовались непрерывно между клетками.
+        float subCellX = (_camX - centerX) * _cellW;
+        float subCellY = (_camY - centerY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
+
+        // Тайлы (слой земли) — спрайт травы на каждую клетку (+2px по краям из-за sub-cell offset)
         var grass = SpriteCache.GetGrassSprite();
         int viewW = _viewEndX - _viewStartX + 1;
         int viewH = _viewEndY - _viewStartY + 1;
-        for (int y = 0; y < viewH; y++)
+        for (int y = -1; y <= viewH + 1; y++)
         {
             float ty = _gridOY + y * _cellH;
+            if (ty > offsetY + areaH) continue;
 
-            for (int x = 0; x < viewW; x++)
+            for (int x = -1; x <= viewW + 1; x++)
             {
                 float tx = _gridOX + x * _cellW;
+                if (tx > offsetX + areaW) continue;
                 if (grass != null)
-                    sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW), (int)Math.Ceiling(_cellH)), Color.White);
+                    sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
                 else
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW), (int)Math.Ceiling(_cellH)), Color.LightGreen);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
             }
         }
-
-        // Визуальная интерполяция
-        var liveKeys = new HashSet<string>();
-        foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
-        foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
-        lock (_stateLock)
-        {
-            foreach (var k in _visTarget.Keys.ToList())
-                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
-        }
-        AdvanceVisPositions();
 
         // Путь
         if (_moveTargetX >= 0 && _moveTargetY >= 0 && me != null)
@@ -498,6 +613,14 @@ public class MapRenderer
                 };
                 sb.DrawString(font, m.Symbol.ToString(), new Vector2(px, py), color);
             }
+
+            // Имя + уровень монстра (над спрайтом)
+            string mname = $"{m.Name} [{m.Level}]";
+            var mnameSize = fontSmall.MeasureString(mname);
+            float mnx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - mnameSize.X / 2;
+            float mny = py - 14;
+            sb.DrawString(fontSmall, mname, new Vector2(mnx + 1, mny + 1), Color.Black);
+            sb.DrawString(fontSmall, mname, new Vector2(mnx, mny), Color.White);
         }
 
         // Игроки
@@ -509,19 +632,40 @@ public class MapRenderer
             float px = _gridOX + (v.X - startX) * _cellW + 3;
             float py = _gridOY + (v.Y - startY) * _cellH;
 
-            var playerSprite = SpriteCache.GetPlayerSprite();
-            if (playerSprite != null)
-                sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
-            else
-                sb.DrawString(font, "P", new Vector2(px, py), p.Name == _playerName ? Color.Goldenrod : Color.Green);
+            // Цвет: себя — золотой, участника группы — зелёный, остальных — серый.
+            Color groupColor = new Color(110, 230, 130);
+            Color nickColor = p.Name == _playerName
+                ? Color.Goldenrod
+                : (_partyMemberNames.Contains(p.Name) ? groupColor : Color.LightGray);
 
-            // Имя
-            string nick = p.Name;
+            var playerAnim = SpriteCache.GetPlayerAnimation();
+            if (playerAnim != null)
+            {
+                int frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / playerAnim.FrameDuration) % playerAnim.FrameCount;
+                var src = playerAnim.GetSourceRect(frame);
+                sb.Draw(playerAnim.Sheet, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), src, Color.White);
+            }
+            else
+            {
+                // Локальный игрок отрисовывается спрайтом по направлению
+                // (либо в сторону действия/цели, либо по движению);
+                // остальные игроки — спрайтом «вниз» по умолчанию.
+                var playerSprite = p.Name == _playerName
+                    ? SpriteCache.GetPlayerSprite(GetLocalFacing())
+                    : SpriteCache.GetPlayerSprite("down");
+                if (playerSprite != null)
+                    sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
+                else
+                    sb.DrawString(font, "P", new Vector2(px, py), nickColor);
+            }
+
+            // Имя + уровень
+            string nick = $"{p.Name} [{p.Level}]";
             var nickSize = fontSmall.MeasureString(nick);
             float nx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - nickSize.X / 2;
             float ny = py - 14;
             sb.DrawString(fontSmall, nick, new Vector2(nx + 1, ny + 1), Color.Black);
-            sb.DrawString(fontSmall, nick, new Vector2(nx, ny), p.Name == _playerName ? Color.Goldenrod : Color.LightGray);
+            sb.DrawString(fontSmall, nick, new Vector2(nx, ny), nickColor);
         }
 
         // Всплывающий текст
@@ -538,7 +682,18 @@ public class MapRenderer
                 float fpx = _gridOX + (ft.X - startX) * _cellW + _cellW / 2;
                 float fpy = _gridOY + (ft.Y - startY - rise) * _cellH - 4;
                 var c = new Color(ft.Color.R, ft.Color.G, ft.Color.B, (byte)alpha);
-                sb.DrawString(font, ft.Text, new Vector2(fpx - 8, fpy), c);
+                Vector2 origin = font.MeasureString(ft.Text) / 2f;
+                float scale = ft.Scale;
+                // Чёрная обводка (4 смещённые копии) для чёткости и читаемости
+                // поверх любого фона — стандартный приём ММОРПГ для всплывающего текста.
+                var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.8f));
+                float o = 1f * scale;
+                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                // Цветной текст поверх обводки
+                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
             }
         }
 
@@ -573,7 +728,7 @@ public class MapRenderer
             sb.DrawString(font, sym, new Vector2(offsetX + x, legendY), symColor);
             sb.DrawString(fontSmall, label, new Vector2(offsetX + x + 12, legendY + 2), Color.Black);
         }
-        Legend(4, "P", Color.Green, "вы");
+        Legend(4, "P", Color.Goldenrod, "вы");
         Legend(50, "$", Color.Gold, "торговец");
         Legend(130, "Q", Color.MediumPurple, "доска заданий");
         Legend(250, "*", Color.LimeGreen, "сбор");
@@ -581,6 +736,7 @@ public class MapRenderer
         Legend(200, "■", Color.Gray, "равный");
         Legend(260, "■", Color.Orange, "сложный");
         Legend(320, "■", Color.Red, "опасный");
+        Legend(380, "P", new Color(110, 230, 130), "группа");
     }
 
     private void DrawRect(SpriteBatch sb, float x, float y, float w, float h, Color color, int thickness = 1)
@@ -597,28 +753,21 @@ public class MapRenderer
         float dt = (float)(now - _lastVisTime).TotalSeconds;
         if (dt > 0.1f) dt = 0.1f;
         _lastVisTime = now;
-        float step;
+
+        float visSpeed;
         try
         {
-            float mult = 1f;
-            var playerName = GameMain.Instance?.Client.PlayerName ?? "";
-            if (playerName.Equals("test", StringComparison.OrdinalIgnoreCase)
-                || playerName.Equals("тест", StringComparison.OrdinalIgnoreCase))
-                mult = 10f;
-            else
-            {
-                var st = GameMain.Instance?.Client.Status;
-                if (st?.MoveIntervalMs > 0)
-                    mult = 500f / st.MoveIntervalMs;
-            }
-            float visSpeed = VisCellsPerSec * mult;
-            step = visSpeed * dt;
+            var st = GameMain.Instance?.Client.Status;
+            int moveMs = st?.MoveIntervalMs > 0 ? st.MoveIntervalMs : 500;
+            visSpeed = 1000f / moveMs;
         }
         catch
         {
-            step = VisCellsPerSec * dt;
+            visSpeed = 2f;
         }
+        float step = visSpeed * dt;
         if (step < 0.0001f) step = 0.0001f;
+        _isMoving = false;
         lock (_stateLock)
         {
             foreach (var kv in _visTarget)
@@ -627,6 +776,17 @@ public class MapRenderer
                 if (!_visPos.TryGetValue(key, out var v)) { _visPos[key] = (tgt.X, tgt.Y); continue; }
                 float dx = tgt.X - v.X, dy = tgt.Y - v.Y;
                 float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+
+                if (key == $"player:{_playerName}")
+                {
+                    if (dist > 0.0001f)
+                    {
+                        _isMoving = true;
+                        if (Math.Abs(dx) > Math.Abs(dy)) _localFacing = dx < 0 ? "left" : "right";
+                        else _localFacing = dy < 0 ? "up" : "down";
+                    }
+                }
+
                 if (dist <= step || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
                 else { float inv = step / dist; _visPos[key] = (v.X + dx * inv, v.Y + dy * inv); }
             }
@@ -659,4 +819,5 @@ public sealed class FloatingText
     public Color Color;
     public DateTime StartTime;
     public int DurationMs = 1000;
+    public float Scale = 1f;
 }

@@ -59,6 +59,8 @@ public static class MessageHandlerRegistry
         Register("party_accept", new PartyHandler(world, hub));
         Register("party_decline", new PartyHandler(world, hub));
         Register("party_leave", new PartyHandler(world, hub));
+        Register("party_transfer", new PartyHandler(world, hub));
+        Register("party_kick", new PartyHandler(world, hub));
         Register("loot_corpse", new LootCorpseHandler(world, hub));
         Register("take_loot", new TakeLootHandler(world, hub));
         Register("trade_request", new TradeRequestHandler(world, hub));
@@ -69,5 +71,6 @@ public static class MessageHandlerRegistry
         Register("trade_cancel", new TradeCancelHandler(world, hub));
         Register("client_log", new ClientLogHandler(world, hub));
         Register("logout", new LogoutHandler(world, hub));
+        Register("friend", new FriendHandler(world, hub));
     }
 }
