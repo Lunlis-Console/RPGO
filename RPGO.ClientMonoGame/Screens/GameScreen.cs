@@ -1155,7 +1155,7 @@ public class GameScreen : IScreen
 
         if (client.Status != null)
         {
-            var info = $"Золото: {client.Status.Gold}  |  ATK {client.Status.TotalAttack}  DEF {client.Status.TotalDefense}";
+            var info = $"Золото: {client.Status.Gold}  |  ATK {client.Status.PhysAttack}  DEF {client.Status.Defense}";
             sb.DrawString(font, info, new Vector2(350, 10), new Color(60, 60, 70));
         }
     }

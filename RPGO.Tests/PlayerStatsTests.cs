@@ -44,14 +44,14 @@ public class PlayerStatsTests
     [Fact]
     public void GetTotalDefense_NoStats_Returns1()
     {
-        var p = new Player { Level = 1, Stamina = 1 };
+        var p = new Player { Level = 1, Endurance = 1 };
         Assert.Equal(1, p.GetTotalDefense());
     }
 
     [Fact]
     public void GetTotalDefense_WithStamina_ReturnsCorrectly()
     {
-        var p = new Player { Level = 3, Stamina = 5 };
+        var p = new Player { Level = 3, Endurance = 5 };
         // BaseDef=3 + (5-1)*1=4 = 7
         Assert.Equal(7, p.GetTotalDefense());
     }
@@ -120,7 +120,7 @@ public class PlayerStatsTests
     public void GetTotalAttack_WithEquipment_AddsBonus()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.RightHand] = new Item { Attack = 10 };
+        eq[EquipmentSlots.RightHand] = new Item { BonusPhysAttack = 10 };
         var p = new Player
         {
             Level = 1,
@@ -135,11 +135,11 @@ public class PlayerStatsTests
     public void GetTotalDefense_WithEquipment_AddsBonus()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { Defense = 8 };
+        eq[EquipmentSlots.Torso] = new Item { BonusDefense = 8 };
         var p = new Player
         {
             Level = 1,
-            Stamina = 1,
+            Endurance = 1,
             Equipment = eq
         };
         // BaseDef=1 + (1-1)*1=0 + armorDef=8 = 9

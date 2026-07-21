@@ -100,12 +100,12 @@ public partial class MainForm : Form
             // Список колонок, которые нужно обнулить для данного типа
             var toClear = t switch
             {
-                "collectible" => new[] { "attack", "defense", "max_health_bonus", "heal_amount",
-                    "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-                "consumable" => new[] { "attack", "defense",
-                    "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-                "weapon" => new[] { "heal_amount", "bonus_cunning", "bonus_wisdom" },
-                "armor" => new[] { "heal_amount", "bonus_cunning", "bonus_wisdom" },
+                "collectible" => new[] { "phys_attack", "phys_defense", "max_health_bonus", "heal_amount",
+                    "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+                "consumable" => new[] { "phys_attack", "phys_defense",
+                    "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+                "weapon" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
+                "armor" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
                 _ => Array.Empty<string>()
             };
             foreach (var c in toClear)
@@ -381,8 +381,8 @@ public partial class MainForm : Form
 
     private void LoadItems()
     {
-        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
+        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, phys_attack, phys_defense, max_health_bonus, heal_amount, stock, description,
+            bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
             damage_type, attack_speed_modifier, weapon_subtype
             FROM items ORDER BY id");
         SetupItemsTypeColumn();
@@ -424,15 +424,15 @@ public partial class MainForm : Form
         // Колонки, относящиеся к типам
         var relevant = selected switch
         {
-            "weapon" or "twohand" => new HashSet<string> { "attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype" },
-            "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "defense", "max_health_bonus", "bonus_stamina", "bonus_will", "bonus_evade_chance" },
-            "accessory" or "necklace" or "ring" => new HashSet<string> { "attack", "defense", "max_health_bonus",
-                "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will",
+            "weapon" or "twohand" => new HashSet<string> { "phys_attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype" },
+            "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "phys_defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance" },
+            "accessory" or "necklace" or "ring" => new HashSet<string> { "phys_attack", "phys_defense", "max_health_bonus",
+                "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
                 "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
             "consumable" => new HashSet<string> { "heal_amount", "max_health_bonus" },
             "collectible" => new HashSet<string> { },
-            "trophy" => new HashSet<string> { "attack", "defense", "max_health_bonus", "heal_amount",
-                "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will",
+            "trophy" => new HashSet<string> { "phys_attack", "phys_defense", "max_health_bonus", "heal_amount",
+                "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
                 "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
             _ => null
         };
@@ -449,8 +449,8 @@ public partial class MainForm : Form
 
     private void LoadMonsters()
     {
-        _monstersGrid.DataSource = LoadTable(@"SELECT id, name, tier, health, attack, defense, xp_reward, gold_reward, symbol,
-            strength, stamina, agility, cunning, wisdom, will, crit_chance, crit_damage, evade_chance
+        _monstersGrid.DataSource = LoadTable(@"SELECT id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, symbol,
+            strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance
             FROM monsters ORDER BY id");
     }
 
@@ -471,26 +471,26 @@ public partial class MainForm : Form
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                        bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
+                cmd.CommandText = @"INSERT INTO items (id, name, type, value, phys_attack, phys_defense, max_health_bonus, heal_amount, stock, description,
+                        bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
                         damage_type, attack_speed_modifier, weapon_subtype)
                     VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th,$dt,$asm,$ws)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
                 cmd.Parameters.AddWithValue("$v", ToInt(row["value"]));
-                cmd.Parameters.AddWithValue("$a", ToInt(row["attack"]));
-                cmd.Parameters.AddWithValue("$d", ToInt(row["defense"]));
+                cmd.Parameters.AddWithValue("$a", ToInt(row["phys_attack"]));
+                cmd.Parameters.AddWithValue("$d", ToInt(row["phys_defense"]));
                 cmd.Parameters.AddWithValue("$m", ToInt(row["max_health_bonus"]));
                 cmd.Parameters.AddWithValue("$h", ToInt(row["heal_amount"]));
                 cmd.Parameters.AddWithValue("$s", ToInt(row["stock"]));
                 cmd.Parameters.AddWithValue("$desc", row["description"] ?? "");
                 cmd.Parameters.AddWithValue("$str", ToInt(row["bonus_strength"]));
-                cmd.Parameters.AddWithValue("$sta", ToInt(row["bonus_stamina"]));
+                cmd.Parameters.AddWithValue("$sta", ToInt(row["bonus_endurance"]));
                 cmd.Parameters.AddWithValue("$agi", ToInt(row["bonus_agility"]));
                 cmd.Parameters.AddWithValue("$cun", ToInt(row["bonus_cunning"]));
-                cmd.Parameters.AddWithValue("$wis", ToInt(row["bonus_wisdom"]));
-                cmd.Parameters.AddWithValue("$wil", ToInt(row["bonus_will"]));
+                cmd.Parameters.AddWithValue("$wis", ToInt(row["bonus_intellect"]));
+                cmd.Parameters.AddWithValue("$wil", ToInt(row["bonus_wisdom"]));
                 cmd.Parameters.AddWithValue("$cc", ToDouble(row["bonus_crit_chance"]));
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["bonus_crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["bonus_evade_chance"]));
@@ -526,24 +526,24 @@ public partial class MainForm : Form
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO monsters (id, name, tier, health, attack, defense, xp_reward, gold_reward, symbol,
-                        strength, stamina, agility, cunning, wisdom, will, crit_chance, crit_damage, evade_chance)
+                cmd.CommandText = @"INSERT INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, symbol,
+                        strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance)
                     VALUES ($id,$n,$t,$hp,$a,$d,$xp,$g,$s,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", ToInt(row["tier"]));
                 cmd.Parameters.AddWithValue("$hp", ToInt(row["health"]));
-                cmd.Parameters.AddWithValue("$a", ToInt(row["attack"]));
-                cmd.Parameters.AddWithValue("$d", ToInt(row["defense"]));
+                cmd.Parameters.AddWithValue("$a", ToInt(row["phys_attack"]));
+                cmd.Parameters.AddWithValue("$d", ToInt(row["phys_defense"]));
                 cmd.Parameters.AddWithValue("$xp", ToInt(row["xp_reward"]));
                 cmd.Parameters.AddWithValue("$g", ToInt(row["gold_reward"]));
                 cmd.Parameters.AddWithValue("$s", (row["symbol"]?.ToString() ?? "M").Length > 0 ? row["symbol"].ToString()[0].ToString() : "M");
                 cmd.Parameters.AddWithValue("$str", ToInt(row["strength"]));
-                cmd.Parameters.AddWithValue("$sta", ToInt(row["stamina"]));
+                cmd.Parameters.AddWithValue("$sta", ToInt(row["endurance"]));
                 cmd.Parameters.AddWithValue("$agi", ToInt(row["agility"]));
                 cmd.Parameters.AddWithValue("$cun", ToInt(row["cunning"]));
-                cmd.Parameters.AddWithValue("$wis", ToInt(row["wisdom"]));
-                cmd.Parameters.AddWithValue("$wil", ToInt(row["will"]));
+                cmd.Parameters.AddWithValue("$wis", ToInt(row["intellect"]));
+                cmd.Parameters.AddWithValue("$wil", ToInt(row["wisdom"]));
                 cmd.Parameters.AddWithValue("$cc", ToDouble(row["crit_chance"]));
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["evade_chance"]));

@@ -9,8 +9,6 @@ public class Monster : ICombatant
     public int Y { get; set; }
     public int Health { get; set; }
     public int MaxHealth { get; set; }
-    public int Attack { get; set; }
-    public int Defense { get; set; }
     public int XpReward { get; set; }
     public int GoldReward { get; set; }
     public char Symbol { get; set; } = 'M';
@@ -18,11 +16,11 @@ public class Monster : ICombatant
 
     // Атрибуты (настраиваются в редакторе, по шаблону)
     public int Strength { get; set; } = 1;
-    public int Stamina { get; set; } = 1;
+    public int Endurance { get; set; } = 1;
     public int Agility { get; set; } = 1;
     public int Cunning { get; set; } = 1;
+    public int Intellect { get; set; } = 1;
     public int Wisdom { get; set; } = 1;
-    public int Will { get; set; } = 1;
 
     // Регенерация
     public DateTime LastDamagedTime { get; set; } = DateTime.MinValue;
@@ -37,12 +35,24 @@ public class Monster : ICombatant
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
 
-    public int GetTotalAttack() => GetBaseDamage() + (Strength - 1) * 2;
-    public int GetTotalDefense() => GetBaseDefense() + (Stamina - 1) * 1;
+    public int GetTotalAttack()
+        => GetBaseDamage() + (Strength - 1) * BalanceStatic.AttackPerStrength
+           + (Agility - 1) * BalanceStatic.AttackPerAgility;
 
-    public double GetCritChance() => CritChance + (Agility - 1) * 1.0;
-    public double GetCritDamage() => CritDamage + (Strength - 1) * 0.05;
-    public double GetEvadeChance() => EvadeChance + (Agility - 1) * 1.0;
+    public int GetTotalDefense()
+        => GetBaseDefense() + (Endurance - 1) * BalanceStatic.DefensePerEndurance;
+
+    public double GetCritChance() => CritChance + (Cunning - 1) * BalanceStatic.CritChancePerCunning;
+    public double GetCritDamage() => CritDamage + (Strength - 1) * BalanceStatic.CritDamagePerStrength;
+    public double GetEvadeChance() => EvadeChance + (Cunning - 1) * BalanceStatic.EvadeChancePerCunning;
+
+    // --- Новые характеристики (монстры могут использовать по желанию) ---
+    public int GetPhysAttack() => GetTotalAttack();
+    public int GetMagAttack()
+        => GetBaseDamage() + (Intellect - 1) * BalanceStatic.AttackPerIntellect;
+    public int GetDefense() => GetTotalDefense();
+    public int GetResistance()
+        => GetBaseDefense() + (Wisdom - 1) * BalanceStatic.ResistancePerWisdom;
 
     public int SpawnX { get; set; }
     public int SpawnY { get; set; }
@@ -51,14 +61,17 @@ public class Monster : ICombatant
     public int AggroRange { get; set; } = 5;
     public Player? AggroTarget { get; set; }
 
-    public int MoveIntervalMs { get; set; } = 1500; // индивидуальная скорость
+    public int MoveIntervalMs { get; set; } = 1500;
     public DateTime LastMoveTime { get; set; } = DateTime.MinValue;
 
     // Таблица урона: playerId → суммарный урон по этому монстру
     public Dictionary<Guid, int> DamageTracker { get; set; } = new();
 
-    // Манекен: не бьёт в ответ, не умирает, регенерирует HP через 5 сек
+    // Манекен
     public bool IsMannequin { get; set; }
+
+    // Активные дебаффы
+    public List<ActiveDebuff> ActiveDebuffs { get; set; } = new();
 }
 
 public class MonsterPosition

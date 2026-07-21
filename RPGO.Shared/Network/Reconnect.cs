@@ -16,18 +16,21 @@ public record PlayerState(
     long Experience,
     int AttributePoints,
     int Strength,
-    int Stamina,
+    int Endurance,
     int Agility,
     int Cunning,
+    int Intellect,
     int Wisdom,
-    int Will,
     int Attack,
     int Defense,
     int Gold,
     List<ItemState> Inventory,
     List<HotbarSlotState> Hotbar,
-    List<ActiveQuestState> ActiveQuests
+    List<ActiveQuestState> ActiveQuests,
+    List<DebuffState> ActiveDebuffs
 );
+
+public record DebuffState(string Type, string DisplayName, double Value, int RemainingMs, int DurationMs);
 
 public record ItemState(string Id, int Count, int? Slot);
 

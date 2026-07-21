@@ -1,4 +1,4 @@
-using RPGGame.Server.Network;
+п»їusing RPGGame.Server.Network;
 using RPGGame.Shared.Commands;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
@@ -12,14 +12,14 @@ namespace RPGGame.Server;
 
 partial class Program
 {
-    // Единый инстанс мира (singleton). Вся игровая логика живёт здесь.
+    // в”јС„С€СЌв€љС‰ С€СЌС‘Р„СЂСЌС‘ СЊС€РЃСЂ (singleton). в”¬С‘В  С€СѓРЃСЋС‚СЂВ  С‹СЋСѓС€СЉСЂ С†С€С‚в••Р„ С‡С„С…С‘в„–.
     public static GameWorld World { get; } = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
 
-    // Сетевой слой сервера (рассылка/отправка сообщений клиентам).
+    // в•¤С…Р„С…С‚СЋС‰ С‘С‹СЋС‰ С‘С…РЃС‚С…РЃСЂ (РЃСЂС‘С‘в€љС‹СЉСЂ/СЋР„СЏРЃСЂС‚СЉСЂ С‘СЋСЋСЃв€™С…СЌС€С‰ СЉС‹С€С…СЌР„СЂСЊ).
     public static INetworkHub Hub { get; } = new GameServer(World);
 
-    // --- Обратная совместимость: делегируем старые статические поля миру. ---
-    // Постепенно менеджеры будут получать World явно; эти обёртки убираются на поздних этапах.
+    // --- в•¬СЃРЃСЂР„СЌСЂВ  С‘СЋС‚СЊС…С‘Р„С€СЊСЋС‘Р„в„–: С„С…С‹С…СѓС€РЃС”С…СЊ С‘Р„СЂРЃв€љС… С‘Р„СЂР„С€СћС…С‘СЉС€С… СЏСЋС‹В  СЊС€РЃС”. ---
+    // в•§СЋС‘Р„С…СЏС…СЌСЌСЋ СЊС…СЌС…С„С†С…РЃв€љ СЃС”С„С”Р„ СЏСЋС‹С”СћСЂР„в„– World В С‚СЌСЋ; В¤Р„С€ СЋСЃв••РЃР„СЉС€ С”СЃС€РЃСЂв– Р„С‘В  СЌСЂ СЏСЋС‡С„СЌС€С— В¤Р„СЂСЏСЂС—.
 
     public static List<Player> GetPlayers() => World.GetPlayersSnapshot();
     public static GameWorld GetWorld() => World;
@@ -31,16 +31,16 @@ partial class Program
 
         Log.Init();
 
-        Log.Info("Загрузка аккаунтов...");
+        Log.Info("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ Р±Р°Р·С‹ РґР°РЅРЅС‹С…...");
         DatabaseManager.Initialize();
         DatabaseManager.CreateTestAccountIfNeeded();
 
-        Log.Info("Загрузка контента (магазин, квесты)...");
+        Log.Info("Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С… (РїСЂРµРґРјРµС‚С‹, РєРІРµСЃС‚С‹)...");
         MerchantManager.Initialize();
         QuestManager.Initialize();
         LootManager.LoadFromDatabase();
 
-        Log.Info("Создание монстров...");
+        Log.Info("Р—Р°РіСЂСѓР·РєР° РјРѕРЅСЃС‚СЂРѕРІ...");
         MonsterManager.Initialize();
         CollectibleManager.Initialize();
 
@@ -54,24 +54,25 @@ partial class Program
         _ = Task.Run(RunCombatLoop);
         _ = Task.Run(RunMonsterAttackLoop);
         _ = Task.Run(RunRegenLoop);
+        _ = Task.Run(RunDebuffTickLoop);
         _ = Task.Run(RunCorpseCleanupLoop);
 
         TcpListener server = new TcpListener(IPAddress.Any, Balance.ServerPort);
         server.Start();
 
-        Log.Info($"Сервер запущен на порту {Balance.ServerPort}");
-        Log.Info($"Время: {DateTime.Now}");
-        Log.Info($"Мир: {Balance.WorldWidth}x{Balance.WorldHeight}");
-        Log.Info($"Аккаунтов: {DatabaseManager.GetAccountCount()}");
-        Log.Info("IP адреса для подключения:");
+        Log.Info($"РЎРµСЂРІРµСЂ Р·Р°РїСѓС‰РµРЅ РЅР° РїРѕСЂС‚Сѓ {Balance.ServerPort}");
+        Log.Info($"Р”Р°С‚Р°: {DateTime.Now}");
+        Log.Info($"РљР°СЂС‚Р°: {Balance.WorldWidth}x{Balance.WorldHeight}");
+        Log.Info($"РРіСЂРѕРєРѕРІ: {DatabaseManager.GetAccountCount()}");
+        Log.Info("IP Р°РґСЂРµСЃР° РґР»СЏ РїРѕРґРєР»СЋС‡РµРЅРёСЏ:");
         foreach (var ip in GetLocalIPs())
             Log.Info($"  {ip}");
-        Log.Info("Ожидание игроков...");
+        Log.Info("РћР¶РёРґР°РЅРёРµ РїРѕРґРєР»СЋС‡РµРЅРёСЏ...");
 
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
-            Log.Info($"Подключился новый игрок: {client.Client.RemoteEndPoint}");
+                    Log.Info($"РџРѕРґРєР»СЋС‡РµРЅРёРµ РєР»РёРµРЅС‚Р°: {client.Client.RemoteEndPoint}");
 
             ClientConnection connection = new ClientConnection(client);
             World.AddClient(connection);
@@ -89,26 +90,26 @@ partial class Program
         {
             Stream stream = connection.Client.GetStream();
 
-            // Аутентификация
+            // в””С”Р„С…СЌР„С€Р‡С€СЉСЂРЋС€В 
             while (!authenticated)
             {
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"Клиент отключился: {connection.Endpoint}");
+                    Log.Info($"РћС‚РєР»СЋС‡РµРЅРёРµ РєР»РёРµРЅС‚Р°: {connection.Endpoint}");
                     return;
                 }
 
                  authenticated = await HandleAuthMessage(connection, message, Hub);
             }
 
-            // Игровой цикл
+            // в•љСѓРЃСЋС‚СЋС‰ РЋС€СЉС‹
             while (true)
             {
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"Клиент отключился: {connection.Endpoint}");
+                    Log.Info($"РћС‚РєР»СЋС‡РµРЅРёРµ РєР»РёРµРЅС‚Р°: {connection.Endpoint}");
                     break;
                 }
 
@@ -117,22 +118,22 @@ partial class Program
         }
         catch (Exception ex)
         {
-            Log.Error($"Ошибка: {ex.Message}", ex);
+            Log.Error($"в•¬В°С€СЃСЉСЂ: {ex.Message}", ex);
         }
         finally
         {
             if (player != null)
             {
                 var tradeSession = TradeManager.GetSession(player.Id);
-                if (tradeSession != null) TradeManager.CancelSession(tradeSession, "игрок отключился");
+                if (tradeSession != null) TradeManager.CancelSession(tradeSession, "С€СѓРЃСЋСЉ СЋР„СЉС‹в– СћС€С‹С‘В ");
                 player.IsTrading = false;
 
                 World.RemovePlayer(player);
                 World.RemoveClient(connection);
-                Log.Info($"Игрок {player.Name} покинул мир");
+                Log.Info($"РРіСЂРѕРє {player.Name} РїРѕРєРёРЅСѓР» РёРіСЂСѓ");
                 await Hub.BroadcastMapAsync();
 
-                // Сохраняем прогресс игрока
+                // в•¤СЋС—РЃСЂСЌВ С…СЊ СЏРЃСЋСѓРЃС…С‘С‘ С€СѓРЃСЋСЉСЂ
                 DatabaseManager.SavePlayerProgress(player);
             }
 
@@ -144,33 +145,33 @@ partial class Program
     {
         try
         {
-            Log.Info("Перезагрузка контента из БД...");
+            Log.Info("РџРµСЂРµР·Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С… РЅР° СЃРµСЂРІРµСЂРµ...");
             MerchantManager.Initialize();
             QuestManager.Initialize();
             LootManager.LoadFromDatabase();
             MonsterManager.Initialize();
             CollectibleManager.Initialize();
 
-            await Hub.BroadcastChatAsync("Система", "Контент перезагружен (предметы, монстры, квесты, мир).");
+            await Hub.BroadcastChatAsync("в•¤С€С‘Р„С…СЊСЂ", "в•©СЋСЌР„С…СЌР„ СЏС…РЃС…С‡СЂСѓРЃС”С†С…СЌ (СЏРЃС…С„СЊС…Р„в€љ, СЊСЋСЌС‘Р„РЃв€љ, СЉС‚С…С‘Р„в€љ, СЊС€РЃ).");
 
             if (connection != null)
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "Система", Text = "Контент перезагружен из БД." }
+                    Data = new { Name = "в•¤С€С‘Р„С…СЊСЂ", Text = "в•©СЋСЌР„С…СЌР„ СЏС…РЃС…С‡СЂСѓРЃС”С†С…СЌ С€С‡ в”ґв”Ђ." }
                 });
             }
         }
         catch (Exception ex)
         {
-            Log.Error($"Ошибка перезагрузки: {ex.Message}", ex);
+            Log.Error($"в•¬В°С€СЃСЉСЂ СЏС…РЃС…С‡СЂСѓРЃС”С‡СЉС€: {ex.Message}", ex);
             if (connection != null)
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "Система", Text = "Ошибка перезагрузки: " + ex.Message }
+                    Data = new { Name = "в•¤С€С‘Р„С…СЊСЂ", Text = "в•¬В°С€СЃСЉСЂ СЏС…РЃС…С‡СЂСѓРЃС”С‡СЉС€: " + ex.Message }
                 });
             }
         }

@@ -25,7 +25,8 @@ public class InventoryRequestHandler : BaseHandler
                         .Where(kv => kv.Value != null)
                         .ToDictionary(kv => kv.Key, kv => kv.Value!)
                 },
-                BonusAttack = player.Equipment.GetBonusAttack(),
+                BonusPhysAttack = player.Equipment.GetBonusPhysAttack(),
+                BonusMagAttack = player.Equipment.GetBonusMagAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
                 BonusMaxHealth = player.Equipment.GetBonusMaxHealth()
             }

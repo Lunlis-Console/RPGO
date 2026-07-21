@@ -195,8 +195,10 @@ public static class DatabaseManager
             using var connection = new SqliteConnection(_connectionString);
             connection.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
+            cmd.CommandText = @"SELECT id, name, type, value, defense, max_health_bonus, heal_amount, stock, description,
+                bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+                bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype
                 FROM items";
             using var reader = cmd.ExecuteReader();
@@ -209,25 +211,28 @@ public static class DatabaseManager
                     Name = reader.GetString(1),
                     Type = reader.GetString(2),
                     Value = reader.GetInt32(3),
-                    Attack = reader.GetInt32(4),
-                    Defense = reader.GetInt32(5),
-                    MaxHealthBonus = reader.GetInt32(6),
-                    HealAmount = reader.GetInt32(7),
-                    Stock = reader.GetInt32(8),
-                    Description = reader.GetString(9),
-                    BonusStrength = reader.GetInt32(10),
-                    BonusStamina = reader.GetInt32(11),
-                    BonusAgility = reader.GetInt32(12),
-                    BonusCunning = reader.GetInt32(13),
+                    BonusDefense = reader.GetInt32(4),
+                    MaxHealthBonus = reader.GetInt32(5),
+                    HealAmount = reader.GetInt32(6),
+                    Stock = reader.GetInt32(7),
+                    Description = reader.GetString(8),
+                    BonusStrength = reader.GetInt32(9),
+                    BonusEndurance = reader.GetInt32(10),
+                    BonusAgility = reader.GetInt32(11),
+                    BonusCunning = reader.GetInt32(12),
+                    BonusIntellect = reader.GetInt32(13),
                     BonusWisdom = reader.GetInt32(14),
-                    BonusWill = reader.GetInt32(15),
-                    BonusCritChance = reader.GetDouble(16),
-                    BonusCritDamage = reader.GetDouble(17),
-                    BonusEvadeChance = reader.GetDouble(18),
-                    TwoHanded = reader.GetInt32(19) != 0,
-                    DamageType = reader.IsDBNull(20) ? "" : reader.GetString(20),
-                    AttackSpeedModifier = reader.IsDBNull(21) ? 1.0 : reader.GetDouble(21),
-                    WeaponSubtype = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                    BonusPhysAttack = reader.GetInt32(15),
+                    BonusMagAttack = reader.GetInt32(16),
+                    BonusResistance = reader.GetInt32(17),
+                    BonusCritChance = reader.GetDouble(18),
+                    BonusCritDamage = reader.GetDouble(19),
+                    BonusEvadeChance = reader.GetDouble(20),
+                    BonusAttackSpeed = reader.GetDouble(21),
+                    TwoHanded = reader.GetInt32(22) != 0,
+                    DamageType = reader.IsDBNull(23) ? "" : reader.GetString(23),
+                    AttackSpeedModifier = reader.IsDBNull(24) ? 1.0 : reader.GetDouble(24),
+                    WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 });
             }
@@ -285,17 +290,15 @@ public static class DatabaseManager
         public string Name = "";
         public int Tier;
         public int Health;
-        public int Attack;
-        public int Defense;
         public int XpReward;
         public int GoldReward;
         public char Symbol = 'M';
         public int Strength = 1;
-        public int Stamina = 1;
+        public int Endurance = 1;
         public int Agility = 1;
         public int Cunning = 1;
+        public int Intellect = 1;
         public int Wisdom = 1;
-        public int Will = 1;
         public double CritChance = 1.0;
         public double CritDamage = 1.5;
         public double EvadeChance = 1.0;
@@ -309,7 +312,7 @@ public static class DatabaseManager
             using var connection = new SqliteConnection(_connectionString);
             connection.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, name, tier, health, attack, defense, xp_reward, gold_reward, symbol, strength, stamina, agility, cunning, wisdom, will, crit_chance, crit_damage, evade_chance FROM monsters";
+            cmd.CommandText = "SELECT id, name, tier, health, xp_reward, gold_reward, symbol, strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance FROM monsters";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -319,20 +322,18 @@ public static class DatabaseManager
                     Name = reader.GetString(1),
                     Tier = reader.GetInt32(2),
                     Health = reader.GetInt32(3),
-                    Attack = reader.GetInt32(4),
-                    Defense = reader.GetInt32(5),
-                    XpReward = reader.GetInt32(6),
-                    GoldReward = reader.GetInt32(7),
-                    Symbol = reader.GetString(8).Length > 0 ? reader.GetString(8)[0] : 'M',
-                    Strength = reader.GetInt32(9),
-                    Stamina = reader.GetInt32(10),
-                    Agility = reader.GetInt32(11),
-                    Cunning = reader.GetInt32(12),
-                    Wisdom = reader.GetInt32(13),
-                    Will = reader.GetInt32(14),
-                    CritChance = reader.GetDouble(15),
-                    CritDamage = reader.GetDouble(16),
-                    EvadeChance = reader.GetDouble(17),
+                    XpReward = reader.GetInt32(4),
+                    GoldReward = reader.GetInt32(5),
+                    Symbol = reader.GetString(6).Length > 0 ? reader.GetString(6)[0] : 'M',
+                    Strength = reader.GetInt32(7),
+                    Endurance = reader.GetInt32(8),
+                    Agility = reader.GetInt32(9),
+                    Cunning = reader.GetInt32(10),
+                    Intellect = reader.GetInt32(11),
+                    Wisdom = reader.GetInt32(12),
+                    CritChance = reader.GetDouble(13),
+                    CritDamage = reader.GetDouble(14),
+                    EvadeChance = reader.GetDouble(15),
                 });
             }
             return result;
@@ -411,10 +412,10 @@ public static class DatabaseManager
         var insertAccount = connection.CreateCommand();
         insertAccount.CommandText = @"
             INSERT OR IGNORE INTO accounts (login, password_hash, player_name, level, experience,
-                health, max_health, attack, defense, gold, created_at, last_login,
-                strength, stamina, agility, cunning, wisdom, will_val, attribute_points, speed, is_admin)
-            VALUES ($login, $hash, $name, $level, $exp, $hp, $maxhp, $atk, $def, $gold, $created, $last,
-                $str, $sta, $agi, $cun, $wis, $wil, $ap, $spd, $admin)";
+                health, max_health, gold, created_at, last_login,
+                strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, is_admin)
+            VALUES ($login, $hash, $name, $level, $exp, $hp, $maxhp, $gold, $created, $last,
+                $str, $end, $agi, $cun, $intel, $wis, $ap, $spd, $admin)";
 
         insertAccount.Parameters.AddWithValue("$login", account.Login);
         insertAccount.Parameters.AddWithValue("$hash", account.PasswordHash);
@@ -423,17 +424,15 @@ public static class DatabaseManager
         insertAccount.Parameters.AddWithValue("$exp", account.PlayerData.Experience);
         insertAccount.Parameters.AddWithValue("$hp", account.PlayerData.Health);
         insertAccount.Parameters.AddWithValue("$maxhp", account.PlayerData.MaxHealth);
-        insertAccount.Parameters.AddWithValue("$atk", account.PlayerData.Attack);
-        insertAccount.Parameters.AddWithValue("$def", account.PlayerData.Defense);
         insertAccount.Parameters.AddWithValue("$gold", account.PlayerData.Gold);
         insertAccount.Parameters.AddWithValue("$created", account.CreatedAt.ToString("o"));
         insertAccount.Parameters.AddWithValue("$last", account.LastLogin.ToString("o"));
         insertAccount.Parameters.AddWithValue("$str", account.PlayerData.Strength);
-        insertAccount.Parameters.AddWithValue("$sta", account.PlayerData.Stamina);
+        insertAccount.Parameters.AddWithValue("$end", account.PlayerData.Endurance);
         insertAccount.Parameters.AddWithValue("$agi", account.PlayerData.Agility);
         insertAccount.Parameters.AddWithValue("$cun", account.PlayerData.Cunning);
+        insertAccount.Parameters.AddWithValue("$intel", account.PlayerData.Intellect);
         insertAccount.Parameters.AddWithValue("$wis", account.PlayerData.Wisdom);
-        insertAccount.Parameters.AddWithValue("$wil", account.PlayerData.Will);
         insertAccount.Parameters.AddWithValue("$ap", account.PlayerData.AttributePoints);
         insertAccount.Parameters.AddWithValue("$spd", account.PlayerData.Speed);
         insertAccount.Parameters.AddWithValue("$admin", account.IsAdmin ? 1 : 0);
@@ -484,12 +483,10 @@ public static class DatabaseManager
                     Experience = 100,
                     Health = 150,
                     MaxHealth = 150,
-                    Attack = 25,
-                    Defense = 15,
                     Gold = 500,
                     Inventory = new List<Item>
                     {
-                        new Item { Name = "Железный меч", Type = "weapon", Value = 5, Attack = 2, Description = "Надёжный железный меч", MaxStack = Balance.UniqueItemMaxStack },
+                        new Item { Name = "Железный меч", Type = "weapon", Value = 5, BonusPhysAttack = 2, Description = "Надёжный железный меч", MaxStack = Balance.UniqueItemMaxStack },
                         new Item { Name = "Зелье здоровья", Type = "consumable", Value = 20, HealAmount = 50, Description = "Восстанавливает 50 HP", MaxStack = Balance.DefaultMaxStack }
                     }
                 }
@@ -592,15 +589,13 @@ public static class DatabaseManager
                     experience = $exp,
                     health = $hp,
                     max_health = $maxhp,
-                    attack = $atk,
-                    defense = $def,
                     gold = $gold,
                     strength = $str,
-                    stamina = $sta,
+                    endurance = $end,
                     agility = $agi,
                     cunning = $cun,
+                    intellect = $intel,
                     wisdom = $wis,
-                    will_val = $wil,
                     attribute_points = $ap,
                     speed = $spd,
                     pos_x = $posx,
@@ -612,15 +607,13 @@ public static class DatabaseManager
             cmd.Parameters.AddWithValue("$exp", player.Experience);
             cmd.Parameters.AddWithValue("$hp", player.Health);
             cmd.Parameters.AddWithValue("$maxhp", player.MaxHealth);
-            cmd.Parameters.AddWithValue("$atk", player.Attack);
-            cmd.Parameters.AddWithValue("$def", player.Defense);
             cmd.Parameters.AddWithValue("$gold", player.Gold);
             cmd.Parameters.AddWithValue("$str", player.Strength);
-            cmd.Parameters.AddWithValue("$sta", player.Stamina);
+            cmd.Parameters.AddWithValue("$end", player.Endurance);
             cmd.Parameters.AddWithValue("$agi", player.Agility);
             cmd.Parameters.AddWithValue("$cun", player.Cunning);
+            cmd.Parameters.AddWithValue("$intel", player.Intellect);
             cmd.Parameters.AddWithValue("$wis", player.Wisdom);
-            cmd.Parameters.AddWithValue("$wil", player.Will);
             cmd.Parameters.AddWithValue("$ap", player.AttributePoints);
             cmd.Parameters.AddWithValue("$spd", player.Speed);
             cmd.Parameters.AddWithValue("$posx", player.X);
@@ -753,29 +746,36 @@ public static class DatabaseManager
 
         var insertItem = connection.CreateCommand();
         insertItem.CommandText = @"
-            INSERT INTO inventory (player_name, item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity)
-            VALUES ($name, $itemid, $iname, $itype, $val, $atk, $def, $mhp, $heal, $desc,
-                $str, $sta, $agi, $cun, $wis, $wil, $cc, $cd, $ec, $tid, $qty)";
+            INSERT INTO inventory (player_name, item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+                bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+                bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity)
+            VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $desc,
+                $str, $end, $agi, $cun, $intel, $wis,
+                $pa, $ma, $res,
+                $cc, $cd, $ec, $as, $tid, $qty)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
         insertItem.Parameters.AddWithValue("$itype", item.Type);
         insertItem.Parameters.AddWithValue("$val", item.Value);
-        insertItem.Parameters.AddWithValue("$atk", item.Attack);
-        insertItem.Parameters.AddWithValue("$def", item.Defense);
+        insertItem.Parameters.AddWithValue("$def", item.BonusDefense);
         insertItem.Parameters.AddWithValue("$mhp", item.MaxHealthBonus);
         insertItem.Parameters.AddWithValue("$heal", item.HealAmount);
         insertItem.Parameters.AddWithValue("$desc", item.Description);
         insertItem.Parameters.AddWithValue("$str", item.BonusStrength);
-        insertItem.Parameters.AddWithValue("$sta", item.BonusStamina);
+        insertItem.Parameters.AddWithValue("$end", item.BonusEndurance);
         insertItem.Parameters.AddWithValue("$agi", item.BonusAgility);
         insertItem.Parameters.AddWithValue("$cun", item.BonusCunning);
+        insertItem.Parameters.AddWithValue("$intel", item.BonusIntellect);
         insertItem.Parameters.AddWithValue("$wis", item.BonusWisdom);
-        insertItem.Parameters.AddWithValue("$wil", item.BonusWill);
+        insertItem.Parameters.AddWithValue("$pa", item.BonusPhysAttack);
+        insertItem.Parameters.AddWithValue("$ma", item.BonusMagAttack);
+        insertItem.Parameters.AddWithValue("$res", item.BonusResistance);
         insertItem.Parameters.AddWithValue("$cc", item.BonusCritChance);
         insertItem.Parameters.AddWithValue("$cd", item.BonusCritDamage);
         insertItem.Parameters.AddWithValue("$ec", item.BonusEvadeChance);
+        insertItem.Parameters.AddWithValue("$as", item.BonusAttackSpeed);
         insertItem.Parameters.AddWithValue("$tid", item.TemplateId);
         insertItem.Parameters.AddWithValue("$qty", qty);
         insertItem.ExecuteNonQuery();
@@ -789,8 +789,10 @@ public static class DatabaseManager
             connection.Open();
 
             var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity
+            cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+                bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+                bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -808,22 +810,25 @@ public static class DatabaseManager
                     Name = reader.GetString(1),
                     Type = reader.GetString(2),
                     Value = reader.GetInt32(3),
-                    Attack = reader.GetInt32(4),
-                    Defense = reader.GetInt32(5),
-                    MaxHealthBonus = reader.GetInt32(6),
-                    HealAmount = reader.GetInt32(7),
-                    Description = reader.GetString(8),
-                    BonusStrength = reader.GetInt32(9),
-                    BonusStamina = reader.GetInt32(10),
-                    BonusAgility = reader.GetInt32(11),
-                    BonusCunning = reader.GetInt32(12),
+                    BonusDefense = reader.GetInt32(4),
+                    MaxHealthBonus = reader.GetInt32(5),
+                    HealAmount = reader.GetInt32(6),
+                    Description = reader.GetString(7),
+                    BonusStrength = reader.GetInt32(8),
+                    BonusEndurance = reader.GetInt32(9),
+                    BonusAgility = reader.GetInt32(10),
+                    BonusCunning = reader.GetInt32(11),
+                    BonusIntellect = reader.GetInt32(12),
                     BonusWisdom = reader.GetInt32(13),
-                    BonusWill = reader.GetInt32(14),
-                    BonusCritChance = reader.GetDouble(15),
-                    BonusCritDamage = reader.GetDouble(16),
-                    BonusEvadeChance = reader.GetDouble(17),
-                    TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18),
-                    Quantity = reader.IsDBNull(19) ? 1 : reader.GetInt32(19)
+                    BonusPhysAttack = reader.GetInt32(14),
+                    BonusMagAttack = reader.GetInt32(15),
+                    BonusResistance = reader.GetInt32(16),
+                    BonusCritChance = reader.GetDouble(17),
+                    BonusCritDamage = reader.GetDouble(18),
+                    BonusEvadeChance = reader.GetDouble(19),
+                    BonusAttackSpeed = reader.GetDouble(20),
+                    TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
+                    Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22)
                 });
             }
 
@@ -845,22 +850,25 @@ public static class DatabaseManager
                             Name = item.Name,
                             Type = item.Type,
                             Value = item.Value,
-                            Attack = item.Attack,
-                            Defense = item.Defense,
+                            BonusDefense = item.BonusDefense,
                             MaxHealthBonus = item.MaxHealthBonus,
                             HealAmount = item.HealAmount,
                             Description = item.Description,
                             MaxStack = item.MaxStack,
                             Quantity = 1,
                             BonusStrength = item.BonusStrength,
-                            BonusStamina = item.BonusStamina,
+                            BonusEndurance = item.BonusEndurance,
                             BonusAgility = item.BonusAgility,
                             BonusCunning = item.BonusCunning,
+                            BonusIntellect = item.BonusIntellect,
                             BonusWisdom = item.BonusWisdom,
-                            BonusWill = item.BonusWill,
+                            BonusPhysAttack = item.BonusPhysAttack,
+                            BonusMagAttack = item.BonusMagAttack,
+                            BonusResistance = item.BonusResistance,
                             BonusCritChance = item.BonusCritChance,
                             BonusCritDamage = item.BonusCritDamage,
                             BonusEvadeChance = item.BonusEvadeChance,
+                            BonusAttackSpeed = item.BonusAttackSpeed,
                             TwoHanded = item.TwoHanded,
                             DamageType = item.DamageType,
                             AttackSpeedModifier = item.AttackSpeedModifier
@@ -951,8 +959,10 @@ public static class DatabaseManager
     private static Item? FindInventoryItem(SqliteConnection connection, string playerName, string itemId)
     {
         var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT item_id, name, type, value, attack, defense, max_health_bonus, heal_amount, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, template_id, quantity
+        cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+            bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+            bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -966,22 +976,25 @@ public static class DatabaseManager
                 Name = reader.GetString(1),
                 Type = reader.GetString(2),
                 Value = reader.GetInt32(3),
-                Attack = reader.GetInt32(4),
-                Defense = reader.GetInt32(5),
-                MaxHealthBonus = reader.GetInt32(6),
-                HealAmount = reader.GetInt32(7),
-                Description = reader.GetString(8),
-                BonusStrength = reader.GetInt32(9),
-                BonusStamina = reader.GetInt32(10),
-                BonusAgility = reader.GetInt32(11),
-                BonusCunning = reader.GetInt32(12),
+                BonusDefense = reader.GetInt32(4),
+                MaxHealthBonus = reader.GetInt32(5),
+                HealAmount = reader.GetInt32(6),
+                Description = reader.GetString(7),
+                BonusStrength = reader.GetInt32(8),
+                BonusEndurance = reader.GetInt32(9),
+                BonusAgility = reader.GetInt32(10),
+                BonusCunning = reader.GetInt32(11),
+                BonusIntellect = reader.GetInt32(12),
                 BonusWisdom = reader.GetInt32(13),
-                BonusWill = reader.GetInt32(14),
-                BonusCritChance = reader.GetDouble(15),
-                BonusCritDamage = reader.GetDouble(16),
-                BonusEvadeChance = reader.GetDouble(17),
-                TemplateId = reader.IsDBNull(18) ? "" : reader.GetString(18),
-                Quantity = reader.IsDBNull(19) ? 1 : reader.GetInt32(19)
+                BonusPhysAttack = reader.GetInt32(14),
+                BonusMagAttack = reader.GetInt32(15),
+                BonusResistance = reader.GetInt32(16),
+                BonusCritChance = reader.GetDouble(17),
+                BonusCritDamage = reader.GetDouble(18),
+                BonusEvadeChance = reader.GetDouble(19),
+                BonusAttackSpeed = reader.GetDouble(20),
+                TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
+                Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22)
             };
             return SyncItemFromTemplate(connection, item);
         }
@@ -992,33 +1005,38 @@ public static class DatabaseManager
     {
         if (string.IsNullOrEmpty(item.TemplateId)) return item;
         var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT attack, defense, value, max_health_bonus, heal_amount, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
-            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed, damage_type, attack_speed_modifier, weapon_subtype
+        cmd.CommandText = @"SELECT defense, value, max_health_bonus, heal_amount, description,
+            bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+            bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
+            two_handed, damage_type, attack_speed_modifier, weapon_subtype
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
         if (reader.Read())
         {
-            item.Attack = reader.GetInt32(0);
-            item.Defense = reader.GetInt32(1);
-            item.Value = reader.GetInt32(2);
-            item.MaxHealthBonus = reader.GetInt32(3);
-            item.HealAmount = reader.GetInt32(4);
-            item.Description = reader.GetString(5);
-            item.BonusStrength = reader.GetInt32(6);
-            item.BonusStamina = reader.GetInt32(7);
-            item.BonusAgility = reader.GetInt32(8);
-            item.BonusCunning = reader.GetInt32(9);
+            item.BonusDefense = reader.GetInt32(0);
+            item.Value = reader.GetInt32(1);
+            item.MaxHealthBonus = reader.GetInt32(2);
+            item.HealAmount = reader.GetInt32(3);
+            item.Description = reader.GetString(4);
+            item.BonusStrength = reader.GetInt32(5);
+            item.BonusEndurance = reader.GetInt32(6);
+            item.BonusAgility = reader.GetInt32(7);
+            item.BonusCunning = reader.GetInt32(8);
+            item.BonusIntellect = reader.GetInt32(9);
             item.BonusWisdom = reader.GetInt32(10);
-            item.BonusWill = reader.GetInt32(11);
-            item.BonusCritChance = reader.GetDouble(12);
-            item.BonusCritDamage = reader.GetDouble(13);
-            item.BonusEvadeChance = reader.GetDouble(14);
-            item.TwoHanded = !reader.IsDBNull(15) && reader.GetInt32(15) != 0;
-            item.DamageType = reader.IsDBNull(16) ? "" : reader.GetString(16);
-            item.AttackSpeedModifier = reader.IsDBNull(17) ? 1.0 : reader.GetDouble(17);
-            item.WeaponSubtype = reader.IsDBNull(18) ? "" : reader.GetString(18);
+            item.BonusPhysAttack = reader.GetInt32(11);
+            item.BonusMagAttack = reader.GetInt32(12);
+            item.BonusResistance = reader.GetInt32(13);
+            item.BonusCritChance = reader.GetDouble(14);
+            item.BonusCritDamage = reader.GetDouble(15);
+            item.BonusEvadeChance = reader.GetDouble(16);
+            item.BonusAttackSpeed = reader.GetDouble(17);
+            item.TwoHanded = !reader.IsDBNull(18) && reader.GetInt32(18) != 0;
+            item.DamageType = reader.IsDBNull(19) ? "" : reader.GetString(19);
+            item.AttackSpeedModifier = reader.IsDBNull(20) ? 1.0 : reader.GetDouble(20);
+            item.WeaponSubtype = reader.IsDBNull(21) ? "" : reader.GetString(21);
         }
         return item;
     }
@@ -1028,8 +1046,8 @@ public static class DatabaseManager
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"
             SELECT player_name, password_hash, level, experience, health, max_health,
-                   attack, defense, gold, created_at, last_login,
-                   strength, stamina, agility, cunning, wisdom, will_val, attribute_points, speed, pos_x, pos_y,
+                   gold, created_at, last_login,
+                   strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, pos_x, pos_y,
                    hotbar_slots, is_admin, is_banned, ban_reason
             FROM accounts WHERE login = $login";
         cmd.Parameters.AddWithValue("$login", login);
@@ -1045,34 +1063,32 @@ public static class DatabaseManager
             Login = login,
             PasswordHash = reader.GetString(1),
             PlayerName = playerName,
-            CreatedAt = DateTime.Parse(reader.GetString(9)),
-            LastLogin = DateTime.Parse(reader.GetString(10)),
-            IsAdmin = !reader.IsDBNull(22) && reader.GetInt32(22) != 0,
-            IsBanned = !reader.IsDBNull(23) && reader.GetInt32(23) != 0,
-            BanReason = reader.IsDBNull(24) ? "" : reader.GetString(24),
+            CreatedAt = DateTime.Parse(reader.GetString(7)),
+            LastLogin = DateTime.Parse(reader.GetString(8)),
+            IsAdmin = !reader.IsDBNull(20) && reader.GetInt32(20) != 0,
+            IsBanned = !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
+            BanReason = reader.IsDBNull(22) ? "" : reader.GetString(22),
             PlayerData = new PlayerData
             {
                 Level = reader.GetInt32(2),
                 Experience = reader.GetInt32(3),
                 Health = reader.GetInt32(4),
                 MaxHealth = reader.GetInt32(5),
-                Attack = reader.GetInt32(6),
-                Defense = reader.GetInt32(7),
-                Gold = reader.GetInt32(8),
-                Strength = reader.GetInt32(11),
-                Stamina = reader.GetInt32(12),
-                Agility = reader.GetInt32(13),
-                Cunning = reader.GetInt32(14),
-                Wisdom = reader.GetInt32(15),
-                Will = reader.GetInt32(16),
-                AttributePoints = reader.GetInt32(17),
-                Speed = reader.GetInt32(18),
-                X = reader.GetInt32(19),
-                Y = reader.GetInt32(20),
+                Gold = reader.GetInt32(6),
+                Strength = reader.GetInt32(9),
+                Endurance = reader.GetInt32(10),
+                Agility = reader.GetInt32(11),
+                Cunning = reader.GetInt32(12),
+                Intellect = reader.GetInt32(13),
+                Wisdom = reader.GetInt32(14),
+                AttributePoints = reader.GetInt32(15),
+                Speed = reader.GetInt32(16),
+                X = reader.GetInt32(17),
+                Y = reader.GetInt32(18),
                 Inventory = GetInventory(playerName, equipIds),
                 Equipment = LoadEquipment(connection, playerName),
                 ActiveQuests = LoadQuests(connection, playerName),
-                HotbarSlots = LoadHotbar(reader.GetString(21))
+                HotbarSlots = LoadHotbar(reader.GetString(19))
             }
         };
 
@@ -1252,9 +1268,10 @@ public static class DatabaseManager
             using var connection = new SqliteConnection(_connectionString);
             connection.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
-                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
+            cmd.CommandText = @"SELECT id, name, type, value, defense, max_health_bonus, heal_amount, stock, description,
+                bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+                bonus_phys_attack, bonus_mag_attack, bonus_resistance,
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
@@ -1267,25 +1284,28 @@ public static class DatabaseManager
                 Name = reader.GetString(1),
                 Type = reader.GetString(2),
                 Value = reader.GetInt32(3),
-                Attack = reader.GetInt32(4),
-                Defense = reader.GetInt32(5),
-                MaxHealthBonus = reader.GetInt32(6),
-                HealAmount = reader.GetInt32(7),
-                Stock = reader.GetInt32(8),
-                Description = reader.GetString(9),
-                BonusStrength = reader.GetInt32(10),
-                BonusStamina = reader.GetInt32(11),
-                BonusAgility = reader.GetInt32(12),
-                BonusCunning = reader.GetInt32(13),
+                BonusDefense = reader.GetInt32(4),
+                MaxHealthBonus = reader.GetInt32(5),
+                HealAmount = reader.GetInt32(6),
+                Stock = reader.GetInt32(7),
+                Description = reader.GetString(8),
+                BonusStrength = reader.GetInt32(9),
+                BonusEndurance = reader.GetInt32(10),
+                BonusAgility = reader.GetInt32(11),
+                BonusCunning = reader.GetInt32(12),
+                BonusIntellect = reader.GetInt32(13),
                 BonusWisdom = reader.GetInt32(14),
-                BonusWill = reader.GetInt32(15),
-                BonusCritChance = reader.GetDouble(16),
-                BonusCritDamage = reader.GetDouble(17),
-                BonusEvadeChance = reader.GetDouble(18),
-                TwoHanded = reader.GetInt32(19) != 0,
-                DamageType = reader.IsDBNull(20) ? "" : reader.GetString(20),
-                AttackSpeedModifier = reader.IsDBNull(21) ? 1.0 : reader.GetDouble(21),
-                WeaponSubtype = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                BonusPhysAttack = reader.GetInt32(15),
+                BonusMagAttack = reader.GetInt32(16),
+                BonusResistance = reader.GetInt32(17),
+                BonusCritChance = reader.GetDouble(18),
+                BonusCritDamage = reader.GetDouble(19),
+                BonusEvadeChance = reader.GetDouble(20),
+                BonusAttackSpeed = reader.GetDouble(21),
+                TwoHanded = reader.GetInt32(22) != 0,
+                DamageType = reader.IsDBNull(23) ? "" : reader.GetString(23),
+                AttackSpeedModifier = reader.IsDBNull(24) ? 1.0 : reader.GetDouble(24),
+                WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
             };
         }

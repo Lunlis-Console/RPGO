@@ -130,7 +130,7 @@ public class TradeOfferHandler : BaseHandler
             .Select(i => new
             {
                 i!.Id, i.TemplateId, i.Name, i.Type, i.Value, i.Description,
-                i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.MaxStack,
+                i.MaxHealthBonus, i.HealAmount, i.MaxStack,
                 Quantity = entries.First(x => x.ItemId == i.Id).Quantity
             })
             .ToList();

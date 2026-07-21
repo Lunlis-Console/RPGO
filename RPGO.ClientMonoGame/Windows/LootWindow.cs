@@ -215,28 +215,11 @@ public class LootWindow : GameWindow
 
     private void DrawTooltip(SpriteBatch sb, LootItemInfo item, MouseState mouse)
     {
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null) return;
-        var lines = new List<string> { item.Name, $"Тип: {item.Type}", $"Ценность: {item.Value}" };
-        if (!string.IsNullOrEmpty(item.Description))
-            lines.Add(item.Description);
-
-        float maxW = 0;
-        foreach (var l in lines)
-            maxW = Math.Max(maxW, font.MeasureString(l).X);
-        int pad = 6;
-        int lh = 16;
-        var tw = (int)maxW + pad * 2;
-        var th = lines.Count * lh + pad * 2;
-        int tx = mouse.X + 16;
-        int ty = mouse.Y + 16;
-        tx = Math.Min(tx, X + Width - tw - 2);
-        ty = Math.Min(ty, Y + Height - th - 2);
-
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, th), new Color(20, 22, 30, 240));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, 2), new Color(90, 95, 115));
-        for (int i = 0; i < lines.Count; i++)
-            DrawText(sb, lines[i], tx + pad, ty + pad + i * lh, i == 0 ? Color.White : new Color(200, 200, 210));
+        var lines = ItemTooltip.BuildLinesForLoot(item.Name, item.Type, item.Value, item.Description);
+        var g = GameMain.Instance;
+        int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
+        int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
+        TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
     }
 
     private Item ToItem(LootItemInfo info)
@@ -249,8 +232,8 @@ public class LootWindow : GameWindow
             Value = info.Value,
             HealAmount = 0,
             Description = info.Description,
-            Attack = 0,
-            Defense = 0
+            BonusPhysAttack = 0,
+            BonusDefense = 0
         };
     }
 }

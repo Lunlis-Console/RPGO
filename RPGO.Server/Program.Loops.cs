@@ -74,6 +74,14 @@ public partial class Program
                         continue;
                     }
 
+                    // Обновляем направление взгляда
+                    int dx = next.X - pl.X;
+                    int dy = next.Y - pl.Y;
+                    if (dx == 1) pl.Facing = "right";
+                    else if (dx == -1) pl.Facing = "left";
+                    else if (dy == 1) pl.Facing = "down";
+                    else if (dy == -1) pl.Facing = "up";
+
                     pl.X = next.X;
                     pl.Y = next.Y;
                     pl.Movement.LastMoveTime = DateTime.UtcNow;
@@ -162,7 +170,6 @@ public partial class Program
 
             case "merchant":
                 Log.Debug($"{player.Name} открыл магазин");
-                int mDiscountPct = Balance.ShopDiscountPct(player.Cunning);
                 await Hub.SendToClient(client, new GameMessage
                 {
                     Type = "shop_response",
@@ -171,13 +178,13 @@ public partial class Program
                         MerchantX = MerchantManager.MerchantX,
                         MerchantY = MerchantManager.MerchantY,
                         MerchantName = "Торговец",
-                        Discount = mDiscountPct,
+                        Discount = 0,
                         Items = MerchantManager.ShopItems.Select(i => new
                         {
                             i.Id, i.Name, i.Type,
-                            Value = Balance.BuyPrice(i.Value, mDiscountPct),
+                            Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
-                            i.Attack, i.Defense, i.MaxHealthBonus, i.HealAmount, i.Description,
+                            i.MaxHealthBonus, i.HealAmount, i.Description,
                             i.Stock,
                             IsBuyback = false
                         }).ToList(),
@@ -186,7 +193,7 @@ public partial class Program
                             b.Id, b.Name, b.Type,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
-                            b.Attack, b.Defense, b.MaxHealthBonus, b.HealAmount, b.Description,
+                            b.MaxHealthBonus, b.HealAmount, b.Description,
                             IsBuyback = true
                         }).ToList(),
                         PlayerGold = player.Gold
@@ -397,6 +404,11 @@ public partial class Program
                             if (nx >= 0 && nx < World.Map.Width && ny >= 0 && ny < World.Map.Height
                                 && MonsterManager.FindMonsterAt(nx, ny) == null)
                             {
+                                if (mx == 1) pl.Facing = "right";
+                                else if (mx == -1) pl.Facing = "left";
+                                else if (my == 1) pl.Facing = "down";
+                                else if (my == -1) pl.Facing = "up";
+
                                 pl.X = nx;
                                 pl.Y = ny;
                                 pl.Movement.LastMoveTime = DateTime.UtcNow;
@@ -466,6 +478,23 @@ public partial class Program
 
                             var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
                                 MonsterManager.CalculateCombat(pl, monster, queuedSkill == null);
+
+                            // === Оружейный прок ===
+                            if (!isEvaded)
+                            {
+                                string subtype = pl.Equipment.GetWeaponSubtype();
+                                if (!string.IsNullOrEmpty(subtype))
+                                {
+                                    DebuffManager.OnWeaponProc(pl, monster, subtype);
+
+                                    // Клив: наносим урон 50% по 3 клеткам
+                                    if (DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
+                                    {
+                                        DebuffManager.ClearDebuffs(pl);
+                                        MonsterManager.CalculateCleave(pl, monster);
+                                    }
+                                }
+                            }
 
                             if (queuedSkill != null)
                             {
@@ -1089,6 +1118,35 @@ public partial class Program
             catch (Exception ex)
             {
                 Log.Error("Ошибка цикла регенерации", ex);
+            }
+        }
+    }
+
+    private static async Task RunDebuffTickLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(Balance.DebuffTickMs);
+                foreach (var pl in World.GetPlayersSnapshot())
+                {
+                    if (pl.ActiveDebuffs.Count > 0)
+                    {
+                        DebuffManager.TickDebuffs(pl);
+                        var conn = World.FindClientByPlayer(pl);
+                        if (conn != null) await Hub.SendStatusAsync(conn, pl);
+                    }
+                }
+                foreach (var mon in World.GetMonstersSnapshot())
+                {
+                    if (mon.ActiveDebuffs.Count > 0)
+                        DebuffManager.TickDebuffs(mon);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Ошибка цикла дебаффов", ex);
             }
         }
     }

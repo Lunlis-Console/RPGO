@@ -87,20 +87,21 @@ public class ReconnectHandler : BaseHandler
             p.Experience,
             p.AttributePoints,
             p.Strength,
-            p.Stamina,
+            p.Endurance,
             p.Agility,
             p.Cunning,
+            p.Intellect,
             p.Wisdom,
-            p.Will,
-            p.GetTotalAttack(),
-            p.GetTotalDefense(),
+            p.GetPhysAttack(),
+            p.GetDefense(),
             p.Gold,
             p.Inventory.Select(i => new ItemState(i.Id, 1, null)).ToList(),
             p.HotbarSlots.Where(s => s != null).Select(s => new HotbarSlotState(
                 s!.StartsWith("item:") ? "item" : (s.StartsWith("skill:") ? "skill" : "empty"),
                 s
             )).ToList(),
-            p.ActiveQuests.Select(q => new ActiveQuestState(q.QuestId, q.Current, q.Completed)).ToList()
+            p.ActiveQuests.Select(q => new ActiveQuestState(q.QuestId, q.Current, q.Completed)).ToList(),
+            p.ActiveDebuffs.Select(d => new DebuffState(d.Type.ToString(), d.DisplayName, Math.Round(d.Value, 2), d.RemainingMs, d.DurationMs)).ToList()
         );
     }
 }

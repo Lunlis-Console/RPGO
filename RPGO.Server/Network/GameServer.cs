@@ -197,11 +197,11 @@ public sealed class GameServer : INetworkHub
                 player.Experience,
                 Equipped = BuildEquipped(player),
                 player.Strength,
-                player.Stamina,
+                player.Endurance,
                 player.Agility,
                 player.Cunning,
+                player.Intellect,
                 player.Wisdom,
-                player.Will,
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
@@ -209,7 +209,15 @@ public sealed class GameServer : INetworkHub
                 AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
-                Breakdown = BuildBreakdown(player)
+                Breakdown = BuildBreakdown(player),
+                ActiveDebuffs = player.ActiveDebuffs.Select(d => new
+                {
+                    Type = d.Type.ToString(),
+                    d.DisplayName,
+                    Value = Math.Round(d.Value, 2),
+                    d.RemainingMs,
+                    DurationMs = d.DurationMs
+                }).ToList()
             }
         });
     }
@@ -227,8 +235,10 @@ public sealed class GameServer : INetworkHub
                 {
                     Slots = BuildEquipSlots(player)
                 },
-                BonusAttack = player.Equipment.GetBonusAttack(),
+                BonusPhysAttack = player.Equipment.GetBonusPhysAttack(),
+                BonusMagAttack = player.Equipment.GetBonusMagAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
+                BonusResistance = player.Equipment.GetBonusResistance(),
                 BonusMaxHealth = player.Equipment.GetBonusMaxHealth()
             }
         });
@@ -243,10 +253,10 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                BaseAttack = player.GetBaseDamage(),
-                BaseDefense = player.GetBaseDefense(),
-                TotalAttack = player.GetTotalAttack(),
-                TotalDefense = player.GetTotalDefense(),
+                PhysAttack = player.GetPhysAttack(),
+                MagAttack = player.GetMagAttack(),
+                Defense = player.GetDefense(),
+                Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
@@ -256,11 +266,11 @@ public sealed class GameServer : INetworkHub
                 player.Experience,
                 Equipped = BuildEquipped(player),
                 player.Strength,
-                player.Stamina,
+                Endurance = player.Endurance,
                 player.Agility,
                 player.Cunning,
+                Intellect = player.Intellect,
                 player.Wisdom,
-                player.Will,
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
@@ -359,49 +369,64 @@ public sealed class GameServer : INetworkHub
     {
         return new StatsBreakdown
         {
-            Attack = new BreakdownPart
+            PhysAttack = new BreakdownPart
             {
                 Base = player.GetBaseDamage(),
-                AttrBonus = (player.GetEffStrength() - 1) * 2,
-                EquipBonus = player.Equipment.GetBonusAttack(),
-                Total = player.GetTotalAttack()
+                AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.AttackPerStrength
+                           + (player.GetEffAgility() - 1) * BalanceStatic.AttackPerAgility,
+                EquipBonus = player.Equipment.GetBonusPhysAttack(),
+                Total = player.GetPhysAttack()
+            },
+            MagAttack = new BreakdownPart
+            {
+                Base = player.GetBaseDamage(),
+                AttrBonus = (player.GetEffIntellect() - 1) * BalanceStatic.AttackPerIntellect,
+                EquipBonus = player.Equipment.GetBonusMagAttack(),
+                Total = player.GetMagAttack()
             },
             Defense = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                AttrBonus = (player.GetEffStamina() - 1) * 1,
+                AttrBonus = (player.GetEffEndurance() - 1) * BalanceStatic.DefensePerEndurance,
                 EquipBonus = player.Equipment.GetBonusDefense(),
-                Total = player.GetTotalDefense()
+                Total = player.GetDefense()
+            },
+            Resistance = new BreakdownPart
+            {
+                Base = player.GetBaseDefense(),
+                AttrBonus = (player.GetEffWisdom() - 1) * BalanceStatic.ResistancePerWisdom,
+                EquipBonus = player.Equipment.GetBonusResistance(),
+                Total = player.GetResistance()
             },
             Crit = new BreakdownPart
             {
                 Base = player.BaseCritChance,
-                AttrBonus = (player.GetEffAgility() - 1) * 1.0,
+                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning,
                 EquipBonus = player.Equipment.GetBonusCritChance(),
                 Total = Math.Round(player.GetCritChance(), 2)
             },
             CritDmg = new BreakdownPart
             {
                 Base = player.BaseCritDamage,
-                AttrBonus = (player.GetEffStrength() - 1) * 0.05,
+                AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.CritDamagePerStrength,
                 EquipBonus = player.Equipment.GetBonusCritDamage(),
                 Total = Math.Round(player.GetCritDamage(), 2)
             },
             Evade = new BreakdownPart
             {
                 Base = player.BaseEvadeChance,
-                AttrBonus = (player.GetEffAgility() - 1) * 1.0,
+                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning,
                 EquipBonus = player.Equipment.GetBonusEvadeChance(),
                 Total = Math.Round(player.GetEvadeChance(), 2)
             },
             Effective = new EffectiveAttrs
             {
                 Strength = player.GetEffStrength(),
-                Stamina = player.GetEffStamina(),
+                Endurance = player.GetEffEndurance(),
                 Agility = player.GetEffAgility(),
                 Cunning = player.GetEffCunning(),
-                Wisdom = player.GetEffWisdom(),
-                Will = player.GetEffWill()
+                Intellect = player.GetEffIntellect(),
+                Wisdom = player.GetEffWisdom()
             }
         };
     }

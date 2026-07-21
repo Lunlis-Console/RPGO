@@ -51,6 +51,7 @@ public class MoveDirectionHandler : BaseHandler
         {
             player.X = newX;
             player.Y = newY;
+            player.Facing = moveData.Direction;
             player.Movement.LastMoveTime = DateTime.UtcNow;
             Log.Debug($"{player.Name} переместился на ({player.X}, {player.Y})");
             await BroadcastMapAsync();

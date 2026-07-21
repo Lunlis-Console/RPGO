@@ -52,6 +52,7 @@ public class MapRenderer
     // Плавная позиция камеры (float), следует за интерполированной позицией игрока
     private float _camX = 50f;
     private float _camY = 50f;
+    private DateTime _lastFrameTime = DateTime.UtcNow;
 
     // Базовые размеры клеток
     private const float BaseCellW = 22f;
@@ -420,6 +421,11 @@ public class MapRenderer
 
     public void Draw(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
     {
+        var now = DateTime.UtcNow;
+        float dt = (float)(now - _lastFrameTime).TotalSeconds;
+        if (dt > 0.1f) dt = 0.1f;
+        _lastFrameTime = now;
+
         WorldMap? map;
         lock (_stateLock) { map = _currentMap; }
 
@@ -465,25 +471,21 @@ public class MapRenderer
             }
         }
 
-        // Камера = визуальная позиция игрока (она уже сглажена AdvanceVisPositions).
-        // Sub-cell offset обеспечивает плавную отрисовку между клетками.
-        // Decay не нужен — он создаёт отставание, которое выглядит как «прыжок» при остановке.
+        // Камера = визуальная (уже плавная) позиция игрока.
         _camX = targetX;
         _camY = targetY;
 
-        int centerX = (int)Math.Round(_camX);
-        int centerY = (int)Math.Round(_camY);
+        int centerX = (int)Math.Floor(_camX);
+        int centerY = (int)Math.Floor(_camY);
 
         ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
 
-        // Sub-cell offset: сдвигаем всю сетку на разницу между точной и округлённой позицией камеры,
-        // чтобы тайлы и сущности рисовались плавно, без скачков по клеткам.
+        // Sub-cell offset: сдвигаем всю сетку на дробную часть позиции камеры,
+        // чтобы тайлы и сущности рисовались непрерывно между клетками.
         float subCellX = (_camX - centerX) * _cellW;
         float subCellY = (_camY - centerY) * _cellH;
         _gridOX -= subCellX;
         _gridOY -= subCellY;
-        if (_gridOX < offsetX) _gridOX = offsetX;
-        if (_gridOY < offsetY) _gridOY = offsetY;
 
         // Тайлы (слой земли) — спрайт травы на каждую клетку (+2px по краям из-за sub-cell offset)
         var grass = SpriteCache.GetGrassSprite();
@@ -755,16 +757,9 @@ public class MapRenderer
         float visSpeed;
         try
         {
-            var playerName = GameMain.Instance?.Client.PlayerName ?? "";
-            if (playerName.Equals("test", StringComparison.OrdinalIgnoreCase)
-                || playerName.Equals("тест", StringComparison.OrdinalIgnoreCase))
-                visSpeed = 60f;
-            else
-            {
-                var st = GameMain.Instance?.Client.Status;
-                int moveMs = st?.MoveIntervalMs > 0 ? st.MoveIntervalMs : 500;
-                visSpeed = 1000f / moveMs;
-            }
+            var st = GameMain.Instance?.Client.Status;
+            int moveMs = st?.MoveIntervalMs > 0 ? st.MoveIntervalMs : 500;
+            visSpeed = 1000f / moveMs;
         }
         catch
         {

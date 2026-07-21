@@ -67,11 +67,11 @@ public static class MonsterManager
             LastMoveTime = DateTime.UtcNow.AddMilliseconds(-World.NextRandom(0, Balance.MonsterSpawnJitterMaxMs))
         };
         monster.Strength = template.Strength;
-        monster.Stamina = template.Stamina;
+        monster.Endurance = template.Endurance;
         monster.Agility = template.Agility;
         monster.Cunning = template.Cunning;
+        monster.Intellect = template.Intellect;
         monster.Wisdom = template.Wisdom;
-        monster.Will = template.Will;
         monster.CritChance = template.CritChance;
         monster.CritDamage = template.CritDamage;
         monster.EvadeChance = template.EvadeChance;
@@ -321,14 +321,24 @@ public static class MonsterManager
     {
         var rng = new Random();
 
-        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < defender.GetEvadeChance();
+        // Модификаторы дебаффов
+        double armorPen = DebuffManager.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        double dmgReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageReduction);
+        double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        double accuracyReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
+
+        double effectiveDefenderDefense = defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
+        double effectiveAttackerAttack = attacker.GetTotalAttack() * (1.0 + dmgBonus);
+
+        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100);
         int attackerDamage = 0;
         bool isCrit = false;
         if (!defenderEvaded)
         {
             isCrit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
-            int baseDamage = Math.Max(Balance.MinDamage, attacker.GetTotalAttack() - defender.GetTotalDefense());
+            int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
             attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
+            attackerDamage = Math.Max(Balance.MinDamage, (int)(attackerDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
             if (applyDefenderDamage && defender is Monster mon)
             {
                 mon.Health -= attackerDamage;
@@ -375,5 +385,40 @@ public static class MonsterManager
         int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * Equipment.OffHandDamageFraction));
         return (finalDmg, crit, false);
+    }
+
+    public static void CalculateCleave(Player attacker, Monster primaryTarget)
+    {
+        var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
+        int cleaveDmg = Math.Max(Balance.MinDamage,
+            (int)((attacker.GetTotalAttack() - primaryTarget.GetTotalDefense()) * Balance.CleaveDamageFraction));
+
+        foreach (var (cx, cy) in positions)
+        {
+            var monster = FindMonsterAt(cx, cy);
+            if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
+
+            bool evaded = new Random().Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+            if (evaded) continue;
+
+            bool crit = new Random().Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            int dmg = crit ? (int)(cleaveDmg * attacker.GetCritDamage()) : cleaveDmg;
+            dmg = Math.Max(Balance.MinDamage, dmg);
+            monster.Health -= dmg;
+            monster.LastDamagedTime = DateTime.UtcNow;
+            monster.DamageTracker[attacker.Id] = monster.DamageTracker.GetValueOrDefault(attacker.Id) + dmg;
+        }
+    }
+
+    private static List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
+    {
+        return facing switch
+        {
+            "up"    => new List<(int, int)> { (px - 1, py - 1), (px, py - 1), (px + 1, py - 1) },
+            "down"  => new List<(int, int)> { (px - 1, py + 1), (px, py + 1), (px + 1, py + 1) },
+            "left"  => new List<(int, int)> { (px - 1, py - 1), (px - 1, py), (px - 1, py + 1) },
+            "right" => new List<(int, int)> { (px + 1, py - 1), (px + 1, py), (px + 1, py + 1) },
+            _       => new List<(int, int)>()
+        };
     }
 }

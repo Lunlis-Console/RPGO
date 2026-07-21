@@ -34,10 +34,10 @@ public sealed class StatusData
     public int MaxHealth { get; set; }
     public int Mana { get; set; }
     public int MaxMana { get; set; }
-    public int BaseAttack { get; set; }
-    public int BaseDefense { get; set; }
-    public int TotalAttack { get; set; }
-    public int TotalDefense { get; set; }
+    public int PhysAttack { get; set; }
+    public int MagAttack { get; set; }
+    public int Defense { get; set; }
+    public int Resistance { get; set; }
     public double CritChance { get; set; }
     public double CritDamage { get; set; }
     public double EvadeChance { get; set; }
@@ -45,17 +45,13 @@ public sealed class StatusData
     public int X { get; set; }
     public int Y { get; set; }
     public int Experience { get; set; }
-    public string? WeaponName { get; set; }
-    public string? ArmorName { get; set; }
-    public string? AccessoryName { get; set; }
-    // slot id -> имя надетого предмета (для окна статуса)
     public Dictionary<string, string> Equipped { get; set; } = new();
     public int Strength { get; set; }
-    public int Stamina { get; set; }
+    public int Endurance { get; set; }
     public int Agility { get; set; }
     public int Cunning { get; set; }
+    public int Intellect { get; set; }
     public int Wisdom { get; set; }
-    public int Will { get; set; }
     public int AttributePoints { get; set; }
     public int Speed { get; set; }
     public int MoveIntervalMs { get; set; }
@@ -65,6 +61,7 @@ public sealed class StatusData
     public double WeaponSpeedModifier { get; set; } = 1.0;
     public bool IsDualWielding { get; set; }
     public BreakdownData? Breakdown { get; set; }
+    public List<DebuffInfo>? ActiveDebuffs { get; set; }
 }
 
 public sealed class InventoryData
@@ -72,8 +69,10 @@ public sealed class InventoryData
     public List<Item>? Items { get; set; }
     public int Gold { get; set; }
     public EquipmentData? Equipment { get; set; }
-    public int BonusAttack { get; set; }
+    public int BonusPhysAttack { get; set; }
+    public int BonusMagAttack { get; set; }
     public int BonusDefense { get; set; }
+    public int BonusResistance { get; set; }
     public int BonusMaxHealth { get; set; }
 }
 
@@ -174,8 +173,10 @@ public sealed class QuestInfo
 
 public sealed class BreakdownData
 {
-    public BreakdownPart? Attack { get; set; }
+    public BreakdownPart? PhysAttack { get; set; }
+    public BreakdownPart? MagAttack { get; set; }
     public BreakdownPart? Defense { get; set; }
+    public BreakdownPart? Resistance { get; set; }
     public BreakdownPart? Crit { get; set; }
     public BreakdownPart? CritDmg { get; set; }
     public BreakdownPart? Evade { get; set; }
@@ -193,11 +194,20 @@ public sealed class BreakdownPart
 public sealed class EffectiveData
 {
     public int Strength { get; set; }
-    public int Stamina { get; set; }
+    public int Endurance { get; set; }
     public int Agility { get; set; }
     public int Cunning { get; set; }
+    public int Intellect { get; set; }
     public int Wisdom { get; set; }
-    public int Will { get; set; }
+}
+
+public sealed class DebuffInfo
+{
+    public string Type { get; set; } = "";
+    public string DisplayName { get; set; } = "";
+    public double Value { get; set; }
+    public int RemainingMs { get; set; }
+    public int DurationMs { get; set; }
 }
 
 public sealed class PartyMemberInfo

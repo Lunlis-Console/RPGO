@@ -8,7 +8,7 @@ public class CombatTests
     private static Monster CreateMonster(int level, int str, int sta, int agi, double evade, double crit, int hp)
         => new()
         {
-            Level = level, Strength = str, Stamina = sta, Agility = agi,
+            Level = level, Strength = str, Endurance = sta, Agility = agi,
             EvadeChance = evade, CritChance = crit,
             Health = hp, MaxHealth = hp
         };
@@ -16,7 +16,7 @@ public class CombatTests
     private static Player CreatePlayer(int level, int str, int sta, int agi, double critChance, double evadeChance)
         => new()
         {
-            Level = level, Strength = str, Stamina = sta, Agility = agi,
+            Level = level, Strength = str, Endurance = sta, Agility = agi,
             BaseCritChance = critChance, BaseEvadeChance = evadeChance
         };
 
@@ -108,7 +108,7 @@ public class CombatTests
     {
         var player = CreatePlayer(level: 1, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
-        monster.Stamina = 100; // high defense
+        monster.Endurance = 100; // high defense
 
         var (dmgToM, _, _, _, _) =
             MonsterManager.CalculateCombat(player, monster);

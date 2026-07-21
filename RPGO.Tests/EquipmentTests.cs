@@ -8,15 +8,15 @@ public class EquipmentTests
     public void EmptyEquipment_AllBonusesZero()
     {
         var eq = new Equipment();
-        Assert.Equal(0, eq.GetBonusAttack());
+        Assert.Equal(0, eq.GetBonusPhysAttack());
         Assert.Equal(0, eq.GetBonusDefense());
         Assert.Equal(0, eq.GetBonusMaxHealth());
         Assert.Equal(0, eq.GetBonusStrength());
-        Assert.Equal(0, eq.GetBonusStamina());
+        Assert.Equal(0, eq.GetBonusEndurance());
         Assert.Equal(0, eq.GetBonusAgility());
         Assert.Equal(0, eq.GetBonusCunning());
+        Assert.Equal(0, eq.GetBonusIntellect());
         Assert.Equal(0, eq.GetBonusWisdom());
-        Assert.Equal(0, eq.GetBonusWill());
         Assert.Equal(0, eq.GetBonusCritChance());
         Assert.Equal(0, eq.GetBonusCritDamage());
         Assert.Equal(0, eq.GetBonusEvadeChance());
@@ -26,25 +26,25 @@ public class EquipmentTests
     public void WeaponAttack_AddsToBonus()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.RightHand] = new Item { Attack = 10 };
-        Assert.Equal(10, eq.GetBonusAttack());
+        eq[EquipmentSlots.RightHand] = new Item { BonusPhysAttack = 10 };
+        Assert.Equal(10, eq.GetBonusPhysAttack());
     }
 
     [Fact]
     public void AllSlotsAttack_SumCorrectly()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.RightHand] = new Item { Attack = 5 };
-        eq[EquipmentSlots.Torso] = new Item { Attack = 3 };
-        eq[EquipmentSlots.Neck] = new Item { Attack = 2 };
-        Assert.Equal(10, eq.GetBonusAttack());
+        eq[EquipmentSlots.RightHand] = new Item { BonusPhysAttack = 5 };
+        eq[EquipmentSlots.Torso] = new Item { BonusPhysAttack = 3 };
+        eq[EquipmentSlots.Neck] = new Item { BonusPhysAttack = 2 };
+        Assert.Equal(10, eq.GetBonusPhysAttack());
     }
 
     [Fact]
     public void ArmorDefense_AddsToBonus()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { Defense = 8 };
+        eq[EquipmentSlots.Torso] = new Item { BonusDefense = 8 };
         Assert.Equal(8, eq.GetBonusDefense());
     }
 
@@ -70,8 +70,8 @@ public class EquipmentTests
     public void Stamina_BonusFromArmor()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusStamina = 5 };
-        Assert.Equal(5, eq.GetBonusStamina());
+        eq[EquipmentSlots.Torso] = new Item { BonusEndurance = 5 };
+        Assert.Equal(5, eq.GetBonusEndurance());
     }
 
     [Fact]
@@ -110,19 +110,19 @@ public class EquipmentTests
     }
 
     [Fact]
-    public void Wisdom_BonusFromAccessory()
+    public void Intellect_BonusFromAccessory()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Neck] = new Item { BonusWisdom = 7 };
-        Assert.Equal(7, eq.GetBonusWisdom());
+        eq[EquipmentSlots.Neck] = new Item { BonusIntellect = 7 };
+        Assert.Equal(7, eq.GetBonusIntellect());
     }
 
     [Fact]
-    public void Will_BonusFromArmor()
+    public void Wisdom_BonusFromArmor()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusWill = 4 };
-        Assert.Equal(4, eq.GetBonusWill());
+        eq[EquipmentSlots.Torso] = new Item { BonusWisdom = 4 };
+        Assert.Equal(4, eq.GetBonusWisdom());
     }
 
     [Fact]

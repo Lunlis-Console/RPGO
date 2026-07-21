@@ -134,11 +134,16 @@ public sealed class GameClient
             Mana = player.Mana, MaxMana = player.MaxMana,
             Gold = player.Gold, Experience = (int)player.Experience,
             AttributePoints = player.AttributePoints,
-            Strength = player.Strength, Stamina = player.Stamina,
+            Strength = player.Strength, Endurance = player.Endurance,
             Agility = player.Agility, Cunning = player.Cunning,
-            Wisdom = player.Wisdom, Will = player.Will,
-            TotalAttack = player.Attack, TotalDefense = player.Defense,
-            X = player.X, Y = player.Y
+            Intellect = player.Intellect, Wisdom = player.Wisdom,
+            PhysAttack = player.Attack, Defense = player.Defense,
+            X = player.X, Y = player.Y,
+            ActiveDebuffs = player.ActiveDebuffs.Select(d => new DebuffInfo
+            {
+                Type = d.Type, DisplayName = d.DisplayName,
+                Value = d.Value, RemainingMs = d.RemainingMs, DurationMs = d.DurationMs
+            }).ToList()
         };
         Ui(() => StatusUpdated?.Invoke(Status));
     }

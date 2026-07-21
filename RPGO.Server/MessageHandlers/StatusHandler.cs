@@ -23,10 +23,10 @@ public class StatusHandler : BaseHandler
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                BaseAttack = player.GetBaseDamage(),
-                BaseDefense = player.GetBaseDefense(),
-                TotalAttack = player.GetTotalAttack(),
-                TotalDefense = player.GetTotalDefense(),
+                PhysAttack = player.GetPhysAttack(),
+                MagAttack = player.GetMagAttack(),
+                Defense = player.GetDefense(),
+                Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
@@ -38,11 +38,11 @@ public class StatusHandler : BaseHandler
                     .Where(kv => kv.Value != null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value!.Name),
                 player.Strength,
-                player.Stamina,
+                Endurance = player.Endurance,
                 player.Agility,
                 player.Cunning,
+                Intellect = player.Intellect,
                 player.Wisdom,
-                player.Will,
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
@@ -51,7 +51,15 @@ public class StatusHandler : BaseHandler
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 IsDualWielding = player.Equipment.IsDualWielding(),
-                Breakdown = BuildBreakdown(player)
+                Breakdown = BuildBreakdown(player),
+                ActiveDebuffs = player.ActiveDebuffs.Select(d => new
+                {
+                    Type = d.Type.ToString(),
+                    d.DisplayName,
+                    Value = Math.Round(d.Value, 2),
+                    d.RemainingMs,
+                    DurationMs = d.DurationMs
+                }).ToList()
             }
         });
     }

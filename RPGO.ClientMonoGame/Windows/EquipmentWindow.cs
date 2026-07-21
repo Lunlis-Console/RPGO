@@ -298,94 +298,10 @@ public class EquipmentWindow : GameWindow
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)
     {
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null) return;
-
-        var lines = new List<string>
-        {
-            item.Name,
-            $"Тип: {TypeLabel(item.Type)}",
-            $"Цена: {item.Value} золота"
-        };
-        if (item.Attack > 0) lines.Add($"Атака: +{item.Attack}");
-        if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
-        if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
-        if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
-        if (item.Type == "weapon" || item.Type == "twohand")
-        {
-            string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
-            lines.Add($"Вид: {handLabel}");
-            if (!string.IsNullOrEmpty(item.WeaponSubtype))
-            {
-                string subLabel = item.WeaponSubtype.ToLower() switch
-                {
-                    "sword" => "Меч",
-                    "axe" => "Топор",
-                    "mace" => "Булава",
-                    "hammer" => "Молот",
-                    "dagger" => "Кинжал",
-                    _ => item.WeaponSubtype
-                };
-                lines.Add($"Тип оружия: {subLabel}");
-            }
-        }
-        if (!string.IsNullOrEmpty(item.DamageType))
-        {
-            string dtLabel = item.DamageType.ToLower() switch
-            {
-                "slashing" => "Рубящий",
-                "piercing" => "Колющий",
-                "blunt" => "Дробящий",
-                _ => item.DamageType
-            };
-            lines.Add($"Тип урона: {dtLabel}");
-        }
-        if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
-            lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
-        if (!string.IsNullOrEmpty(item.Description))
-            lines.Add(item.Description);
-
-        int pad = 8;
-        float tw = 0;
-        foreach (var l in lines) tw = Math.Max(tw, font.MeasureString(l).X);
-        int th = lines.Count * 18 + pad * 2;
-        int tx = mouse.X + 16;
-        int ty = mouse.Y + 16;
-        int ww = (int)tw + pad * 2;
-        if (tx + ww > GameMain.Instance!.Graphics.PreferredBackBufferWidth)
-            tx = GameMain.Instance!.Graphics.PreferredBackBufferWidth - ww - 4;
-        if (ty + th > GameMain.Instance!.Graphics.PreferredBackBufferHeight)
-            ty = GameMain.Instance!.Graphics.PreferredBackBufferHeight - th - 4;
-
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, th), new Color(20, 22, 30, 230));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(80, 120, 200));
-        for (int i = 0; i < lines.Count; i++)
-        {
-            var color = i == 0 ? new Color(230, 220, 140) : Color.White;
-            sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
-        }
+        var lines = ItemTooltip.BuildLines(item);
+        var g = GameMain.Instance;
+        int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
+        int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
+        TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
     }
-
-    private static string TypeLabel(string t) => t switch
-    {
-        "weapon" => "Оружие",
-        "twohand" => "Двуручное оружие",
-        "shield" => "Щит",
-        "helmet" => "Шлем",
-        "cloak" => "Плащ",
-        "chest" => "Нагрудник",
-        "legs" => "Поножи",
-        "boots" => "Сапоги",
-        "glove_r" => "Правая перчатка",
-        "glove_l" => "Левая перчатка",
-        "necklace" => "Ожерелье",
-        "ring" => "Кольцо",
-        "accessory" => "Аксессуар",
-        "armor" => "Броня",
-        "consumable" => "Расходник",
-        "collectible" => "Коллекция",
-        "material" => "Материал",
-        "trophy" => "Трофей",
-        _ => t
-    };
 }
