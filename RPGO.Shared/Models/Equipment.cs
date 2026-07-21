@@ -6,6 +6,9 @@ namespace RPGGame.Shared.Models;
 /// </summary>
 public class Equipment
 {
+    public const double DualWieldSpeedBonus = 1.15;
+    public const double OffHandDamageFraction = 0.5;
+
     private readonly Dictionary<string, Item?> _slots = new();
 
     public Item? this[string slot]
@@ -35,6 +38,46 @@ public class Equipment
     public double GetBonusCritDamage() => SumD(_slots.Values, i => i.BonusCritDamage);
     public double GetBonusEvadeChance() => SumD(_slots.Values, i => i.BonusEvadeChance);
 
+    /// <summary>
+    /// Модификатор скорости атаки оружия в правой руке.
+    /// 1.0 = базовая, >1 = быстрее (кинжалы), <1 = медленнее (булавы/молоты).
+    /// Если оружие не надето — возвращает 1.0.
+    /// При двойном оружии (dual wield) +15% к скорости атаки.
+    /// </summary>
+    public double GetWeaponSpeedModifier()
+    {
+        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        double mod = weapon != null && weapon.AttackSpeedModifier > 0 ? weapon.AttackSpeedModifier : 1.0;
+        if (IsDualWielding())
+            mod *= DualWieldSpeedBonus;
+        return mod;
+    }
+
+    /// <summary>Тип урона оружия в правой руке (строка: "slashing", "piercing", "blunt").</summary>
+    public string GetWeaponDamageType()
+    {
+        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        return weapon?.DamageType ?? "";
+    }
+
+    /// <summary>
+    /// Проверяет,_dual wield ли игрок: в левой руке оружие (тип weapon), а не щит.
+    /// Двуручное оружие в правой руке блокирует левую → dual wield невозможен.
+    /// </summary>
+    public bool IsDualWielding()
+    {
+        var leftHand = _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null;
+        if (leftHand == null) return false;
+        string leftType = (leftHand.Type ?? "").ToLowerInvariant();
+        if (leftType == "weapon" && !leftHand.TwoHanded)
+            return true;
+        return false;
+    }
+
+    /// <summary>Оружие в левой руке (для dual wield). Если IsDualWielding() == false → null.</summary>
+    public Item? GetOffHandWeapon()
+        => IsDualWielding() ? _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null : null;
+
     public Equipment Clone()
     {
         var eq = new Equipment();
@@ -52,6 +95,8 @@ public class Equipment
         BonusAgility = src.BonusAgility, BonusCunning = src.BonusCunning,
         BonusWisdom = src.BonusWisdom, BonusWill = src.BonusWill,
         BonusCritChance = src.BonusCritChance, BonusCritDamage = src.BonusCritDamage,
-        BonusEvadeChance = src.BonusEvadeChance, TwoHanded = src.TwoHanded
+        BonusEvadeChance = src.BonusEvadeChance, TwoHanded = src.TwoHanded,
+        DamageType = src.DamageType, AttackSpeedModifier = src.AttackSpeedModifier,
+        WeaponSubtype = src.WeaponSubtype
     };
 }

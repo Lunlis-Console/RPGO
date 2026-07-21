@@ -52,7 +52,10 @@ public static class InventoryHelper
                 BonusWill = item.BonusWill,
                 BonusCritChance = item.BonusCritChance,
                 BonusCritDamage = item.BonusCritDamage,
-                BonusEvadeChance = item.BonusEvadeChance
+                BonusEvadeChance = item.BonusEvadeChance,
+                TwoHanded = item.TwoHanded,
+                DamageType = item.DamageType,
+                AttackSpeedModifier = item.AttackSpeedModifier
             };
             player.Inventory.Add(clone);
             qty -= take;

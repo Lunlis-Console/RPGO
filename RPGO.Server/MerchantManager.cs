@@ -76,7 +76,10 @@ public static class MerchantManager
             BonusWill = template.BonusWill,
             BonusCritChance = template.BonusCritChance,
             BonusCritDamage = template.BonusCritDamage,
-            BonusEvadeChance = template.BonusEvadeChance
+            BonusEvadeChance = template.BonusEvadeChance,
+            TwoHanded = template.TwoHanded,
+            DamageType = template.DamageType,
+            AttackSpeedModifier = template.AttackSpeedModifier
         };
     }
 }

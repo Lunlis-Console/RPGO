@@ -26,6 +26,12 @@ public static class Balance
     public const int RespawnJitterMin = -3;
     public const int RespawnJitterMax = 4;
 
+    // ===== МАНЕКЕН =====
+    public const int MannequinHealth = 10000;
+    public const int MannequinRegenDelayMs = 5000;   // через 5 сек без ударов — полное восстановление
+    public const int MannequinOffsetX = -4;           // смещение от торговца
+    public const int MannequinOffsetY = -2;
+
     // ===== ДВИЖЕНИЕ =====
     // Базовый интервал движения: MoveIntervalMs = BaseMoveMs / max(1, Speed)
     public const double BaseMoveMs = 500.0;
@@ -65,6 +71,11 @@ public static class Balance
     // ===== СМЕРТЬ =====
     public const double DeathHealthFraction = 0.5; // HP после смерти = 50% MaxHP
     public const int DeathGoldLoss = 20;           // макс. потеря золота
+
+    // ===== DUAL WIELD =====
+    public const double DualWieldSpeedBonus = 1.15;   // +15% к скорости атаки при dual wield
+    public const double OffHandDamageFraction = 0.5;   // off-hand наносит 50% урона
+    public const int OffHandDelayMs = 250;             // задержка перед ударом второй руки (мс)
 
     // ===== РЕГЕНЕРАЦИЯ (игрок) =====
     public const int PlayerRegenInCombatDelayMs = 4000;
@@ -151,8 +162,27 @@ public static class Balance
     public static int AttackIntervalMs(int attackSpeed)
         => (int)(AttackBaseMs / Math.Max(1, attackSpeed));
 
+    /// <summary>
+    /// Интервал атаки с точным учётом модификатора скорости оружия (без округления в int).
+    /// baseAgilitySpeed: результат GetAttackSpeed(agility).
+    /// weaponSpeedMod: модификатор оружия (0.5 = молот, 1.3 = кинжал).
+    /// </summary>
+    public static int AttackIntervalMs(int baseAgilitySpeed, double weaponSpeedMod)
+        => (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod)));
+
     public static int GetAttackSpeed(int agility)
         => Math.Max(1, AttackSpeedBase + agility / AttackSpeedAgilityDivisor);
+
+    /// <summary>
+    /// Скорость атаки с учётом модификатора оружия.
+    /// weaponSpeedMod: 1.0 = без оружия, 1.3 = кинжалы, 0.8 = топор, 0.6 = булава, 0.5 = молот.
+    /// </summary>
+    public static int GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
+    {
+        int baseSpeed = GetAttackSpeed(agility);
+        double effective = baseSpeed * Math.Max(0.1, weaponSpeedMod);
+        return Math.Max(1, (int)Math.Round(effective));
+    }
 
     public static int XpNeededForNextLevel(int level)
         => level * XpPerLevel;

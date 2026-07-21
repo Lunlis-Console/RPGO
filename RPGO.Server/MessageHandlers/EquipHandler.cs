@@ -57,14 +57,14 @@ public class EquipHandler : BaseHandler
         }
         else
         {
-            // Для кольца — первая свободная; иначе первая подходящая
-            if (item.Type == "ring")
+            // Для оружия/колец — первая свободная; иначе первая подходящая
+            if (item.Type == "weapon" || item.Type == "ring")
                 slotsToFill = validSlots.Where(s => player.Equipment[s] == null).Take(1).ToList();
             else
                 slotsToFill = validSlots.Take(1).ToList();
 
             if (slotsToFill.Count == 0)
-                slotsToFill = validSlots.Take(1).ToList(); // кольцо: обе заняты — заменим первую
+                slotsToFill = validSlots.Take(1).ToList(); // все заняты — заменим первую
         }
 
         // Слот не должен быть заблокирован двуручным оружием
@@ -105,7 +105,9 @@ public class EquipHandler : BaseHandler
                 BonusCritChance = item.BonusCritChance,
                 BonusCritDamage = item.BonusCritDamage,
                 BonusEvadeChance = item.BonusEvadeChance,
-                TwoHanded = item.TwoHanded
+                TwoHanded = item.TwoHanded,
+                DamageType = item.DamageType,
+                AttackSpeedModifier = item.AttackSpeedModifier
             };
         }
         else

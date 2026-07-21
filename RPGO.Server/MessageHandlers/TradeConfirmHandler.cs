@@ -169,7 +169,10 @@ public class TradeConfirmHandler : BaseHandler
             BonusWill = proto.BonusWill,
             BonusCritChance = proto.BonusCritChance,
             BonusCritDamage = proto.BonusCritDamage,
-            BonusEvadeChance = proto.BonusEvadeChance
+            BonusEvadeChance = proto.BonusEvadeChance,
+            TwoHanded = proto.TwoHanded,
+            DamageType = proto.DamageType,
+            AttackSpeedModifier = proto.AttackSpeedModifier
         };
     }
 

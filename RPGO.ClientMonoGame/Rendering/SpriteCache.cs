@@ -53,7 +53,7 @@ public static class SpriteCache
             ["M0004"] = "goblin", ["M0005"] = "skelet", ["M0006"] = "wolf",
             ["M0007"] = "bear", ["M0008"] = "ork", ["M0009"] = "dark_mage",
             ["M0010"] = "dragon_baby", ["M0011"] = "dragon", ["M0012"] = "lich",
-            ["M0013"] = "snake"
+            ["M0013"] = "snake", ["MANNEQUIN"] = "maneken"
         };
 
     public static SpriteFont Font => _font;
@@ -77,7 +77,7 @@ public static class SpriteCache
             "snake", "skelet", "sand", "rat", "ork", "misc", "lich",
             "grass", "gold", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
-            "trader", "quest_desk",
+            "trader", "quest_desk", "maneken",
             "icon_communication", "icon_inventory", "icon_settings", "icon_skills", "icon_status",
             "skill",
             "Character_Sprite_1", "Character_Sprite_2_Left", "Character_Sprite_3_Right", "Character_Sprite_4"
@@ -201,9 +201,9 @@ public static class SpriteCache
 
     public static Texture2D? ForItemType(string? type) => (type ?? "").ToLower() switch
     {
-        "weapon" => Get("weapon"),
-        "armor" => Get("armor"),
-        "accessory" => Get("accessory"),
+        "weapon" or "twohand" or "shield" => Get("weapon"),
+        "helmet" or "chest" or "cloak" or "legs" or "boots" or "glove_r" or "glove_l" => Get("armor"),
+        "necklace" or "ring" or "accessory" => Get("accessory"),
         "consumable" => Get("consumable"),
         "collectible" => Get("collectible"),
         "trophy" => Get("misc"),

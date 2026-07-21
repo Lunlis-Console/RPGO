@@ -281,6 +281,37 @@ public class ShopWindow : GameWindow
         if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
         if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
         if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
+        if (item.Type == "weapon" || item.Type == "twohand")
+        {
+            string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
+            lines.Add($"Вид: {handLabel}");
+            if (!string.IsNullOrEmpty(item.WeaponSubtype))
+            {
+                string subLabel = item.WeaponSubtype.ToLower() switch
+                {
+                    "sword" => "Меч",
+                    "axe" => "Топор",
+                    "mace" => "Булава",
+                    "hammer" => "Молот",
+                    "dagger" => "Кинжал",
+                    _ => item.WeaponSubtype
+                };
+                lines.Add($"Тип оружия: {subLabel}");
+            }
+        }
+        if (!string.IsNullOrEmpty(item.DamageType))
+        {
+            string dtLabel = item.DamageType.ToLower() switch
+            {
+                "slashing" => "Рубящий",
+                "piercing" => "Колющий",
+                "blunt" => "Дробящий",
+                _ => item.DamageType
+            };
+            lines.Add($"Тип урона: {dtLabel}");
+        }
+        if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
+            lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
         int stock = Math.Max(1, item.Stock);
         if (stock > 1) lines.Add($"В наличии: {stock}");
         if (!string.IsNullOrEmpty(item.Description)) lines.Add(item.Description);

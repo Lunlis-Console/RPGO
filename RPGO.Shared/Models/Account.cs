@@ -8,6 +8,9 @@ public class Account
     public PlayerData PlayerData { get; set; } = new();
     public DateTime CreatedAt { get; set; } = DateTime.Now;
     public DateTime LastLogin { get; set; } = DateTime.Now;
+    public bool IsAdmin { get; set; }
+    public bool IsBanned { get; set; }
+    public string BanReason { get; set; } = "";
 }
 
 public class PlayerData
@@ -72,6 +75,15 @@ public class Item
     public double BonusCritChance { get; set; }   // %
     public double BonusCritDamage { get; set; }   // множитель
     public double BonusEvadeChance { get; set; }  // %
+
+    // Тип урона оружия
+    public string DamageType { get; set; } = "";
+
+    // Подтип оружия: "sword", "axe", "mace", "hammer", "dagger"
+    public string WeaponSubtype { get; set; } = "";
+
+    // Модификатор скорости атаки оружия (1.0 = базовая, >1 = быстрее, <1 = медленнее)
+    public double AttackSpeedModifier { get; set; } = 1.0;
 
     // Двуручное оружие: занимает основную руку и блокирует вторую руку
     public bool TwoHanded { get; set; }

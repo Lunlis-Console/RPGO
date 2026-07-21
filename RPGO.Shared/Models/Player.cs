@@ -85,4 +85,7 @@ public class Player : ICombatant
 
     // Обмен
     public bool IsTrading { get; set; }
+
+    // Администрирование
+    public bool IsAdmin { get; set; }
 }

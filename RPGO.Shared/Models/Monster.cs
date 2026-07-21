@@ -56,6 +56,9 @@ public class Monster : ICombatant
 
     // Таблица урона: playerId → суммарный урон по этому монстру
     public Dictionary<Guid, int> DamageTracker { get; set; } = new();
+
+    // Манекен: не бьёт в ответ, не умирает, регенерирует HP через 5 сек
+    public bool IsMannequin { get; set; }
 }
 
 public class MonsterPosition
@@ -69,4 +72,5 @@ public class MonsterPosition
     public int MaxHealth { get; set; }
     public char Symbol { get; set; } = 'M';
     public int Level { get; set; }
+    public bool IsMannequin { get; set; }
 }

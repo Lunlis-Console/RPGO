@@ -203,19 +203,26 @@ public class InventoryWindow : GameWindow
 
             if (_trashRect.Contains(mouse.X, mouse.Y))
             {
-                var stack = _stacks[idx];
-                if (stack.count > 1 && stack.item.MaxStack > 1)
-                    PendingDrop?.Invoke(stack.item, stack.count);
+                var item = _stacks[idx].item;
+                if (item.Quantity > 1 && item.MaxStack > 1)
+                    PendingDrop?.Invoke(item, item.Quantity);
                 else
-                    _confirm = stack;
+                    _confirm = (item, item.Quantity);
             }
             else if (moved >= 6 && idx < _stacks.Count)
             {
                 // Перетаскивание — пробуем продать в магазин или надеть на слот снаряжения
                 var item = _stacks[idx].item;
-                bool handled = DropOnSell?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
-                if (!handled)
-                    DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
+                if (ShopMode && IsStackable(item) && item.Quantity > 1)
+                {
+                    PendingSell?.Invoke(item, item.Quantity);
+                }
+                else
+                {
+                    bool handled = DropOnSell?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
+                    if (!handled)
+                        DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
+                }
                 // иначе — возврат в инвентарь (ничего не делаем)
             }
                 else if (moved < 6 && idx < _stacks.Count)
@@ -282,9 +289,8 @@ public class InventoryWindow : GameWindow
 
     private void RequestSell(Item item)
     {
-        int count = _stacks.FirstOrDefault(s => s.item == item).Item2;
-        if (count > 1)
-            PendingSell?.Invoke(item, count);
+        if (item.Quantity > 1)
+            PendingSell?.Invoke(item, item.Quantity);
         else
             SellItem?.Invoke(item.Id, 1);
     }
@@ -457,6 +463,37 @@ public class InventoryWindow : GameWindow
         if (item.Defense > 0) lines.Add($"Защита: +{item.Defense}");
         if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
         if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
+        if (item.Type == "weapon" || item.Type == "twohand")
+        {
+            string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
+            lines.Add($"Вид: {handLabel}");
+            if (!string.IsNullOrEmpty(item.WeaponSubtype))
+            {
+                string subLabel = item.WeaponSubtype.ToLower() switch
+                {
+                    "sword" => "Меч",
+                    "axe" => "Топор",
+                    "mace" => "Булава",
+                    "hammer" => "Молот",
+                    "dagger" => "Кинжал",
+                    _ => item.WeaponSubtype
+                };
+                lines.Add($"Тип оружия: {subLabel}");
+            }
+        }
+        if (!string.IsNullOrEmpty(item.DamageType))
+        {
+            string dtLabel = item.DamageType.ToLower() switch
+            {
+                "slashing" => "Рубящий",
+                "piercing" => "Колющий",
+                "blunt" => "Дробящий",
+                _ => item.DamageType
+            };
+            lines.Add($"Тип урона: {dtLabel}");
+        }
+        if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
+            lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
         if (!string.IsNullOrEmpty(item.Description))
             lines.Add(item.Description);
 
@@ -484,8 +521,19 @@ public class InventoryWindow : GameWindow
     private static string TypeLabel(string t) => t switch
     {
         "weapon" => "Оружие",
-        "armor" => "Броня",
+        "twohand" => "Двуручное оружие",
+        "shield" => "Щит",
+        "helmet" => "Шлем",
+        "cloak" => "Плащ",
+        "chest" => "Нагрудник",
+        "legs" => "Поножи",
+        "boots" => "Сапоги",
+        "glove_r" => "Правая перчатка",
+        "glove_l" => "Левая перчатка",
+        "necklace" => "Ожерелье",
+        "ring" => "Кольцо",
         "accessory" => "Аксессуар",
+        "armor" => "Броня",
         "consumable" => "Расходник",
         "collectible" => "Коллекция",
         "material" => "Материал",

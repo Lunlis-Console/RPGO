@@ -56,6 +56,17 @@ public partial class Program
 
                     if (success && account != null)
                     {
+                        if (account.IsBanned)
+                        {
+                            await hub.SendToClient(connection, new GameMessage
+                            {
+                                Type = "auth_response",
+                                Data = new { Success = false, Message = $"Вы заблокированы. Причина: {account.BanReason}" }
+                            });
+                            Log.Info($"Заблокированный игрок пытался войти: {account.Login}");
+                            return false;
+                        }
+
                         int spawnX, spawnY;
                         if (account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)
                         {
@@ -94,7 +105,8 @@ public partial class Program
                             Equipment = account.PlayerData.Equipment,
                             ActiveQuests = account.PlayerData.ActiveQuests,
                             HotbarSlots = account.PlayerData.HotbarSlots,
-                            MaxMana = Balance.MaxMana(account.PlayerData.Will)
+                            MaxMana = Balance.MaxMana(account.PlayerData.Will),
+                            IsAdmin = account.IsAdmin
                         };
                         player.Mana = player.MaxMana;
 

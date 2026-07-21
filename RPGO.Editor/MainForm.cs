@@ -382,7 +382,8 @@ public partial class MainForm : Form
     private void LoadItems()
     {
         _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed
+            bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
+            damage_type, attack_speed_modifier, weapon_subtype
             FROM items ORDER BY id");
         SetupItemsTypeColumn();
         ApplyItemTypeView();
@@ -423,7 +424,7 @@ public partial class MainForm : Form
         // Колонки, относящиеся к типам
         var relevant = selected switch
         {
-            "weapon" or "twohand" => new HashSet<string> { "attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+            "weapon" or "twohand" => new HashSet<string> { "attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype" },
             "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "defense", "max_health_bonus", "bonus_stamina", "bonus_will", "bonus_evade_chance" },
             "accessory" or "necklace" or "ring" => new HashSet<string> { "attack", "defense", "max_health_bonus",
                 "bonus_strength", "bonus_stamina", "bonus_agility", "bonus_cunning", "bonus_wisdom", "bonus_will",
@@ -471,8 +472,9 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = @"INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                        bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed)
-                    VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th)";
+                        bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
+                        damage_type, attack_speed_modifier, weapon_subtype)
+                    VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th,$dt,$asm,$ws)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
@@ -493,6 +495,9 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["bonus_crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["bonus_evade_chance"]));
                 cmd.Parameters.AddWithValue("$th", ToInt(row["two_handed"]));
+                cmd.Parameters.AddWithValue("$dt", row["damage_type"] ?? "");
+                cmd.Parameters.AddWithValue("$asm", ToDouble(row["attack_speed_modifier"]));
+                cmd.Parameters.AddWithValue("$ws", row["weapon_subtype"] ?? "");
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();

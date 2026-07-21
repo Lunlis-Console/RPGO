@@ -23,6 +23,7 @@ public sealed class ChatData
     public string? Name { get; set; }
     public string? Text { get; set; }
     public string? To { get; set; }
+    public bool IsAdmin { get; set; }
 }
 
 public sealed class StatusData
@@ -60,6 +61,9 @@ public sealed class StatusData
     public int MoveIntervalMs { get; set; }
     public int AttackSpeed { get; set; }
     public int AttackIntervalMs { get; set; }
+    public string WeaponDamageType { get; set; } = "";
+    public double WeaponSpeedModifier { get; set; } = 1.0;
+    public bool IsDualWielding { get; set; }
     public BreakdownData? Breakdown { get; set; }
 }
 

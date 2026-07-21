@@ -172,6 +172,12 @@ public List<ClientConnection> GetAllConnectionsSnapshot()
         lock (_lock) return _clients.FirstOrDefault(c => c.Player == player);
     }
 
+    public void DisconnectPlayer(ClientConnection connection)
+    {
+        RemoveClient(connection);
+        try { connection.Client.Close(); } catch { /* already closing */ }
+    }
+
     // --- Монстры ---
     public void SetMonsterTemplates(List<DatabaseManager.MonsterTemplate> templates)
     {

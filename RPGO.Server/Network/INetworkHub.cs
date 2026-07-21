@@ -24,4 +24,5 @@ public interface INetworkHub
     Task SendError(ClientConnection connection, string code, string message);
     Task SendFriendListToAsync(ClientConnection connection, Player player);
     StatsBreakdown BuildBreakdown(Player player);
+    Task KickPlayer(ClientConnection connection, string reason);
 }

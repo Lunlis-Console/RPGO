@@ -96,9 +96,9 @@ public static class EquipmentSlots
 
     private static readonly Dictionary<string, List<string>> _typeToSlots = new()
     {
-        ["weapon"]   = new() { RightHand },
-        ["twohand"]  = new() { RightHand },          // двуручное: только основная рука, блокирует левую
-        ["shield"]   = new() { LeftHand },           // щит/оффхенд
+        ["weapon"]   = new() { RightHand, LeftHand },  // одноручное: можно надеть в любую руку (двойное оружие)
+        ["twohand"]  = new() { RightHand },             // двуручное: только основная рука, блокирует левую
+        ["shield"]   = new() { LeftHand },              // щит/оффхенд: только левая рука
         ["helmet"]   = new() { Head },
         ["cloak"]    = new() { Cloak },
         ["chest"]    = new() { Torso },

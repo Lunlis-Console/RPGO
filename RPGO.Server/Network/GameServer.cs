@@ -143,28 +143,31 @@ public sealed class GameServer : INetworkHub
 
     public async Task BroadcastChatAsync(string playerName, string text)
     {
+        bool isAdmin = _world.TryGetPlayerByName(playerName, out var sender) && sender.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
-            Data = new { Name = playerName, Text = text }
+            Data = new { Name = playerName, Text = text, IsAdmin = isAdmin }
         });
     }
 
     public async Task BroadcastChatAsync(ChatChannel channel, string from, string text)
     {
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
-            Data = new { Channel = channel.ToString(), Name = from, Text = text }
+            Data = new { Channel = channel.ToString(), Name = from, Text = text, IsAdmin = isAdmin }
         });
     }
 
     public async Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null)
     {
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to }
+            Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to, IsAdmin = isAdmin }
         });
     }
 
@@ -203,7 +206,9 @@ public sealed class GameServer : INetworkHub
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(GetAttackSpeed(player)),
+                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player)
             }
         });
@@ -260,7 +265,9 @@ public sealed class GameServer : INetworkHub
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(GetAttackSpeed(player)),
+                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player)
             }
         });
@@ -403,5 +410,15 @@ public sealed class GameServer : INetworkHub
     {
         // Делегируем существующей логике Program, чтобы не дублировать формулу.
         return Program.GetAttackSpeed(player);
+    }
+
+    public async Task KickPlayer(ClientConnection connection, string reason)
+    {
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "disconnect",
+            Data = new { Reason = reason }
+        });
+        _world.DisconnectPlayer(connection);
     }
 }

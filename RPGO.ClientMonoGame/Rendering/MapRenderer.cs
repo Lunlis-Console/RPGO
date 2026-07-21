@@ -27,7 +27,6 @@ public class MapRenderer
     private readonly Dictionary<string, (int X, int Y)> _visTarget = new();
     private readonly object _stateLock = new();
     private DateTime _lastVisTime = DateTime.UtcNow;
-    private const float VisCellsPerSec = 6f;
 
     // Всплывающий текст
     private readonly List<FloatingText> _floatingTexts = new();
@@ -142,7 +141,6 @@ public class MapRenderer
     public void SetMap(WorldMap map)
     {
         lock (_stateLock) { _currentMap = map; }
-        InvalidateVisual();
     }
 
     public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
@@ -231,7 +229,6 @@ public class MapRenderer
         _moveTargetX = mapX;
         _moveTargetY = mapY;
         SelectionChanged?.Invoke(GetSelection());
-        InvalidateVisual();
     }
 
     private EntityInfo? GetSelection()
@@ -248,7 +245,13 @@ public class MapRenderer
     public void HandleClick(float screenX, float screenY, float offsetX, float offsetY, float areaW, float areaH)
     {
         if (_currentMap == null) return;
-        lock (_stateLock) { ComputeView(_currentMap, GetCenterX(), GetCenterY(), offsetX, offsetY, areaW, areaH); }
+        int clickCX = (int)Math.Round(_camX);
+        int clickCY = (int)Math.Round(_camY);
+        lock (_stateLock) { ComputeView(_currentMap, clickCX, clickCY, offsetX, offsetY, areaW, areaH); }
+        float subCellX = (_camX - clickCX) * _cellW;
+        float subCellY = (_camY - clickCY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
 
         var entitiesOnCell = GetEntitiesAt(mapX, mapY);
@@ -302,7 +305,6 @@ public class MapRenderer
         _selectedEntityX = mapX; _selectedEntityY = mapY;
         _moveTargetX = _moveTargetY = -1;
         SelectionChanged?.Invoke(GetSelection());
-        InvalidateVisual();
     }
 
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
@@ -403,7 +405,9 @@ public class MapRenderer
         mapX = mapY = -1;
         int col = (int)((sx - _gridOX) / _cellW);
         int row = (int)((sy - _gridOY) / _cellH);
-        if (col < 0 || row < 0) return false;
+        if (col < -1 || row < -1) return false;
+        col = Math.Clamp(col, 0, (int)(areaW / _cellW));
+        row = Math.Clamp(row, 0, (int)(areaH / _cellH));
         mapX = _viewStartX + col; mapY = _viewStartY + row;
         if (mapX < 0 || mapX >= (_currentMap?.Width ?? 100) || mapY < 0 || mapY >= (_currentMap?.Height ?? 100)) return false;
         return true;
@@ -434,8 +438,19 @@ public class MapRenderer
 
         var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
 
-        // Целевая позиция камеры: интерполированная позиция игрока (плавная),
-        // либо дискретная клетка, если интерполяция ещё не готова.
+        // Визуальная интерполяция — ДО чтения позиции камеры,
+        // чтобы камера следовала за ТЕКУЩЕЙ, а не вчерашней визуальной позицией.
+        var liveKeys = new HashSet<string>();
+        foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
+        foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
+        lock (_stateLock)
+        {
+            foreach (var k in _visTarget.Keys.ToList())
+                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
+        }
+        AdvanceVisPositions();
+
+        // Целевая позиция камеры: интерполированная позиция игрока (плавная).
         float targetX = me?.X ?? (map.Merchant?.X ?? 50);
         float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
         if (me != null)
@@ -450,44 +465,45 @@ public class MapRenderer
             }
         }
 
-        // Плавное следование камеры за целью (lerp). Чем меньше camLerp, тем мягче.
-        float camLerp = 0.12f;
-        _camX += (targetX - _camX) * camLerp;
-        _camY += (targetY - _camY) * camLerp;
+        // Камера = визуальная позиция игрока (она уже сглажена AdvanceVisPositions).
+        // Sub-cell offset обеспечивает плавную отрисовку между клетками.
+        // Decay не нужен — он создаёт отставание, которое выглядит как «прыжок» при остановке.
+        _camX = targetX;
+        _camY = targetY;
 
         int centerX = (int)Math.Round(_camX);
         int centerY = (int)Math.Round(_camY);
 
         ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
 
-        // Тайлы (слой земли) — спрайт травы на каждую клетку (размер подогнан под экран)
+        // Sub-cell offset: сдвигаем всю сетку на разницу между точной и округлённой позицией камеры,
+        // чтобы тайлы и сущности рисовались плавно, без скачков по клеткам.
+        float subCellX = (_camX - centerX) * _cellW;
+        float subCellY = (_camY - centerY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
+        if (_gridOX < offsetX) _gridOX = offsetX;
+        if (_gridOY < offsetY) _gridOY = offsetY;
+
+        // Тайлы (слой земли) — спрайт травы на каждую клетку (+2px по краям из-за sub-cell offset)
         var grass = SpriteCache.GetGrassSprite();
         int viewW = _viewEndX - _viewStartX + 1;
         int viewH = _viewEndY - _viewStartY + 1;
-        for (int y = 0; y < viewH; y++)
+        for (int y = -1; y <= viewH + 1; y++)
         {
             float ty = _gridOY + y * _cellH;
+            if (ty > offsetY + areaH) continue;
 
-            for (int x = 0; x < viewW; x++)
+            for (int x = -1; x <= viewW + 1; x++)
             {
                 float tx = _gridOX + x * _cellW;
+                if (tx > offsetX + areaW) continue;
                 if (grass != null)
-                    sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW), (int)Math.Ceiling(_cellH)), Color.White);
+                    sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
                 else
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW), (int)Math.Ceiling(_cellH)), Color.LightGreen);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
             }
         }
-
-        // Визуальная интерполяция
-        var liveKeys = new HashSet<string>();
-        foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
-        foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
-        lock (_stateLock)
-        {
-            foreach (var k in _visTarget.Keys.ToList())
-                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
-        }
-        AdvanceVisPositions();
 
         // Путь
         if (_moveTargetX >= 0 && _moveTargetY >= 0 && me != null)
@@ -735,27 +751,26 @@ public class MapRenderer
         float dt = (float)(now - _lastVisTime).TotalSeconds;
         if (dt > 0.1f) dt = 0.1f;
         _lastVisTime = now;
-        float step;
+
+        float visSpeed;
         try
         {
-            float mult = 1f;
             var playerName = GameMain.Instance?.Client.PlayerName ?? "";
             if (playerName.Equals("test", StringComparison.OrdinalIgnoreCase)
                 || playerName.Equals("тест", StringComparison.OrdinalIgnoreCase))
-                mult = 10f;
+                visSpeed = 60f;
             else
             {
                 var st = GameMain.Instance?.Client.Status;
-                if (st?.MoveIntervalMs > 0)
-                    mult = 500f / st.MoveIntervalMs;
+                int moveMs = st?.MoveIntervalMs > 0 ? st.MoveIntervalMs : 500;
+                visSpeed = 1000f / moveMs;
             }
-            float visSpeed = VisCellsPerSec * mult;
-            step = visSpeed * dt;
         }
         catch
         {
-            step = VisCellsPerSec * dt;
+            visSpeed = 2f;
         }
+        float step = visSpeed * dt;
         if (step < 0.0001f) step = 0.0001f;
         _isMoving = false;
         lock (_stateLock)
@@ -767,8 +782,6 @@ public class MapRenderer
                 float dx = tgt.X - v.X, dy = tgt.Y - v.Y;
                 float dist = (float)Math.Sqrt(dx * dx + dy * dy);
 
-                // Направление взгляда локального игрока — по вектору его движения.
-                // Работает и для WASD, и для перемещения кликом/вейпоинтом.
                 if (key == $"player:{_playerName}")
                 {
                     if (dist > 0.0001f)

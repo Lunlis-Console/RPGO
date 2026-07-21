@@ -53,7 +53,10 @@ public class SellAllTrophiesHandler : BaseHandler
             BonusWill = first.BonusWill,
             BonusCritChance = first.BonusCritChance,
             BonusCritDamage = first.BonusCritDamage,
-            BonusEvadeChance = first.BonusEvadeChance
+            BonusEvadeChance = first.BonusEvadeChance,
+            TwoHanded = first.TwoHanded,
+            DamageType = first.DamageType,
+            AttackSpeedModifier = first.AttackSpeedModifier
         };
         player.BuybackItems.Add(buybackCopy);
 

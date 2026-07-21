@@ -42,7 +42,7 @@ public sealed class GameClient
     public event Action? Connected;
     public event Action<string>? Disconnected;
     public event Action<string>? SystemMessage;
-    public event Action<string, string, string>? ChatReceived;
+    public event Action<string, string, string, bool>? ChatReceived;
     public event Action? WelcomeReceived;
     public event Action<WorldMap>? MapUpdated;
     public event Action<StatusData>? StatusUpdated;
@@ -188,7 +188,7 @@ public sealed class GameClient
                     if (chat != null)
                     {
                         string channel = chat.Channel ?? "System";
-                        Ui(() => ChatReceived?.Invoke(channel, chat.Name ?? "Система", chat.Text ?? ""));
+                        Ui(() => ChatReceived?.Invoke(channel, chat.Name ?? "Система", chat.Text ?? "", chat.IsAdmin));
                     }
                     break;
 
@@ -347,17 +347,17 @@ public sealed class GameClient
 
                 case "party_invite_sent":
                     if (message.Data is JsonElement pis && pis.TryGetProperty("TargetName", out var ptn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"Приглашение отправлено {ptn.GetString()}"));
+                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"Приглашение отправлено {ptn.GetString()}", false));
                     break;
 
                 case "party_invite_declined":
                     if (message.Data is JsonElement pdec && pdec.TryGetProperty("TargetName", out var pdn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"{pdn.GetString()} отказал(а) от приглашения"));
+                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"{pdn.GetString()} отказал(а) от приглашения", false));
                     break;
 
                 case "trade_request_sent":
                     if (message.Data is JsonElement trs && trs.TryGetProperty("TargetName", out var trn))
-                        Ui(() => ChatReceived?.Invoke("System", "Трейд", $"Запрос обмена отправлен {trn.GetString()}"));
+                        Ui(() => ChatReceived?.Invoke("System", "Трейд", $"Запрос обмена отправлен {trn.GetString()}", false));
                     break;
 
                 case "party_update":

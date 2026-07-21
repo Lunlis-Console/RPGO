@@ -46,8 +46,11 @@ public class StatusHandler : BaseHandler
                 player.AttributePoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
-                AttackSpeed = Balance.GetAttackSpeed(player.Agility),
-                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility)),
+                AttackSpeed = Program.GetAttackSpeed(player),
+                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
+                IsDualWielding = player.Equipment.IsDualWielding(),
                 Breakdown = BuildBreakdown(player)
             }
         });

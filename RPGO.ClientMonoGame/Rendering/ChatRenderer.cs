@@ -8,7 +8,9 @@ namespace RPGGame.ClientMonoGame.Rendering;
 
 public class ChatRenderer
 {
-    private readonly List<(ChatChannel channel, string name, string text, DateTime time)> _messages = new();
+    private static readonly Color AdminNameColor = new Color(0, 255, 200);
+
+    private readonly List<(ChatChannel channel, string name, string text, DateTime time, bool isAdmin)> _messages = new();
     private const int MaxMessages = 400;
 
     public bool IsTyping { get; set; }
@@ -34,7 +36,7 @@ public class ChatRenderer
 
     private static readonly Dictionary<ChatChannel, Color> ChannelColor = new()
     {
-        { ChatChannel.System, Color.Gray },
+        { ChatChannel.System, new Color(255, 220, 80) },
         { ChatChannel.World, Color.White },
         { ChatChannel.Local, new Color(230, 220, 130) },
         { ChatChannel.Trade, new Color(150, 220, 150) },
@@ -56,9 +58,9 @@ public class ChatRenderer
         { ChatChannel.Combat, "Бой" }
     };
 
-    public void AddMessage(ChatChannel channel, string name, string text)
+    public void AddMessage(ChatChannel channel, string name, string text, bool isAdmin = false)
     {
-        _messages.Add((channel, name, text, DateTime.UtcNow));
+        _messages.Add((channel, name, text, DateTime.UtcNow, isAdmin));
         if (_messages.Count > MaxMessages)
             _messages.RemoveAt(0);
 
@@ -68,7 +70,7 @@ public class ChatRenderer
 
     // Обратная совместимость: сообщения без канала -> Система
     public void AddMessage(string name, string text)
-        => AddMessage(ChatChannel.System, name, text);
+        => AddMessage(ChatChannel.System, name, text, false);
 
     public void HandleInput(KeyboardState keyboard, KeyboardState prevKeyboard)
     {
@@ -238,7 +240,7 @@ public class ChatRenderer
             Color chColor = ChannelColor.TryGetValue(msg.channel, out var cc) ? cc : Color.White;
             string tag = ChannelLabel.TryGetValue(msg.channel, out var lbl) ? $"[{lbl}] " : "";
             string prefix = $"{tag}{msg.name}: ";
-            Color nameColor = chColor;
+            Color nameColor = msg.isAdmin ? AdminNameColor : chColor;
 
             string full = prefix + msg.text;
             var words = full.Split(' ');

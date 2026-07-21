@@ -18,6 +18,7 @@ public static class MonsterManager
         World.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
         World.ClearMonsters();
         SpawnMonsters(Balance.MonsterSpawnCount);
+        SpawnMannequin();
     }
 
     public static void SpawnMonsters(int count)
@@ -75,6 +76,37 @@ public static class MonsterManager
         monster.CritDamage = template.CritDamage;
         monster.EvadeChance = template.EvadeChance;
         World.AddMonster(monster);
+    }
+
+    public static void SpawnMannequin()
+    {
+        int mx = World.Map.MerchantX + Balance.MannequinOffsetX;
+        int my = World.Map.MerchantY + Balance.MannequinOffsetY;
+        mx = Math.Clamp(mx, 0, World.Map.Width - 1);
+        my = Math.Clamp(my, 0, World.Map.Height - 1);
+
+        var mannequin = new Monster
+        {
+            Name = "Манекен",
+            TemplateId = "MANNEQUIN",
+            X = mx,
+            Y = my,
+            SpawnX = mx,
+            SpawnY = my,
+            WanderRadius = 0,
+            Health = Balance.MannequinHealth,
+            MaxHealth = Balance.MannequinHealth,
+            XpReward = 0,
+            GoldReward = 0,
+            Symbol = 'D',
+            Level = 1,
+            MoveIntervalMs = 999999,
+            IsMannequin = true,
+            AggroRange = 0,
+            CritChance = 0,
+            EvadeChance = 0,
+        };
+        World.AddMonster(mannequin);
     }
 
     public static void SpawnOneMonsterPublic() => SpawnOneMonster();
@@ -236,7 +268,8 @@ public static class MonsterManager
             Health = m.Health,
             MaxHealth = m.MaxHealth,
             Symbol = m.Symbol,
-            Level = m.Level
+            Level = m.Level,
+            IsMannequin = m.IsMannequin
         }).ToList();
     }
 
@@ -308,7 +341,7 @@ public static class MonsterManager
 
         int defenderDamage = 0;
         bool isEvaded = false;
-        if (!targetDead)
+        if (!targetDead && !(defender is Monster m && m.IsMannequin))
         {
             isEvaded = rng.Next(Balance.ChanceRollMax) < attacker.GetEvadeChance();
             if (!isEvaded)
@@ -320,5 +353,27 @@ public static class MonsterManager
         }
 
         return (attackerDamage, defenderDamage, targetDead, isCrit, isEvaded);
+    }
+
+    /// <summary>
+    /// Расчёт урона off-hand оружия (dual wield). Без контр-удара монстра.
+    /// Возвращает (damage, isCrit, isEvaded). Урон уже умножен на OffHandDamageFraction.
+    /// GetTotalAttack() уже включает бонус атаки от ВСЕХ предметов (включая оружие в левой руке),
+    /// поэтому используем его напрямую — off-hand оружие уже "учтено" в общей атаке.
+    /// </summary>
+    public static (int damage, bool isCrit, bool isEvaded)
+        CalculateOffHandAttack(Player attacker, Monster target)
+    {
+        var rng = new Random();
+        if (!attacker.Equipment.IsDualWielding()) return (0, false, false);
+
+        bool evaded = rng.Next(Balance.ChanceRollMax) < target.GetEvadeChance();
+        if (evaded) return (0, false, true);
+
+        bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+        int baseDmg = Math.Max(Balance.MinDamage, attacker.GetTotalAttack() - target.GetTotalDefense());
+        int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
+        finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * Equipment.OffHandDamageFraction));
+        return (finalDmg, crit, false);
     }
 }

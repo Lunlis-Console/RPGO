@@ -209,6 +209,9 @@ public class StatusWindow : GameWindow
             ("Крит x", $"{_data.CritDamage}"),
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Скор. атк", $"{_data.AttackSpeed}"),
+            ("Тип урона", string.IsNullOrEmpty(_data.WeaponDamageType) ? "—" : _data.WeaponDamageType),
+            ("Скор. оруж.", $"{_data.WeaponSpeedModifier:F1}x"),
+            ("Стиль", _data.IsDualWielding ? "Dual Wield" : "—"),
         };
         for (int i = 0; i < combat.Length; i++)
         {

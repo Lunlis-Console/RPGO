@@ -246,12 +246,12 @@ public class GameScreen : IScreen
             return false;
         };
         client.HotbarUpdated += slots => _inputManager.UpdateHotbar(slots);
-        client.ChatReceived += (channel, name, text) =>
+        client.ChatReceived += (channel, name, text, isAdmin) =>
         {
             if (Enum.TryParse<ChatChannel>(channel, out var ch))
-                _chatRenderer.AddMessage(ch, name, text);
+                _chatRenderer.AddMessage(ch, name, text, isAdmin);
             else
-                _chatRenderer.AddMessage(ChatChannel.System, name, text);
+                _chatRenderer.AddMessage(ChatChannel.System, name, text, isAdmin);
         };
         client.SystemMessage += msg => _chatRenderer.AddMessage(ChatChannel.System, "Система", msg);
         client.WelcomeReceived += () =>

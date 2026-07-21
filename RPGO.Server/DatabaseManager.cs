@@ -196,7 +196,8 @@ public static class DatabaseManager
             connection.Open();
             var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
-                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance
+                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
+                two_handed, damage_type, attack_speed_modifier, weapon_subtype
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -223,6 +224,10 @@ public static class DatabaseManager
                     BonusCritChance = reader.GetDouble(16),
                     BonusCritDamage = reader.GetDouble(17),
                     BonusEvadeChance = reader.GetDouble(18),
+                    TwoHanded = reader.GetInt32(19) != 0,
+                    DamageType = reader.IsDBNull(20) ? "" : reader.GetString(20),
+                    AttackSpeedModifier = reader.IsDBNull(21) ? 1.0 : reader.GetDouble(21),
+                    WeaponSubtype = reader.IsDBNull(22) ? "" : reader.GetString(22),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 });
             }
@@ -407,9 +412,9 @@ public static class DatabaseManager
         insertAccount.CommandText = @"
             INSERT OR IGNORE INTO accounts (login, password_hash, player_name, level, experience,
                 health, max_health, attack, defense, gold, created_at, last_login,
-                strength, stamina, agility, cunning, wisdom, will_val, attribute_points, speed)
+                strength, stamina, agility, cunning, wisdom, will_val, attribute_points, speed, is_admin)
             VALUES ($login, $hash, $name, $level, $exp, $hp, $maxhp, $atk, $def, $gold, $created, $last,
-                $str, $sta, $agi, $cun, $wis, $wil, $ap, $spd)";
+                $str, $sta, $agi, $cun, $wis, $wil, $ap, $spd, $admin)";
 
         insertAccount.Parameters.AddWithValue("$login", account.Login);
         insertAccount.Parameters.AddWithValue("$hash", account.PasswordHash);
@@ -431,6 +436,7 @@ public static class DatabaseManager
         insertAccount.Parameters.AddWithValue("$wil", account.PlayerData.Will);
         insertAccount.Parameters.AddWithValue("$ap", account.PlayerData.AttributePoints);
         insertAccount.Parameters.AddWithValue("$spd", account.PlayerData.Speed);
+        insertAccount.Parameters.AddWithValue("$admin", account.IsAdmin ? 1 : 0);
         insertAccount.ExecuteNonQuery();
 
         SaveEquipment(connection, account.PlayerName, account.PlayerData.Equipment);
@@ -459,7 +465,13 @@ public static class DatabaseManager
             check.CommandText = "SELECT COUNT(*) FROM accounts WHERE login = 'test'";
             long exists = (long)check.ExecuteScalar()!;
 
-            if (exists > 0) return;
+            if (exists > 0)
+            {
+                var promote = connection.CreateCommand();
+                promote.CommandText = "UPDATE accounts SET is_admin = 1 WHERE login = 'test' AND is_admin = 0";
+                promote.ExecuteNonQuery();
+                return;
+            }
 
             var testAccount = new Account
             {
@@ -558,6 +570,10 @@ public static class DatabaseManager
             updateLogin.ExecuteNonQuery();
 
             var account = LoadFullAccount(connection, login);
+
+            if (account != null && account.IsBanned)
+                return (false, null);
+
             return (true, account);
         }
     }
@@ -845,7 +861,9 @@ public static class DatabaseManager
                             BonusCritChance = item.BonusCritChance,
                             BonusCritDamage = item.BonusCritDamage,
                             BonusEvadeChance = item.BonusEvadeChance,
-                            TwoHanded = item.TwoHanded
+                            TwoHanded = item.TwoHanded,
+                            DamageType = item.DamageType,
+                            AttackSpeedModifier = item.AttackSpeedModifier
                         });
                     }
                 }
@@ -976,7 +994,7 @@ public static class DatabaseManager
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT attack, defense, value, max_health_bonus, heal_amount, description,
             bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
-            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed, damage_type, attack_speed_modifier, weapon_subtype
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -997,6 +1015,10 @@ public static class DatabaseManager
             item.BonusCritChance = reader.GetDouble(12);
             item.BonusCritDamage = reader.GetDouble(13);
             item.BonusEvadeChance = reader.GetDouble(14);
+            item.TwoHanded = !reader.IsDBNull(15) && reader.GetInt32(15) != 0;
+            item.DamageType = reader.IsDBNull(16) ? "" : reader.GetString(16);
+            item.AttackSpeedModifier = reader.IsDBNull(17) ? 1.0 : reader.GetDouble(17);
+            item.WeaponSubtype = reader.IsDBNull(18) ? "" : reader.GetString(18);
         }
         return item;
     }
@@ -1008,7 +1030,7 @@ public static class DatabaseManager
             SELECT player_name, password_hash, level, experience, health, max_health,
                    attack, defense, gold, created_at, last_login,
                    strength, stamina, agility, cunning, wisdom, will_val, attribute_points, speed, pos_x, pos_y,
-                   hotbar_slots
+                   hotbar_slots, is_admin, is_banned, ban_reason
             FROM accounts WHERE login = $login";
         cmd.Parameters.AddWithValue("$login", login);
 
@@ -1025,6 +1047,9 @@ public static class DatabaseManager
             PlayerName = playerName,
             CreatedAt = DateTime.Parse(reader.GetString(9)),
             LastLogin = DateTime.Parse(reader.GetString(10)),
+            IsAdmin = !reader.IsDBNull(22) && reader.GetInt32(22) != 0,
+            IsBanned = !reader.IsDBNull(23) && reader.GetInt32(23) != 0,
+            BanReason = reader.IsDBNull(24) ? "" : reader.GetString(24),
             PlayerData = new PlayerData
             {
                 Level = reader.GetInt32(2),
@@ -1178,4 +1203,91 @@ public static class DatabaseManager
     /// <summary>Максимальное число друзей у одного игрока (как в классических ММО).</summary>
     public const int MaxFriends = 50;
 
+    // ----- Admin -----
+
+    public static void SetAdmin(string login, bool isAdmin)
+    {
+        lock (_lock)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE accounts SET is_admin = $val WHERE login = $login";
+            cmd.Parameters.AddWithValue("$val", isAdmin ? 1 : 0);
+            cmd.Parameters.AddWithValue("$login", login);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    public static void SetBanned(string login, bool isBanned, string reason)
+    {
+        lock (_lock)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE accounts SET is_banned = $val, ban_reason = $reason WHERE login = $login";
+            cmd.Parameters.AddWithValue("$val", isBanned ? 1 : 0);
+            cmd.Parameters.AddWithValue("$reason", reason);
+            cmd.Parameters.AddWithValue("$login", login);
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Получить логин аккаунта по имени персонажа.</summary>
+    public static string? GetLoginByPlayerName(string playerName)
+    {
+        using var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT login FROM accounts WHERE player_name = $name";
+        cmd.Parameters.AddWithValue("$name", playerName);
+        return cmd.ExecuteScalar() as string;
+    }
+
+    public static Item? GetItemTemplate(string templateId)
+    {
+        lock (_lock)
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            connection.Open();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = @"SELECT id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description,
+                bonus_strength, bonus_stamina, bonus_agility, bonus_cunning, bonus_wisdom, bonus_will,
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
+                two_handed, damage_type, attack_speed_modifier, weapon_subtype
+                FROM items WHERE id = $id";
+            cmd.Parameters.AddWithValue("$id", templateId);
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read()) return null;
+            return new Item
+            {
+                Id = Guid.NewGuid().ToString(),
+                TemplateId = reader.GetString(0),
+                Name = reader.GetString(1),
+                Type = reader.GetString(2),
+                Value = reader.GetInt32(3),
+                Attack = reader.GetInt32(4),
+                Defense = reader.GetInt32(5),
+                MaxHealthBonus = reader.GetInt32(6),
+                HealAmount = reader.GetInt32(7),
+                Stock = reader.GetInt32(8),
+                Description = reader.GetString(9),
+                BonusStrength = reader.GetInt32(10),
+                BonusStamina = reader.GetInt32(11),
+                BonusAgility = reader.GetInt32(12),
+                BonusCunning = reader.GetInt32(13),
+                BonusWisdom = reader.GetInt32(14),
+                BonusWill = reader.GetInt32(15),
+                BonusCritChance = reader.GetDouble(16),
+                BonusCritDamage = reader.GetDouble(17),
+                BonusEvadeChance = reader.GetDouble(18),
+                TwoHanded = reader.GetInt32(19) != 0,
+                DamageType = reader.IsDBNull(20) ? "" : reader.GetString(20),
+                AttackSpeedModifier = reader.IsDBNull(21) ? 1.0 : reader.GetDouble(21),
+                WeaponSubtype = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                MaxStack = Balance.MaxStackForType(reader.GetString(2)),
+            };
+        }
+    }
 }

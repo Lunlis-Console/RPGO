@@ -104,14 +104,13 @@ public class PlayerStatsTests
     [Fact]
     public void GetEffStrength_WithEquipment_ReturnsSum()
     {
+        var eq = new Equipment();
+        eq[EquipmentSlots.RightHand] = new Item { BonusStrength = 3 };
+        eq[EquipmentSlots.Torso] = new Item { BonusStrength = 1 };
         var p = new Player
         {
             Strength = 2,
-            Equipment = new Equipment
-            {
-                Weapon = new Item { BonusStrength = 3 },
-                Armor = new Item { BonusStrength = 1 }
-            }
+            Equipment = eq
         };
         // 2 + 3 + 1 = 6
         Assert.Equal(6, p.GetEffStrength());
@@ -120,14 +119,13 @@ public class PlayerStatsTests
     [Fact]
     public void GetTotalAttack_WithEquipment_AddsBonus()
     {
+        var eq = new Equipment();
+        eq[EquipmentSlots.RightHand] = new Item { Attack = 10 };
         var p = new Player
         {
             Level = 1,
             Strength = 1,
-            Equipment = new Equipment
-            {
-                Weapon = new Item { Attack = 10 }
-            }
+            Equipment = eq
         };
         // BaseDmg=1 + (1-1)*2=0 + weaponAtk=10 = 11
         Assert.Equal(11, p.GetTotalAttack());
@@ -136,14 +134,13 @@ public class PlayerStatsTests
     [Fact]
     public void GetTotalDefense_WithEquipment_AddsBonus()
     {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { Defense = 8 };
         var p = new Player
         {
             Level = 1,
             Stamina = 1,
-            Equipment = new Equipment
-            {
-                Armor = new Item { Defense = 8 }
-            }
+            Equipment = eq
         };
         // BaseDef=1 + (1-1)*1=0 + armorDef=8 = 9
         Assert.Equal(9, p.GetTotalDefense());
