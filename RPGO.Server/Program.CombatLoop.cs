@@ -142,35 +142,32 @@ public partial class Program
                             pl.Combat.LastAttackTime = DateTime.UtcNow;
                             mainFired = true;
 
+                            // === Оружейный прок (ДО расчёта урона, чтобы дебаффы действовали сразу) ===
+                            string subtype = pl.Equipment.GetWeaponSubtype();
+                            if (!string.IsNullOrEmpty(subtype))
+                            {
+                                var (debuff, isNew) = DebuffManager.OnWeaponProc(pl, monster, subtype);
+
+                                if (debuff != null)
+                                {
+                                    string action = isNew ? "наложено" : "обновлено";
+                                    string targetName = weaponAffectsTarget(subtype) ? monster.Name : pl.Name;
+                                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                                        $"{debuff.DisplayName} {action} на {targetName} ({debuff.DurationMs / 1000}с)");
+
+                                    if (monster.ActiveDebuffs.Count > 0)
+                                        await SendTargetDebuffUpdateAsync(monster);
+                                }
+                            }
+
                             var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
                                 MonsterManager.CalculateCombat(pl, monster, queuedSkill == null);
 
-                            // === Оружейный прок ===
-                            if (!isEvaded)
+                            // Клив: наносим урон 50% по 3 клеткам
+                            if (!isEvaded && DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
                             {
-                                string subtype = pl.Equipment.GetWeaponSubtype();
-                                if (!string.IsNullOrEmpty(subtype))
-                                {
-                                    var (debuff, isNew) = DebuffManager.OnWeaponProc(pl, monster, subtype);
-
-                                    if (debuff != null)
-                                    {
-                                        string action = isNew ? "наложено" : "обновлено";
-                                        string targetName = weaponAffectsTarget(subtype) ? monster.Name : pl.Name;
-                                        await ChatTo(client, ChatChannel.Combat, "Бой",
-                                            $"{debuff.DisplayName} {action} на {targetName} ({debuff.DurationMs / 1000}с)");
-
-                                        if (monster.ActiveDebuffs.Count > 0)
-                                            await SendTargetDebuffUpdateAsync(monster);
-                                    }
-
-                                    // Клив: наносим урон 50% по 3 клеткам
-                                    if (DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
-                                    {
-                                        DebuffManager.ClearDebuffs(pl);
-                                        MonsterManager.CalculateCleave(pl, monster);
-                                    }
-                                }
+                                DebuffManager.ClearDebuffs(pl);
+                                MonsterManager.CalculateCleave(pl, monster);
                             }
 
                             if (queuedSkill != null)
@@ -560,5 +557,5 @@ public partial class Program
         await PartyManager.SendUpdateForAsync(pl);
     }
 
-    private static bool weaponAffectsTarget(string subtype) => subtype is "dagger" or "mace" or "hammer";
+    private static bool weaponAffectsTarget(string subtype) => subtype is "dagger" or "spear" or "mace" or "hammer" or "greathammer";
 }

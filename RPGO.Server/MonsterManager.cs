@@ -121,7 +121,7 @@ public static class MonsterManager
             GoldReward = 0,
             Symbol = 'D',
             Level = 1,
-            Endurance = 3,
+            Endurance = 10,
             MoveIntervalMs = 999999,
             IsMannequin = true,
             AggroRange = 0,

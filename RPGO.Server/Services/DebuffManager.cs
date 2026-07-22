@@ -77,37 +77,37 @@ public static class DebuffManager
         ICombatant target;
         switch (weaponSubtype)
         {
-            case "dagger":
+            case "dagger" or "spear":
                 debuff = ActiveDebuff.Create(DebuffType.ArmorPenetration, Balance.DaggerArmorPenValue,
-                    Balance.DaggerArmorPenDurationMs, "dagger", "Пронзание",
+                    Balance.DaggerArmorPenDurationMs, weaponSubtype, "Пронзание",
                     $"Снижает броню цели на {(int)(Balance.DaggerArmorPenValue * 100)}%");
                 target = defender;
                 break;
 
-            case "sword":
+            case "sword" or "greatsword":
                 debuff = ActiveDebuff.Create(DebuffType.CleaveReady, 0,
-                    500, "sword", "Рассекающий удар",
+                    500, weaponSubtype, "Рассекающий удар",
                     "Следующая атака наносит урон по области");
                 target = attacker;
                 break;
 
-            case "axe":
+            case "axe" or "greataxe" or "halberd":
                 debuff = ActiveDebuff.Create(DebuffType.DamageBonus, Balance.AxeDamageBonusValue,
-                    Balance.AxeDamageBonusDurationMs, "axe", "Свирепость",
+                    Balance.AxeDamageBonusDurationMs, weaponSubtype, "Свирепость",
                     $"Увеличивает ваш урон на {(int)(Balance.AxeDamageBonusValue * 100)}%");
                 target = attacker;
                 break;
 
             case "mace":
                 debuff = ActiveDebuff.Create(DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
-                    Balance.MaceDisarmDurationMs, "mace", "Обезоруживание",
+                    Balance.MaceDisarmDurationMs, weaponSubtype, "Обезоруживание",
                     $"Снижает урон цели на {(int)(Balance.MaceDamageReductionValue * 100)}%");
                 target = defender;
                 break;
 
-            case "hammer":
+            case "hammer" or "greathammer":
                 debuff = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
-                    Balance.HammerStunDurationMs, "hammer", "Контузия",
+                    Balance.HammerStunDurationMs, weaponSubtype, "Контузия",
                     $"Снижает точность цели на {(int)(Balance.HammerAccuracyReductionValue * 100)}%");
                 target = defender;
                 break;

@@ -30,10 +30,15 @@ public static class ItemTooltip
     public static string WeaponSubtypeLabel(string subtype) => subtype.ToLower() switch
     {
         "sword" => "Меч",
+        "greatsword" => "Двуручный меч",
         "axe" => "Топор",
+        "greataxe" => "Секира",
         "mace" => "Булава",
         "hammer" => "Молот",
+        "greathammer" => "Двуручный молот",
         "dagger" => "Кинжал",
+        "halberd" => "Алебарда",
+        "spear" => "Копьё",
         _ => subtype
     };
 
@@ -47,11 +52,11 @@ public static class ItemTooltip
 
     public static string WeaponProcDescription(string subtype) => subtype.ToLower() switch
     {
-        "dagger" => "5% шанс: Пронзание (снижает защиту)",
-        "sword" => "5% шанс: Рассекающий удар (урон по 3 клеткам)",
-        "axe" => "5% шанс: Свирепость (+к урону)",
+        "dagger" or "spear" => "5% шанс: Пронзание (снижает защиту)",
+        "sword" or "greatsword" => "5% шанс: Рассекающий удар (урон по 3 клеткам)",
+        "axe" or "greataxe" or "halberd" => "5% шанс: Свирепость (+к урону)",
         "mace" => "5% шанс: Обезоруживание (снижает урон)",
-        "hammer" => "5% шанс: Контузия (снижает точность)",
+        "hammer" or "greathammer" => "5% шанс: Контузия (снижает точность)",
         _ => ""
     };
 
