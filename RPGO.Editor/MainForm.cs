@@ -100,9 +100,9 @@ public partial class MainForm : Form
             // Список колонок, которые нужно обнулить для данного типа
             var toClear = t switch
             {
-                "collectible" => new[] { "phys_attack", "phys_defense", "max_health_bonus", "heal_amount",
+                "collectible" => new[] { "damage_min", "damage_max", "defense", "max_health_bonus", "heal_amount",
                     "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-                "consumable" => new[] { "phys_attack", "phys_defense",
+                "consumable" => new[] { "damage_min", "damage_max", "defense",
                     "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
                 "weapon" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
                 "armor" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
@@ -381,7 +381,7 @@ public partial class MainForm : Form
 
     private void LoadItems()
     {
-        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, phys_attack, phys_defense, max_health_bonus, heal_amount, stock, description,
+        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, stock, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
             damage_type, attack_speed_modifier, weapon_subtype
             FROM items ORDER BY id");
@@ -424,14 +424,14 @@ public partial class MainForm : Form
         // Колонки, относящиеся к типам
         var relevant = selected switch
         {
-            "weapon" or "twohand" => new HashSet<string> { "phys_attack", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype" },
-            "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "phys_defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance" },
-            "accessory" or "necklace" or "ring" => new HashSet<string> { "phys_attack", "phys_defense", "max_health_bonus",
+            "weapon" or "twohand" => new HashSet<string> { "damage_min", "damage_max", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype" },
+            "armor" or "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove_r" or "glove_l" => new HashSet<string> { "defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance" },
+            "accessory" or "necklace" or "ring" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus",
                 "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
                 "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
             "consumable" => new HashSet<string> { "heal_amount", "max_health_bonus" },
             "collectible" => new HashSet<string> { },
-            "trophy" => new HashSet<string> { "phys_attack", "phys_defense", "max_health_bonus", "heal_amount",
+            "trophy" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus", "heal_amount",
                 "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
                 "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
             _ => null
@@ -471,16 +471,17 @@ public partial class MainForm : Form
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO items (id, name, type, value, phys_attack, phys_defense, max_health_bonus, heal_amount, stock, description,
+                cmd.CommandText = @"INSERT INTO items (id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, stock, description,
                         bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
                         damage_type, attack_speed_modifier, weapon_subtype)
-                    VALUES ($id,$n,$t,$v,$a,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th,$dt,$asm,$ws)";
+                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th,$dt,$asm,$ws)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
                 cmd.Parameters.AddWithValue("$v", ToInt(row["value"]));
-                cmd.Parameters.AddWithValue("$a", ToInt(row["phys_attack"]));
-                cmd.Parameters.AddWithValue("$d", ToInt(row["phys_defense"]));
+                cmd.Parameters.AddWithValue("$dmn", ToInt(row["damage_min"]));
+                cmd.Parameters.AddWithValue("$dmx", ToInt(row["damage_max"]));
+                cmd.Parameters.AddWithValue("$d", ToInt(row["defense"]));
                 cmd.Parameters.AddWithValue("$m", ToInt(row["max_health_bonus"]));
                 cmd.Parameters.AddWithValue("$h", ToInt(row["heal_amount"]));
                 cmd.Parameters.AddWithValue("$s", ToInt(row["stock"]));
