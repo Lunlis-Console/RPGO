@@ -57,7 +57,7 @@ public sealed class GameWorld
     private readonly object _monsterLock = new();
     private readonly List<(Monster Monster, Player Player, int Damage)> _pendingMonsterAttacks = new();
     private readonly object _monsterAttackLock = new();
-    private List<DatabaseManager.MonsterTemplate> _monsterTemplates = new();
+    private List<MonsterTemplate> _monsterTemplates = new();
 
     public GameWorld(int width = 100, int height = 100)
     {
@@ -179,14 +179,14 @@ public List<ClientConnection> GetAllConnectionsSnapshot()
     }
 
     // --- Монстры ---
-    public void SetMonsterTemplates(List<DatabaseManager.MonsterTemplate> templates)
+    public void SetMonsterTemplates(List<MonsterTemplate> templates)
     {
         lock (_monsterLock) _monsterTemplates = templates;
     }
 
-    public List<DatabaseManager.MonsterTemplate> GetMonsterTemplates()
+    public List<MonsterTemplate> GetMonsterTemplates()
     {
-        lock (_monsterLock) return new List<DatabaseManager.MonsterTemplate>(_monsterTemplates);
+        lock (_monsterLock) return new List<MonsterTemplate>(_monsterTemplates);
     }
 
     public void AddMonster(Monster monster)

@@ -5,7 +5,7 @@ namespace RPGGame.Server;
 public static class LootManager
 {
     private static GameWorld World => Program.World;
-    private static List<DatabaseManager.LootEntry> _lootTable = new();
+    private static List<LootEntry> _lootTable = new();
 
     public static void LoadFromDatabase()
     {

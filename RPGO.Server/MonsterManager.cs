@@ -111,7 +111,7 @@ public static class MonsterManager
 
     public static void SpawnOneMonsterPublic() => SpawnOneMonster();
 
-    private static DatabaseManager.MonsterTemplate PickTemplateByDistance(int dist)
+    private static MonsterTemplate PickTemplateByDistance(int dist)
     {
         int tier = Balance.MonsterTierByDistance(dist);
         var templates = World.GetMonsterTemplates();
