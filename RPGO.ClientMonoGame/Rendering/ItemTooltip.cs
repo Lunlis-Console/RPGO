@@ -128,7 +128,12 @@ public static class ItemTooltip
     {
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
         if (isWeapon && item.DamageMax > 0)
-            lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
+        {
+            if (item.DamageMin == item.DamageMax)
+                lines.Add($"Урон: {item.DamageMax}");
+            else
+                lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
+        }
         else if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
         if (item.BonusMagAttack > 0) lines.Add($"Маг.Атака: +{item.BonusMagAttack}");
         if (item.BonusDefense > 0) lines.Add($"Защита: +{item.BonusDefense}");
