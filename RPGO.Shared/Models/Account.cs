@@ -77,6 +77,10 @@ public class Item
     // Подтип оружия
     public string WeaponSubtype { get; set; } = "";
 
+    // Диапазон урона оружия
+    public int DamageMin { get; set; }
+    public int DamageMax { get; set; }
+
     // Модификатор скорости атаки оружия
     public double AttackSpeedModifier { get; set; } = 1.0;
 

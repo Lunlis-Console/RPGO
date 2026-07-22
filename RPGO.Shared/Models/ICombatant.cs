@@ -19,6 +19,7 @@ public interface ICombatant
     int GetBaseDefense();
     int GetTotalAttack();
     int GetTotalDefense();
+    int RollAttackDamage();
     double GetCritChance();
     double GetCritDamage();
     double GetEvadeChance();

@@ -10,11 +10,14 @@ public static class MonsterManager
 {
     private static GameWorld World => Program.World;
 
-    public static double GetEffectiveAttack(ICombatant attacker)
+    public static double GetEffectiveAttack(ICombatant attacker, int baseAttack)
     {
         double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
-        return attacker.GetTotalAttack() * (1.0 + dmgBonus);
+        return baseAttack * (1.0 + dmgBonus);
     }
+
+    public static double GetEffectiveAttack(ICombatant attacker)
+        => GetEffectiveAttack(attacker, attacker.GetTotalAttack());
 
     public static double GetEffectiveDefense(ICombatant defender)
     {
@@ -118,7 +121,7 @@ public static class MonsterManager
             GoldReward = 0,
             Symbol = 'D',
             Level = 1,
-            Endurance = 10,
+            Endurance = 3,
             MoveIntervalMs = 999999,
             IsMannequin = true,
             AggroRange = 0,
@@ -340,7 +343,7 @@ public static class MonsterManager
     {
         var rng = new Random();
 
-        double effectiveAttackerAttack = GetEffectiveAttack(attacker);
+        double effectiveAttackerAttack = GetEffectiveAttack(attacker, attacker.RollAttackDamage());
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
         double accuracyReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
@@ -363,27 +366,13 @@ public static class MonsterManager
         }
         bool targetDead = defender.Health <= 0;
 
-        int defenderDamage = 0;
-        bool isEvaded = false;
-        if (!targetDead && !(defender is Monster m && m.IsMannequin))
-        {
-            isEvaded = rng.Next(Balance.ChanceRollMax) < attacker.GetEvadeChance();
-            if (!isEvaded)
-            {
-                bool defenderCrit = rng.Next(Balance.ChanceRollMax) < defender.GetCritChance();
-                int baseDamage = Math.Max(Balance.MinDamage, (int)(GetEffectiveAttack(defender) - GetEffectiveDefense(attacker)));
-                defenderDamage = defenderCrit ? (int)(baseDamage * defender.GetCritDamage()) : baseDamage;
-            }
-        }
-
-        return (attackerDamage, defenderDamage, targetDead, isCrit, isEvaded);
+        return (attackerDamage, 0, targetDead, isCrit, false);
     }
 
     /// <summary>
     /// Расчёт урона off-hand оружия (dual wield). Без контр-удара монстра.
     /// Возвращает (damage, isCrit, isEvaded). Урон уже умножен на OffHandDamageFraction.
-    /// GetTotalAttack() уже включает бонус атаки от ВСЕХ предметов (включая оружие в левой руке),
-    /// поэтому используем его напрямую — off-hand оружие уже "учтено" в общей атаке.
+    /// Off-hand rolled damage = off-hand weapon roll + stats/equip bonuses.
     /// </summary>
     public static (int damage, bool isCrit, bool isEvaded)
         CalculateOffHandAttack(Player attacker, Monster target)
@@ -395,7 +384,8 @@ public static class MonsterManager
         if (evaded) return (0, false, true);
 
         bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
-        int baseDmg = Math.Max(Balance.MinDamage, (int)(GetEffectiveAttack(attacker) - GetEffectiveDefense(target)));
+        double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
+        int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
         int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * Equipment.OffHandDamageFraction));
         return (finalDmg, crit, false);
@@ -404,8 +394,9 @@ public static class MonsterManager
     public static void CalculateCleave(Player attacker, Monster primaryTarget)
     {
         var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
+        double effectiveAttack = GetEffectiveAttack(attacker, attacker.GetMaxAttackDamage());
         int cleaveDmg = Math.Max(Balance.MinDamage,
-            (int)((GetEffectiveAttack(attacker) - GetEffectiveDefense(primaryTarget)) * Balance.CleaveDamageFraction));
+            (int)((effectiveAttack - GetEffectiveDefense(primaryTarget)) * Balance.CleaveDamageFraction));
 
         foreach (var (cx, cy) in positions)
         {

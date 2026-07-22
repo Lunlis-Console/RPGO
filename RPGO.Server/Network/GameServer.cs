@@ -253,7 +253,7 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = player.GetPhysAttack(),
+                PhysAttack = player.GetTotalAttack(),
                 MagAttack = player.GetMagAttack(),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),
@@ -375,7 +375,9 @@ public sealed class GameServer : INetworkHub
                 AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.AttackPerStrength
                            + (player.GetEffAgility() - 1) * BalanceStatic.AttackPerAgility,
                 EquipBonus = player.Equipment.GetBonusPhysAttack(),
-                Total = player.GetPhysAttack()
+                WeaponDamageMin = player.Equipment.GetWeaponDamageRange().min,
+                WeaponDamageMax = player.Equipment.GetWeaponDamageRange().max,
+                Total = player.GetTotalAttack()
             },
             MagAttack = new BreakdownPart
             {

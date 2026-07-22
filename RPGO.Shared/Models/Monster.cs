@@ -42,6 +42,8 @@ public class Monster : ICombatant
     public int GetTotalDefense()
         => GetBaseDefense() + (Endurance - 1) * BalanceStatic.DefensePerEndurance;
 
+    public int RollAttackDamage() => GetTotalAttack();
+
     public double GetCritChance() => CritChance + (Cunning - 1) * BalanceStatic.CritChancePerCunning;
     public double GetCritDamage() => CritDamage + (Strength - 1) * BalanceStatic.CritDamagePerStrength;
     public double GetEvadeChance() => EvadeChance + (Cunning - 1) * BalanceStatic.EvadeChancePerCunning;

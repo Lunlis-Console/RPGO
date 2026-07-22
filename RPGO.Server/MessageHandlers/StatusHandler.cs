@@ -23,7 +23,7 @@ public class StatusHandler : BaseHandler
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = player.GetPhysAttack(),
+                PhysAttack = player.GetTotalAttack(),
                 MagAttack = player.GetMagAttack(),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),

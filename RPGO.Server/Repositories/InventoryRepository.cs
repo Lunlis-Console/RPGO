@@ -20,7 +20,8 @@ internal static class InventoryRepository
             cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
-                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
+                damage_min, damage_max
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -56,7 +57,9 @@ internal static class InventoryRepository
                     BonusEvadeChance = reader.GetDouble(19),
                     BonusAttackSpeed = reader.GetDouble(20),
                     TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
-                    Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22)
+                    Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
+                    DamageMin = reader.GetInt32(23),
+                    DamageMax = reader.GetInt32(24)
                 });
             }
 
@@ -98,7 +101,9 @@ internal static class InventoryRepository
                             BonusAttackSpeed = item.BonusAttackSpeed,
                             TwoHanded = item.TwoHanded,
                             DamageType = item.DamageType,
-                            AttackSpeedModifier = item.AttackSpeedModifier
+                            AttackSpeedModifier = item.AttackSpeedModifier,
+                            DamageMin = item.DamageMin,
+                            DamageMax = item.DamageMax
                         });
                     }
                 }
@@ -237,7 +242,12 @@ internal static class InventoryRepository
             {
                 var json = reader.GetString(2);
                 var item = System.Text.Json.JsonSerializer.Deserialize<Item>(json);
-                if (item != null) { equipment[slot] = item; continue; }
+                if (item != null)
+                {
+                    SyncItemFromTemplate(connection, item);
+                    equipment[slot] = item;
+                    continue;
+                }
             }
 
             string itemId = reader.IsDBNull(1) ? "" : reader.GetString(1);
@@ -257,7 +267,8 @@ internal static class InventoryRepository
         cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
-            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity
+            bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
+            damage_min, damage_max
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -289,7 +300,9 @@ internal static class InventoryRepository
                 BonusEvadeChance = reader.GetDouble(19),
                 BonusAttackSpeed = reader.GetDouble(20),
                 TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
-                Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22)
+                Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
+                DamageMin = reader.GetInt32(23),
+                DamageMax = reader.GetInt32(24)
             };
             return SyncItemFromTemplate(connection, item);
         }
@@ -304,7 +317,8 @@ internal static class InventoryRepository
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
-            two_handed, damage_type, attack_speed_modifier, weapon_subtype
+            two_handed, damage_type, attack_speed_modifier, weapon_subtype,
+            damage_min, damage_max
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -332,6 +346,8 @@ internal static class InventoryRepository
             item.DamageType = reader.IsDBNull(19) ? "" : reader.GetString(19);
             item.AttackSpeedModifier = reader.IsDBNull(20) ? 1.0 : reader.GetDouble(20);
             item.WeaponSubtype = reader.IsDBNull(21) ? "" : reader.GetString(21);
+            item.DamageMin = reader.GetInt32(22);
+            item.DamageMax = reader.GetInt32(23);
         }
         return item;
     }

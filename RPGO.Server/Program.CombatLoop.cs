@@ -175,7 +175,7 @@ public partial class Program
 
                             if (queuedSkill != null)
                             {
-                                int baseDamage = (int)Math.Max(Balance.MinDamage, MonsterManager.GetEffectiveAttack(pl) - MonsterManager.GetEffectiveDefense(monster));
+                                int baseDamage = (int)Math.Max(Balance.MinDamage, MonsterManager.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - MonsterManager.GetEffectiveDefense(monster));
                                 int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
                                 dmgToMonster = MonsterManager.ApplyDmgReduction(pl, skillDamage);
                                 monster.Health -= skillDamage;

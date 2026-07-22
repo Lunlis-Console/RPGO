@@ -591,7 +591,7 @@ public class MapRenderer
             DrawStatic(corpse, cp.X, cp.Y, new Color(200, 200, 200));
         }
 
-        // Монстры
+        // === Фаза 1: отрисовка ВСЕХ спрайтов (монстры + игроки) ===
         foreach (var m in map.Monsters)
         {
             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"monster:{m.Id}", out v)) continue; }
@@ -613,17 +613,8 @@ public class MapRenderer
                 };
                 sb.DrawString(font, m.Symbol.ToString(), new Vector2(px, py), color);
             }
-
-            // Имя + уровень монстра (над спрайтом)
-            string mname = $"{m.Name} [{m.Level}]";
-            var mnameSize = fontSmall.MeasureString(mname);
-            float mnx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - mnameSize.X / 2;
-            float mny = py - 14;
-            sb.DrawString(fontSmall, mname, new Vector2(mnx + 1, mny + 1), Color.Black);
-            sb.DrawString(fontSmall, mname, new Vector2(mnx, mny), Color.White);
         }
 
-        // Игроки
         foreach (var p in map.Players)
         {
             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
@@ -631,12 +622,6 @@ public class MapRenderer
             if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
             float px = _gridOX + (v.X - startX) * _cellW + 3;
             float py = _gridOY + (v.Y - startY) * _cellH;
-
-            // Цвет: себя — золотой, участника группы — зелёный, остальных — серый.
-            Color groupColor = new Color(110, 230, 130);
-            Color nickColor = p.Name == _playerName
-                ? Color.Goldenrod
-                : (_partyMemberNames.Contains(p.Name) ? groupColor : Color.LightGray);
 
             var playerAnim = SpriteCache.GetPlayerAnimation();
             if (playerAnim != null)
@@ -647,25 +632,79 @@ public class MapRenderer
             }
             else
             {
-                // Локальный игрок отрисовывается спрайтом по направлению
-                // (либо в сторону действия/цели, либо по движению);
-                // остальные игроки — спрайтом «вниз» по умолчанию.
                 var playerSprite = p.Name == _playerName
                     ? SpriteCache.GetPlayerSprite(GetLocalFacing())
                     : SpriteCache.GetPlayerSprite("down");
                 if (playerSprite != null)
                     sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
                 else
-                    sb.DrawString(font, "P", new Vector2(px, py), nickColor);
+                {
+                    Color fbColor = p.Name == _playerName ? Color.Goldenrod : Color.LightGray;
+                    sb.DrawString(font, "P", new Vector2(px, py), fbColor);
+                }
             }
+        }
+
+        // === Фаза 2: имена + HP-бары ПОВЕРХ всех спрайтов ===
+        foreach (var m in map.Monsters)
+        {
+            (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"monster:{m.Id}", out v)) continue; }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
+            float py = _gridOY + (v.Y - startY) * _cellH;
+            float centerX = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
+
+            // Имя + уровень монстра
+            string mname = $"{m.Name} [{m.Level}]";
+            var mnameSize = fontSmall.MeasureString(mname);
+            float mny = py - 26;
+            sb.DrawString(fontSmall, mname, new Vector2(centerX - mnameSize.X / 2 + 1, mny + 1), Color.Black);
+            sb.DrawString(fontSmall, mname, new Vector2(centerX - mnameSize.X / 2, mny), Color.White);
+
+            // HP bar под именем
+            if (m.MaxHealth > 0)
+            {
+                float barW = 34;
+                float barH = 3;
+                float barX = centerX - barW / 2;
+                float barY = py - 8;
+                float hpPct = Math.Clamp((float)m.Health / m.MaxHealth, 0f, 1f);
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)barW, (int)barH), new Color(40, 10, 10));
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)(barW * hpPct), (int)barH), new Color(180, 40, 40));
+            }
+        }
+
+        foreach (var p in map.Players)
+        {
+            (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
+            float py = _gridOY + (v.Y - startY) * _cellH;
+            float centerX = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
+
+            Color groupColor = new Color(110, 230, 130);
+            Color nickColor = p.Name == _playerName
+                ? Color.Goldenrod
+                : (_partyMemberNames.Contains(p.Name) ? groupColor : Color.LightGray);
 
             // Имя + уровень
             string nick = $"{p.Name} [{p.Level}]";
             var nickSize = fontSmall.MeasureString(nick);
-            float nx = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - nickSize.X / 2;
-            float ny = py - 14;
-            sb.DrawString(fontSmall, nick, new Vector2(nx + 1, ny + 1), Color.Black);
-            sb.DrawString(fontSmall, nick, new Vector2(nx, ny), nickColor);
+            float ny = py - 26;
+            sb.DrawString(fontSmall, nick, new Vector2(centerX - nickSize.X / 2 + 1, ny + 1), Color.Black);
+            sb.DrawString(fontSmall, nick, new Vector2(centerX - nickSize.X / 2, ny), nickColor);
+
+            // HP bar под именем
+            if (p.MaxHealth > 0)
+            {
+                float barW = 34;
+                float barH = 3;
+                float barX = centerX - barW / 2;
+                float barY = py - 8;
+                float hpPct = Math.Clamp((float)p.Health / p.MaxHealth, 0f, 1f);
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)barW, (int)barH), new Color(40, 10, 10));
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)(barW * hpPct), (int)barH), new Color(180, 40, 40));
+            }
         }
 
         // Всплывающий текст

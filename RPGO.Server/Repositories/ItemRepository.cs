@@ -15,7 +15,8 @@ internal static class ItemRepository
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
-                two_handed, damage_type, attack_speed_modifier, weapon_subtype
+                two_handed, damage_type, attack_speed_modifier, weapon_subtype,
+                damage_min, damage_max
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -49,6 +50,8 @@ internal static class ItemRepository
                     DamageType = reader.IsDBNull(23) ? "" : reader.GetString(23),
                     AttackSpeedModifier = reader.IsDBNull(24) ? 1.0 : reader.GetDouble(24),
                     WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
+                    DamageMin = reader.GetInt32(26),
+                    DamageMax = reader.GetInt32(27),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 });
             }
@@ -66,7 +69,8 @@ internal static class ItemRepository
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
-                two_handed, damage_type, attack_speed_modifier, weapon_subtype
+                two_handed, damage_type, attack_speed_modifier, weapon_subtype,
+                damage_min, damage_max
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -100,6 +104,8 @@ internal static class ItemRepository
                 DamageType = reader.IsDBNull(23) ? "" : reader.GetString(23),
                 AttackSpeedModifier = reader.IsDBNull(24) ? 1.0 : reader.GetDouble(24),
                 WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
+                DamageMin = reader.GetInt32(26),
+                DamageMax = reader.GetInt32(27),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
             };
         }

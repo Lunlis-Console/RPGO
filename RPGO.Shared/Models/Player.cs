@@ -82,8 +82,11 @@ public class Player : ICombatant
     // Совместимость с ICombatant (физ. атака/защита)
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
-    public int GetTotalAttack() => GetPhysAttack();
+    public int GetTotalAttack() => GetPhysAttack() + Equipment.GetWeaponMaxDamage();
     public int GetTotalDefense() => GetDefense();
+    public int RollAttackDamage() => GetPhysAttack() + Equipment.RollWeaponDamage();
+    public int RollOffHandDamage() => GetPhysAttack() + Equipment.RollOffHandDamage();
+    public int GetMaxAttackDamage() => GetPhysAttack() + Equipment.GetWeaponMaxDamage();
 
     public int Speed { get; set; } = 1;   // определяет интервал перемещения
 

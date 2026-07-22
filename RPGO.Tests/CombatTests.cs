@@ -35,8 +35,8 @@ public class CombatTests
         Assert.False(isEvaded);
         Assert.False(dead);
 
-        // Monster total atk = 1, player def = 1 → Max(1,0) = 1
-        Assert.Equal(1, dmgToP);
+        // Monster no longer counter-attacks (attacks via WanderStep aggro instead)
+        Assert.Equal(0, dmgToP);
     }
 
     [Fact]
@@ -66,9 +66,9 @@ public class CombatTests
         // Monster evades → no player damage
         Assert.Equal(0, dmgToM);
         Assert.False(dead);
-        // Monster still attacks (player didn't evade, isEvaded tracks player evade)
+        // No counter-attack (removed from CalculateCombat)
         Assert.False(isEvaded);
-        Assert.True(dmgToP >= 1);
+        Assert.Equal(0, dmgToP);
     }
 
     [Fact]
@@ -82,9 +82,9 @@ public class CombatTests
 
         // Player hits monster
         Assert.False(dead);
-        // Monster can't counter because player evades
+        // No counter-attack (removed from CalculateCombat)
         Assert.Equal(0, dmgToP);
-        Assert.True(isEvaded);
+        Assert.False(isEvaded);
     }
 
     [Fact]
@@ -126,9 +126,8 @@ public class CombatTests
         var (_, dmgToP, _, _, _) =
             MonsterManager.CalculateCombat(player, monster);
 
-        // Monster atk = 1+(11-1)*2=21, player def=1 → baseDmg=20
-        // critDmg = 1.5+(11-1)*0.05=2.0 → 20*2.0=40
-        Assert.Equal(40, dmgToP);
+        // No counter-attack from CalculateCombat (removed)
+        Assert.Equal(0, dmgToP);
     }
 
     [Fact]
@@ -144,8 +143,8 @@ public class CombatTests
         Assert.Equal(9, dmgToM);
         Assert.False(dead);
 
-        // Monster: BaseDmg=10 + (10-1)*2=28. Player def: 10+(10-1)*1=19. → 9
-        Assert.Equal(9, dmgToP);
+        // No counter-attack (removed from CalculateCombat)
+        Assert.Equal(0, dmgToP);
     }
 
     [Fact]
@@ -162,8 +161,8 @@ public class CombatTests
 
         // Attacker atk = 1 + (11-1)*2 = 21, defender def = 1 → 20
         Assert.Equal(20, dmgToDefender);
-        // Defender atk = 1, attacker def = 1 → 1 (counter)
-        Assert.Equal(1, dmgToAttacker);
+        // No counter-attack (removed from CalculateCombat)
+        Assert.Equal(0, dmgToAttacker);
         Assert.False(dead);
         // Защитник-игрок не получает урон напрямую через этот метод (PvP-применение — отдельно)
         Assert.Equal(100, defender.Health);

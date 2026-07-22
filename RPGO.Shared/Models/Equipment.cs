@@ -81,6 +81,38 @@ public class Equipment
     public Item? GetOffHandWeapon()
         => IsDualWielding() ? _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null : null;
 
+    private static readonly Random _rng = new();
+
+    public (int min, int max) GetWeaponDamageRange()
+    {
+        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        if (weapon == null || weapon.DamageMax <= 0) return (0, 0);
+        return (weapon.DamageMin, weapon.DamageMax);
+    }
+
+    public int RollWeaponDamage()
+    {
+        var (min, max) = GetWeaponDamageRange();
+        return min >= max ? min : _rng.Next(min, max + 1);
+    }
+
+    public int GetWeaponMaxDamage() => GetWeaponDamageRange().max;
+
+    public (int min, int max) GetOffHandDamageRange()
+    {
+        var weapon = GetOffHandWeapon();
+        if (weapon == null || weapon.DamageMax <= 0) return (0, 0);
+        return (weapon.DamageMin, weapon.DamageMax);
+    }
+
+    public int RollOffHandDamage()
+    {
+        var (min, max) = GetOffHandDamageRange();
+        return min >= max ? min : _rng.Next(min, max + 1);
+    }
+
+    public int GetOffHandMaxDamage() => GetOffHandDamageRange().max;
+
     public Equipment Clone()
     {
         var eq = new Equipment();

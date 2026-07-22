@@ -291,8 +291,8 @@ public sealed class GameClient
                         int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
                         string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
 
-                        // Цветовое различие: урон по монстру — красный, по игроку — оранжево-красный,
-                        // крит — жёлтый (крупнее), промах — серый.
+                        // Цветовое различие: урон по монстру — зелёный, по игроку — красный,
+                        // крит по монстру — ярко-зелёный, крит по игроку — жёлтый, промах — серый.
                         uint color;
                         string text;
                         bool crit = isCrit;
@@ -302,9 +302,14 @@ public sealed class GameClient
                             text = "Промах";
                             crit = false;
                         }
+                        else if (crit && target == "player")
+                        {
+                            color = 0xFFFFD040u;   // жёлтый (крит по игроку)
+                            text = "-" + amount + "!";
+                        }
                         else if (crit)
                         {
-                            color = 0xFFFFD040u;   // жёлтый (крит)
+                            color = 0xFF40FF80u;   // ярко-зелёный (крит по монстру)
                             text = "-" + amount + "!";
                         }
                         else if (target == "player")
@@ -314,7 +319,7 @@ public sealed class GameClient
                         }
                         else
                         {
-                            color = 0xFFE04040u;   // красный (по монстру/НПС)
+                            color = 0xFF30CC60u;   // зелёный (по монстру/НПС)
                             text = "-" + amount;
                         }
 

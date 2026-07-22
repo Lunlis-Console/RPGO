@@ -17,6 +17,8 @@ public class BreakdownPart
     public double Base { get; set; }
     public double AttrBonus { get; set; }
     public double EquipBonus { get; set; }
+    public int WeaponDamageMin { get; set; }
+    public int WeaponDamageMax { get; set; }
     public double Total { get; set; }
 }
 

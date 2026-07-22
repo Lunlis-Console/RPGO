@@ -126,7 +126,10 @@ public static class ItemTooltip
 
     private static void AddStatLines(List<string> lines, Item item)
     {
-        if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
+        bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
+        if (isWeapon && item.DamageMax > 0)
+            lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
+        else if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
         if (item.BonusMagAttack > 0) lines.Add($"Маг.Атака: +{item.BonusMagAttack}");
         if (item.BonusDefense > 0) lines.Add($"Защита: +{item.BonusDefense}");
         if (item.BonusResistance > 0) lines.Add($"Сопротивление: +{item.BonusResistance}");
