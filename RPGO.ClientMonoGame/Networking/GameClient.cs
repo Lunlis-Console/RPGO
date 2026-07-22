@@ -342,22 +342,26 @@ public sealed class GameClient
                         string? tName = cs.TryGetProperty("TargetName", out var tn) ? tn.GetString() : null;
                         int tHp = cs.TryGetProperty("TargetHp", out var th) ? th.GetInt32() : 0;
                         int tMaxHp = cs.TryGetProperty("TargetMaxHp", out var tmh) ? tmh.GetInt32() : 0;
-                        List<DebuffInfo>? tDebuffs = null;
-                        if (cs.TryGetProperty("TargetDebuffs", out var tdArr) && tdArr.ValueKind == JsonValueKind.Array)
+                        Ui(() => CombatStateUpdated?.Invoke(inCombat, tName, tHp, tMaxHp));
+                        if (!inCombat)
                         {
-                            tDebuffs = new List<DebuffInfo>();
+                            Ui(() => TargetDebuffsUpdated?.Invoke(null));
+                        }
+                        else if (cs.TryGetProperty("TargetDebuffs", out var tdArr) && tdArr.ValueKind == JsonValueKind.Array)
+                        {
+                            var tDebuffs = new List<DebuffInfo>();
                             foreach (var el in tdArr.EnumerateArray())
                                 tDebuffs.Add(new DebuffInfo
                                 {
                                     Type = el.TryGetProperty("Type", out var dt) ? dt.GetString() ?? "" : "",
                                     DisplayName = el.TryGetProperty("DisplayName", out var dn) ? dn.GetString() ?? "" : "",
+                                    Description = el.TryGetProperty("Description", out var dd2) ? dd2.GetString() ?? "" : "",
                                     Value = el.TryGetProperty("Value", out var dv) ? dv.GetDouble() : 0,
                                     RemainingMs = el.TryGetProperty("RemainingMs", out var dr) ? dr.GetInt32() : 0,
                                     DurationMs = el.TryGetProperty("DurationMs", out var dd) ? dd.GetInt32() : 0
                                 });
+                            Ui(() => TargetDebuffsUpdated?.Invoke(tDebuffs));
                         }
-                        Ui(() => CombatStateUpdated?.Invoke(inCombat, tName, tHp, tMaxHp));
-                        Ui(() => TargetDebuffsUpdated?.Invoke(tDebuffs));
                     }
                     break;
 
@@ -370,6 +374,7 @@ public sealed class GameClient
                             {
                                 Type = el.TryGetProperty("Type", out var dt) ? dt.GetString() ?? "" : "",
                                 DisplayName = el.TryGetProperty("DisplayName", out var dn) ? dn.GetString() ?? "" : "",
+                                Description = el.TryGetProperty("Description", out var ddsc) ? ddsc.GetString() ?? "" : "",
                                 Value = el.TryGetProperty("Value", out var dv) ? dv.GetDouble() : 0,
                                 RemainingMs = el.TryGetProperty("RemainingMs", out var dr) ? dr.GetInt32() : 0,
                                 DurationMs = el.TryGetProperty("DurationMs", out var dd) ? dd.GetInt32() : 0

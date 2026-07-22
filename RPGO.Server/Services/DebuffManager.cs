@@ -79,31 +79,36 @@ public static class DebuffManager
         {
             case "dagger":
                 debuff = ActiveDebuff.Create(DebuffType.ArmorPenetration, Balance.DaggerArmorPenValue,
-                    Balance.DaggerArmorPenDurationMs, "dagger", "Пронзание");
+                    Balance.DaggerArmorPenDurationMs, "dagger", "Пронзание",
+                    $"Снижает броню цели на {(int)(Balance.DaggerArmorPenValue * 100)}%");
                 target = defender;
                 break;
 
             case "sword":
                 debuff = ActiveDebuff.Create(DebuffType.CleaveReady, 0,
-                    500, "sword", "Рассекающий удар");
+                    500, "sword", "Рассекающий удар",
+                    "Следующая атака наносит урон по области");
                 target = attacker;
                 break;
 
             case "axe":
                 debuff = ActiveDebuff.Create(DebuffType.DamageBonus, Balance.AxeDamageBonusValue,
-                    Balance.AxeDamageBonusDurationMs, "axe", "Свирепость");
+                    Balance.AxeDamageBonusDurationMs, "axe", "Свирепость",
+                    $"Увеличивает ваш урон на {(int)(Balance.AxeDamageBonusValue * 100)}%");
                 target = attacker;
                 break;
 
             case "mace":
                 debuff = ActiveDebuff.Create(DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
-                    Balance.MaceDisarmDurationMs, "mace", "Обезоруживание");
+                    Balance.MaceDisarmDurationMs, "mace", "Обезоруживание",
+                    $"Снижает урон цели на {(int)(Balance.MaceDamageReductionValue * 100)}%");
                 target = defender;
                 break;
 
             case "hammer":
                 debuff = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
-                    Balance.HammerStunDurationMs, "hammer", "Контузия");
+                    Balance.HammerStunDurationMs, "hammer", "Контузия",
+                    $"Снижает точность цели на {(int)(Balance.HammerAccuracyReductionValue * 100)}%");
                 target = defender;
                 break;
 

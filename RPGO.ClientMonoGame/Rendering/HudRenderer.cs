@@ -372,21 +372,37 @@ public class HudRenderer
         if (hit.Debuff == null) return;
 
         string line1 = hit.Debuff.DisplayName;
-        string line2 = $"{hit.Debuff.Value:0.#}";
-        string line3 = $"{hit.Debuff.RemainingMs / 1000}s";
+        string line2 = hit.Debuff.Description;
+        string line3 = $"Осталось: {hit.Debuff.RemainingMs / 1000}с";
 
         var s1 = fontSmall.MeasureString(line1);
+        var s2 = string.IsNullOrEmpty(line2) ? Vector2.Zero : fontSmall.MeasureString(line2);
         var s3 = fontSmall.MeasureString(line3);
-        int tipW = (int)Math.Max(s1.X, s3.X + 20) + 12;
-        int tipH = 46;
-        int tipX = ms.X + 12;
-        int tipY = ms.Y + 12;
 
-        sb.Draw(SpriteCache.Pixel, new Rectangle(tipX, tipY, tipW, tipH), new Color(15, 15, 20, 230));
-        UIHelper.DrawRectOutline(sb, new Rectangle(tipX, tipY, tipW, tipH), new Color(80, 80, 100));
-        sb.DrawString(fontSmall, line1, new Vector2(tipX + 6, tipY + 4), new Color(220, 200, 140));
-        sb.DrawString(fontSmall, line2, new Vector2(tipX + 6, tipY + 18), new Color(200, 200, 210));
-        sb.DrawString(fontSmall, line3, new Vector2(tipX + tipW - s3.X - 6, tipY + 32), new Color(180, 140, 100));
+        int pad = 8;
+        int lineGap = 4;
+        float lineH = s1.Y;
+        int lines = 1 + (string.IsNullOrEmpty(line2) ? 0 : 1) + 1;
+
+        int tipW = (int)Math.Max(s1.X, Math.Max(s2.X, s3.X)) + pad * 2;
+        int tipH = (int)(lineH * lines + lineGap * (lines - 1) + pad * 2);
+        int tipX = ms.X + 14;
+        int tipY = ms.Y + 14;
+
+        var bg = new Rectangle(tipX, tipY, tipW, tipH);
+        sb.Draw(SpriteCache.Pixel, bg, new Color(15, 15, 20, 235));
+        UIHelper.DrawRectOutline(sb, bg, new Color(80, 80, 100));
+
+        float cx = tipX + pad;
+        float cy = tipY + pad;
+        sb.DrawString(fontSmall, line1, new Vector2(cx, cy), new Color(220, 200, 140));
+        cy += lineH + lineGap;
+        if (!string.IsNullOrEmpty(line2))
+        {
+            sb.DrawString(fontSmall, line2, new Vector2(cx, cy), new Color(170, 175, 190));
+            cy += lineH + lineGap;
+        }
+        sb.DrawString(fontSmall, line3, new Vector2(cx, cy), new Color(180, 140, 100));
     }
 
     private static void DrawDebuffIcon(SpriteBatch sb, Rectangle rect, DebuffInfo d)

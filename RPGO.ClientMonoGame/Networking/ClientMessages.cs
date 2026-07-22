@@ -201,6 +201,7 @@ public sealed class DebuffInfo
 {
     public string Type { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string Description { get; set; } = "";
     public double Value { get; set; }
     public int RemainingMs { get; set; }
     public int DurationMs { get; set; }

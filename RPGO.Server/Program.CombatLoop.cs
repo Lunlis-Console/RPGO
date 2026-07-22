@@ -175,9 +175,9 @@ public partial class Program
 
                             if (queuedSkill != null)
                             {
-                                int baseDamage = (int)Math.Max(Balance.MinDamage, pl.GetTotalAttack() - monster.GetTotalDefense());
+                                int baseDamage = (int)Math.Max(Balance.MinDamage, MonsterManager.GetEffectiveAttack(pl) - MonsterManager.GetEffectiveDefense(monster));
                                 int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
-                                dmgToMonster = skillDamage;
+                                dmgToMonster = MonsterManager.ApplyDmgReduction(pl, skillDamage);
                                 monster.Health -= skillDamage;
                                 monster.LastDamagedTime = DateTime.UtcNow;
                                 monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + skillDamage;

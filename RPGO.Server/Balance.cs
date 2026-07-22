@@ -53,6 +53,8 @@ public static class Balance
 
     public const int AttackSpeedBase = 1;
     public const int AttackSpeedAgilityDivisor = 5;
+    public const double AgilityDrK = 30.0;
+    public const int MinAttackIntervalMs = 300;
 
     public const int MinDamage = 1;
     public const int ChanceRollMax = 100;
@@ -151,13 +153,16 @@ public static class Balance
         => (int)(BaseMoveMs / Math.Max(1, speed));
 
     public static int AttackIntervalMs(int attackSpeed)
-        => (int)(AttackBaseMs / Math.Max(1, attackSpeed));
+        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(1, attackSpeed)));
 
     public static int AttackIntervalMs(int baseAgilitySpeed, double weaponSpeedMod)
-        => (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod)));
+        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod))));
 
     public static int GetAttackSpeed(int agility)
-        => Math.Max(1, AttackSpeedBase + agility / AttackSpeedAgilityDivisor);
+    {
+        double effective = AgilityDrK * agility / (AgilityDrK + agility);
+        return Math.Max(1, AttackSpeedBase + (int)(effective / AttackSpeedAgilityDivisor));
+    }
 
     public static int GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
     {

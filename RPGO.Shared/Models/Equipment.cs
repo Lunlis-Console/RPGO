@@ -7,6 +7,7 @@ namespace RPGGame.Shared.Models;
 public class Equipment
 {
     public const double DualWieldSpeedBonus = 1.15;
+    public const double TwoHandedSpeedPenalty = 0.85;
     public const double OffHandDamageFraction = 0.5;
 
     private readonly Dictionary<string, Item?> _slots = new();
@@ -50,6 +51,8 @@ public class Equipment
         double mod = weapon != null && weapon.AttackSpeedModifier > 0 ? weapon.AttackSpeedModifier : 1.0;
         if (IsDualWielding())
             mod *= DualWieldSpeedBonus;
+        else if (weapon != null && weapon.TwoHanded)
+            mod *= TwoHandedSpeedPenalty;
         return mod;
     }
 

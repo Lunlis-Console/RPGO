@@ -10,6 +10,24 @@ public static class MonsterManager
 {
     private static GameWorld World => Program.World;
 
+    public static double GetEffectiveAttack(ICombatant attacker)
+    {
+        double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        return attacker.GetTotalAttack() * (1.0 + dmgBonus);
+    }
+
+    public static double GetEffectiveDefense(ICombatant defender)
+    {
+        double armorPen = DebuffManager.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        return defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
+    }
+
+    public static int ApplyDmgReduction(ICombatant attacker, int baseDamage)
+    {
+        double dmgReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageReduction);
+        return Math.Max(Balance.MinDamage, (int)(baseDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
+    }
+
     public static List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
         => World.DrainMonsterAttacks();
 
@@ -100,6 +118,7 @@ public static class MonsterManager
             GoldReward = 0,
             Symbol = 'D',
             Level = 1,
+            Endurance = 10,
             MoveIntervalMs = 999999,
             IsMannequin = true,
             AggroRange = 0,
@@ -180,7 +199,7 @@ public static class MonsterManager
                     if ((now - m.LastMoveTime).TotalMilliseconds >= m.MoveIntervalMs)
                     {
                         m.LastMoveTime = now;
-                        int dmgToPlayer = Math.Max(1, m.GetTotalAttack() - m.AggroTarget.GetTotalDefense());
+                        int dmgToPlayer = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         World.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
                     }
                     continue;
@@ -321,14 +340,9 @@ public static class MonsterManager
     {
         var rng = new Random();
 
-        // Модификаторы дебаффов
-        double armorPen = DebuffManager.GetDebuffValue(defender, DebuffType.ArmorPenetration);
-        double dmgReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageReduction);
-        double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        double effectiveAttackerAttack = GetEffectiveAttack(attacker);
+        double effectiveDefenderDefense = GetEffectiveDefense(defender);
         double accuracyReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
-
-        double effectiveDefenderDefense = defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
-        double effectiveAttackerAttack = attacker.GetTotalAttack() * (1.0 + dmgBonus);
 
         bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100);
         int attackerDamage = 0;
@@ -338,7 +352,7 @@ public static class MonsterManager
             isCrit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
             int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
             attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
-            attackerDamage = Math.Max(Balance.MinDamage, (int)(attackerDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
+            attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
             if (applyDefenderDamage && defender is Monster mon)
             {
                 mon.Health -= attackerDamage;
@@ -357,7 +371,7 @@ public static class MonsterManager
             if (!isEvaded)
             {
                 bool defenderCrit = rng.Next(Balance.ChanceRollMax) < defender.GetCritChance();
-                int baseDamage = Math.Max(Balance.MinDamage, defender.GetTotalAttack() - attacker.GetTotalDefense());
+                int baseDamage = Math.Max(Balance.MinDamage, (int)(GetEffectiveAttack(defender) - GetEffectiveDefense(attacker)));
                 defenderDamage = defenderCrit ? (int)(baseDamage * defender.GetCritDamage()) : baseDamage;
             }
         }
@@ -381,7 +395,7 @@ public static class MonsterManager
         if (evaded) return (0, false, true);
 
         bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
-        int baseDmg = Math.Max(Balance.MinDamage, attacker.GetTotalAttack() - target.GetTotalDefense());
+        int baseDmg = Math.Max(Balance.MinDamage, (int)(GetEffectiveAttack(attacker) - GetEffectiveDefense(target)));
         int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * Equipment.OffHandDamageFraction));
         return (finalDmg, crit, false);
@@ -391,7 +405,7 @@ public static class MonsterManager
     {
         var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
         int cleaveDmg = Math.Max(Balance.MinDamage,
-            (int)((attacker.GetTotalAttack() - primaryTarget.GetTotalDefense()) * Balance.CleaveDamageFraction));
+            (int)((GetEffectiveAttack(attacker) - GetEffectiveDefense(primaryTarget)) * Balance.CleaveDamageFraction));
 
         foreach (var (cx, cy) in positions)
         {

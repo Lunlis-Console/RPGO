@@ -18,8 +18,9 @@ public class ActiveDebuff
     public int RemainingMs { get; set; }
     public string SourceSubtype { get; set; } = "";
     public string DisplayName { get; set; } = "";
+    public string Description { get; set; } = "";
 
-    public static ActiveDebuff Create(DebuffType type, double value, int durationMs, string sourceSubtype, string displayName)
+    public static ActiveDebuff Create(DebuffType type, double value, int durationMs, string sourceSubtype, string displayName, string description = "")
         => new()
         {
             Type = type,
@@ -27,6 +28,7 @@ public class ActiveDebuff
             DurationMs = durationMs,
             RemainingMs = durationMs,
             SourceSubtype = sourceSubtype,
-            DisplayName = displayName
+            DisplayName = displayName,
+            Description = description
         };
 }

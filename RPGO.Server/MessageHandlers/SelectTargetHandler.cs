@@ -54,6 +54,7 @@ public class SelectTargetHandler : BaseHandler
                 {
                     Type = d.Type.ToString(),
                     d.DisplayName,
+                    d.Description,
                     Value = Math.Round(d.Value, 2),
                     d.RemainingMs,
                     DurationMs = d.DurationMs
