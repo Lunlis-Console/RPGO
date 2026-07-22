@@ -189,11 +189,7 @@ public class PartyHandler : BaseHandler
 
             var targetConn = World.FindClientByPlayer(target);
             if (targetConn != null)
-                await SendToClient(targetConn, new GameMessage
-                {
-                    Type = "chat",
-                    Data = new { Name = "Система", Text = $"Вы теперь лидер группы." }
-                });
+                await SendToClient(targetConn, GameMessage.SystemChat("Вы теперь лидер группы."));
         }
         else if (action == "party_kick")
         {
@@ -255,11 +251,7 @@ public class PartyHandler : BaseHandler
                     Type = "party_disbanded",
                     Data = (object?)null
                 });
-                await SendToClient(targetConn, new GameMessage
-                {
-                    Type = "chat",
-                    Data = new { Name = "Система", Text = $"Вы исключены из группы ({party.LeaderName})." }
-                });
+                await SendToClient(targetConn, GameMessage.SystemChat($"Вы исключены из группы ({party.LeaderName})."));
             }
 
             if (party.Members.Count >= 2)

@@ -80,7 +80,15 @@ public class GameScreen : IScreen
         client.CombatStateUpdated += (inCombat, targetName, hp, maxHp) =>
         {
             _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp);
-            if (!inCombat) _mapRenderer.ClearSelection();
+            if (!inCombat)
+            {
+                _mapRenderer.ClearSelection();
+                _hudRenderer.UpdateTargetDebuffs(null);
+            }
+        };
+        client.TargetDebuffsUpdated += debuffs =>
+        {
+            _hudRenderer.UpdateTargetDebuffs(debuffs);
         };
         client.AttackCooldownUpdated += (skillId, remainingMs, totalMs) =>
         {
@@ -526,9 +534,17 @@ public class GameScreen : IScreen
             int chatW2 = hotbarLeft2 - chatX2 - 8;
             int chatH2 = 180;
             int chatY2 = game.Graphics.PreferredBackBufferHeight - chatH2 - 8;
+            var chatRect = new Rectangle(chatX2, chatY2, chatW2, chatH2);
             bool chatPressed = mouse.LeftButton == ButtonState.Pressed && _input.PrevMouse.LeftButton == ButtonState.Released;
             bool chatHandled = _chatRenderer.HandleClick(mouse.X, mouse.Y, chatX2, chatY2, chatW2, chatH2, chatPressed);
             if (chatHandled) mouseOverAnyWindow = true;
+
+            if (chatRect.Contains(mouse.X, mouse.Y))
+            {
+                mouseOverAnyWindow = true;
+                int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
+                if (scroll != 0) _chatRenderer.HandleScroll(scroll > 0 ? -3 : 3, chatH2 - 54);
+            }
         }
 
         _input.HandleEscape(keyboard);
@@ -587,10 +603,14 @@ public class GameScreen : IScreen
         _mapRenderer.Draw(spriteBatch, 0, topH, w, h - topH);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
         _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
+        float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + 60 + 4, w - 16);
         _hudRenderer.SetSelectedEntity(_mapRenderer.GetSelectedEntity());
         _hudRenderer.DrawTargetBar(spriteBatch, w);
+        _hudRenderer.DrawTargetDebuffs(spriteBatch, w, 64 + 18 + 4);
         _hudDraw.DrawTargetButtons(spriteBatch, w, GameMain.Instance!);
-        _hudDraw.DrawPartyPanel(spriteBatch, 8, topH + 8 + 60 + 8, 240, GameMain.Instance!);
+        int partyY = topH + 8 + 60 + 4 + (int)debuffH + 4;
+        _hudDraw.DrawPartyPanel(spriteBatch, 8, partyY, 240, GameMain.Instance!);
+        _hudRenderer.DrawDebuffTooltip(spriteBatch);
 
         // Hotbar
         int hotbarH = 64;

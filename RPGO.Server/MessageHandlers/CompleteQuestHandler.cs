@@ -69,20 +69,10 @@ public class CompleteQuestHandler : BaseHandler
             Data = new { Name = "Система", Text = $"Задание выполнено! {def.Title}. Награда: +{def.XpReward} опыта, +{def.GoldReward} золота." }
         });
 
-        int xpNeeded = Balance.XpNeededForNextLevel(player.Level);
-        if (player.Experience >= xpNeeded)
+        if (player.TryLevelUp())
         {
-            player.Level++;
-            player.Experience -= xpNeeded;
-            player.MaxHealth += Balance.MaxHealthPerLevel;
-            player.Health = player.MaxHealth;
-            player.AttributePoints += Balance.AttributePointsPerLevel;
-            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{Balance.AttributePointsPerLevel} очка атрибутов");
-            await SendToClient(connection, new GameMessage
-            {
-                Type = "chat",
-                Data = new { Name = "Система", Text = $"Уровень повышен! Вы теперь уровень {player.Level}! +{Balance.AttributePointsPerLevel} очка атрибутов. HP восстановлены." }
-            });
+            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов");
+            await SendToClient(connection, GameMessage.SystemChat($"Уровень повышен! Вы теперь уровень {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов. HP восстановлены."));
         }
 
         await SendQuestLog(connection, player);

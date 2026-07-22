@@ -57,16 +57,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetCritChance_NoAgility_Returns1()
+    public void GetCritChance_NoCunning_Returns1()
     {
-        var p = new Player { Agility = 1, BaseCritChance = 1.0 };
+        var p = new Player { Cunning = 1, BaseCritChance = 1.0 };
         Assert.Equal(1.0, p.GetCritChance());
     }
 
     [Fact]
-    public void GetCritChance_WithAgility_ReturnsCorrectly()
+    public void GetCritChance_WithCunning_ReturnsCorrectly()
     {
-        var p = new Player { Agility = 6, BaseCritChance = 1.0 };
+        var p = new Player { Cunning = 6, BaseCritChance = 1.0 };
         // 1.0 + (6-1)*1.0 = 6.0
         Assert.Equal(6.0, p.GetCritChance());
     }
@@ -87,16 +87,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetEvadeChance_NoAgility_Returns1()
+    public void GetEvadeChance_NoCunning_Returns1()
     {
-        var p = new Player { Agility = 1, BaseEvadeChance = 1.0 };
+        var p = new Player { Cunning = 1, BaseEvadeChance = 1.0 };
         Assert.Equal(1.0, p.GetEvadeChance());
     }
 
     [Fact]
-    public void GetEvadeChance_WithAgility_Returns11()
+    public void GetEvadeChance_WithCunning_Returns11()
     {
-        var p = new Player { Agility = 11, BaseEvadeChance = 1.0 };
+        var p = new Player { Cunning = 11, BaseEvadeChance = 1.0 };
         // 1.0 + (11-1)*1.0 = 11.0
         Assert.Equal(11.0, p.GetEvadeChance());
     }

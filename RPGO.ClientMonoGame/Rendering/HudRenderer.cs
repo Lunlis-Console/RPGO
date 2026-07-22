@@ -14,11 +14,21 @@ public class HudRenderer
     private int _targetHp, _targetMaxHp;
     private PartyInfo? _party;
     private EntityInfo? _selectedEntity;
+    private List<DebuffInfo>? _targetDebuffs;
+
+    // Хитбоксы иконок дебаффов для тултипа
+    private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _playerDebuffHits = new();
+    private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _targetDebuffHits = new();
 
     // Позиции UI-элементов
     private const float LeftPanelX = 4;
     private const float BarH = 18;
     private const float BarSpacing = 3;
+
+    private const int DebuffIconSize = 20;
+    private const int DebuffIconGap = 3;
+    private const int DebuffBarH = 4;
+    private const int DebuffRowH = DebuffIconSize + DebuffBarH + 2;
 
     public void UpdateStatus(StatusData status) => _status = status;
     public bool InCombat => _inCombat;
@@ -51,6 +61,7 @@ public class HudRenderer
     public void ClearParty() => _party = null;
     public PartyInfo? Party => _party;
     public void SetSelectedEntity(EntityInfo? entity) => _selectedEntity = entity;
+    public void UpdateTargetDebuffs(List<DebuffInfo>? debuffs) => _targetDebuffs = debuffs;
 
     public void DrawLeftPanel(SpriteBatch sb, float x, float y, float w, float h)
     {
@@ -218,11 +229,11 @@ public class HudRenderer
             if (i == hoverSlot)
                 sb.Draw(SpriteCache.Pixel, slotRect, new Color(20, 20, 28, 120));
 
-            DrawRectOutline(sb, slotRect, new Color(90, 92, 102));
+            UIHelper.DrawRectOutline(sb, slotRect, new Color(90, 92, 102));
 
             // Жёлтая рамка для слота, над которым заготовлен (drag) навык
             if (i == dragSlot)
-                DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
+                UIHelper.DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
 
             bool hasContent = hotbarSlots != null && i < hotbarSlots.Length && !string.IsNullOrEmpty(hotbarSlots[i]);
 
@@ -280,7 +291,7 @@ public class HudRenderer
         // Квадрат с уровнем
         var sqRect = new Rectangle((int)x, (int)y, square, square);
         sb.Draw(SpriteCache.Pixel, sqRect, new Color(40, 44, 58));
-        DrawRectOutline(sb, sqRect, new Color(90, 95, 115));
+        UIHelper.DrawRectOutline(sb, sqRect, new Color(90, 95, 115));
         string lvl = _status.Level.ToString();
         string lvlLabel = "УР";
         var lvlSize = font.MeasureString(lvl);
@@ -310,12 +321,100 @@ public class HudRenderer
         sb.DrawString(font, text, new Vector2(x + (w - textSize.X) / 2, y + (h - textSize.Y) / 2), Color.White);
     }
 
-    private void DrawRectOutline(SpriteBatch sb, Rectangle rect, Color color, int t = 1)
+    public float DrawPlayerDebuffs(SpriteBatch sb, float x, float y, float maxW)
     {
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, rect.Width, t), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Bottom - t, rect.Width, t), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, t, rect.Height), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.Right - t, rect.Y, t, rect.Height), color);
+        _playerDebuffHits.Clear();
+        var debuffs = _status?.ActiveDebuffs;
+        if (debuffs == null || debuffs.Count == 0) return 0;
+
+        int cols = Math.Max(1, (int)((maxW + DebuffIconGap) / (DebuffIconSize + DebuffIconGap)));
+        int cx = (int)x;
+        int cy = (int)y;
+        for (int i = 0; i < debuffs.Count; i++)
+        {
+            if (i > 0 && i % cols == 0) { cx = (int)x; cy += DebuffRowH + DebuffIconGap; }
+            var iconRect = new Rectangle(cx, cy, DebuffIconSize, DebuffIconSize);
+            DrawDebuffIcon(sb, iconRect, debuffs[i]);
+            _playerDebuffHits.Add((iconRect, debuffs[i]));
+            cx += DebuffIconSize + DebuffIconGap;
+        }
+        return cy + DebuffRowH - y;
+    }
+
+    public float DrawTargetDebuffs(SpriteBatch sb, int screenW, float y)
+    {
+        _targetDebuffHits.Clear();
+        if (_targetDebuffs == null || _targetDebuffs.Count == 0) return 0;
+
+        int barW = 320;
+        int startX = (screenW - barW) / 2;
+        int cx = startX;
+        int cy = (int)y;
+        int cols = Math.Max(1, barW / (DebuffIconSize + DebuffIconGap));
+        for (int i = 0; i < _targetDebuffs.Count; i++)
+        {
+            if (i > 0 && i % cols == 0) { cx = startX; cy += DebuffRowH + DebuffIconGap; }
+            var iconRect = new Rectangle(cx, cy, DebuffIconSize, DebuffIconSize);
+            DrawDebuffIcon(sb, iconRect, _targetDebuffs[i]);
+            _targetDebuffHits.Add((iconRect, _targetDebuffs[i]));
+            cx += DebuffIconSize + DebuffIconGap;
+        }
+        return cy + DebuffRowH - y;
+    }
+
+    public void DrawDebuffTooltip(SpriteBatch sb)
+    {
+        var fontSmall = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (fontSmall == null) return;
+
+        var ms = Microsoft.Xna.Framework.Input.Mouse.GetState();
+        var hit = _playerDebuffHits.Concat(_targetDebuffHits).FirstOrDefault(h => h.Rect.Contains(ms.X, ms.Y));
+        if (hit.Debuff == null) return;
+
+        string line1 = hit.Debuff.DisplayName;
+        string line2 = $"{hit.Debuff.Value:0.#}";
+        string line3 = $"{hit.Debuff.RemainingMs / 1000}s";
+
+        var s1 = fontSmall.MeasureString(line1);
+        var s3 = fontSmall.MeasureString(line3);
+        int tipW = (int)Math.Max(s1.X, s3.X + 20) + 12;
+        int tipH = 46;
+        int tipX = ms.X + 12;
+        int tipY = ms.Y + 12;
+
+        sb.Draw(SpriteCache.Pixel, new Rectangle(tipX, tipY, tipW, tipH), new Color(15, 15, 20, 230));
+        UIHelper.DrawRectOutline(sb, new Rectangle(tipX, tipY, tipW, tipH), new Color(80, 80, 100));
+        sb.DrawString(fontSmall, line1, new Vector2(tipX + 6, tipY + 4), new Color(220, 200, 140));
+        sb.DrawString(fontSmall, line2, new Vector2(tipX + 6, tipY + 18), new Color(200, 200, 210));
+        sb.DrawString(fontSmall, line3, new Vector2(tipX + tipW - s3.X - 6, tipY + 32), new Color(180, 140, 100));
+    }
+
+    private static void DrawDebuffIcon(SpriteBatch sb, Rectangle rect, DebuffInfo d)
+    {
+        Color bg = d.Type switch
+        {
+            "ArmorPenetration" => new Color(160, 80, 40),
+            "DamageBonus" => new Color(160, 40, 40),
+            "DamageReduction" => new Color(40, 80, 160),
+            "AccuracyReduction" => new Color(120, 50, 160),
+            "CleaveReady" => new Color(180, 160, 40),
+            _ => new Color(80, 80, 100)
+        };
+        sb.Draw(SpriteCache.Pixel, rect, bg);
+        UIHelper.DrawRectOutline(sb, rect, bg * 1.4f);
+
+        var fontSmall = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (fontSmall != null && !string.IsNullOrEmpty(d.DisplayName))
+        {
+            string ch = d.DisplayName[..1];
+            var sz = fontSmall.MeasureString(ch);
+            sb.DrawString(fontSmall, ch, new Vector2(rect.X + (rect.Width - sz.X) / 2, rect.Y + (rect.Height - sz.Y) / 2 - 1), Color.White);
+        }
+
+        float progress = d.DurationMs > 0 ? (float)d.RemainingMs / d.DurationMs : 1f;
+        int barY = rect.Bottom + 1;
+        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, barY, rect.Width, DebuffBarH), new Color(30, 30, 35));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, barY, (int)(rect.Width * progress), DebuffBarH), bg * 0.9f);
     }
 
     // Полоса здоровья цели по центру сверху (стиль ММО) — и в бою, и в мирном режиме при выбранной цели
@@ -356,7 +455,7 @@ public class HudRenderer
         float pct = maxHp > 0 ? Math.Clamp((float)hp / maxHp, 0, 1) : 0;
         sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, (int)(barW * pct), barH), new Color(200, 40, 40));
         // Рамка
-        DrawRectOutline(sb, new Rectangle(x, y, barW, barH), new Color(120, 120, 130));
+        UIHelper.DrawRectOutline(sb, new Rectangle(x, y, barW, barH), new Color(120, 120, 130));
 
         // Текст HP
         string hpText = $"{hp} / {maxHp}";

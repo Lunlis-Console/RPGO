@@ -12,6 +12,7 @@ public class ChatRenderer
 
     private readonly List<(ChatChannel channel, string name, string text, DateTime time, bool isAdmin)> _messages = new();
     private const int MaxMessages = 400;
+    private int _scrollOffset;
 
     public bool IsTyping { get; set; }
     public string TypedText { get; set; } = "";
@@ -60,13 +61,58 @@ public class ChatRenderer
 
     public void AddMessage(ChatChannel channel, string name, string text, bool isAdmin = false)
     {
+        bool atBottom = _scrollOffset == 0;
         _messages.Add((channel, name, text, DateTime.UtcNow, isAdmin));
         if (_messages.Count > MaxMessages)
             _messages.RemoveAt(0);
 
         if (ActiveTab != channel)
             _unread[channel] = (_unread.TryGetValue(channel, out var n) ? n : 0) + 1;
+
+        if (atBottom) _scrollOffset = 0;
     }
+
+    public void HandleScroll(int scrollDelta, float msgAreaH)
+    {
+        int lineH = 14;
+        int totalLines = CountVisibleLines();
+        int visibleLines = Math.Max(1, (int)(msgAreaH / lineH));
+        int maxScroll = Math.Max(0, totalLines - visibleLines);
+        _scrollOffset = Math.Clamp(_scrollOffset - scrollDelta, 0, maxScroll);
+    }
+
+    private int CountVisibleLines()
+    {
+        int lineH = 14;
+        var fontSmall = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (fontSmall == null) return 0;
+        float maxTextW = _lastW - 16;
+        int count = 0;
+        int startIdx = Math.Max(0, _messages.Count - MaxMessages);
+        for (int i = startIdx; i < _messages.Count; i++)
+        {
+            var msg = _messages[i];
+            if (ActiveTab != null && msg.channel != ActiveTab) continue;
+            string tag = ChannelLabel.TryGetValue(msg.channel, out var lbl) ? $"[{lbl}] " : "";
+            string full = $"{tag}{msg.name}: {msg.text}";
+            var words = full.Split(' ');
+            var cur = "";
+            foreach (var word in words)
+            {
+                string test = cur.Length == 0 ? word : cur + " " + word;
+                if (fontSmall.MeasureString(test).X > maxTextW && cur.Length > 0)
+                {
+                    count++;
+                    cur = word;
+                }
+                else cur = test;
+            }
+            if (cur.Length > 0) count++;
+        }
+        return count;
+    }
+
+    private float _lastW;
 
     // Обратная совместимость: сообщения без канала -> Система
     public void AddMessage(string name, string text)
@@ -207,6 +253,7 @@ public class ChatRenderer
         var font = SpriteCache.Font;
         var fontSmall = SpriteCache.FontSmall ?? font;
         if (font == null) return;
+        _lastW = w;
 
         sb.Draw(SpriteCache.Pixel, new Rectangle((int)x, (int)y, (int)w, (int)h), new Color(26, 26, 34, 150));
 
@@ -262,12 +309,24 @@ public class ChatRenderer
         }
 
         int visibleLines = Math.Max(1, (int)(msgH / lineH));
-        int from = Math.Max(0, wrapped.Count - visibleLines);
+        int from = Math.Max(0, wrapped.Count - visibleLines - _scrollOffset);
+        int to = Math.Min(wrapped.Count, from + visibleLines);
         float msgY = msgTop;
-        for (int i = from; i < wrapped.Count; i++)
+        for (int i = from; i < to; i++)
         {
             sb.DrawString(fontSmall, wrapped[i].text, new Vector2(x + 8, msgY), wrapped[i].color);
             msgY += lineH;
+        }
+
+        if (_scrollOffset > 0)
+        {
+            int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
+            float ratio = maxScroll > 0 ? (float)_scrollOffset / maxScroll : 0f;
+            int trackH = (int)msgH;
+            int thumbH = Math.Max(12, (int)(trackH * ((float)visibleLines / Math.Max(1, wrapped.Count))));
+            int thumbY = (int)(msgTop + (1f - ratio) * (trackH - thumbH));
+            sb.Draw(SpriteCache.Pixel, new Rectangle((int)(x + w - 5), (int)msgTop, 3, trackH), new Color(40, 40, 50, 100));
+            sb.Draw(SpriteCache.Pixel, new Rectangle((int)(x + w - 5), thumbY, 3, thumbH), new Color(140, 140, 160, 180));
         }
 
         // Поле ввода

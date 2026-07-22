@@ -49,7 +49,15 @@ public class SelectTargetHandler : BaseHandler
                 TargetHp = target.Health,
                 TargetMaxHp = target.MaxHealth,
                 TargetX = target.X,
-                TargetY = target.Y
+                TargetY = target.Y,
+                TargetDebuffs = target.ActiveDebuffs.Select(d => new
+                {
+                    Type = d.Type.ToString(),
+                    d.DisplayName,
+                    Value = Math.Round(d.Value, 2),
+                    d.RemainingMs,
+                    DurationMs = d.DurationMs
+                }).ToList()
             }
         });
         await SendToClient(connection, new GameMessage

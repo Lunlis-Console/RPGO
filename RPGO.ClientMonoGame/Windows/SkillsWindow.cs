@@ -307,10 +307,5 @@ public class SkillsWindow : GameWindow
     }
 
     private static void DrawRect(SpriteBatch sb, Rectangle rect, Color color, int thickness = 1)
-    {
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
-    }
+        => UIHelper.DrawRectOutline(sb, rect, color, thickness);
 }

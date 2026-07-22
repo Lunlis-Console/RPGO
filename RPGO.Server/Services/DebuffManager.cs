@@ -4,32 +4,30 @@ namespace RPGGame.Server;
 
 public static class DebuffManager
 {
-    public static void ApplyDebuff(Player target, ActiveDebuff debuff)
+    public static bool ApplyDebuff(Player target, ActiveDebuff debuff)
     {
         var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
         if (existing != null)
         {
             existing.RemainingMs = debuff.DurationMs;
             existing.Value = debuff.Value;
+            return false;
         }
-        else
-        {
-            target.ActiveDebuffs.Add(debuff);
-        }
+        target.ActiveDebuffs.Add(debuff);
+        return true;
     }
 
-    public static void ApplyDebuff(Monster target, ActiveDebuff debuff)
+    public static bool ApplyDebuff(Monster target, ActiveDebuff debuff)
     {
         var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
         if (existing != null)
         {
             existing.RemainingMs = debuff.DurationMs;
             existing.Value = debuff.Value;
+            return false;
         }
-        else
-        {
-            target.ActiveDebuffs.Add(debuff);
-        }
+        target.ActiveDebuffs.Add(debuff);
+        return true;
     }
 
     public static void TickDebuffs(Player target)
@@ -70,51 +68,55 @@ public static class DebuffManager
     public static void ClearDebuffs(Player target) => target.ActiveDebuffs.Clear();
     public static void ClearDebuffs(Monster target) => target.ActiveDebuffs.Clear();
 
-    public static void OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
+    public static (ActiveDebuff Debuff, bool IsNew) OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
     {
         var rng = new Random();
-        if (rng.Next(Balance.ChanceRollMax) >= Balance.WeaponProcChance) return;
+        if (rng.Next(Balance.ChanceRollMax) >= Balance.WeaponProcChance) return default;
 
+        ActiveDebuff debuff;
+        ICombatant target;
         switch (weaponSubtype)
         {
             case "dagger":
-                ApplyDebuff(defender, ActiveDebuff.Create(
-                    DebuffType.ArmorPenetration, Balance.DaggerArmorPenValue,
-                    Balance.DaggerArmorPenDurationMs, "dagger", "Пронзание"));
+                debuff = ActiveDebuff.Create(DebuffType.ArmorPenetration, Balance.DaggerArmorPenValue,
+                    Balance.DaggerArmorPenDurationMs, "dagger", "Пронзание");
+                target = defender;
                 break;
 
             case "sword":
-                ApplyDebuff(attacker, ActiveDebuff.Create(
-                    DebuffType.CleaveReady, 0,
-                    500, "sword", "Рассекающий удар"));
+                debuff = ActiveDebuff.Create(DebuffType.CleaveReady, 0,
+                    500, "sword", "Рассекающий удар");
+                target = attacker;
                 break;
 
             case "axe":
-                ApplyDebuff(attacker, ActiveDebuff.Create(
-                    DebuffType.DamageBonus, Balance.AxeDamageBonusValue,
-                    Balance.AxeDamageBonusDurationMs, "axe", "Свирепость"));
+                debuff = ActiveDebuff.Create(DebuffType.DamageBonus, Balance.AxeDamageBonusValue,
+                    Balance.AxeDamageBonusDurationMs, "axe", "Свирепость");
+                target = attacker;
                 break;
 
             case "mace":
-                ApplyDebuff(defender, ActiveDebuff.Create(
-                    DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
-                    Balance.MaceDisarmDurationMs, "mace", "Обезоруживание"));
+                debuff = ActiveDebuff.Create(DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
+                    Balance.MaceDisarmDurationMs, "mace", "Обезоруживание");
+                target = defender;
                 break;
 
             case "hammer":
-                ApplyDebuff(defender, ActiveDebuff.Create(
-                    DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
-                    Balance.HammerStunDurationMs, "hammer", "Контузия"));
+                debuff = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
+                    Balance.HammerStunDurationMs, "hammer", "Контузия");
+                target = defender;
                 break;
-        }
-    }
 
-    private static void ApplyDebuff(ICombatant target, ActiveDebuff debuff)
-    {
-        switch (target)
-        {
-            case Player p: ApplyDebuff(p, debuff); break;
-            case Monster m: ApplyDebuff(m, debuff); break;
+            default:
+                return default;
         }
+
+        bool isNew = target switch
+        {
+            Player p => ApplyDebuff(p, debuff),
+            Monster m => ApplyDebuff(m, debuff),
+            _ => false
+        };
+        return (debuff, isNew);
     }
 }

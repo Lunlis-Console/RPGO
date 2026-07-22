@@ -125,6 +125,17 @@ public class PartyManager
         }
     }
 
+    /// <summary>
+    /// Отправляет обновление группы для всех участников, если игрок состоит в группе.
+    /// Убирает повторяющийся 3-строчный guard-паттерн.
+    /// </summary>
+    public static async Task SendUpdateForAsync(Player player)
+    {
+        if (!player.PartyId.HasValue) return;
+        var party = GetParty(player.PartyId.Value);
+        if (party != null) await SendPartyUpdateAsync(party);
+    }
+
     public static async Task DisbandAndNotifyAsync(Guid partyId)
     {
         lock (_lock)

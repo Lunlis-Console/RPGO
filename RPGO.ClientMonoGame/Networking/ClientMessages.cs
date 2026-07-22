@@ -127,6 +127,15 @@ public sealed class TradeItemData
     public int MaxHealthBonus { get; set; }
     public int HealAmount { get; set; }
     public int MaxStack { get; set; }
+
+    /// <summary>Создаёт копию предмета с указанным количеством.</summary>
+    public TradeItemData WithQuantity(int qty) => new()
+    {
+        Id = Id, Name = Name, Type = Type, TemplateId = TemplateId,
+        Value = Value, Description = Description, Attack = Attack,
+        Defense = Defense, MaxHealthBonus = MaxHealthBonus, HealAmount = HealAmount,
+        MaxStack = MaxStack, Quantity = qty
+    };
 }
 
 public sealed class TradeOfferData

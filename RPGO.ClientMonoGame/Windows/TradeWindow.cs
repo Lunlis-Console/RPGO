@@ -132,23 +132,7 @@ namespace RPGGame.ClientMonoGame.Windows
             var result = new List<TradeItemData>();
             if (items == null) return result;
             foreach (var it in items)
-            {
-                result.Add(new TradeItemData
-                {
-                    Id = it.Id,
-                    TemplateId = it.TemplateId,
-                    Name = it.Name,
-                    Type = it.Type,
-                    Value = it.Value,
-                    Description = it.Description,
-                    Attack = it.Attack,
-                    Defense = it.Defense,
-                    MaxHealthBonus = it.MaxHealthBonus,
-                    HealAmount = it.HealAmount,
-                    MaxStack = it.MaxStack,
-                    Quantity = Math.Max(1, it.Quantity)
-                });
-            }
+                result.Add(it.WithQuantity(Math.Max(1, it.Quantity)));
             return result;
         }
 
@@ -499,24 +483,7 @@ namespace RPGGame.ClientMonoGame.Windows
             _myOfferItems.Add(MakeTradeItem(item, qty));
         }
 
-        private static TradeItemData MakeTradeItem(TradeItemData src, int qty)
-        {
-            return new TradeItemData
-            {
-                Id = src.Id,
-                TemplateId = src.TemplateId,
-                Name = src.Name,
-                Type = src.Type,
-                Value = src.Value,
-                Description = src.Description,
-                Attack = src.Attack,
-                Defense = src.Defense,
-                MaxHealthBonus = src.MaxHealthBonus,
-                HealAmount = src.HealAmount,
-                MaxStack = src.MaxStack,
-                Quantity = qty
-            };
-        }
+        private static TradeItemData MakeTradeItem(TradeItemData src, int qty) => src.WithQuantity(qty);
 
         private void RemoveFromOffer(string itemId, int qty)
         {
@@ -566,21 +533,7 @@ namespace RPGGame.ClientMonoGame.Windows
             {
                 int avail = inv.Quantity - (offeredQty.TryGetValue(inv.Id, out var q) ? q : 0);
                 if (avail <= 0) continue;
-                result.Add(new TradeItemData
-                {
-                    Id = inv.Id,
-                    TemplateId = inv.TemplateId,
-                    Name = inv.Name,
-                    Type = inv.Type,
-                    Value = inv.Value,
-                    Description = inv.Description,
-                    Attack = inv.Attack,
-                    Defense = inv.Defense,
-                    MaxHealthBonus = inv.MaxHealthBonus,
-                    HealAmount = inv.HealAmount,
-                    MaxStack = inv.MaxStack,
-                    Quantity = avail
-                });
+                result.Add(inv.WithQuantity(avail));
             }
             return result;
         }
@@ -613,7 +566,7 @@ namespace RPGGame.ClientMonoGame.Windows
 
             sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, Width, Height), new Color(30, 32, 40));
             sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, Width, TitleH), new Color(45, 55, 75));
-            DrawRectOutline(sb, new Rectangle(X, Y, Width, Height), new Color(80, 90, 110));
+            UIHelper.DrawRectOutline(sb, new Rectangle(X, Y, Width, Height), new Color(80, 90, 110));
 
             var titleSize = font.MeasureString(Title);
             sb.DrawString(font, Title, new Vector2(X + 8, Y + (TitleH - titleSize.Y) / 2), Color.White);
@@ -639,7 +592,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     bool hover = rect.Contains(mouse.X, mouse.Y);
 
                     sb.Draw(SpriteCache.Pixel, rect, hover ? CFieldHover : CFieldBg);
-                    DrawRectOutline(sb, rect, CFieldBorder);
+                    UIHelper.DrawRectOutline(sb, rect, CFieldBorder);
 
                     if (filled)
                     {
@@ -681,7 +634,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     bool hover = rect.Contains(mouse.X, mouse.Y);
 
                     sb.Draw(SpriteCache.Pixel, rect, hover ? CFieldHover : CFieldBg);
-                    DrawRectOutline(sb, rect, CFieldBorder);
+                    UIHelper.DrawRectOutline(sb, rect, CFieldBorder);
 
                     if (filled)
                     {
@@ -710,7 +663,7 @@ namespace RPGGame.ClientMonoGame.Windows
             var goldRect = GetGoldInputRect();
             bool goldHover = goldRect.Contains(mouse.X, mouse.Y);
             sb.Draw(SpriteCache.Pixel, goldRect, _goldInputActive ? CGoldInputActive : (goldHover ? CFieldHover : CGoldInput));
-            DrawRectOutline(sb, goldRect, _goldInputActive ? Color.Gold : CFieldBorder);
+            UIHelper.DrawRectOutline(sb, goldRect, _goldInputActive ? Color.Gold : CFieldBorder);
 
             string goldDisplay;
             if (_goldInputActive)
@@ -744,7 +697,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     bool hover = rect.Contains(mouse.X, mouse.Y);
 
                     sb.Draw(SpriteCache.Pixel, rect, CFieldBg);
-                    DrawRectOutline(sb, rect, CFieldBorder);
+                    UIHelper.DrawRectOutline(sb, rect, CFieldBorder);
 
                     int uniqueIdx = r * InvCols + c + _theirScroll;
                     if (uniqueIdx < groupedTheir.Count)
@@ -846,18 +799,7 @@ namespace RPGGame.ClientMonoGame.Windows
             return rect.Contains(mouse.X, mouse.Y) && mouse.LeftButton == ButtonState.Pressed;
         }
 
-        private static void DrawRectOutline(SpriteBatch sb, Rectangle rect, Color color, int t = 1)
-        {
-            sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, rect.Width, t), color);
-            sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Bottom - t, rect.Width, t), color);
-            sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, t, rect.Height), color);
-            sb.Draw(SpriteCache.Pixel, new Rectangle(rect.Right - t, rect.Y, t, rect.Height), color);
-        }
-
         private static void DrawText(SpriteBatch sb, string text, int x, int y, Color color, SpriteFont font)
-        {
-            if (!string.IsNullOrEmpty(text))
-                sb.DrawString(font, text, new Vector2(x, y), color);
-        }
+            => UIHelper.DrawText(sb, text, x, y, color, font);
     }
 }

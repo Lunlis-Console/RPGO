@@ -115,4 +115,20 @@ public class Player : ICombatant
 
     // Администрирование
     public bool IsAdmin { get; set; }
+
+    /// <summary>
+    /// Проверяет, достаточно ли опыта для повышения уровня.
+    /// Если да — повышает уровень, возвращает true.
+    /// </summary>
+    public bool TryLevelUp()
+    {
+        int needed = BalanceStatic.XpNeededForNextLevel(Level);
+        if (Experience < needed) return false;
+        Level++;
+        Experience -= needed;
+        MaxHealth += BalanceStatic.MaxHealthPerLevel;
+        Health = MaxHealth;
+        AttributePoints += BalanceStatic.AttributePointsPerLevel;
+        return true;
+    }
 }
