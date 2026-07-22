@@ -60,6 +60,9 @@ public class MapRenderer
     private const float HeaderH = 0f;
     private const float LeftMargin = 4f;
 
+    // Масштаб спрайтов сущностей (игроки, монстры) относительно клетки
+    private const float EntityScale = 3.0f;
+
     // События
     public event Action<EntityInfo?>? SelectionChanged;
     public event Action<EntityInfo, int, int>? InteractRequested;
@@ -67,6 +70,20 @@ public class MapRenderer
 
     public void SetPlayerName(string name) => _playerName = name;
     public void SetPlayerLevel(int level) => _playerLevel = level;
+    public void SetPlayerDead(bool dead)
+    {
+        if (dead && !_isDead) { _deathFrame = 0; _deathAnimStart = DateTime.UtcNow; }
+        _isDead = dead;
+    }
+    public void SetWeaponSubtype(string? subtype)
+    {
+        if (_weaponSubtype != subtype)
+        {
+            Logger.Debug($"SetWeaponSubtype: '{_weaponSubtype}' -> '{subtype}'");
+            _weaponSubtype = subtype;
+            _weaponLogOnce = true;
+        }
+    }
 
     // Направление взгляда локального игрока ("down" | "up" | "left" | "right").
     // Вычисляется в AdvanceVisPositions по фактическому вектору движения.
@@ -74,6 +91,15 @@ public class MapRenderer
 
     // Игрок в данный момент движется (интерполяция не завершена).
     private bool _isMoving;
+
+    // Игрок мёртв — показываем death-анимацию вместо walk/idle.
+    private bool _isDead;
+    private int _deathFrame;
+    private DateTime _deathAnimStart;
+
+    // Подтип оружия в правой руке (для оверлея). null = нет оружия.
+    private string? _weaponSubtype;
+    private bool _weaponLogOnce = true;
 
     // Итоговое направление локального игрока:
     //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
@@ -559,6 +585,13 @@ public class MapRenderer
         if (map == null) return;
 
         // Статичные объекты (ниже монстров/игроков): торговец, доска, сбор, трупы
+        Rectangle EntityRect(float px, float py)
+        {
+            int w = (int)(_cellW * EntityScale);
+            int h = (int)(_cellH * EntityScale);
+            return new Rectangle((int)px - w / 2 + (int)(_cellW / 2), (int)py - h / 2 + (int)(_cellH / 2), w, h);
+        }
+
         void DrawStatic(Texture2D? spr, int wx, int wy, Color tint)
         {
             if (wx < startX || wx > endX || wy < startY || wy > endY) return;
@@ -602,7 +635,7 @@ public class MapRenderer
 
             var sprite = SpriteCache.GetMonsterSprite(m.TemplateId);
             if (sprite != null)
-                sb.Draw(sprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
+                sb.Draw(sprite, EntityRect(px, py), Color.White);
             else
             {
                 int diff = m.Level - _playerLevel;
@@ -623,23 +656,79 @@ public class MapRenderer
             float px = _gridOX + (v.X - startX) * _cellW + 3;
             float py = _gridOY + (v.Y - startY) * _cellH;
 
-            var playerAnim = SpriteCache.GetPlayerAnimation();
+            bool isLocal = p.Name == _playerName;
+            string facing = isLocal ? GetLocalFacing() : "down";
+
+            // Выбор анимации: death при смерти, walk при движении, idle при стоянии
+            SpriteAnimation? playerAnim = null;
+            if (isLocal && _isDead)
+                playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+            else if (isLocal)
+                playerAnim = _isMoving
+                    ? SpriteCache.GetPlayerAnimation(facing)
+                    : SpriteCache.GetAnimation($"player_idle_{facing}");
+
             if (playerAnim != null)
             {
-                int frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / playerAnim.FrameDuration) % playerAnim.FrameCount;
+                int frame;
+                if (isLocal && _isDead)
+                {
+                    float elapsed = (float)(DateTime.UtcNow - _deathAnimStart).TotalSeconds;
+                    _deathFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
+                    frame = _deathFrame;
+                }
+                else
+                {
+                    float frameDuration = playerAnim.FrameDuration;
+                    // Walk-анимация синхронизирована со скоростью движения
+                    if (_isMoving)
+                    {
+                        int moveMs = 500;
+                        try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
+                        frameDuration = (moveMs / 1000f) / playerAnim.FrameCount;
+                    }
+                    frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
+                }
                 var src = playerAnim.GetSourceRect(frame);
-                sb.Draw(playerAnim.Sheet, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), src, Color.White);
+                sb.Draw(playerAnim.Sheet, EntityRect(px, py), src, Color.White);
+
+                // Оружие поверх персонажа (только для локального игрока)
+                if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
+                {
+                    var weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing);
+                    if (_weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={_weaponSubtype} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
+                    if (weaponAnim != null)
+                    {
+                        int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+                        var wSrc = weaponAnim.GetSourceRect(wFrame);
+                        sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
+                    }
+                }
             }
             else
             {
-                var playerSprite = p.Name == _playerName
-                    ? SpriteCache.GetPlayerSprite(GetLocalFacing())
+                var playerSprite = isLocal
+                    ? SpriteCache.GetPlayerSprite(facing)
                     : SpriteCache.GetPlayerSprite("down");
                 if (playerSprite != null)
-                    sb.Draw(playerSprite, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
+                {
+                    sb.Draw(playerSprite, EntityRect(px, py), Color.White);
+
+                    // Оружие поверх (статичный fallback)
+                    if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
+                    {
+                        var weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing);
+                        if (weaponAnim != null)
+                        {
+                            int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+                            var wSrc = weaponAnim.GetSourceRect(wFrame);
+                            sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
+                        }
+                    }
+                }
                 else
                 {
-                    Color fbColor = p.Name == _playerName ? Color.Goldenrod : Color.LightGray;
+                    Color fbColor = isLocal ? Color.Goldenrod : Color.LightGray;
                     sb.DrawString(font, "P", new Vector2(px, py), fbColor);
                 }
             }
@@ -818,6 +907,12 @@ public class MapRenderer
 
                 if (key == $"player:{_playerName}")
                 {
+                    if (dist > 1.5f)
+                    {
+                        _visPos[key] = (tgt.X, tgt.Y);
+                        _isMoving = false;
+                        continue;
+                    }
                     if (dist > 0.0001f)
                     {
                         _isMoving = true;

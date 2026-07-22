@@ -12,6 +12,7 @@ public class SelectTargetHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
+        if (player.IsDead) return;
         if (message.Data is not JsonElement selEl) return;
 
         string? monsterIdStr = selEl.TryGetProperty("MonsterId", out var midProp) ? midProp.GetString() : null;

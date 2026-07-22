@@ -38,6 +38,7 @@ public class GameScreen : IScreen
     private readonly PartyInviteWindow _partyInviteWindow = new();
     private readonly TradeRequestWindow _tradeRequestWindow = new();
     private readonly SocialWindow _socialWindow;
+    private readonly DeathWindow _deathWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
@@ -171,6 +172,21 @@ public class GameScreen : IScreen
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
             _equipmentWindow.UpdateData(inv.Equipment);
+            // Оверлей оружия: берём подтип из слота правой руки
+            string? weaponSub = null;
+            if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("rhand", out var wItem))
+            {
+                weaponSub = wItem?.WeaponSubtype;
+                Logger.Debug($"WeaponOverlay inventory: rhand found, WeaponSubtype='{wItem?.WeaponSubtype}', Name='{wItem?.Name}', Type='{wItem?.Type}'");
+            }
+            else
+            {
+                Logger.Debug($"WeaponOverlay inventory: Equipment={(inv.Equipment != null ? "ok" : "null")}, Slots={(inv.Equipment?.Slots != null ? $"{inv.Equipment.Slots.Count} items" : "null")}");
+                if (inv.Equipment?.Slots != null)
+                    foreach (var kv in inv.Equipment.Slots)
+                        Logger.Debug($"  slot '{kv.Key}' -> {(kv.Value != null ? kv.Value.Name : "null")}");
+            }
+            _mapRenderer.SetWeaponSubtype(weaponSub);
         };
         _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;
@@ -469,9 +485,32 @@ public class GameScreen : IScreen
         _windows.Add(_partyInviteWindow);
         _windows.Add(_tradeRequestWindow);
         _windows.Add(_socialWindow);
+        _windows.Add(_deathWindow);
 
         _partyInviteWindow.Accepted += inviterName => _ = client.SendAsync("party_accept", new { InviterName = inviterName });
         _partyInviteWindow.Declined += inviterName => _ = client.SendAsync("party_decline", new { InviterName = inviterName });
+
+        // Death
+        client.PlayerDeathReceived += lostGold =>
+        {
+            _deathWindow.Activate(lostGold);
+            GameInputHandler.CenterWindow(_deathWindow, GameMain.Instance!);
+            _windows.BringToFront(_deathWindow);
+            _mapRenderer.SetPlayerDead(true);
+        };
+        _deathWindow.ReviveRequested += () =>
+        {
+            _ = client.SendAsync("revive", null);
+            _mapRenderer.SetPlayerDead(false);
+        };
+        client.StatusUpdated += _ =>
+        {
+            if (!client.IsDead && _deathWindow.Visible)
+            {
+                _deathWindow.Deactivate();
+                _mapRenderer.SetPlayerDead(false);
+            }
+        };
         client.TradeRequestReceived += inviterName =>
         {
             _tradeRequestWindow.Show(inviterName);

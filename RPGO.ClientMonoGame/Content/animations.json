@@ -1,0 +1,114 @@
+[
+  {
+    "Key": "player_down",
+    "Sheet": "Walk_front-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "player_up",
+    "Sheet": "Walk_back-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "player_left",
+    "Sheet": "Walk_side_left-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "player_right",
+    "Sheet": "Walk_side_right-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "player_idle_down",
+    "Sheet": "Idle_front-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "player_idle_up",
+    "Sheet": "Idle_top-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "player_idle_left",
+    "Sheet": "Idle_left-sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "player_idle_right",
+    "Sheet": "Idle_right-Sheet.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "player_death_down",
+    "Sheet": "Death_Down-Sheet.png",
+    "Cols": 7,
+    "Rows": 1,
+    "Fps": 6
+  },
+  {
+    "Key": "player_death_up",
+    "Sheet": "Death_Top-Sheet.png",
+    "Cols": 7,
+    "Rows": 1,
+    "Fps": 6
+  },
+  {
+    "Key": "player_death_left",
+    "Sheet": "Death_left-Sheet.png",
+    "Cols": 7,
+    "Rows": 1,
+    "Fps": 6
+  },
+  {
+    "Key": "player_death_right",
+    "Sheet": "Death_Right-Sheet.png",
+    "Cols": 7,
+    "Rows": 1,
+    "Fps": 6
+  },
+  {
+    "Key": "weapon_sword_idle_down",
+    "Sheet": "Sword_Idle_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_sword_idle_up",
+    "Sheet": "Sword_Idle_Up.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_sword_idle_left",
+    "Sheet": "Sword_Idle_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_sword_idle_right",
+    "Sheet": "Sword_Idle_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  }
+]

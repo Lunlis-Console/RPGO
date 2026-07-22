@@ -13,6 +13,7 @@ public class MoveDirectionHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
+        if (player.IsDead) return;
 
         player.Movement.Stop(); // отменяем путь при ручном управлении
 

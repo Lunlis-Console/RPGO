@@ -47,4 +47,11 @@ public class GameMessage
         Type = "target_debuff_update",
         Data = new { Debuffs = debuffs }
     };
+
+    /// <summary>Уведомление клиенту о смерти игрока (death screen + задержка).</summary>
+    public static GameMessage PlayerDeath(int lostGold) => new()
+    {
+        Type = "player_death",
+        Data = new { LostGold = lostGold }
+    };
 }

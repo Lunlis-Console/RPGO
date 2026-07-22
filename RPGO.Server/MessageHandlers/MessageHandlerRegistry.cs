@@ -72,5 +72,6 @@ public static class MessageHandlerRegistry
         Register("client_log", new ClientLogHandler(world, hub));
         Register("logout", new LogoutHandler(world, hub));
         Register("friend", new FriendHandler(world, hub));
+        Register("revive", new ReviveHandler(world, hub));
     }
 }

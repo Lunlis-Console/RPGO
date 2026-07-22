@@ -79,6 +79,11 @@ public sealed class GameClient
     public event Action<string, string, int, List<LootItemInfo>, int>? LootReceived;
     public event Action? BoardOpened;
 
+    // Смерть
+    public bool IsDead { get; set; }
+    public int DeathLostGold { get; set; }
+    public event Action<int>? PlayerDeathReceived;
+
     public void Initialize(Action uiCallback)
     {
         _uiAction = uiCallback;
@@ -213,6 +218,7 @@ public sealed class GameClient
                     {
                         Status = st;
                         PlayerLevel = st.Level;
+                        if (st.Health > 0) IsDead = false;
                         Ui(() => StatusUpdated?.Invoke(st));
                         Ui(() => StatusDetailsUpdated?.Invoke(st));
                     }
@@ -337,6 +343,16 @@ public sealed class GameClient
                         // Зелёный для лечения — визуально отличается от красного урона
                         Logger.Debug($"FLT heal argb={0xFF40E060u:X8} text=+{amount}");
                         Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF40E060u, false));
+                    }
+                    break;
+
+                case "player_death":
+                    if (message.Data is JsonElement deathEl)
+                    {
+                        int lostGold = deathEl.TryGetProperty("LostGold", out var lgEl) ? lgEl.GetInt32() : 0;
+                        IsDead = true;
+                        DeathLostGold = lostGold;
+                        Ui(() => PlayerDeathReceived?.Invoke(lostGold));
                     }
                     break;
 

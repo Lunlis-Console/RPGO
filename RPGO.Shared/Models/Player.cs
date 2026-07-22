@@ -119,6 +119,10 @@ public class Player : ICombatant
     // Администрирование
     public bool IsAdmin { get; set; }
 
+    // Смерть: флаг + время (для задержки 5с перед респауном)
+    public bool IsDead { get; set; }
+    public DateTime DeathTime { get; set; }
+
     /// <summary>
     /// Проверяет, достаточно ли опыта для повышения уровня.
     /// Если да — повышает уровень, возвращает true.

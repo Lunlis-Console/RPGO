@@ -80,7 +80,7 @@ public static class SpriteCache
             "trader", "quest_desk", "maneken",
             "icon_communication", "icon_inventory", "icon_settings", "icon_skills", "icon_status",
             "skill",
-            "Character_Sprite_1", "Character_Sprite_2_Left", "Character_Sprite_3_Right", "Character_Sprite_4"
+            "Idle_front", "Idle_back", "Idle_side_left", "Idle_side_right"
         };
         foreach (var name in spriteNames)
             LoadTexture(name);
@@ -120,21 +120,27 @@ public static class SpriteCache
     public static Texture2D? GetMonsterSprite(string templateId) =>
         MonsterSpriteMap.TryGetValue(templateId, out var key) ? Get(key) : null;
 
-    public static Texture2D? GetPlayerSprite() => Get("Character_Sprite_1");
+    public static Texture2D? GetPlayerSprite() => Get("Idle_front");
 
     // Направление взгляда игрока: "down" | "up" | "left" | "right"
     public static Texture2D? GetPlayerSprite(string dir) => dir switch
     {
-        "left" => Get("Character_Sprite_2_Left"),
-        "right" => Get("Character_Sprite_3_Right"),
-        "up" => Get("Character_Sprite_4"),
-        _ => Get("Character_Sprite_1")
+        "left" => Get("Idle_side_left"),
+        "right" => Get("Idle_side_right"),
+        "up" => Get("Idle_back"),
+        _ => Get("Idle_front")
     };
 
     public static SpriteAnimation? GetAnimation(string key) =>
         _animations.TryGetValue(key, out var a) ? a : null;
 
-    public static SpriteAnimation? GetPlayerAnimation() => GetAnimation("player");
+    public static SpriteAnimation? GetPlayerAnimation() => GetAnimation("player_down");
+
+    public static SpriteAnimation? GetPlayerAnimation(string dir) => GetAnimation($"player_{dir}");
+
+    public static SpriteAnimation? GetPlayerDeathAnimation(string dir) => GetAnimation($"player_death_{dir}");
+
+    public static SpriteAnimation? GetWeaponAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_idle_{dir}");
 
     // Загружает описания анимаций (animations.json) и спрайт-листы из папки Content.
     // contentRoot — папка Content рядом с исполняемым файлом клиента.

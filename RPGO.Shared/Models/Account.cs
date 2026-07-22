@@ -4,8 +4,8 @@ public class PlayerData
 {
     public int X { get; set; } = -1;
     public int Y { get; set; } = -1;
-    public int Health { get; set; }
-    public int MaxHealth { get; set; }
+    public int Health { get; set; } = 100;
+    public int MaxHealth { get; set; } = 100;
     public int Level { get; set; } = 1;
     public int Experience { get; set; }
     public int Gold { get; set; }

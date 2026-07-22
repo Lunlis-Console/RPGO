@@ -13,6 +13,7 @@ public class MoveToHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
+        if (player.IsDead) return;
 
         if (TradeManager.IsInTrade(player))
         {

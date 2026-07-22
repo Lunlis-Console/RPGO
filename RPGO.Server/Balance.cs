@@ -68,6 +68,7 @@ public static class Balance
     // ===== СМЕРТЬ =====
     public const double DeathHealthFraction = 0.5;
     public const int DeathGoldLoss = 20;
+    public const int DeathDelayMs = 5000; // 5 секунд перед респауном
 
     // ===== DUAL WIELD =====
     public const double DualWieldSpeedBonus = 1.15;

@@ -18,6 +18,7 @@ public partial class Program
                 playersCopy = World.GetPlayersSnapshot();
                 foreach (var pl in playersCopy)
                 {
+                    if (pl.IsDead) continue;
                     if (!pl.Combat.HasTarget) continue;
 
                     var monster = MonsterManager.FindMonsterById(pl.Combat.TargetMonsterId!.Value);
@@ -540,12 +541,21 @@ public partial class Program
 
     private static async Task HandlePlayerDeath(Player pl, ClientConnection client)
     {
-        pl.Health = Balance.RespawnHealth(pl.MaxHealth);
         int lostGold = Balance.ComputeDeathGoldLoss(pl.Gold);
         pl.Gold -= lostGold;
-        Log.Info($"{pl.Name} погиб! Потеряно {lostGold} золота. Телепортация.");
-        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли! Потеряно {lostGold} золота. Телепортация...");
+        pl.IsDead = true;
+        pl.DeathTime = DateTime.UtcNow;
+        Log.Info($"{pl.Name} погиб! Потеряно {lostGold} золота. Таймер 5с.");
         await Hub.SendToClient(client, GameMessage.ResetCombat());
+        await Hub.SendToClient(client, GameMessage.PlayerDeath(lostGold));
+        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли! Потеряно {lostGold} золота. Возрождение через 5 сек...");
+        await PartyManager.SendUpdateForAsync(pl);
+    }
+
+    internal static async Task RespawnPlayer(Player pl)
+    {
+        pl.IsDead = false;
+        pl.Health = Balance.RespawnHealth(pl.MaxHealth);
 
         int sx = MerchantManager.MerchantX + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
         int sy = MerchantManager.MerchantY + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
@@ -554,7 +564,16 @@ public partial class Program
         pl.X = sx;
         pl.Y = sy;
 
+        var client = World.FindClientByPlayer(pl);
+        if (client != null)
+        {
+            await ChatTo(client, ChatChannel.System, "Система", "Вы возродились!");
+            await Hub.SendToClient(client, GameMessage.SystemChat("Вы возродились!"));
+        }
+        await Hub.BroadcastMapAsync();
         await PartyManager.SendUpdateForAsync(pl);
+        if (client != null)
+            await Hub.SendStatusAsync(client, pl);
     }
 
     private static bool weaponAffectsTarget(string subtype) => subtype is "dagger" or "spear" or "mace" or "hammer" or "greathammer";

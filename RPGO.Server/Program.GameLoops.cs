@@ -47,6 +47,7 @@ public partial class Program
                 playersCopy = World.GetPlayersSnapshot();
                 foreach (var pl in playersCopy)
                 {
+                    if (pl.IsDead) continue;
                     if (pl.Movement.Path.Count == 0)
                     {
                         // Путь завершён — проверяем отложенное взаимодействие
@@ -328,6 +329,7 @@ public partial class Program
                 var attacks = MonsterManager.DrainPendingAttacks();
                 foreach (var (monster, player, damage) in attacks)
                 {
+                    if (player.IsDead) continue;
                     player.Health -= damage;
                     player.LastDamagedTime = DateTime.UtcNow;
         var client = World.FindClientByPlayer(player);
@@ -344,23 +346,17 @@ public partial class Program
 
                     if (player.Health <= 0)
                     {
-                        player.Health = Balance.RespawnHealth(player.MaxHealth);
                         int lostGold = Balance.ComputeDeathGoldLoss(player.Gold);
                         player.Gold -= lostGold;
                         player.Combat.Cancel();
                         player.Interaction.Clear();
                         player.Movement.Stop();
-                        Log.Info($"{player.Name} погиб от {monster.Name}! Потеряно {lostGold} золота.");
-                        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли от {monster.Name}! Потеряно {lostGold} золота. Телепортация...");
+                        player.IsDead = true;
+                        player.DeathTime = DateTime.UtcNow;
+                        Log.Info($"{player.Name} погиб от {monster.Name}! Потеряно {lostGold} золота. Таймер 5с.");
+                        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли от {monster.Name}! Потеряно {lostGold} золота. Возрождение через 5 сек...");
                         await Hub.SendToClient(client, GameMessage.ResetCombat());
-
-                        int sx = MerchantManager.MerchantX + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                        int sy = MerchantManager.MerchantY + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                        sx = Math.Clamp(sx, 0, World.Map.Width - 1);
-                        sy = Math.Clamp(sy, 0, World.Map.Height - 1);
-                        player.X = sx;
-                        player.Y = sy;
-                        await Hub.BroadcastMapAsync();
+                        await Hub.SendToClient(client, GameMessage.PlayerDeath(lostGold));
 
                         await PartyManager.SendUpdateForAsync(player);
                     }
@@ -396,6 +392,7 @@ public partial class Program
                 playersCopy = World.GetPlayersSnapshot();
                 foreach (var pl in playersCopy)
                 {
+                    if (pl.IsDead) continue;
                     if (pl.Health >= pl.MaxHealth + pl.Equipment.GetBonusMaxHealth()) continue;
 
                     bool plInCombat = (now - pl.LastDamagedTime).TotalMilliseconds < inCombatDelayMs;
@@ -461,6 +458,7 @@ public partial class Program
                 await Task.Delay(Balance.DebuffTickMs);
                 foreach (var pl in World.GetPlayersSnapshot())
                 {
+                    if (pl.IsDead) continue;
                     if (pl.ActiveDebuffs.Count > 0)
                     {
                         DebuffManager.TickDebuffs(pl);
@@ -498,6 +496,28 @@ public partial class Program
             catch (Exception ex)
             {
                 Log.Error("Ошибка цикла очистки трупов", ex);
+            }
+        }
+    }
+
+    private static async Task RunDeathTimerLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(500);
+                foreach (var pl in World.GetPlayersSnapshot())
+                {
+                    if (pl.IsDead && (DateTime.UtcNow - pl.DeathTime).TotalMilliseconds >= Balance.DeathDelayMs)
+                    {
+                        await Program.RespawnPlayer(pl);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Ошибка цикла таймера смерти", ex);
             }
         }
     }
