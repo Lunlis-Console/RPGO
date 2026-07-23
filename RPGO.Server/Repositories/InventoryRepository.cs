@@ -21,7 +21,7 @@ internal static class InventoryRepository
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
-                damage_min, damage_max
+                damage_min, damage_max, attack_range
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -155,11 +155,13 @@ internal static class InventoryRepository
             INSERT INTO inventory (player_name, item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
-                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity)
+                bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
+                attack_range)
             VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
-                $cc, $cd, $ec, $as, $tid, $qty)";
+                $cc, $cd, $ec, $as, $tid, $qty,
+                $ar)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
@@ -184,6 +186,7 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$as", item.BonusAttackSpeed);
         insertItem.Parameters.AddWithValue("$tid", item.TemplateId);
         insertItem.Parameters.AddWithValue("$qty", qty);
+        insertItem.Parameters.AddWithValue("$ar", item.AttackRange);
         insertItem.ExecuteNonQuery();
     }
 
@@ -268,7 +271,7 @@ internal static class InventoryRepository
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
-            damage_min, damage_max
+            damage_min, damage_max, attack_range
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -318,7 +321,7 @@ internal static class InventoryRepository
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
             two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-            damage_min, damage_max
+            damage_min, damage_max, attack_range
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -348,6 +351,7 @@ internal static class InventoryRepository
             item.WeaponSubtype = reader.IsDBNull(21) ? "" : reader.GetString(21);
             item.DamageMin = reader.GetInt32(22);
             item.DamageMax = reader.GetInt32(23);
+            item.AttackRange = reader.IsDBNull(24) ? 1 : reader.GetInt32(24);
         }
         return item;
     }

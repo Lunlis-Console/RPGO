@@ -87,5 +87,8 @@ public class Item
     // Двуручное оружие
     public bool TwoHanded { get; set; }
 
+    // Дальность атаки (1 = ближний бой, 3 = лук и т.д.)
+    public int AttackRange { get; set; } = 1;
+
     public Item Clone() => (Item)MemberwiseClone();
 }

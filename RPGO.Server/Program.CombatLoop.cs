@@ -48,7 +48,8 @@ public partial class Program
                     }
 
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
-                    if (dist > Balance.AttackRange)
+                    int weaponRange = pl.Equipment.GetWeaponAttackRange();
+                    if (dist > weaponRange)
                     {
                         int stepX = Math.Sign(monster.X - pl.X);
                         int stepY = Math.Sign(monster.Y - pl.Y);
@@ -165,7 +166,7 @@ public partial class Program
                                 MonsterManager.CalculateCombat(pl, monster, queuedSkill == null);
 
                             // Клив: наносим урон 50% по 3 клеткам
-                            if (!isEvaded && DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
+                            if (!isEvaded && weaponRange <= 1 && DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
                             {
                                 DebuffManager.ClearDebuffs(pl);
                                 MonsterManager.CalculateCleave(pl, monster);
@@ -176,10 +177,6 @@ public partial class Program
                                 int baseDamage = (int)Math.Max(Balance.MinDamage, MonsterManager.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - MonsterManager.GetEffectiveDefense(monster));
                                 int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
                                 dmgToMonster = MonsterManager.ApplyDmgReduction(pl, skillDamage);
-                                monster.Health -= skillDamage;
-                                monster.LastDamagedTime = DateTime.UtcNow;
-                                monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + skillDamage;
-                                monsterDead = monster.Health <= 0;
                                 pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
                                 pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
                                 pl.QueuedSkillIds.RemoveAt(0);
@@ -190,6 +187,17 @@ public partial class Program
                                     Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
                                 });
                                 await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
+                            }
+
+                            // === ДАЛЬНЕЕ ОРУЖИЕ: снаряд вместо мгновенного урона ===
+                            if (weaponRange > 1 && !isEvaded)
+                            {
+                                string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
+                                var proj = ProjectileManager.Spawn(pl, monster, visualType, dmgToMonster, isCrit);
+                                await ProjectileManager.BroadcastSpawn(proj);
+                                await Hub.SendStatusAsync(client, pl);
+                                changed = true;
+                                continue;
                             }
 
                             if (monsterDead)

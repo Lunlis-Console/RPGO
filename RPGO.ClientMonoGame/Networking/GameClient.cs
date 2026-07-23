@@ -73,6 +73,8 @@ public sealed class GameClient
     public event Action<string?[]>? HotbarUpdated;
     public event Action<string>? TargetCleared;
     public event Action<string, int, int>? AttackCooldownUpdated;
+    public event Action<string, double, double, double, double, string, int>? ProjectileSpawned;
+    public event Action<string, double, double>? ProjectileHit;
 
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
@@ -550,6 +552,30 @@ public sealed class GameClient
                         int total = ac.TryGetProperty("TotalMs", out var totEl) ? totEl.GetInt32() : 0;
                         if (sid != null)
                             Ui(() => AttackCooldownUpdated?.Invoke(sid, rem, total));
+                    }
+                    break;
+
+                case "projectile_spawn":
+                    if (message.Data is JsonElement ps)
+                    {
+                        string id = ps.TryGetProperty("Id", out var psId) ? (psId.GetString() ?? "") : "";
+                        double sx = ps.TryGetProperty("StartX", out var psSx) ? psSx.GetDouble() : 0;
+                        double sy = ps.TryGetProperty("StartY", out var psSy) ? psSy.GetDouble() : 0;
+                        double tx = ps.TryGetProperty("TargetX", out var psTx) ? psTx.GetDouble() : 0;
+                        double ty = ps.TryGetProperty("TargetY", out var psTy) ? psTy.GetDouble() : 0;
+                        string vt = ps.TryGetProperty("VisualType", out var psVt) ? (psVt.GetString() ?? "arrow") : "arrow";
+                        int fm = ps.TryGetProperty("FlightMs", out var psFm) ? psFm.GetInt32() : 350;
+                        Ui(() => ProjectileSpawned?.Invoke(id, sx, sy, tx, ty, vt, fm));
+                    }
+                    break;
+
+                case "projectile_hit":
+                    if (message.Data is JsonElement ph)
+                    {
+                        string hid = ph.TryGetProperty("Id", out var phId) ? (phId.GetString() ?? "") : "";
+                        double hx = ph.TryGetProperty("X", out var phX) ? phX.GetDouble() : 0;
+                        double hy = ph.TryGetProperty("Y", out var phY) ? phY.GetDouble() : 0;
+                        Ui(() => ProjectileHit?.Invoke(hid, hx, hy));
                     }
                     break;
 

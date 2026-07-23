@@ -6,7 +6,7 @@ namespace RPGGame.Server;
 
 public partial class Program
 {
-    private static Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    internal static Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
         if (conn == null) return Task.CompletedTask;
         return Hub.SendChatToAsync(conn, channel, name, text);
@@ -540,6 +540,22 @@ public partial class Program
             {
                 var conn = World.FindClientByPlayer(pl);
                 if (conn != null) await Hub.SendToClient(conn, msg);
+            }
+        }
+    }
+
+    private static async Task RunProjectileTickLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(Balance.ProjectileTickMs);
+                await ProjectileManager.RunTick();
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Ошибка цикла снарядов", ex);
             }
         }
     }

@@ -32,6 +32,9 @@ public class MapRenderer
     private readonly List<FloatingText> _floatingTexts = new();
     private static readonly Random _rng = new();
 
+    // Снаряды
+    private readonly List<ClientProjectile> _projectiles = new();
+
     // Видимая область
     private int _viewStartX, _viewStartY, _viewEndX, _viewEndY;
 
@@ -796,6 +799,9 @@ public class MapRenderer
             }
         }
 
+        // Снаряды
+        ProjectileRenderer.Draw(sb, startX, startY, _gridOX, _gridOY, _cellW, _cellH);
+
         // Всплывающий текст
         lock (_stateLock)
         {
@@ -954,4 +960,79 @@ public sealed class FloatingText
     public DateTime StartTime;
     public int DurationMs = 1000;
     public float Scale = 1f;
+}
+
+public sealed class ClientProjectile
+{
+    public string Id = "";
+    public double StartX, StartY, TargetX, TargetY;
+    public string VisualType = "arrow";
+    public int FlightMs = 350;
+    public DateTime SpawnTime;
+}
+
+public static class ProjectileRenderer
+{
+    private static readonly List<ClientProjectile> _active = new();
+    private static readonly object _lock = new();
+
+    public static void Spawn(string id, double sx, double sy, double tx, double ty, string visualType, int flightMs)
+    {
+        lock (_lock)
+        {
+            _active.RemoveAll(p => p.Id == id);
+            _active.Add(new ClientProjectile
+            {
+                Id = id, StartX = sx, StartY = sy, TargetX = tx, TargetY = ty,
+                VisualType = visualType, FlightMs = flightMs, SpawnTime = DateTime.UtcNow
+            });
+        }
+    }
+
+    public static void OnHit(string id)
+    {
+        lock (_lock) { _active.RemoveAll(p => p.Id == id); }
+    }
+
+    public static void Draw(SpriteBatch sb, int startX, int startY, float gridOX, float gridOY, float cellW, float cellH)
+    {
+        List<ClientProjectile> snapshot;
+        lock (_lock) { snapshot = _active.ToList(); }
+
+        foreach (var p in snapshot)
+        {
+            float elapsed = (float)(DateTime.UtcNow - p.SpawnTime).TotalMilliseconds;
+            float t = Math.Clamp(elapsed / p.FlightMs, 0f, 1f);
+
+            double cx = p.StartX + (p.TargetX - p.StartX) * t;
+            double cy = p.StartY + (p.TargetY - p.StartY) * t;
+
+            float px = gridOX + (float)(cx - startX) * cellW + cellW / 2f;
+            float py = gridOY + (float)(cy - startY) * cellH + cellH / 2f;
+
+            if (p.VisualType == "arrow")
+            {
+                double dx = p.TargetX - p.StartX;
+                double dy = p.TargetY - p.StartY;
+                float angle = (float)Math.Atan2(dy, dx);
+                var tex = SpriteCache.Pixel;
+                sb.Draw(tex, new Rectangle((int)px - 4, (int)py - 1, 8, 2),
+                    null, new Color(204, 170, 68), angle,
+                    new Vector2(0, 0.5f), SpriteEffects.None, 0f);
+            }
+            else
+            {
+                var tex = SpriteCache.Pixel;
+                int r = 4;
+                sb.Draw(tex, new Rectangle((int)px - r, (int)py - r, r * 2, r * 2),
+                    new Color(96, 160, 255));
+            }
+        }
+
+        lock (_lock)
+        {
+            _active.RemoveAll(p =>
+                (DateTime.UtcNow - p.SpawnTime).TotalMilliseconds > p.FlightMs + 100);
+        }
+    }
 }

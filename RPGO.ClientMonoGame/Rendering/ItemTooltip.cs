@@ -139,6 +139,7 @@ public static class ItemTooltip
             else
                 lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
         }
+        if (isWeapon && item.AttackRange > 1) lines.Add($"Дальность: {item.AttackRange}");
         else if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
         if (item.BonusMagAttack > 0) lines.Add($"Маг.Атака: +{item.BonusMagAttack}");
         if (item.BonusDefense > 0) lines.Add($"Защита: +{item.BonusDefense}");

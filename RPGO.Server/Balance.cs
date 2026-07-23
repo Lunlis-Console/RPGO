@@ -212,4 +212,14 @@ public static class Balance
 
     // Урон по area-of-effect (меч)
     public const double CleaveDamageFraction = 0.5;
+
+    // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
+    public const int DefaultAttackRange = 1;
+    public const int BowAttackRange = 3;
+    public const int StaffAttackRange = 2;
+
+    // ===== СНАРЯДЫ =====
+    public const int ProjectileFlightMs = 350;
+    public const double ProjectileHitRadius = 0.5;
+    public const int ProjectileTickMs = 50;
 }

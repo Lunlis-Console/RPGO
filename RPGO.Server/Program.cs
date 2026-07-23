@@ -57,6 +57,7 @@ partial class Program
         _ = Task.Run(RunDebuffTickLoop);
         _ = Task.Run(RunCorpseCleanupLoop);
         _ = Task.Run(RunDeathTimerLoop);
+        _ = Task.Run(RunProjectileTickLoop);
 
         TcpListener server = new TcpListener(IPAddress.Any, Balance.ServerPort);
         server.Start();

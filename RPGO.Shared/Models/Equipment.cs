@@ -68,6 +68,12 @@ public class Equipment
         return weapon?.WeaponSubtype ?? "";
     }
 
+    public int GetWeaponAttackRange()
+    {
+        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        return weapon?.AttackRange ?? 1;
+    }
+
     public bool IsDualWielding()
     {
         var leftHand = _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null;

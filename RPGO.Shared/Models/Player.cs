@@ -79,14 +79,16 @@ public class Player : ICombatant
         => BaseEvadeChance + (GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning
            + Equipment.GetBonusEvadeChance();
 
+    private bool IsUsingStaff() => Equipment.GetWeaponSubtype() == "staff";
+
     // Совместимость с ICombatant (физ. атака/защита)
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
-    public int GetTotalAttack() => GetPhysAttack() + Equipment.GetWeaponMaxDamage();
+    public int GetTotalAttack() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
     public int GetTotalDefense() => GetDefense();
-    public int RollAttackDamage() => GetPhysAttack() + Equipment.RollWeaponDamage();
+    public int RollAttackDamage() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
     public int RollOffHandDamage() => GetPhysAttack() + Equipment.RollOffHandDamage();
-    public int GetMaxAttackDamage() => GetPhysAttack() + Equipment.GetWeaponMaxDamage();
+    public int GetMaxAttackDamage() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
 
     public int Speed { get; set; } = 1;   // определяет интервал перемещения
 

@@ -112,6 +112,14 @@ public class GameScreen : IScreen
             _hudRenderer.ClearTarget();
             _mapRenderer.ClearSelection();
         };
+        client.ProjectileSpawned += (id, sx, sy, tx, ty, vt, fm) =>
+        {
+            ProjectileRenderer.Spawn(id, sx, sy, tx, ty, vt, fm);
+        };
+        client.ProjectileHit += (id, hx, hy) =>
+        {
+            ProjectileRenderer.OnHit(id);
+        };
         client.PartyUpdated += party =>
         {
             _hudRenderer.UpdateParty(party);

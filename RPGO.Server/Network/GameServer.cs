@@ -301,6 +301,14 @@ public sealed class GameServer : INetworkHub
         catch { /* client disconnected or send failed — expected */ }
     }
 
+    public async Task SendToAllAsync(GameMessage message)
+    {
+        foreach (var client in _world.GetClientsSnapshot())
+        {
+            await SendToClient(client, message);
+        }
+    }
+
     public Task SendError(ClientConnection connection, string code, string message)
         => SendToClient(connection, new GameMessage
         {
