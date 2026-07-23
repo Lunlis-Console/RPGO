@@ -63,6 +63,10 @@ public class Monster : ICombatant
     public int AggroRange { get; set; } = 5;
     public Player? AggroTarget { get; set; }
 
+    // Leash: возврат на спавн
+    public bool ReturningToSpawn { get; set; }
+    public int StuckTicks { get; set; }
+
     public int MoveIntervalMs { get; set; } = 1500;
     public DateTime LastMoveTime { get; set; } = DateTime.MinValue;
 

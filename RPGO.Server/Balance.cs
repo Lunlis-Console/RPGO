@@ -109,6 +109,7 @@ public static class Balance
     public const int MonsterWanderRadius = 5;
     public const int MonsterAggroRange = 5;
     public const int MonsterWanderSkipChance = 40;
+    public const int MonsterLeashStuckTicks = 3;
     public const int MonsterMoveMinMs = 800;
     public const int MonsterMoveMaxMs = 2500;
     public const int MonsterSpawnJitterMaxMs = 2000;

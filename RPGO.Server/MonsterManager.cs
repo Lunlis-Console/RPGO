@@ -170,6 +170,53 @@ public static class MonsterManager
 
         foreach (var m in monsters)
         {
+            if (m.IsMannequin) continue;
+
+            // === LEASH: моб возвращается на спавн ===
+            if (m.ReturningToSpawn)
+            {
+                if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
+
+                int distToSpawn = Math.Abs(m.X - m.SpawnX) + Math.Abs(m.Y - m.SpawnY);
+                if (distToSpawn <= 1)
+                {
+                    m.X = m.SpawnX;
+                    m.Y = m.SpawnY;
+                    m.Health = m.MaxHealth;
+                    m.ReturningToSpawn = false;
+                    m.StuckTicks = 0;
+                    m.AggroTarget = null;
+                    m.DamageTracker.Clear();
+                    m.LastMoveTime = now;
+                    continue;
+                }
+
+                int stepX = Math.Sign(m.SpawnX - m.X);
+                int stepY = Math.Sign(m.SpawnY - m.Y);
+                int mx = 0, my = 0;
+                if (stepX != 0 && stepY != 0)
+                {
+                    mx = stepX;
+                    my = 0;
+                }
+                else if (stepX != 0) mx = stepX;
+                else if (stepY != 0) my = stepY;
+
+                int nx = m.X + mx;
+                int ny = m.Y + my;
+                if (nx >= 0 && nx < World.Map.Width && ny >= 0 && ny < World.Map.Height)
+                {
+                    if (!IsOccupiedByMonster(nx, ny))
+                    {
+                        m.X = nx;
+                        m.Y = ny;
+                    }
+                }
+                m.LastMoveTime = now;
+                continue;
+            }
+
+            // === АГРО ===
             Player? target = null;
             int bestDist = int.MaxValue;
             foreach (var p in players)
@@ -192,8 +239,14 @@ public static class MonsterManager
                       Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y) > m.AggroRange))
             {
                 m.AggroTarget = null;
+                m.StuckTicks = 0;
+                // Начинаем возврат на спавн если не на месте
+                if (m.X != m.SpawnX || m.Y != m.SpawnY)
+                    m.ReturningToSpawn = true;
+                continue;
             }
 
+            // === ПОГОНЯ / АТАКА ===
             if (m.AggroTarget != null && m.AggroTarget.Health > 0)
             {
                 int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
@@ -202,6 +255,7 @@ public static class MonsterManager
                     if ((now - m.LastMoveTime).TotalMilliseconds >= m.MoveIntervalMs)
                     {
                         m.LastMoveTime = now;
+                        m.StuckTicks = 0;
                         int dmgToPlayer = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         World.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
                     }
@@ -210,14 +264,11 @@ public static class MonsterManager
                 int stepX = Math.Sign(m.AggroTarget.X - m.X);
                 int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
 
-                // Движение СТРОГО по 4 сторонам (без диагональных шагов), чтобы
-                // сущности не упирались друг в друга по диагонали. При диагонали
-                // шагаем только по одной оси, не наступая на клетку цели.
                 int mx = 0, my = 0;
                 if (stepX != 0 && stepY != 0)
                 {
                     if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y)
-                        mx = stepX; // шаг по X не ведёт прямо в клетку цели
+                        mx = stepX;
                     else
                         my = stepY;
                 }
@@ -226,32 +277,52 @@ public static class MonsterManager
                 else if (stepY != 0)
                     my = stepY;
 
+                if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
+
+                bool moved = false;
                 if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
                     || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
                 {
-                    TryMoveTowards(m, mx, my);
+                    moved = TryMoveTowards(m, mx, my);
                 }
+
+                if (moved)
+                {
+                    m.StuckTicks = 0;
+                }
+                else
+                {
+                    m.StuckTicks++;
+                    if (m.StuckTicks >= Balance.MonsterLeashStuckTicks)
+                    {
+                        m.ReturningToSpawn = true;
+                        m.AggroTarget = null;
+                        m.StuckTicks = 0;
+                    }
+                }
+                m.LastMoveTime = now;
                 continue;
             }
 
+            // === БЛУЖДАНИЕ ===
             if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
 
             if (World.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
 
-            // Блуждание строго по 4 сторонам: один случайный ортогональный шаг.
-            int dir = World.NextRandom(0, 4); // 0=вверх, 1=вниз, 2=влево, 3=вправо
+            int dir = World.NextRandom(0, 4);
             int dx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
             int dy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
 
-            int nx = m.X + dx;
-            int ny = m.Y + dy;
+            int wnx = m.X + dx;
+            int wny = m.Y + dy;
 
-            if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-            if (Math.Abs(nx - m.SpawnX) > m.WanderRadius || Math.Abs(ny - m.SpawnY) > m.WanderRadius) continue;
-            if (IsNearMerchant(nx, ny)) continue;
+            if (wnx < 0 || wnx >= World.Map.Width || wny < 0 || wny >= World.Map.Height) continue;
+            if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
+            if (IsNearMerchant(wnx, wny)) continue;
+            if (IsOccupiedByMonster(wnx, wny)) continue;
 
-            m.X = nx;
-            m.Y = ny;
+            m.X = wnx;
+            m.Y = wny;
             m.LastMoveTime = now;
         }
     }
@@ -271,6 +342,9 @@ public static class MonsterManager
 
     private static bool IsOccupied(int x, int y)
         => World.GetMonstersSnapshot().Any(m => m.X == x && m.Y == y);
+
+    private static bool IsOccupiedByMonster(int x, int y)
+        => World.FindMonsterAt(x, y) != null;
 
     public static Monster? FindMonsterAt(int x, int y) => World.FindMonsterAt(x, y);
 
