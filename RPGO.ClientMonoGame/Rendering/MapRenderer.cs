@@ -299,6 +299,25 @@ public class MapRenderer
         EntityPickRequested?.Invoke(entitiesOnCell, mapX, mapY);
     }
 
+    public void HandleRightClick(float screenX, float screenY, float offsetX, float offsetY, float areaW, float areaH)
+    {
+        if (_currentMap == null) return;
+        int clickCX = (int)Math.Round(_camX);
+        int clickCY = (int)Math.Round(_camY);
+        lock (_stateLock) { ComputeView(_currentMap, clickCX, clickCY, offsetX, offsetY, areaW, areaH); }
+        float subCellX = (_camX - clickCX) * _cellW;
+        float subCellY = (_camY - clickCY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
+        if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
+
+        var entitiesOnCell = GetEntitiesAt(mapX, mapY);
+        if (entitiesOnCell.Count == 1)
+        {
+            HandleSingleEntityRightClick(entitiesOnCell[0], mapX, mapY);
+        }
+    }
+
     // Запрос окна выбора сущности, когда в клетке несколько сущностей
     public event Action<List<EntityInfo>, int, int>? EntityPickRequested;
 
@@ -318,38 +337,31 @@ public class MapRenderer
             list.Add(new EntityInfo { Type = "collectible", Name = c.Name, X = mapX, Y = mapY, Id = c.Id });
         foreach (var cs in _currentMap.Corpses?.Where(cs => cs.X == mapX && cs.Y == mapY) ?? Enumerable.Empty<CorpsePosition>())
             list.Add(new EntityInfo { Type = "corpse", Name = cs.MonsterName, Level = cs.Level, X = mapX, Y = mapY, Id = cs.Id.ToString() });
+        foreach (var n in _currentMap.Npcs?.Where(n => n.X == mapX && n.Y == mapY && n.Type != "merchant" && n.Type != "board") ?? Enumerable.Empty<NpcPosition>())
+            list.Add(new EntityInfo { Type = "npc", Name = n.Name, X = mapX, Y = mapY, Id = n.Id });
         return list;
     }
 
     private void HandleEmptyCellClick(int mapX, int mapY)
     {
-        if (_selectedEntityType == "move" && _selectedEntityX == mapX && _selectedEntityY == mapY)
-        {
-            _moveTargetX = mapX; _moveTargetY = mapY;
-            MoveRequested?.Invoke(mapX, mapY);
-            return;
-        }
         ClearSelection();
         _selectedEntityType = "move";
         _selectedEntityName = "Точка назначения";
         _selectedEntityX = mapX; _selectedEntityY = mapY;
-        _moveTargetX = _moveTargetY = -1;
+        _moveTargetX = mapX; _moveTargetY = mapY;
         SelectionChanged?.Invoke(GetSelection());
+        MoveRequested?.Invoke(mapX, mapY);
     }
 
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
     {
-        bool sameEntity = _selectedEntityType == entity.Type && (
-            entity.Type == "monster" || entity.Type == "corpse"
-                ? _selectedEntityId != null && _selectedEntityId == entity.Id
-                : _selectedEntityX == mapX && _selectedEntityY == mapY);
-        if (sameEntity)
-        {
-            if (entity.Type != "player")
-                InteractRequested?.Invoke(entity, mapX, mapY);
-            _moveTargetX = _moveTargetY = -1;
-            return;
-        }
+        StartInteraction(entity, mapX, mapY);
+        if (entity.Type != "player")
+            InteractRequested?.Invoke(entity, mapX, mapY);
+    }
+
+    private void HandleSingleEntityRightClick(EntityInfo entity, int mapX, int mapY)
+    {
         StartInteraction(entity, mapX, mapY);
     }
 
@@ -606,15 +618,67 @@ public class MapRenderer
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)px, (int)py, (int)_cellW, (int)_cellH), tint);
         }
 
-        if (map.Merchant != null)
+        if (map.Merchant != null && map.Merchant.X >= startX && map.Merchant.X <= endX && map.Merchant.Y >= startY && map.Merchant.Y <= endY)
         {
             var trader = SpriteCache.GetTraderSprite();
             DrawStatic(trader, map.Merchant.X, map.Merchant.Y, Color.White);
+            var mFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+            if (mFont != null)
+            {
+                var mSize = mFont.MeasureString(map.Merchant.Name);
+                float mpx = _gridOX + (map.Merchant.X - startX) * _cellW + _cellW / 2;
+                float mpy = _gridOY + (map.Merchant.Y - startY) * _cellH - mSize.Y - 4;
+                sb.DrawString(mFont, map.Merchant.Name, new Vector2(mpx - mSize.X / 2 + 1, mpy + 1), Color.Black);
+                sb.DrawString(mFont, map.Merchant.Name, new Vector2(mpx - mSize.X / 2, mpy), Color.White);
+            }
         }
-        if (map.Board != null)
+        if (map.Board != null && map.Board.X >= startX && map.Board.X <= endX && map.Board.Y >= startY && map.Board.Y <= endY)
         {
             var board = SpriteCache.GetBoardSprite();
             DrawStatic(board, map.Board.X, map.Board.Y, Color.White);
+            var bFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+            if (bFont != null)
+            {
+                var bSize = bFont.MeasureString(map.Board.Name);
+                float bpx = _gridOX + (map.Board.X - startX) * _cellW + _cellW / 2;
+                float bpy = _gridOY + (map.Board.Y - startY) * _cellH - bSize.Y - 4;
+                sb.DrawString(bFont, map.Board.Name, new Vector2(bpx - bSize.X / 2 + 1, bpy + 1), Color.Black);
+                sb.DrawString(bFont, map.Board.Name, new Vector2(bpx - bSize.X / 2, bpy), Color.White);
+            }
+        }
+        foreach (var npc in map.Npcs ?? Enumerable.Empty<NpcPosition>())
+        {
+            if (npc.Type == "merchant" || npc.Type == "board") continue;
+            var trader = SpriteCache.GetTraderSprite();
+            DrawStatic(trader, npc.X, npc.Y, Color.LightBlue);
+            if (npc.X >= startX && npc.X <= endX && npc.Y >= startY && npc.Y <= endY)
+            {
+                var npcFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+                if (npcFont != null)
+                {
+                    var nSize = npcFont.MeasureString(npc.Name);
+                    float npx = _gridOX + (npc.X - startX) * _cellW + _cellW / 2;
+                    float npy = _gridOY + (npc.Y - startY) * _cellH - nSize.Y - 4;
+                    sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2 + 1, npy + 1), Color.Black);
+                    sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2, npy), Color.White);
+                }
+                if (!string.IsNullOrEmpty(npc.QuestIndicator))
+                {
+                    var iFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+                    if (iFont != null)
+                    {
+                        string icon = npc.QuestIndicator == "available" ? "!" : "?";
+                        Color iconColor = npc.QuestIndicator == "ready" ? Color.Yellow
+                                        : npc.QuestIndicator == "available" ? Color.Yellow
+                                        : new Color(160, 160, 160);
+                        var sz = iFont.MeasureString(icon);
+                        var nSz = iFont.MeasureString(npc.Name);
+                        float px = _gridOX + (npc.X - startX) * _cellW + _cellW / 2 - sz.X;
+                        float py = _gridOY + (npc.Y - startY) * _cellH - sz.Y * 2 - 4 - nSz.Y - 4;
+                        sb.DrawString(iFont, icon, new Vector2(px, py), iconColor, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
+                    }
+                }
+            }
         }
         foreach (var cl in map.Collectibles)
         {

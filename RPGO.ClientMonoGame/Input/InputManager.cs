@@ -145,4 +145,23 @@ public class InputManager
             }
         }
     }
+
+    public void HandleMapRightClick(MouseState mouse, MouseState prevMouse, MapRenderer mapRenderer)
+    {
+        if (mouse.RightButton == ButtonState.Pressed && prevMouse.RightButton == ButtonState.Released)
+        {
+            int topH = 40;
+            int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
+            int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
+            int offsetX = 0;
+            int offsetY = topH;
+            int areaW = w;
+            int areaH = h - topH;
+
+            if (mouse.X >= offsetX && mouse.X < offsetX + areaW && mouse.Y >= offsetY && mouse.Y < offsetY + areaH)
+            {
+                mapRenderer.HandleRightClick(mouse.X, mouse.Y, offsetX, offsetY, areaW, areaH);
+            }
+        }
+    }
 }

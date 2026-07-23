@@ -38,6 +38,7 @@ partial class Program
         Log.Info("Загрузка данных (предметы, квесты)...");
         MerchantManager.Initialize();
         QuestManager.Initialize();
+        DialogueManager.LoadAll();
         LootManager.LoadFromDatabase();
 
         Log.Info("Загрузка монстров...");
@@ -150,6 +151,7 @@ partial class Program
             Log.Info("Перезагрузка данных на сервере...");
             MerchantManager.Initialize();
             QuestManager.Initialize();
+            DialogueManager.LoadAll();
             LootManager.LoadFromDatabase();
             MonsterManager.Initialize();
             CollectibleManager.Initialize();

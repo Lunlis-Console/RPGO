@@ -217,6 +217,36 @@ public partial class Program
                 });
                 break;
 
+            case "npc":
+                {
+                    if (player.Dialogue.IsActive) break;
+                    string? npcId = null;
+                    foreach (var n in DatabaseManager.LoadNpcs())
+                    {
+                        if (n.X == player.Interaction.X && n.Y == player.Interaction.Y)
+                        {
+                            npcId = n.Id;
+                            break;
+                        }
+                    }
+                    if (npcId != null)
+                    {
+                        var startNode = DialogueManager.GetStartNodeId(npcId);
+                        if (startNode != null)
+                        {
+                            player.Dialogue.Start(npcId, startNode);
+                            var tree = DialogueManager.GetTree(npcId);
+                            if (tree != null)
+                                await DialogueManager.SendNode(client, player, tree, startNode);
+                        }
+                        else
+                        {
+                            await ChatTo(client, ChatChannel.System, "Система", "Нечего сказать.");
+                        }
+                    }
+                }
+                break;
+
             case "collectible":
                 var lootItem = CollectibleManager.TryCollect(player.Interaction.X, player.Interaction.Y);
                 if (lootItem != null)

@@ -50,6 +50,9 @@ public partial class Program
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
                     int weaponRange = pl.Equipment.GetWeaponAttackRange();
 
+                    var w = pl.Equipment[EquipmentSlots.RightHand];
+                    Log.Debug($"[Combat] {pl.Name} vs {monster.Name}: dist={dist} weaponRange={weaponRange} weapon='{w?.Name ?? "null"}' AttackRange={w?.AttackRange ?? -1} TemplateId='{w?.TemplateId ?? ""}'");
+
                     int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
                     bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
 

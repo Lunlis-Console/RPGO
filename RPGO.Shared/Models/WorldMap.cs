@@ -15,6 +15,7 @@ public class WorldMap
     public List<MonsterPosition> Monsters { get; set; } = new();
     public List<CollectiblePosition> Collectibles { get; set; } = new();
     public List<CorpsePosition> Corpses { get; set; } = new();
+    public List<NpcPosition> Npcs { get; set; } = new();
 }
 
 public class PlayerPosition
@@ -54,4 +55,15 @@ public class CorpsePosition
     public char Symbol { get; set; }
     public int Level { get; set; }
     public int ItemCount { get; set; }
+}
+
+public class NpcPosition
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "";
+    public int X { get; set; }
+    public int Y { get; set; }
+    public bool HasDialogue { get; set; }
+    public string? QuestIndicator { get; set; }
 }

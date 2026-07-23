@@ -16,7 +16,7 @@ internal static class ItemRepository
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-                damage_min, damage_max
+                damage_min, damage_max, attack_range
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -52,6 +52,7 @@ internal static class ItemRepository
                     WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
                     DamageMin = reader.GetInt32(26),
                     DamageMax = reader.GetInt32(27),
+                    AttackRange = reader.IsDBNull(28) ? 1 : reader.GetInt32(28),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 });
             }
@@ -70,7 +71,7 @@ internal static class ItemRepository
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-                damage_min, damage_max
+                damage_min, damage_max, attack_range
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -106,6 +107,7 @@ internal static class ItemRepository
                 WeaponSubtype = reader.IsDBNull(25) ? "" : reader.GetString(25),
                 DamageMin = reader.GetInt32(26),
                 DamageMax = reader.GetInt32(27),
+                AttackRange = reader.IsDBNull(28) ? 1 : reader.GetInt32(28),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
             };
         }

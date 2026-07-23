@@ -1,5 +1,6 @@
 using Microsoft.Data.Sqlite;
 using RPGGame.Shared.Models;
+using RPGGame.Server;
 
 namespace RPGGame.Server.Repositories;
 
@@ -355,6 +356,7 @@ internal static class InventoryRepository
             item.DamageMin = reader.GetInt32(22);
             item.DamageMax = reader.GetInt32(23);
             item.AttackRange = reader.IsDBNull(24) ? 1 : reader.GetInt32(24);
+            Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;
     }

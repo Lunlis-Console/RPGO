@@ -100,6 +100,7 @@ public class Player : ICombatant
     public MovementState Movement { get; set; } = new();
     public CombatState Combat { get; set; } = new();
     public InteractionState Interaction { get; set; } = new();
+    public DialogueState Dialogue { get; set; } = new();
 
     // Направление взгляда (для cleave и т.д.)
     public string Facing { get; set; } = "down";

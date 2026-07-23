@@ -42,7 +42,7 @@ public class LootWindow : GameWindow
     public override bool IsDragging => _dragIndex >= 0;
     public Action<Item?>? DragStateChanged;
 
-    private MouseState _prevMouse;
+    private MouseState _lootPrevMouse;
     private const int GridCols = 3;
     private const int GridRows = 3;
     private const int Cell = 60;
@@ -86,8 +86,8 @@ public class LootWindow : GameWindow
 
         bool down = mouse.LeftButton == ButtonState.Pressed;
         bool up = mouse.LeftButton == ButtonState.Released;
-        bool pressed = down && _prevMouse.LeftButton == ButtonState.Released;
-        bool released = up && _prevMouse.LeftButton == ButtonState.Pressed;
+        bool pressed = down && _lootPrevMouse.LeftButton == ButtonState.Released;
+        bool released = up && _lootPrevMouse.LeftButton == ButtonState.Pressed;
 
         var mouseRect = new Rectangle(ContentX, ContentY, GridCols * (Cell + Gap) - Gap, GridRows * (Cell + Gap) - Gap);
 
@@ -158,7 +158,7 @@ public class LootWindow : GameWindow
         }
 
         base.Update(gameTime, keyboard, mouse);
-        _prevMouse = mouse;
+        _lootPrevMouse = mouse;
     }
 
     private Rectangle GetTakeAllRect()
@@ -207,7 +207,7 @@ public class LootWindow : GameWindow
             DrawText(sb, $"Золото: {_gold}", ContentX, Y + Height - 64, new Color(220, 200, 80));
 
         var btnRect = GetTakeAllRect();
-        DrawButton(sb, "Взять все", btnRect, new Color(120, 100, 40), mouse, _prevMouse);
+        DrawButton(sb, "Взять все", btnRect, new Color(120, 100, 40), mouse, _lootPrevMouse);
 
         if (_hoverItem != null)
             DrawTooltip(sb, _hoverItem, mouse);

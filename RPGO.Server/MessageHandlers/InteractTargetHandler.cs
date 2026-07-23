@@ -40,6 +40,9 @@ public class InteractTargetHandler : BaseHandler
 
             player.Combat.Enter(interMonster.Id, player.Movement);
 
+            var w = player.Equipment[EquipmentSlots.RightHand];
+            Log.Debug($"[Interact] {player.Name} -> {interMonster.Name}: weapon='{w?.Name ?? "null"}' AttackRange={w?.AttackRange ?? -1} TemplateId='{w?.TemplateId ?? ""}'");
+
             Log.Debug($"{player.Name} вступил в бой с {interMonster.Name} ({interMonster.X},{interMonster.Y})");
 
             await SendToClient(connection, new GameMessage

@@ -8,6 +8,7 @@ public class QuestDefinition
     public string Type { get; set; } = "kill";
     public string TargetMonsterId { get; set; } = "";   // M0001...
     public string TargetItemId { get; set; } = "";       // I0015...
+    public string TargetNpcId { get; set; } = "";        // N0001... (для talk-квестов)
     public int Target { get; set; }
     public int XpReward { get; set; }
     public int GoldReward { get; set; }

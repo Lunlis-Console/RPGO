@@ -94,3 +94,25 @@ public class CombatState
             ItemIds.Clear();
         }
     }
+
+/// <summary>
+/// Состояние диалога: текущий NPC и текущий узел диалога.
+/// </summary>
+public class DialogueState
+{
+    public string? NpcId { get; set; }
+    public string? CurrentNodeId { get; set; }
+    public bool IsActive => NpcId != null && CurrentNodeId != null;
+
+    public void Start(string npcId, string nodeId)
+    {
+        NpcId = npcId;
+        CurrentNodeId = nodeId;
+    }
+
+    public void Clear()
+    {
+        NpcId = null;
+        CurrentNodeId = null;
+    }
+}

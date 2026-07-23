@@ -58,6 +58,10 @@ public sealed class GameClient
     public event Action<TradeCompleteData>? TradeCompleted;
     public event Action<string>? TradeClosed;
 
+    // Диалоги
+    public event Action<string, string, string, List<(string Text, int Index)>>? DialogueOpened;
+    public event Action? DialogueClosed;
+
     // Друзья
     public event Action<List<FriendInfo>>? FriendListUpdated;
     public event Action<bool, string>? FriendResultReceived;
@@ -288,6 +292,31 @@ public sealed class GameClient
                             msg = mEl.GetString() ?? msg;
                         Ui(() => TradeClosed?.Invoke(msg));
                     }
+                    break;
+
+                case "dialogue_open":
+                    if (message.Data is JsonElement dlgEl)
+                    {
+                        string npcId = dlgEl.TryGetProperty("NpcId", out var nid) ? (nid.GetString() ?? "") : "";
+                        string speaker = dlgEl.TryGetProperty("Speaker", out var sp) ? (sp.GetString() ?? "") : "";
+                        string text = dlgEl.TryGetProperty("Text", out var tx) ? (tx.GetString() ?? "") : "";
+                        var choices = new List<(string, int)>();
+                        if (dlgEl.TryGetProperty("Choices", out var carr) && carr.ValueKind == JsonValueKind.Array)
+                        {
+                            int idx = 0;
+                            foreach (var ce in carr.EnumerateArray())
+                            {
+                                string ct = ce.TryGetProperty("Text", out var ctP) ? (ctP.GetString() ?? "") : "";
+                                choices.Add((ct, idx));
+                                idx++;
+                            }
+                        }
+                        Ui(() => DialogueOpened?.Invoke(npcId, speaker, text, choices));
+                    }
+                    break;
+
+                case "dialogue_close":
+                    Ui(() => DialogueClosed?.Invoke());
                     break;
 
                 case "damage":

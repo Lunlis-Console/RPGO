@@ -24,6 +24,11 @@ public sealed class GameServer : INetworkHub
         var allMonsters = MonsterManager.GetMonsterPositions();
         var allCollectibles = CollectibleManager.GetPositions();
         var allCorpses = CorpseManager.GetCorpsePositions();
+        var allNpcs = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
+        {
+            Id = n.Id, Name = n.Name, Type = n.Type, X = n.X, Y = n.Y,
+            HasDialogue = DialogueManager.GetTree(n.Id) != null
+        }).ToList();
         var merchant = new MerchantPosition
         {
             X = MerchantManager.MerchantX,
@@ -71,7 +76,11 @@ public sealed class GameServer : INetworkHub
                 Board = board,
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
-                Corpses = nearbyCorpses
+                Corpses = nearbyCorpses,
+                Npcs = allNpcs.Where(n =>
+                    Math.Abs(n.X - player.X) <= viewRadius &&
+                    Math.Abs(n.Y - player.Y) <= viewRadius
+                ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
             };
 
             await SendToClient(client, new GameMessage
@@ -80,6 +89,29 @@ public sealed class GameServer : INetworkHub
                 Data = mapData
             });
         }
+    }
+
+    private static string? GetQuestIndicator(string npcId, Player player)
+    {
+        string? result = null;
+        foreach (var def in QuestManager.GetAvailableQuests())
+        {
+            if (def.TargetNpcId != npcId) continue;
+            var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
+            if (prog == null)
+            {
+                result = "available";
+            }
+            else if (prog.Completed && result != "available")
+            {
+                result = "ready";
+            }
+            else if (result == null)
+            {
+                result = "active";
+            }
+        }
+        return result;
     }
 
     public async Task SendQuestLog(ClientConnection connection, Player player)

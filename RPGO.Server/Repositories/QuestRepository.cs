@@ -12,7 +12,7 @@ internal static class QuestRepository
             var result = new List<QuestDefinition>();
             using var connection = Db.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target, xp_reward, gold_reward FROM quests_def";
+            cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward FROM quests_def";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -24,9 +24,10 @@ internal static class QuestRepository
                     Type = reader.GetString(3),
                     TargetMonsterId = reader.GetString(4),
                     TargetItemId = reader.GetString(5),
-                    Target = reader.GetInt32(6),
-                    XpReward = reader.GetInt32(7),
-                    GoldReward = reader.GetInt32(8),
+                    TargetNpcId = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                    Target = reader.GetInt32(7),
+                    XpReward = reader.GetInt32(8),
+                    GoldReward = reader.GetInt32(9),
                 });
             }
             return result;

@@ -39,6 +39,7 @@ public class GameScreen : IScreen
     private readonly TradeRequestWindow _tradeRequestWindow = new();
     private readonly SocialWindow _socialWindow;
     private readonly DeathWindow _deathWindow = new();
+    private readonly DialogueWindow _dialogueWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
@@ -494,6 +495,27 @@ public class GameScreen : IScreen
         _windows.Add(_tradeRequestWindow);
         _windows.Add(_socialWindow);
         _windows.Add(_deathWindow);
+        _windows.Add(_dialogueWindow);
+
+        // Dialogue events
+        client.DialogueOpened += (npcId, speaker, text, choices) =>
+        {
+            _dialogueWindow.SetNode(speaker, text, choices);
+            GameInputHandler.CenterWindow(_dialogueWindow, GameMain.Instance!);
+            _input.PushWindow(_dialogueWindow);
+        };
+        client.DialogueClosed += () =>
+        {
+            _dialogueWindow.CloseDialogue();
+        };
+        _dialogueWindow.DialogueClosed += () =>
+        {
+            _ = client.SendAsync("dialogue_choice", new { ChoiceIndex = -1 });
+        };
+        _dialogueWindow.ChoiceSelected += index =>
+        {
+            _ = client.SendAsync("dialogue_choice", new { ChoiceIndex = index });
+        };
 
         _partyInviteWindow.Accepted += inviterName => _ = client.SendAsync("party_accept", new { InviterName = inviterName });
         _partyInviteWindow.Declined += inviterName => _ = client.SendAsync("party_decline", new { InviterName = inviterName });
@@ -563,10 +585,11 @@ public class GameScreen : IScreen
         var game = GameMain.Instance!;
 
         _input.HandleHotbarDrop(mouse, game);
+        bool mouseOverAnyWindowBefore = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
         _windows.Update(gameTime, keyboard, mouse);
 
         bool settingsOpen = _settingsWindow.Visible;
-        bool mouseOverAnyWindow = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
+        bool mouseOverAnyWindow = mouseOverAnyWindowBefore || _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
 
         _input.HandleEscape(keyboard, _settingsWindow, game);
 
@@ -639,6 +662,8 @@ public class GameScreen : IScreen
         }
         if (!mouseOverAnyWindow && !overHotbar)
             _inputManager.HandleMapClick(mouse, _input.PrevMouse, _mapRenderer);
+        if (!mouseOverAnyWindow && !overHotbar)
+            _inputManager.HandleMapRightClick(mouse, _input.PrevMouse, _mapRenderer);
 
         _input.PrevKeyboard = keyboard;
         _input.PrevMouse = mouse;
