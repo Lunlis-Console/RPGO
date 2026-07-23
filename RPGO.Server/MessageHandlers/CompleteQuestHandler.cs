@@ -18,7 +18,7 @@ public class CompleteQuestHandler : BaseHandler
             ? compEl.GetString()
             : compEl.TryGetProperty("QuestId", out var cqProp) ? cqProp.GetString() : null;
 
-        if (!QuestManager.IsAtBoard(player.X, player.Y))
+        if (!Program.Services.Quests.IsAtBoard(player.X, player.Y))
         {
             await SendError(connection, ErrorCodes.NotAtBoard, "Вернитесь к доске заданий, чтобы сдать задание.");
             return;
@@ -31,7 +31,7 @@ public class CompleteQuestHandler : BaseHandler
         }
 
         var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == questId);
-        var def = QuestManager.FindQuest(questId);
+        var def = Program.Services.Quests.FindQuest(questId);
         if (prog == null || def == null)
         {
             await SendError(connection, ErrorCodes.QuestNotActive, "У вас нет этого задания.");

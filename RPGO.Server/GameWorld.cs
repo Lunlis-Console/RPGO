@@ -1,5 +1,6 @@
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
+using RPGGame.Server.Network;
 
 namespace RPGGame.Server;
 
@@ -46,6 +47,8 @@ public sealed class GameMap
 public sealed class GameWorld
 {
     public GameMap Map { get; }
+    private INetworkHub? _hub;
+    private Func<Player, bool>? _savePlayer;
 
     private readonly List<Player> _players = new();
     private readonly List<ClientConnection> _clients = new();
@@ -62,6 +65,16 @@ public sealed class GameWorld
     public GameWorld(int width = 100, int height = 100)
     {
         Map = new GameMap(width, height);
+    }
+
+    /// <summary>
+    /// Устанавливает зависимости, которые невозможно инжектировать через конструктор
+    /// из-за циклических зависимостей (INetworkHub, сохранение игроков).
+    /// </summary>
+    public void SetDependencies(INetworkHub hub, Func<Player, bool> savePlayer)
+    {
+        _hub = hub;
+        _savePlayer = savePlayer;
     }
 
     // --- Игроки ---
@@ -83,15 +96,11 @@ public sealed class GameWorld
         NotifyFriendsAsync(player.Name, online: false);
     }
 
-    /// <summary>
-    /// Рассылает обновлённый список друзей всем, у кого этот игрок в друзьях
-    /// (чтобы онлайн-статус менялся в реальном времени, без перезахода в окно),
-    /// и оповещает в системный чат о входе/выходе друга.
-    /// </summary>
     private void NotifyFriendsAsync(string playerName, bool online)
     {
         try
         {
+            if (_hub == null) return;
             var friendOwners = DatabaseManager.GetReverseFriendNames(playerName);
             foreach (var owner in friendOwners)
             {
@@ -99,12 +108,12 @@ public sealed class GameWorld
                 var conn = FindClientByPlayer(ownerPlayer);
                 if (conn == null) continue;
 
-                _ = Program.Hub.SendFriendListToAsync(conn, ownerPlayer);
+                _ = _hub.SendFriendListToAsync(conn, ownerPlayer);
 
                 string text = online
                     ? $"Друг {playerName} зашёл(а) в игру"
                     : $"Друг {playerName} вышел(а) из игры";
-                _ = Program.Hub.SendChatToAsync(conn, ChatChannel.System, "Друзья", text);
+                _ = _hub.SendChatToAsync(conn, ChatChannel.System, "Друзья", text);
             }
         }
         catch
@@ -146,7 +155,7 @@ public sealed class GameWorld
     {
         if (connection.Player != null)
         {
-            try { DatabaseManager.SavePlayerProgress(connection.Player); }
+            try { _savePlayer?.Invoke(connection.Player); }
             catch (Exception ex) { Log.Error($"[World] Save on disconnect failed for {connection.Player.Name}", ex); }
         }
         lock (_lock) _clients.Remove(connection);
@@ -157,7 +166,7 @@ public sealed class GameWorld
         lock (_lock) return new List<ClientConnection>(_clients);
     }
 
-public List<ClientConnection> GetAllConnectionsSnapshot()
+    public List<ClientConnection> GetAllConnectionsSnapshot()
     {
         lock (_lock) return new List<ClientConnection>(_clients);
     }

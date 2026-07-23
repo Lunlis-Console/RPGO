@@ -2,23 +2,30 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
-public static class QuestManager
+public class QuestManager
 {
-    public static int BoardX
+    private readonly GameWorld _world;
+
+    public int BoardX
     {
-        get => Program.World.Map.BoardX;
-        private set => Program.World.Map.BoardX = value;
+        get => _world.Map.BoardX;
+        private set => _world.Map.BoardX = value;
     }
 
-    public static int BoardY
+    public int BoardY
     {
-        get => Program.World.Map.BoardY;
-        private set => Program.World.Map.BoardY = value;
+        get => _world.Map.BoardY;
+        private set => _world.Map.BoardY = value;
     }
 
-    private static List<QuestDefinition> _quests = new();
+    private List<QuestDefinition> _quests = new();
 
-    public static void Initialize()
+    public QuestManager(GameWorld world)
+    {
+        _world = world;
+    }
+
+    public void Initialize()
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "board");
         if (npc != null)
@@ -35,17 +42,17 @@ public static class QuestManager
         Log.Info($"Загружено квестов: {_quests.Count}");
     }
 
-    public static QuestBoardPosition Board =>
+    public QuestBoardPosition Board =>
         new QuestBoardPosition { X = BoardX, Y = BoardY, Name = "Доска заданий" };
 
-    public static List<QuestDefinition> GetAvailableQuests() => _quests.ToList();
+    public List<QuestDefinition> GetAvailableQuests() => _quests.ToList();
 
-    public static QuestDefinition? FindQuest(string id) =>
+    public QuestDefinition? FindQuest(string id) =>
         _quests.FirstOrDefault(q => q.Id == id);
 
-    public static bool IsAtBoard(int x, int y) => Math.Abs(x - BoardX) + Math.Abs(y - BoardY) <= 1;
+    public bool IsAtBoard(int x, int y) => Math.Abs(x - BoardX) + Math.Abs(y - BoardY) <= 1;
 
-    public static List<(string Title, int Current, int Target, bool Completed)> IncrementKillProgress(Player player, string monsterTemplateId)
+    public List<(string Title, int Current, int Target, bool Completed)> IncrementKillProgress(Player player, string monsterTemplateId)
     {
         var results = new List<(string, int, int, bool)>();
         foreach (var q in player.ActiveQuests)
@@ -65,7 +72,7 @@ public static class QuestManager
         return results;
     }
 
-    public static List<(string Title, int Current, int Target, bool Completed)> IncrementCollectProgress(Player player, string itemId)
+    public List<(string Title, int Current, int Target, bool Completed)> IncrementCollectProgress(Player player, string itemId)
     {
         var results = new List<(string, int, int, bool)>();
         foreach (var q in player.ActiveQuests)

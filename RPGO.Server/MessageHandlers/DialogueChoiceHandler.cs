@@ -15,6 +15,6 @@ public class DialogueChoiceHandler : BaseHandler
         if (message.Data is not JsonElement el) return;
 
         int choiceIndex = el.TryGetProperty("ChoiceIndex", out var ci) ? ci.GetInt32() : -1;
-        await DialogueManager.HandleChoice(connection, player, choiceIndex);
+        await Program.Services.Dialogue.HandleChoice(connection, player, choiceIndex);
     }
 }

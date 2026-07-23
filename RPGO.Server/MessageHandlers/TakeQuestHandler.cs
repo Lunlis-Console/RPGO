@@ -18,7 +18,7 @@ public class TakeQuestHandler : BaseHandler
             ? takeEl.GetString()
             : takeEl.TryGetProperty("QuestId", out var tqProp) ? tqProp.GetString() : null;
 
-        if (!QuestManager.IsAtBoard(player.X, player.Y))
+        if (!Program.Services.Quests.IsAtBoard(player.X, player.Y))
         {
             await SendError(connection, ErrorCodes.NotAtBoard, "Доска заданий далеко. Подойдите к ней, чтобы взять задание.");
             return;
@@ -36,7 +36,7 @@ public class TakeQuestHandler : BaseHandler
             return;
         }
 
-        var def = QuestManager.FindQuest(questId);
+        var def = Program.Services.Quests.FindQuest(questId);
         if (def == null)
         {
             await SendError(connection, ErrorCodes.QuestNotFound, "Такого задания не существует.");

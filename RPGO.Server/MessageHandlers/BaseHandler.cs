@@ -49,7 +49,7 @@ public abstract class BaseHandler : IMessageHandler
 
     protected async Task SendChatPartyAsync(Player sender, string from, string text)
     {
-        var party = PartyManager.GetPartyForPlayer(sender.Id);
+        var party = Program.Services.Party.GetPartyForPlayer(sender.Id);
         var targets = new List<Player>();
         if (party != null)
         {
@@ -91,7 +91,7 @@ public abstract class BaseHandler : IMessageHandler
         => Program.ReloadContent(connection);
 
     protected int GetAttackSpeed(Player player)
-        => Program.GetAttackSpeed(player);
+        => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
     protected StatsBreakdown BuildBreakdown(Player player)
         => Hub.BuildBreakdown(player);

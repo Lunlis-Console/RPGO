@@ -1,14 +1,23 @@
 using RPGGame.Shared.Models;
-using System.Collections.Concurrent;
+using RPGGame.Server.Network;
 
 namespace RPGGame.Server;
 
 public class PartyManager
 {
-    private static readonly Dictionary<Guid, PartyData> _parties = new();
-    private static readonly object _lock = new();
+    private readonly GameWorld _world;
+    private INetworkHub? _hub;
+    private readonly Dictionary<Guid, PartyData> _parties = new();
+    private readonly object _lock = new();
 
-    public static PartyData? CreateParty(Player leader, Player member)
+    public PartyManager(GameWorld world)
+    {
+        _world = world;
+    }
+
+    public void SetHub(INetworkHub hub) => _hub = hub;
+
+    public PartyData? CreateParty(Player leader, Player member)
     {
         lock (_lock)
         {
@@ -32,7 +41,7 @@ public class PartyManager
         }
     }
 
-    public static bool JoinParty(Player player, Guid partyId)
+    public bool JoinParty(Player player, Guid partyId)
     {
         lock (_lock)
         {
@@ -49,7 +58,7 @@ public class PartyManager
         }
     }
 
-    public static void LeaveParty(Player player)
+    public void LeaveParty(Player player)
     {
         lock (_lock)
         {
@@ -59,19 +68,16 @@ public class PartyManager
             party.Members.Remove(player.Id);
             player.PartyId = null;
 
-            // Если вышел лидер и в группе ещё кто-то остался — назначаем
-            // нового лидера (первого по списку), иначе группа «застрянет»
-            // с LeaderId удалённого игрока и никто не сможет приглашать.
             if (party.LeaderId == player.Id && party.Members.Count > 0)
             {
                 party.LeaderId = party.Members[0];
-                party.LeaderName = Program.World.TryGetPlayer(party.Members[0], out var newLeader) && newLeader != null
+                party.LeaderName = _world.TryGetPlayer(party.Members[0], out var newLeader) && newLeader != null
                     ? newLeader.Name : party.LeaderName;
             }
         }
     }
 
-    public static void DisbandParty(Guid partyId)
+    public void DisbandParty(Guid partyId)
     {
         lock (_lock)
         {
@@ -79,14 +85,14 @@ public class PartyManager
 
             foreach (var memberId in party.Members)
             {
-                if (Program.World.TryGetPlayer(memberId, out var member) && member != null)
+                if (_world.TryGetPlayer(memberId, out var member) && member != null)
                     member.PartyId = null;
             }
             _parties.Remove(partyId);
         }
     }
 
-    public static PartyData? GetParty(Guid partyId)
+    public PartyData? GetParty(Guid partyId)
     {
         lock (_lock)
         {
@@ -94,7 +100,7 @@ public class PartyManager
         }
     }
 
-    public static PartyData? GetPartyForPlayer(Guid playerId)
+    public PartyData? GetPartyForPlayer(Guid playerId)
     {
         lock (_lock)
         {
@@ -107,16 +113,17 @@ public class PartyManager
         }
     }
 
-    public static async Task SendPartyUpdateAsync(PartyData party)
+    public async Task SendPartyUpdateAsync(PartyData party)
     {
+        if (_hub == null) return;
         var info = BuildPartyInfo(party);
         foreach (var memberId in party.Members)
         {
-            if (!Program.World.TryGetPlayer(memberId, out var member) || member == null) continue;
-            var conn = Program.World.GetConnectionByPlayerName(member.Name);
+            if (!_world.TryGetPlayer(memberId, out var member) || member == null) continue;
+            var conn = _world.GetConnectionByPlayerName(member.Name);
             if (conn != null)
             {
-                await Program.Hub.SendToClient(conn, new GameMessage
+                await _hub.SendToClient(conn, new GameMessage
                 {
                     Type = "party_update",
                     Data = info
@@ -125,18 +132,14 @@ public class PartyManager
         }
     }
 
-    /// <summary>
-    /// Отправляет обновление группы для всех участников, если игрок состоит в группе.
-    /// Убирает повторяющийся 3-строчный guard-паттерн.
-    /// </summary>
-    public static async Task SendUpdateForAsync(Player player)
+    public async Task SendUpdateForAsync(Player player)
     {
         if (!player.PartyId.HasValue) return;
         var party = GetParty(player.PartyId.Value);
         if (party != null) await SendPartyUpdateAsync(party);
     }
 
-    public static async Task DisbandAndNotifyAsync(Guid partyId)
+    public async Task DisbandAndNotifyAsync(Guid partyId)
     {
         lock (_lock)
         {
@@ -144,20 +147,21 @@ public class PartyManager
 
             foreach (var memberId in party.Members)
             {
-                if (Program.World.TryGetPlayer(memberId, out var member) && member != null)
+                if (_world.TryGetPlayer(memberId, out var member) && member != null)
                     member.PartyId = null;
             }
             _parties.Remove(partyId);
 
             _ = Task.Run(async () =>
             {
+                if (_hub == null) return;
                 foreach (var memberId in party.Members)
                 {
-                    if (!Program.World.TryGetPlayer(memberId, out var member) || member == null) continue;
-                    var conn = Program.World.GetConnectionByPlayerName(member.Name);
+                    if (!_world.TryGetPlayer(memberId, out var member) || member == null) continue;
+                    var conn = _world.GetConnectionByPlayerName(member.Name);
                     if (conn != null)
                     {
-                        await Program.Hub.SendToClient(conn, new GameMessage
+                        await _hub.SendToClient(conn, new GameMessage
                         {
                             Type = "party_disbanded",
                             Data = (object?)null
@@ -168,7 +172,7 @@ public class PartyManager
         }
     }
 
-    private static PartyInfo BuildPartyInfo(PartyData party)
+    private PartyInfo BuildPartyInfo(PartyData party)
     {
         var info = new PartyInfo
         {
@@ -180,9 +184,7 @@ public class PartyManager
 
         foreach (var memberId in party.Members)
         {
-            if (!Program.World.TryGetPlayer(memberId, out var member) || member == null) continue;
-            // MaxHealth с учётом бонуса экипировки (как в status/inventory),
-            // иначе в окне группы ХП показывается заниженным после надевания брони.
+            if (!_world.TryGetPlayer(memberId, out var member) || member == null) continue;
             int maxHp = member.MaxHealth + member.Equipment.GetBonusMaxHealth();
             int health = Math.Min(member.Health, maxHp);
             info.Members.Add(new PartyMemberInfo

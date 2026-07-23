@@ -16,11 +16,11 @@ public class Collectible
 /// Тонкая обёртка над GameWorld для логики собираемых объектов.
 /// Состояние (список коллекционов) хранится в GameWorld.
 /// </summary>
-public static class CollectibleManager
+public class CollectibleManager
 {
-    private static GameWorld World => Program.World;
+    private readonly GameWorld _world;
 
-    private static readonly List<(string Name, string ItemName, char Symbol, int Count)> _templates = new()
+    private readonly List<(string Name, string ItemName, char Symbol, int Count)> _templates = new()
     {
         ("Куст ягод",      "Ягоды",        '*', 15),
         ("Грибная поляна", "Грибы",        'g', 12),
@@ -30,7 +30,7 @@ public static class CollectibleManager
     };
 
     // Сопоставление названия собираемого предмета с id из каталога items
-    private static readonly Dictionary<string, string> _itemIdByCollectibleName = new()
+    private readonly Dictionary<string, string> _itemIdByCollectibleName = new()
     {
         { "Ягоды", "I0015" },
         { "Грибы", "I0016" },
@@ -39,9 +39,14 @@ public static class CollectibleManager
         { "Руда", "I0019" },
     };
 
-    public static void Initialize()
+    public CollectibleManager(GameWorld world)
     {
-        World.ClearCollectibles();
+        _world = world;
+    }
+
+    public void Initialize()
+    {
+        _world.ClearCollectibles();
         foreach (var template in _templates)
         {
             for (int i = 0; i < template.Count; i++)
@@ -49,20 +54,20 @@ public static class CollectibleManager
         }
     }
 
-    private static void SpawnOne(string name, string itemName, char symbol)
+    private void SpawnOne(string name, string itemName, char symbol)
     {
         int x, y;
         int attempts = 0;
         do
         {
-            x = World.NextRandom(0, World.Map.Width);
-            y = World.NextRandom(0, World.Map.Height);
+            x = _world.NextRandom(0, _world.Map.Width);
+            y = _world.NextRandom(0, _world.Map.Height);
             attempts++;
         } while (IsOccupied(x, y) && attempts < Balance.SpawnMaxAttempts);
 
         if (attempts >= Balance.SpawnMaxAttempts) return;
 
-        World.AddCollectible(new Collectible
+        _world.AddCollectible(new Collectible
         {
             Id = Guid.NewGuid().ToString(),
             Name = name,
@@ -73,9 +78,9 @@ public static class CollectibleManager
         });
     }
 
-    public static List<CollectiblePosition> GetPositions()
+    public List<CollectiblePosition> GetPositions()
     {
-        return World.GetCollectiblesSnapshot().Select(c => new CollectiblePosition
+        return _world.GetCollectiblesSnapshot().Select(c => new CollectiblePosition
         {
             Id = c.Id,
             X = c.X,
@@ -86,15 +91,15 @@ public static class CollectibleManager
         }).ToList();
     }
 
-    public static Item? TryCollect(int x, int y)
+    public Item? TryCollect(int x, int y)
     {
-        var collectible = World.FindCollectibleAt(x, y);
+        var collectible = _world.FindCollectibleAt(x, y);
         if (collectible == null) return null;
 
         string itemName = collectible.ItemName;
         string collectibleName = collectible.Name;
         string itemId = _itemIdByCollectibleName.TryGetValue(itemName, out var id) ? id : Guid.NewGuid().ToString();
-        World.RemoveCollectible(collectible);
+        _world.RemoveCollectible(collectible);
         SpawnOne(collectibleName, itemName, collectible.Symbol);
 
         return new Item
@@ -108,6 +113,6 @@ public static class CollectibleManager
         };
     }
 
-    public static bool IsOccupied(int x, int y)
-        => World.GetCollectiblesSnapshot().Any(c => c.X == x && c.Y == y);
+    public bool IsOccupied(int x, int y)
+        => _world.GetCollectiblesSnapshot().Any(c => c.X == x && c.Y == y);
 }

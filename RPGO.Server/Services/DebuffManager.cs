@@ -2,9 +2,9 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
-public static class DebuffManager
+public class DebuffManager
 {
-    public static bool ApplyDebuff(Player target, ActiveDebuff debuff)
+    public bool ApplyDebuff(Player target, ActiveDebuff debuff)
     {
         var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
         if (existing != null)
@@ -17,7 +17,7 @@ public static class DebuffManager
         return true;
     }
 
-    public static bool ApplyDebuff(Monster target, ActiveDebuff debuff)
+    public bool ApplyDebuff(Monster target, ActiveDebuff debuff)
     {
         var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
         if (existing != null)
@@ -30,21 +30,21 @@ public static class DebuffManager
         return true;
     }
 
-    public static void TickDebuffs(Player target)
+    public void TickDebuffs(Player target)
     {
         foreach (var d in target.ActiveDebuffs)
             d.RemainingMs -= Balance.DebuffTickMs;
         target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
     }
 
-    public static void TickDebuffs(Monster target)
+    public void TickDebuffs(Monster target)
     {
         foreach (var d in target.ActiveDebuffs)
             d.RemainingMs -= Balance.DebuffTickMs;
         target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
     }
 
-    public static double GetDebuffValue(ICombatant target, DebuffType type)
+    public double GetDebuffValue(ICombatant target, DebuffType type)
     {
         var list = target switch
         {
@@ -55,7 +55,7 @@ public static class DebuffManager
         return list.Where(d => d.Type == type).Sum(d => d.Value);
     }
 
-    public static bool HasDebuff(ICombatant target, DebuffType type)
+    public bool HasDebuff(ICombatant target, DebuffType type)
     {
         return target switch
         {
@@ -65,10 +65,10 @@ public static class DebuffManager
         };
     }
 
-    public static void ClearDebuffs(Player target) => target.ActiveDebuffs.Clear();
-    public static void ClearDebuffs(Monster target) => target.ActiveDebuffs.Clear();
+    public void ClearDebuffs(Player target) => target.ActiveDebuffs.Clear();
+    public void ClearDebuffs(Monster target) => target.ActiveDebuffs.Clear();
 
-    public static (ActiveDebuff Debuff, bool IsNew) OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
+    public (ActiveDebuff Debuff, bool IsNew) OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
     {
         var rng = new Random();
         if (rng.Next(Balance.ChanceRollMax) >= Balance.WeaponProcChance) return default;

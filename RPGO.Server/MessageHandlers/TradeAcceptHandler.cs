@@ -22,7 +22,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        if (TradeManager.IsInTrade(player))
+        if (Program.Services.Trade.IsInTrade(player))
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Вы уже в обмене.");
             return;
@@ -34,7 +34,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        if (TradeManager.IsInTrade(inviter))
+        if (Program.Services.Trade.IsInTrade(inviter))
         {
             await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} уже в обмене.");
             return;
@@ -47,7 +47,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        var session = TradeManager.CreateSession(inviter, player);
+        var session = Program.Services.Trade.CreateSession(inviter, player);
 
         inviter.IsTrading = true;
         player.IsTrading = true;

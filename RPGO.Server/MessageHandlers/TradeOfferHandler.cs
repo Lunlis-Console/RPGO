@@ -14,7 +14,7 @@ public class TradeOfferHandler : BaseHandler
     {
         if (player == null) return;
 
-        var session = TradeManager.GetSession(player.Id);
+        var session = Program.Services.Trade.GetSession(player.Id);
         if (session == null)
         {
             Log.Warn($"TRADE OFFER: нет сессии у {player.Name} (id={player.Id})");

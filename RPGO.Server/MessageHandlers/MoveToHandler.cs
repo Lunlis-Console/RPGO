@@ -15,10 +15,10 @@ public class MoveToHandler : BaseHandler
         if (player == null) return;
         if (player.IsDead) return;
 
-        if (TradeManager.IsInTrade(player))
+        if (Program.Services.Trade.IsInTrade(player))
         {
-            var session = TradeManager.GetSession(player.Id);
-            if (session != null) TradeManager.CancelSession(session, $"{player.Name} начал движение");
+            var session = Program.Services.Trade.GetSession(player.Id);
+            if (session != null) Program.Services.Trade.CancelSession(session, $"{player.Name} начал движение");
             player.IsTrading = false;
             await SendToClient(connection, new GameMessage
             {
@@ -56,7 +56,7 @@ public class MoveToHandler : BaseHandler
         var moveToData = JsonSerializer.Deserialize<MoveToCommand>(JsonSerializer.Serialize(message.Data));
         if (moveToData == null) return;
 
-        var path = Pathfinding.FindPath(player.X, player.Y, moveToData.X, moveToData.Y);
+        var path = Program.Services.Pathfinding.FindPath(player.X, player.Y, moveToData.X, moveToData.Y);
         player.Movement.SetPath(path);
 
         if (path.Count == 0 && !(player.X == moveToData.X && player.Y == moveToData.Y))

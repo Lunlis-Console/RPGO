@@ -140,7 +140,25 @@ public static class SpriteCache
 
     public static SpriteAnimation? GetPlayerDeathAnimation(string dir) => GetAnimation($"player_death_{dir}");
 
-    public static SpriteAnimation? GetWeaponAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_idle_{dir}");
+    public static SpriteAnimation? GetWeaponAnimation(string subtype, string dir, bool isMoving = false)
+    {
+        var anim = GetAnimation($"weapon_{subtype}_walk_{dir}");
+        if (isMoving && anim != null) return anim;
+        return GetAnimation($"weapon_{subtype}_idle_{dir}");
+    }
+
+    public static SpriteAnimation? GetPlayerAttackAnimation(string dir) => GetAnimation($"player_attack_{dir}");
+
+    public static SpriteAnimation? GetWeaponAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_attack_{dir}");
+
+    public static SpriteAnimation? GetShieldAnimation(string dir, bool isMoving = false)
+    {
+        var anim = GetAnimation($"weapon_shield_walk_{dir}");
+        if (isMoving && anim != null) return anim;
+        return GetAnimation($"weapon_shield_idle_{dir}");
+    }
+
+    public static SpriteAnimation? GetShieldAttackAnimation(string dir) => GetAnimation($"weapon_shield_attack_{dir}");
 
     // Загружает описания анимаций (animations.json) и спрайт-листы из папки Content.
     // contentRoot — папка Content рядом с исполняемым файлом клиента.
@@ -207,8 +225,8 @@ public static class SpriteCache
 
     public static Texture2D? ForItemType(string? type) => (type ?? "").ToLower() switch
     {
-        "weapon" or "twohand" or "shield" => Get("weapon"),
-        "helmet" or "chest" or "cloak" or "legs" or "boots" or "glove_r" or "glove_l" => Get("armor"),
+        "weapon" or "twohand" => Get("weapon"),
+        "helmet" or "chest" or "cloak" or "legs" or "boots" or "glove" or "belt" or "shield" => Get("armor"),
         "necklace" or "ring" or "accessory" => Get("accessory"),
         "consumable" => Get("consumable"),
         "collectible" => Get("collectible"),

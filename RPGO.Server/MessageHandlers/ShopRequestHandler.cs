@@ -17,11 +17,11 @@ public class ShopRequestHandler : BaseHandler
             Type = "shop_response",
             Data = new
             {
-                MerchantX = MerchantManager.MerchantX,
-                MerchantY = MerchantManager.MerchantY,
+                MerchantX = Program.Services.Merchant.MerchantX,
+                MerchantY = Program.Services.Merchant.MerchantY,
                 MerchantName = "Торговец",
                 Discount = 0,
-                Items = MerchantManager.ShopItems.Select(i => new
+                Items = Program.Services.Merchant.ShopItems.Select(i => new
                 {
                     i.Id, i.Name, i.Type,
                     Value = Balance.BuyPrice(i.Value),

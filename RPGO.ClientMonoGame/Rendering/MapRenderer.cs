@@ -88,6 +88,21 @@ public class MapRenderer
         }
     }
 
+    public void SetShieldSubtype(string? subtype)
+    {
+        if (_shieldSubtype != subtype)
+        {
+            Logger.Debug($"SetShieldSubtype: '{_shieldSubtype}' -> '{subtype}'");
+            _shieldSubtype = subtype;
+        }
+    }
+
+    public void TriggerAttack()
+    {
+        _isAttacking = true;
+        _attackAnimStart = DateTime.UtcNow;
+    }
+
     // Направление взгляда локального игрока ("down" | "up" | "left" | "right").
     // Вычисляется в AdvanceVisPositions по фактическому вектору движения.
     private string _localFacing = "down";
@@ -100,9 +115,16 @@ public class MapRenderer
     private int _deathFrame;
     private DateTime _deathAnimStart;
 
+    // Атака — показываем attack-анимацию вместо idle/walk.
+    private bool _isAttacking;
+    private DateTime _attackAnimStart;
+
     // Подтип оружия в правой руке (для оверлея). null = нет оружия.
     private string? _weaponSubtype;
     private bool _weaponLogOnce = true;
+
+    // Подтип щита в левой руке (для оверлея). null = нет щита.
+    private string? _shieldSubtype;
 
     // Итоговое направление локального игрока:
     //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
@@ -726,10 +748,17 @@ public class MapRenderer
             bool isLocal = p.Name == _playerName;
             string facing = isLocal ? GetLocalFacing() : "down";
 
-            // Выбор анимации: death при смерти, walk при движении, idle при стоянии
+            // Выбор анимации: death при смерти, attack при атаке, walk при движении, idle при стоянии
             SpriteAnimation? playerAnim = null;
+            bool useAttackAnim = false;
             if (isLocal && _isDead)
                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+            else if (isLocal && _isAttacking)
+            {
+                playerAnim = SpriteCache.GetPlayerAttackAnimation(facing);
+                if (playerAnim != null) useAttackAnim = true;
+                else playerAnim = SpriteCache.GetPlayerAnimation(facing);
+            }
             else if (isLocal)
                 playerAnim = _isMoving
                     ? SpriteCache.GetPlayerAnimation(facing)
@@ -743,6 +772,17 @@ public class MapRenderer
                     float elapsed = (float)(DateTime.UtcNow - _deathAnimStart).TotalSeconds;
                     _deathFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
                     frame = _deathFrame;
+                }
+                else if (isLocal && useAttackAnim)
+                {
+                    float elapsed = (float)(DateTime.UtcNow - _attackAnimStart).TotalSeconds;
+                    int atkFrame = (int)(elapsed / playerAnim.FrameDuration);
+                    if (atkFrame >= playerAnim.FrameCount)
+                    {
+                        _isAttacking = false;
+                        atkFrame = 0;
+                    }
+                    frame = atkFrame;
                 }
                 else
                 {
@@ -762,13 +802,77 @@ public class MapRenderer
                 // Оружие поверх персонажа (только для локального игрока)
                 if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
                 {
-                    var weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing);
+                    SpriteAnimation? weaponAnim;
+                    bool useWeaponAttack = false;
+                    if (_isAttacking)
+                    {
+                        weaponAnim = SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
+                        if (weaponAnim != null) useWeaponAttack = true;
+                        else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
+                    }
+                    else
+                        weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
                     if (_weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={_weaponSubtype} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
                     if (weaponAnim != null)
                     {
-                        int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+                        int wFrame;
+                        if (useWeaponAttack)
+                        {
+                            float elapsed = (float)(DateTime.UtcNow - _attackAnimStart).TotalSeconds;
+                            wFrame = (int)(elapsed / weaponAnim.FrameDuration);
+                            if (wFrame >= weaponAnim.FrameCount) wFrame = weaponAnim.FrameCount - 1;
+                        }
+                        else
+                        {
+                            float wFrameDur = weaponAnim.FrameDuration;
+                            if (_isMoving)
+                            {
+                                int moveMs = 500;
+                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
+                                wFrameDur = (moveMs / 1000f) / weaponAnim.FrameCount;
+                            }
+                            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / wFrameDur) % weaponAnim.FrameCount;
+                        }
                         var wSrc = weaponAnim.GetSourceRect(wFrame);
                         sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
+                    }
+                }
+
+                // Щит поверх персонажа (только для локального игрока)
+                if (isLocal && !string.IsNullOrEmpty(_shieldSubtype))
+                {
+                    SpriteAnimation? shieldAnim;
+                    bool useShieldAttack = false;
+                    if (_isAttacking)
+                    {
+                        shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
+                        if (shieldAnim != null) useShieldAttack = true;
+                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                    }
+                    else
+                        shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                    if (shieldAnim != null)
+                    {
+                        int sFrame;
+                        if (useShieldAttack)
+                        {
+                            float elapsed = (float)(DateTime.UtcNow - _attackAnimStart).TotalSeconds;
+                            sFrame = (int)(elapsed / shieldAnim.FrameDuration);
+                            if (sFrame >= shieldAnim.FrameCount) sFrame = shieldAnim.FrameCount - 1;
+                        }
+                        else
+                        {
+                            float sFrameDur = shieldAnim.FrameDuration;
+                            if (_isMoving)
+                            {
+                                int moveMs = 500;
+                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
+                                sFrameDur = (moveMs / 1000f) / shieldAnim.FrameCount;
+                            }
+                            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / sFrameDur) % shieldAnim.FrameCount;
+                        }
+                        var sSrc = shieldAnim.GetSourceRect(sFrame);
+                        sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
                     }
                 }
             }
@@ -784,12 +888,76 @@ public class MapRenderer
                     // Оружие поверх (статичный fallback)
                     if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
                     {
-                        var weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing);
+                        SpriteAnimation? weaponAnim;
+                        bool useWeaponAttack = false;
+                        if (_isAttacking)
+                        {
+                            weaponAnim = SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
+                            if (weaponAnim != null) useWeaponAttack = true;
+                            else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
+                        }
+                        else
+                            weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
                         if (weaponAnim != null)
                         {
-                            int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+                            int wFrame;
+                            if (useWeaponAttack)
+                            {
+                                float elapsed = (float)(DateTime.UtcNow - _attackAnimStart).TotalSeconds;
+                                wFrame = (int)(elapsed / weaponAnim.FrameDuration);
+                                if (wFrame >= weaponAnim.FrameCount) wFrame = weaponAnim.FrameCount - 1;
+                            }
+                            else
+                            {
+                                float wFrameDur = weaponAnim.FrameDuration;
+                                if (_isMoving)
+                                {
+                                    int moveMs = 500;
+                                    try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
+                                    wFrameDur = (moveMs / 1000f) / weaponAnim.FrameCount;
+                                }
+                                wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / wFrameDur) % weaponAnim.FrameCount;
+                            }
                             var wSrc = weaponAnim.GetSourceRect(wFrame);
                             sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
+                        }
+                    }
+
+                    // Щит поверх (статичный fallback)
+                    if (isLocal && !string.IsNullOrEmpty(_shieldSubtype))
+                    {
+                        SpriteAnimation? shieldAnim;
+                        bool useShieldAttack = false;
+                        if (_isAttacking)
+                        {
+                            shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
+                            if (shieldAnim != null) useShieldAttack = true;
+                            else shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                        }
+                        else
+                            shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                        if (shieldAnim != null)
+                        {
+                            int sFrame;
+                            if (useShieldAttack)
+                            {
+                                float elapsed = (float)(DateTime.UtcNow - _attackAnimStart).TotalSeconds;
+                                sFrame = (int)(elapsed / shieldAnim.FrameDuration);
+                                if (sFrame >= shieldAnim.FrameCount) sFrame = shieldAnim.FrameCount - 1;
+                            }
+                            else
+                            {
+                                float sFrameDur = shieldAnim.FrameDuration;
+                                if (_isMoving)
+                                {
+                                    int moveMs = 500;
+                                    try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
+                                    sFrameDur = (moveMs / 1000f) / shieldAnim.FrameCount;
+                                }
+                                sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / sFrameDur) % shieldAnim.FrameCount;
+                            }
+                            var sSrc = shieldAnim.GetSourceRect(sFrame);
+                            sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
                         }
                     }
                 }

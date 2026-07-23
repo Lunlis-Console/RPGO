@@ -28,8 +28,8 @@ public static class EquipmentSlots
     public const string Feet = "feet";
     public const string RightHand = "rhand";
     public const string LeftHand = "lhand";
-    public const string RightGlove = "glove_r";
-    public const string LeftGlove = "glove_l";
+    public const string Belt = "belt";
+    public const string Gloves = "gloves";
     public const string Neck = "neck";
     public const string RingRight = "ring_r";
     public const string RingLeft = "ring_l";
@@ -39,7 +39,7 @@ public static class EquipmentSlots
         // Порядок соответствует сетке снаряжения (3 столбца):
         //  Плащ · Шлем · Ожерелье
         //  Правая рука · Торс · Левая рука
-        //  Правая перчатка · Ноги · Левая перчатка
+        //  Пояс · Ноги · Перчатки
         //  Кольцо(п.р.) · Обувь · Кольцо(л.р.)
         new(Cloak,     "Плащ",            false, 0, false, false),
         new(Head,      "Шлем",            true,  4, false, false),
@@ -47,9 +47,9 @@ public static class EquipmentSlots
         new(RightHand, "Правая рука",     true,  8, true,  false),
         new(Torso,     "Торс",            true,  3, false, false),
         new(LeftHand,  "Левая рука",      true,  6, false, true),
-        new(RightGlove,"Правая перчатка", true,  7, false, false),
+        new(Belt,      "Пояс",            true,  7, false, false),
         new(Legs,      "Ноги",            true,  1, false, false),
-        new(LeftGlove, "Левая перчатка",  true,  5, false, false),
+        new(Gloves,    "Перчатки",        true,  5, false, false),
         new(RingRight, "Кольцо (правая рука)", false, 0, false, false),
         new(Feet,      "Обувь",           true,  2, false, false),
         new(RingLeft,  "Кольцо (левая рука)",  false, 0, false, false),
@@ -104,8 +104,8 @@ public static class EquipmentSlots
         ["chest"]    = new() { Torso },
         ["legs"]     = new() { Legs },
         ["boots"]    = new() { Feet },
-        ["glove_r"]  = new() { RightGlove }, // отдельно правая перчатка
-        ["glove_l"]  = new() { LeftGlove },  // отдельно левая перчатка
+        ["glove"]    = new() { Gloves },
+        ["belt"]     = new() { Belt },
         ["necklace"] = new() { Neck },
         ["ring"]     = new() { RingRight, RingLeft },   // кольцо — в любую свободную руку
         // Обратная совместимость со старыми типами

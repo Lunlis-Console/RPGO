@@ -60,7 +60,7 @@ public class UseSkillHandler : BaseHandler
 
     public static async Task SendSkillQueue(ClientConnection connection, Player player)
     {
-        await Program.Hub.SendToClient(connection, new GameMessage
+        await Program.Services.Hub.SendToClient(connection, new GameMessage
         {
             Type = "skill_queue",
             Data = new { Skills = player.QueuedSkillIds.ToList() }

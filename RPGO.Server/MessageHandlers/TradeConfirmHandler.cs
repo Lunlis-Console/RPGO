@@ -14,7 +14,7 @@ public class TradeConfirmHandler : BaseHandler
     {
         if (player == null) return;
 
-        var session = TradeManager.GetSession(player.Id);
+        var session = Program.Services.Trade.GetSession(player.Id);
         if (session == null)
         {
             Log.Warn($"TRADE CONFIRM: нет сессии у {player.Name} (id={player.Id})");
@@ -80,7 +80,7 @@ public class TradeConfirmHandler : BaseHandler
             !ValidateFinalOffer(partner, session.PartnerItemIds, session.PartnerGold))
         {
             await NotifyError(session, "Предметы изменились. Обмен отменён.");
-            TradeManager.CancelSession(session, "validation failed");
+            Program.Services.Trade.CancelSession(session, "validation failed");
             return;
         }
 
@@ -136,7 +136,7 @@ public class TradeConfirmHandler : BaseHandler
             await SendInventoryAndStatus(partnerConn, partner);
         }
 
-        TradeManager.RemoveSession(session);
+        Program.Services.Trade.RemoveSession(session);
 
         int iniTotal = session.InitiatorItemIds.Sum(e => e.Quantity);
         int parTotal = session.PartnerItemIds.Sum(e => e.Quantity);

@@ -88,6 +88,7 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
             }
         };
+        client.PlayerAttackPerformed += () => _mapRenderer.TriggerAttack();
         client.TargetDebuffsUpdated += debuffs =>
         {
             _hudRenderer.UpdateTargetDebuffs(debuffs);
@@ -196,6 +197,11 @@ public class GameScreen : IScreen
                         Logger.Debug($"  slot '{kv.Key}' -> {(kv.Value != null ? kv.Value.Name : "null")}");
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);
+            // Оверлей щита: берём подтип из слота левой руки
+            string? shieldSub = null;
+            if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("lhand", out var sItem) && sItem?.Type == "shield")
+                shieldSub = "shield";
+            _mapRenderer.SetShieldSubtype(shieldSub);
         };
         _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;

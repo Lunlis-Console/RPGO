@@ -2,13 +2,13 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
-public static class CorpseManager
+public class CorpseManager
 {
-    private static readonly List<MonsterCorpse> _corpses = new();
-    private static readonly object _lock = new();
-    private static readonly TimeSpan CorpseLifetime = TimeSpan.FromMinutes(5);
+    private readonly List<MonsterCorpse> _corpses = new();
+    private readonly object _lock = new();
+    private readonly TimeSpan CorpseLifetime = TimeSpan.FromMinutes(5);
 
-    public static void CreateCorpse(Monster monster, List<Item> loot, Dictionary<Guid, CorpsePlayerLoot>? playerLoot = null, Dictionary<Guid, int>? contributors = null)
+    public void CreateCorpse(Monster monster, List<Item> loot, Dictionary<Guid, CorpsePlayerLoot>? playerLoot = null, Dictionary<Guid, int>? contributors = null)
     {
         lock (_lock)
         {
@@ -29,7 +29,7 @@ public static class CorpseManager
         }
     }
 
-    public static MonsterCorpse? FindCorpseAt(int x, int y)
+    public MonsterCorpse? FindCorpseAt(int x, int y)
     {
         lock (_lock)
         {
@@ -37,7 +37,7 @@ public static class CorpseManager
         }
     }
 
-    public static MonsterCorpse? FindCorpseById(Guid id)
+    public MonsterCorpse? FindCorpseById(Guid id)
     {
         lock (_lock)
         {
@@ -45,7 +45,7 @@ public static class CorpseManager
         }
     }
 
-    public static bool RemoveCorpse(Guid id)
+    public bool RemoveCorpse(Guid id)
     {
         lock (_lock)
         {
@@ -53,7 +53,7 @@ public static class CorpseManager
         }
     }
 
-    public static List<CorpsePosition> GetCorpsePositions()
+    public List<CorpsePosition> GetCorpsePositions()
     {
         lock (_lock)
         {
@@ -72,7 +72,7 @@ public static class CorpseManager
         }
     }
 
-    public static void CleanupExpired()
+    public void CleanupExpired()
     {
         lock (_lock)
         {

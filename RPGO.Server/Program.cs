@@ -1,28 +1,29 @@
 ﻿using RPGGame.Server.Network;
-using RPGGame.Shared.Commands;
+using RPGGame.Server.MessageHandlers;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
-using RPGGame.Server.MessageHandlers;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text.Json;
 
 namespace RPGGame.Server;
 
 partial class Program
 {
-    // ┼фшэ√щ шэёЄрэё ьшЁр (singleton). ┬ё  шуЁютр  ыюушър цшт╕Є чфхё№.
-    public static GameWorld World { get; } = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
+    public static GameServices Services { get; private set; } = null!;
+    private static GameServerHost? _host;
 
-    // ╤хЄхтющ ёыющ ёхЁтхЁр (Ёрёё√ыър/юЄяЁртър ёююс∙хэшщ ъышхэЄрь).
-    public static INetworkHub Hub { get; } = new GameServer(World);
+    public static List<Player> GetPlayers() => Services.World.GetPlayersSnapshot();
+    public static GameWorld GetWorld() => Services.World;
 
-    // --- ╬сЁрЄэр  ёютьхёЄшьюёЄ№: фхыхушЁєхь ёЄрЁ√х ёЄрЄшўхёъшх яюы  ьшЁє. ---
-    // ╧юёЄхяхээю ьхэхфцхЁ√ сєфєЄ яюыєўрЄ№ World  тэю; ¤Єш юс╕ЁЄъш єсшЁр■Єё  эр яючфэшї ¤Єрярї.
+    public static Task RespawnPlayer(Player player)
+        => _host?.RespawnPlayer(player) ?? Task.CompletedTask;
 
-    public static List<Player> GetPlayers() => World.GetPlayersSnapshot();
-    public static GameWorld GetWorld() => World;
+    public static Task ProcessPendingInteraction(Player player, string interactionType)
+        => _host?.ProcessPendingInteraction(player, interactionType) ?? Task.CompletedTask;
+
+    public static int GetAttackSpeed(Player player)
+        => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
     static async Task Main()
     {
@@ -35,30 +36,52 @@ partial class Program
         DatabaseManager.Initialize();
         DatabaseManager.CreateTestAccountIfNeeded();
 
+        Log.Info("Создание игрового мира...");
+        var world = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
+
+        // Создаём менеджеры (порядок важен для зависимостей)
+        var monsters = new MonsterManager(world);
+        var loot = new LootManager(world);
+        var corpses = new CorpseManager();
+        var quests = new QuestManager(world);
+        var merchant = new MerchantManager(world);
+        var collectibles = new CollectibleManager(world);
+        var trade = new TradeManager();
+        var party = new PartyManager(world);
+        var debuffs = new DebuffManager();
+        var killService = new KillService(world);
+        var projectiles = new ProjectileManager(world);
+        var dialogue = new DialogueManager(world, quests, merchant);
+        var pathfinding = new PathfindingService(world, merchant, quests);
+
         Log.Info("Загрузка данных (предметы, квесты)...");
-        MerchantManager.Initialize();
-        QuestManager.Initialize();
-        DialogueManager.LoadAll();
-        LootManager.LoadFromDatabase();
+        merchant.Initialize();
+        quests.Initialize();
+        dialogue.LoadAll();
+        loot.LoadFromDatabase();
 
         Log.Info("Загрузка монстров...");
-        MonsterManager.Initialize();
-        CollectibleManager.Initialize();
+        monsters.Initialize();
+        collectibles.Initialize();
 
-        MessageHandlerRegistry.RegisterAll(World, Hub);
+        // Создаём сетевой хаб (нужен GameWorld + менеджеры для BroadcastMapAsync)
+        var hub = new GameServer(world);
 
-        // Start heartbeat background service
-        _ = Task.Run(() => new HeartbeatHandler(World, Hub).StartAsync(CancellationToken.None));
+        // Связываем циклические зависимости
+        killService.SetHub(hub);
+        projectiles.SetHub(hub);
+        dialogue.SetHub(hub);
+        party.SetHub(hub);
+        world.SetDependencies(hub, player => { DatabaseManager.SavePlayerProgress(player); return true; });
 
-        _ = Task.Run(RunMonsterWanderLoop);
-        _ = Task.Run(RunMovePathLoop);
-        _ = Task.Run(RunCombatLoop);
-        _ = Task.Run(RunMonsterAttackLoop);
-        _ = Task.Run(RunRegenLoop);
-        _ = Task.Run(RunDebuffTickLoop);
-        _ = Task.Run(RunCorpseCleanupLoop);
-        _ = Task.Run(RunDeathTimerLoop);
-        _ = Task.Run(RunProjectileTickLoop);
+        // Создаём общий контейнер сервисов
+        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles, trade, dialogue, party, projectiles, killService, pathfinding, debuffs);
+
+        MessageHandlerRegistry.RegisterAll(world, hub);
+
+        // Запуск фоновых задач
+        _host = new GameServerHost(Services);
+        _ = Task.Run(() => _host.StartAsync());
 
         TcpListener server = new TcpListener(IPAddress.Any, Balance.ServerPort);
         server.Start();
@@ -75,10 +98,10 @@ partial class Program
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
-                    Log.Info($"Подключение клиента: {client.Client.RemoteEndPoint}");
+            Log.Info($"Подключение клиента: {client.Client.RemoteEndPoint}");
 
             ClientConnection connection = new ClientConnection(client);
-            World.AddClient(connection);
+            world.AddClient(connection);
 
             _ = Task.Run(() => HandleClientAsync(connection));
         }
@@ -93,7 +116,6 @@ partial class Program
         {
             Stream stream = connection.Client.GetStream();
 
-            // └єЄхэЄшЇшърЎш 
             while (!authenticated)
             {
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
@@ -103,10 +125,9 @@ partial class Program
                     return;
                 }
 
-                 authenticated = await HandleAuthMessage(connection, message, Hub);
+                authenticated = await HandleAuthMessage(connection, message, Services.Hub);
             }
 
-            // ╚уЁютющ Ўшъы
             while (true)
             {
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
@@ -121,22 +142,21 @@ partial class Program
         }
         catch (Exception ex)
         {
-            Log.Error($"╬°шсър: {ex.Message}", ex);
+            Log.Error($"Ошибка: {ex.Message}", ex);
         }
         finally
         {
             if (player != null)
             {
-                var tradeSession = TradeManager.GetSession(player.Id);
-                if (tradeSession != null) TradeManager.CancelSession(tradeSession, "шуЁюъ юЄъы■ўшыё ");
+                var tradeSession = Services.Trade.GetSession(player.Id);
+                if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "отключение клиента");
                 player.IsTrading = false;
 
-                World.RemovePlayer(player);
-                World.RemoveClient(connection);
+                Services.World.RemovePlayer(player);
+                Services.World.RemoveClient(connection);
                 Log.Info($"Игрок {player.Name} покинул игру");
-                await Hub.BroadcastMapAsync();
+                await Services.Hub.BroadcastMapAsync();
 
-                // ╤юїЁрэ хь яЁюуЁхёё шуЁюър
                 DatabaseManager.SavePlayerProgress(player);
             }
 
@@ -149,36 +169,48 @@ partial class Program
         try
         {
             Log.Info("Перезагрузка данных на сервере...");
-            MerchantManager.Initialize();
-            QuestManager.Initialize();
-            DialogueManager.LoadAll();
-            LootManager.LoadFromDatabase();
-            MonsterManager.Initialize();
-            CollectibleManager.Initialize();
+            Services.Merchant.Initialize();
+            Services.Quests.Initialize();
+            Services.Dialogue.LoadAll();
+            Services.Loot.LoadFromDatabase();
+            Services.Monsters.Initialize();
+            Services.Collectibles.Initialize();
 
-            await Hub.BroadcastChatAsync("╤шёЄхьр", "╩юэЄхэЄ яхЁхчруЁєцхэ (яЁхфьхЄ√, ьюэёЄЁ√, ътхёЄ√, ьшЁ).");
+            await Services.Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
 
             if (connection != null)
             {
-                await Hub.SendToClient(connection, new GameMessage
+                await Services.Hub.SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "╤шёЄхьр", Text = "╩юэЄхэЄ яхЁхчруЁєцхэ шч ┴─." }
+                    Data = new { Name = "Система", Text = "Обновление завершено." }
                 });
             }
         }
         catch (Exception ex)
         {
-            Log.Error($"╬°шсър яхЁхчруЁєчъш: {ex.Message}", ex);
+            Log.Error($"Ошибка обновления: {ex.Message}", ex);
             if (connection != null)
             {
-                await Hub.SendToClient(connection, new GameMessage
+                await Services.Hub.SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "╤шёЄхьр", Text = "╬°шсър яхЁхчруЁєчъш: " + ex.Message }
+                    Data = new { Name = "Система", Text = "Ошибка обновления: " + ex.Message }
                 });
             }
         }
+    }
+
+    internal static async Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    {
+        if (conn == null) return;
+        await Services.Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    private static async Task ChatToPlayer(Player? player, ChatChannel channel, string name, string text)
+    {
+        if (player == null) return;
+        await ChatTo(Services.World.FindClientByPlayer(player), channel, name, text);
     }
 
     private static List<string> GetLocalIPs()

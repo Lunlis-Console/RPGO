@@ -80,6 +80,9 @@ public sealed class GameClient
     public event Action<string, double, double, double, double, string, int>? ProjectileSpawned;
     public event Action<string, double, double>? ProjectileHit;
 
+    // Атака
+    public event Action? PlayerAttackPerformed;
+
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
     public event Action<string, string, int, List<LootItemInfo>, int>? LootReceived;
@@ -362,6 +365,8 @@ public sealed class GameClient
 
                         Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
                         Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
+                        if (target == "monster" && amount > 0)
+                            Ui(() => PlayerAttackPerformed?.Invoke());
                     }
                     break;
 

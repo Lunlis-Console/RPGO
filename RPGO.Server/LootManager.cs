@@ -2,18 +2,23 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
-public static class LootManager
+public class LootManager
 {
-    private static GameWorld World => Program.World;
-    private static List<LootEntry> _lootTable = new();
+    private readonly GameWorld _world;
+    private List<LootEntry> _lootTable = new();
 
-    public static void LoadFromDatabase()
+    public LootManager(GameWorld world)
+    {
+        _world = world;
+    }
+
+    public void LoadFromDatabase()
     {
         _lootTable = DatabaseManager.LoadLootTable();
         Log.Info($"Loot table loaded: {_lootTable.Count} entries");
     }
 
-    public static List<Item> RollLoot(string monsterTemplateId)
+    public List<Item> RollLoot(string monsterTemplateId)
     {
         var items = new List<Item>();
         var trophies = _lootTable.Where(t => t.MonsterId == monsterTemplateId).ToList();
@@ -21,7 +26,7 @@ public static class LootManager
 
         foreach (var trophy in trophies)
         {
-            int roll = World.NextRandom(0, 100);
+            int roll = _world.NextRandom(0, 100);
             if (roll < trophy.DropChance)
             {
                 items.Add(new Item

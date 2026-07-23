@@ -18,7 +18,7 @@ public class SelectTargetHandler : BaseHandler
         string? monsterIdStr = selEl.TryGetProperty("MonsterId", out var midProp) ? midProp.GetString() : null;
         if (monsterIdStr == null || !Guid.TryParse(monsterIdStr, out Guid monsterId)) return;
 
-        var target = MonsterManager.FindMonsterById(monsterId);
+        var target = Program.Services.Monsters.FindMonsterById(monsterId);
         if (target == null)
         {
             await SendToClient(connection, new GameMessage

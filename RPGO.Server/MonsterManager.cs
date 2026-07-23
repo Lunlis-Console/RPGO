@@ -6,56 +6,61 @@ namespace RPGGame.Server;
 /// Тонкая обёртка над GameWorld для логики монстров.
 /// Состояние (список монстров, шаблоны, очередь атак) хранится в GameWorld.
 /// </summary>
-public static class MonsterManager
+public class MonsterManager
 {
-    private static GameWorld World => Program.World;
+    private readonly GameWorld _world;
 
-    public static double GetEffectiveAttack(ICombatant attacker, int baseAttack)
+    public MonsterManager(GameWorld world)
     {
-        double dmgBonus = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        _world = world;
+    }
+
+    public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
+    {
+        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
         return baseAttack * (1.0 + dmgBonus);
     }
 
-    public static double GetEffectiveAttack(ICombatant attacker)
+    public double GetEffectiveAttack(ICombatant attacker)
         => GetEffectiveAttack(attacker, attacker.GetTotalAttack());
 
-    public static double GetEffectiveDefense(ICombatant defender)
+    public double GetEffectiveDefense(ICombatant defender)
     {
-        double armorPen = DebuffManager.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        double armorPen = Program.Services.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
         return defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
     }
 
-    public static int ApplyDmgReduction(ICombatant attacker, int baseDamage)
+    public int ApplyDmgReduction(ICombatant attacker, int baseDamage)
     {
-        double dmgReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.DamageReduction);
+        double dmgReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.DamageReduction);
         return Math.Max(Balance.MinDamage, (int)(baseDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
     }
 
-    public static List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
-        => World.DrainMonsterAttacks();
+    public List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
+        => _world.DrainMonsterAttacks();
 
-    public static void Initialize()
+    public void Initialize()
     {
-        World.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
-        World.ClearMonsters();
+        _world.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
+        _world.ClearMonsters();
         SpawnMonsters(Balance.MonsterSpawnCount);
         SpawnMannequin();
     }
 
-    public static void SpawnMonsters(int count)
+    public void SpawnMonsters(int count)
     {
         for (int i = 0; i < count; i++)
             SpawnOneMonster();
     }
 
-    private static void SpawnOneMonster()
+    private void SpawnOneMonster()
     {
         int x, y;
         int attempts = 0;
         do
         {
-            x = World.NextRandom(0, World.Map.Width);
-            y = World.NextRandom(0, World.Map.Height);
+            x = _world.NextRandom(0, _world.Map.Width);
+            y = _world.NextRandom(0, _world.Map.Height);
             attempts++;
         } while ((IsOccupied(x, y) || IsNearMerchant(x, y)) && attempts < Balance.SpawnMaxAttempts);
 
@@ -84,8 +89,8 @@ public static class MonsterManager
             GoldReward = gold,
             Symbol = template.Symbol,
             Level = template.Tier,
-            MoveIntervalMs = World.NextRandom(Balance.MonsterMoveMinMs, Balance.MonsterMoveMaxMs),
-            LastMoveTime = DateTime.UtcNow.AddMilliseconds(-World.NextRandom(0, Balance.MonsterSpawnJitterMaxMs))
+            MoveIntervalMs = _world.NextRandom(Balance.MonsterMoveMinMs, Balance.MonsterMoveMaxMs),
+            LastMoveTime = DateTime.UtcNow.AddMilliseconds(-_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs))
         };
         monster.Strength = template.Strength;
         monster.Endurance = template.Endurance;
@@ -96,15 +101,15 @@ public static class MonsterManager
         monster.CritChance = template.CritChance;
         monster.CritDamage = template.CritDamage;
         monster.EvadeChance = template.EvadeChance;
-        World.AddMonster(monster);
+        _world.AddMonster(monster);
     }
 
-    public static void SpawnMannequin()
+    public void SpawnMannequin()
     {
-        int mx = World.Map.MerchantX + Balance.MannequinOffsetX;
-        int my = World.Map.MerchantY + Balance.MannequinOffsetY;
-        mx = Math.Clamp(mx, 0, World.Map.Width - 1);
-        my = Math.Clamp(my, 0, World.Map.Height - 1);
+        int mx = _world.Map.MerchantX + Balance.MannequinOffsetX;
+        int my = _world.Map.MerchantY + Balance.MannequinOffsetY;
+        mx = Math.Clamp(mx, 0, _world.Map.Width - 1);
+        my = Math.Clamp(my, 0, _world.Map.Height - 1);
 
         var mannequin = new Monster
         {
@@ -128,44 +133,44 @@ public static class MonsterManager
             CritChance = 0,
             EvadeChance = 0,
         };
-        World.AddMonster(mannequin);
+        _world.AddMonster(mannequin);
     }
 
-    public static void SpawnOneMonsterPublic() => SpawnOneMonster();
+    public void SpawnOneMonsterPublic() => SpawnOneMonster();
 
-    private static MonsterTemplate PickTemplateByDistance(int dist)
+    private MonsterTemplate PickTemplateByDistance(int dist)
     {
         int tier = Balance.MonsterTierByDistance(dist);
-        var templates = World.GetMonsterTemplates();
+        var templates = _world.GetMonsterTemplates();
         var pool = templates.Where(t => t.Tier == tier).ToList();
         if (pool.Count == 0) pool = templates;
-        return pool[World.NextRandom(0, pool.Count)];
+        return pool[_world.NextRandom(0, pool.Count)];
     }
 
-    private static int GetDistance(int x, int y)
+    private int GetDistance(int x, int y)
     {
-        int dx = x - World.Map.MerchantX;
-        int dy = y - World.Map.MerchantY;
+        int dx = x - _world.Map.MerchantX;
+        int dy = y - _world.Map.MerchantY;
         return (int)Math.Sqrt(dx * dx + dy * dy);
     }
 
-    private static bool IsNearMerchant(int x, int y) => GetDistance(x, y) < Balance.SpawnSafeRadiusFromMerchant;
+    private bool IsNearMerchant(int x, int y) => GetDistance(x, y) < Balance.SpawnSafeRadiusFromMerchant;
 
-    public static void RespawnMonster(Monster dead)
+    public void RespawnMonster(Monster dead)
     {
-        World.RemoveMonster(dead);
+        _world.RemoveMonster(dead);
         SpawnOneMonster();
     }
 
-    public static void RemoveMonster(Monster monster)
+    public void RemoveMonster(Monster monster)
     {
-        World.RemoveMonster(monster);
+        _world.RemoveMonster(monster);
     }
 
-    public static void WanderStep()
+    public void WanderStep()
     {
-        var players = World.GetPlayersSnapshot();
-        var monsters = World.GetMonstersSnapshot();
+        var players = _world.GetPlayersSnapshot();
+        var monsters = _world.GetMonstersSnapshot();
         var now = DateTime.UtcNow;
 
         foreach (var m in monsters)
@@ -204,7 +209,7 @@ public static class MonsterManager
 
                 int nx = m.X + mx;
                 int ny = m.Y + my;
-                if (nx >= 0 && nx < World.Map.Width && ny >= 0 && ny < World.Map.Height)
+                if (nx >= 0 && nx < _world.Map.Width && ny >= 0 && ny < _world.Map.Height)
                 {
                     if (!IsOccupiedByMonster(nx, ny))
                     {
@@ -257,7 +262,7 @@ public static class MonsterManager
                         m.LastMoveTime = now;
                         m.StuckTicks = 0;
                         int dmgToPlayer = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
-                        World.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
+                        _world.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
                     }
                     continue;
                 }
@@ -307,16 +312,16 @@ public static class MonsterManager
             // === БЛУЖДАНИЕ ===
             if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
 
-            if (World.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
+            if (_world.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
 
-            int dir = World.NextRandom(0, 4);
+            int dir = _world.NextRandom(0, 4);
             int dx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
             int dy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
 
             int wnx = m.X + dx;
             int wny = m.Y + dy;
 
-            if (wnx < 0 || wnx >= World.Map.Width || wny < 0 || wny >= World.Map.Height) continue;
+            if (wnx < 0 || wnx >= _world.Map.Width || wny < 0 || wny >= _world.Map.Height) continue;
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
             if (IsNearMerchant(wnx, wny)) continue;
             if (IsOccupiedByMonster(wnx, wny)) continue;
@@ -327,12 +332,12 @@ public static class MonsterManager
         }
     }
 
-    private static bool TryMoveTowards(Monster m, int dx, int dy)
+    private bool TryMoveTowards(Monster m, int dx, int dy)
     {
         if (dx == 0 && dy == 0) return false;
         int nx = m.X + dx;
         int ny = m.Y + dy;
-        if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) return false;
+        if (nx < 0 || nx >= _world.Map.Width || ny < 0 || ny >= _world.Map.Height) return false;
         if (Math.Abs(nx - m.SpawnX) > m.WanderRadius || Math.Abs(ny - m.SpawnY) > m.WanderRadius) return false;
         if (IsNearMerchant(nx, ny)) return false;
         m.X = nx;
@@ -340,21 +345,21 @@ public static class MonsterManager
         return true;
     }
 
-    private static bool IsOccupied(int x, int y)
-        => World.GetMonstersSnapshot().Any(m => m.X == x && m.Y == y);
+    private bool IsOccupied(int x, int y)
+        => _world.GetMonstersSnapshot().Any(m => m.X == x && m.Y == y);
 
-    private static bool IsOccupiedByMonster(int x, int y)
-        => World.FindMonsterAt(x, y) != null;
+    private bool IsOccupiedByMonster(int x, int y)
+        => _world.FindMonsterAt(x, y) != null;
 
-    public static Monster? FindMonsterAt(int x, int y) => World.FindMonsterAt(x, y);
+    public Monster? FindMonsterAt(int x, int y) => _world.FindMonsterAt(x, y);
 
-    public static Monster? FindMonsterById(Guid id) => World.FindMonsterById(id);
+    public Monster? FindMonsterById(Guid id) => _world.FindMonsterById(id);
 
-    public static List<Monster> GetAllMonsters() => World.GetMonstersSnapshot();
+    public List<Monster> GetAllMonsters() => _world.GetMonstersSnapshot();
 
-    public static List<MonsterPosition> GetMonsterPositions()
+    public List<MonsterPosition> GetMonsterPositions()
     {
-        return World.GetMonstersSnapshot().Select(m => new MonsterPosition
+        return _world.GetMonstersSnapshot().Select(m => new MonsterPosition
         {
             Id = m.Id,
             TemplateId = m.TemplateId,
@@ -369,9 +374,9 @@ public static class MonsterManager
         }).ToList();
     }
 
-    public static int GetMonsterCount() => World.GetMonsterCount();
+    public int GetMonsterCount() => _world.GetMonsterCount();
 
-    public static void RegenStep()
+    public void RegenStep()
     {
         const int fullHealDelayMs = Balance.MonsterRegenFullHealDelayMs;
         const int inCombatDelayMs = Balance.MonsterRegenInCombatDelayMs;
@@ -381,7 +386,7 @@ public static class MonsterManager
         const double inCombatFraction = Balance.MonsterRegenInCombatFraction;
 
         var now = DateTime.UtcNow;
-        foreach (var m in World.GetMonstersSnapshot())
+        foreach (var m in _world.GetMonstersSnapshot())
         {
             if (m.Health >= m.MaxHealth) continue;
 
@@ -407,19 +412,14 @@ public static class MonsterManager
         }
     }
 
-    /// <summary>
-    /// Универсальный расчёт боя между двумя бойцами (Player/Monster/...).
-    /// Заложен как фундамент для PvP: в будущем attacker/defender могут быть
-    /// любыми ICombatant (например, игрок против игрока).
-    /// </summary>
-    public static (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
+    public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true)
     {
         var rng = new Random();
 
         double effectiveAttackerAttack = GetEffectiveAttack(attacker, attacker.RollAttackDamage());
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
-        double accuracyReduction = DebuffManager.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
+        double accuracyReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
         bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100);
         int attackerDamage = 0;
@@ -443,12 +443,7 @@ public static class MonsterManager
         return (attackerDamage, 0, targetDead, isCrit, false);
     }
 
-    /// <summary>
-    /// Расчёт урона off-hand оружия (dual wield). Без контр-удара монстра.
-    /// Возвращает (damage, isCrit, isEvaded). Урон уже умножен на OffHandDamageFraction.
-    /// Off-hand rolled damage = off-hand weapon roll + stats/equip bonuses.
-    /// </summary>
-    public static (int damage, bool isCrit, bool isEvaded)
+    public (int damage, bool isCrit, bool isEvaded)
         CalculateOffHandAttack(Player attacker, Monster target)
     {
         var rng = new Random();
@@ -465,7 +460,7 @@ public static class MonsterManager
         return (finalDmg, crit, false);
     }
 
-    public static void CalculateCleave(Player attacker, Monster primaryTarget)
+    public void CalculateCleave(Player attacker, Monster primaryTarget)
     {
         var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.GetMaxAttackDamage());
@@ -489,7 +484,7 @@ public static class MonsterManager
         }
     }
 
-    private static List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
+    private List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
     {
         return facing switch
         {

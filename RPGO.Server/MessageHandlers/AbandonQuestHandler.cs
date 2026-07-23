@@ -37,7 +37,7 @@ public class AbandonQuestHandler : BaseHandler
             return;
         }
 
-        var def = QuestManager.FindQuest(questId);
+        var def = Program.Services.Quests.FindQuest(questId);
         player.ActiveQuests.Remove(prog);
         Log.Info($"{player.Name} отказался от задания {def?.Title ?? questId}");
         await SendToClient(connection, new GameMessage

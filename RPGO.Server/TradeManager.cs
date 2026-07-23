@@ -5,10 +5,10 @@ namespace RPGGame.Server;
 
 public class TradeManager
 {
-    private static readonly Dictionary<Guid, TradeSession> _sessionsByPlayer = new();
-    private static readonly object _lock = new();
+    private readonly Dictionary<Guid, TradeSession> _sessionsByPlayer = new();
+    private readonly object _lock = new();
 
-    public static TradeSession? GetSession(Guid playerId)
+    public TradeSession? GetSession(Guid playerId)
     {
         lock (_lock)
         {
@@ -17,17 +17,17 @@ public class TradeManager
         }
     }
 
-    public static TradeSession? GetSessionByPlayer(Player player)
+    public TradeSession? GetSessionByPlayer(Player player)
     {
         return GetSession(player.Id);
     }
 
-    public static bool IsInTrade(Player player)
+    public bool IsInTrade(Player player)
     {
         lock (_lock) { return _sessionsByPlayer.ContainsKey(player.Id); }
     }
 
-    public static TradeSession CreateSession(Player initiator, Player partner)
+    public TradeSession CreateSession(Player initiator, Player partner)
     {
         var session = new TradeSession(initiator, partner);
         lock (_lock)
@@ -39,7 +39,7 @@ public class TradeManager
         return session;
     }
 
-    public static void RemoveSession(TradeSession session)
+    public void RemoveSession(TradeSession session)
     {
         lock (_lock)
         {
@@ -49,7 +49,7 @@ public class TradeManager
         Log.Info($"Трейд удалён: {session.Initiator.Name} ↔ {session.Partner.Name}");
     }
 
-    public static void CancelSession(TradeSession session, string reason)
+    public void CancelSession(TradeSession session, string reason)
     {
         RemoveSession(session);
         Log.Info($"Трейд отменён: {session.Initiator.Name} ↔ {session.Partner.Name} ({reason})");

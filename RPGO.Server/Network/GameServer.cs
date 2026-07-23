@@ -5,7 +5,7 @@ namespace RPGGame.Server.Network;
 
 /// <summary>
 /// Реализация сетевого слоя сервера. Инкапсулирует отправку и рассылку
-/// сообщений клиентам, ранее размазанные по статическому классу Program.
+/// сообщений клиентам.
 /// </summary>
 public sealed class GameServer : INetworkHub
 {
@@ -18,24 +18,25 @@ public sealed class GameServer : INetworkHub
 
     public async Task BroadcastMapAsync()
     {
+        var svc = Program.Services;
         List<ClientConnection> clientsCopy = _world.GetClientsSnapshot()
             .Where(c => c.Player != null).ToList();
 
-        var allMonsters = MonsterManager.GetMonsterPositions();
-        var allCollectibles = CollectibleManager.GetPositions();
-        var allCorpses = CorpseManager.GetCorpsePositions();
+        var allMonsters = svc.Monsters.GetMonsterPositions();
+        var allCollectibles = svc.Collectibles.GetPositions();
+        var allCorpses = svc.Corpses.GetCorpsePositions();
         var allNpcs = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
         {
             Id = n.Id, Name = n.Name, Type = n.Type, X = n.X, Y = n.Y,
-            HasDialogue = DialogueManager.GetTree(n.Id) != null
+            HasDialogue = svc.Dialogue.GetTree(n.Id) != null
         }).ToList();
         var merchant = new MerchantPosition
         {
-            X = MerchantManager.MerchantX,
-            Y = MerchantManager.MerchantY,
+            X = svc.Merchant.MerchantX,
+            Y = svc.Merchant.MerchantY,
             Name = "Торговец"
         };
-        var board = QuestManager.Board;
+        var board = svc.Quests.Board;
 
         foreach (var client in clientsCopy)
         {
@@ -93,8 +94,9 @@ public sealed class GameServer : INetworkHub
 
     private static string? GetQuestIndicator(string npcId, Player player)
     {
+        var svc = Program.Services;
         string? result = null;
-        foreach (var def in QuestManager.GetAvailableQuests())
+        foreach (var def in svc.Quests.GetAvailableQuests())
         {
             if (def.TargetNpcId != npcId) continue;
             var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
@@ -116,9 +118,10 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendQuestLog(ClientConnection connection, Player player)
     {
+        var svc = Program.Services;
         var quests = player.ActiveQuests.Select(q =>
         {
-            var def = QuestManager.FindQuest(q.QuestId);
+            var def = svc.Quests.FindQuest(q.QuestId);
             return new
             {
                 q.QuestId,
@@ -138,7 +141,7 @@ public sealed class GameServer : INetworkHub
             Type = "quest_log",
             Data = new
             {
-                Available = QuestManager.GetAvailableQuests().Select(d => new
+                Available = svc.Quests.GetAvailableQuests().Select(d => new
                 {
                     QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward
                 }).ToList(),
@@ -475,8 +478,7 @@ public sealed class GameServer : INetworkHub
 
     private static int GetAttackSpeed(Player player)
     {
-        // Делегируем существующей логике Program, чтобы не дублировать формулу.
-        return Program.GetAttackSpeed(player);
+        return Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
     }
 
     public async Task KickPlayer(ClientConnection connection, string reason)

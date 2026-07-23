@@ -15,7 +15,7 @@ public class CancelTargetHandler : BaseHandler
 
         if (player.Combat.HasTarget)
         {
-            var prevTarget = MonsterManager.FindMonsterById(player.Combat.TargetMonsterId!.Value);
+            var prevTarget = Program.Services.Monsters.FindMonsterById(player.Combat.TargetMonsterId!.Value);
             Log.Debug($"{player.Name} отменил цель: {prevTarget?.Name ?? "?"}");
             player.Combat.Cancel();
             player.QueuedSkillIds.Clear();

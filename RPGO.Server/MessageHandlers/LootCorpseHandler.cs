@@ -23,7 +23,7 @@ public class LootCorpseHandler : BaseHandler
             return;
         }
 
-        var corpse = CorpseManager.FindCorpseById(corpseId);
+        var corpse = Program.Services.Corpses.FindCorpseById(corpseId);
         if (corpse == null)
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Труп не найден или уже собран");
@@ -45,7 +45,7 @@ public class LootCorpseHandler : BaseHandler
                 int nx = corpse.X + dx[i];
                 int ny = corpse.Y + dy[i];
                 if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-                if (MonsterManager.FindMonsterAt(nx, ny) != null) continue;
+                if (Program.Services.Monsters.FindMonsterAt(nx, ny) != null) continue;
                 int d = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);
                 if (d < bestDist)
                 {
@@ -61,7 +61,7 @@ public class LootCorpseHandler : BaseHandler
                 return;
             }
 
-            var path = Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+            var path = Program.Services.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
             if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");
@@ -106,12 +106,12 @@ public class LootCorpseHandler : BaseHandler
         if (!corpse.PlayerLoot.TryGetValue(player.Id, out var myLoot) || myLoot == null)
         {
             Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — нет персонального лута");
-            await Program.Hub.SendToClient(connection, new GameMessage
+            await Program.Services.Hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
                 Data = new { Name = "Система", Text = "У этого трупа нет лута для вас." }
             });
-            await Program.Hub.SendInventoryAndStatus(connection, player);
+            await Program.Services.Hub.SendInventoryAndStatus(connection, player);
             return;
         }
 
@@ -119,12 +119,12 @@ public class LootCorpseHandler : BaseHandler
         {
             TryRemoveCorpseIfEmpty(corpse);
             Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — лут уже забран");
-            await Program.Hub.SendToClient(connection, new GameMessage
+            await Program.Services.Hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
                 Data = new { Name = "Система", Text = "Вы уже забрали весь свой лут." }
             });
-            await Program.Hub.SendInventoryAndStatus(connection, player);
+            await Program.Services.Hub.SendInventoryAndStatus(connection, player);
             return;
         }
 
@@ -136,17 +136,17 @@ public class LootCorpseHandler : BaseHandler
             TryRemoveCorpseIfEmpty(corpse);
             string pctText = myLoot.DamagePercent > 0 ? $" ({myLoot.DamagePercent}% урона)" : "";
             Log.Info($"{player.Name} забрал {gold} зол. с трупа {corpse.MonsterName}{pctText} (только золото, предметов нет)");
-            await Program.Hub.SendToClient(connection, new GameMessage
+            await Program.Services.Hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
                 Data = new { Name = "Система", Text = $"Вы забрали {gold} золота{pctText}." }
             });
-            await Program.Hub.SendInventoryAndStatus(connection, player);
+            await Program.Services.Hub.SendInventoryAndStatus(connection, player);
             return;
         }
 
         Log.Debug($"{player.Name} открыл труп {corpse.MonsterName}: {myLoot.Items.Count} предм., {myLoot.Gold} зол.");
-        await Program.Hub.SendToClient(connection, new GameMessage
+        await Program.Services.Hub.SendToClient(connection, new GameMessage
         {
             Type = "loot_corpse",
             Data = new
@@ -169,6 +169,6 @@ public class LootCorpseHandler : BaseHandler
             ? corpse.PlayerLoot.Values.All(v => v.Gold == 0 && v.Items.Count == 0)
             : corpse.Loot.Count == 0 && corpse.GoldReward == 0;
         if (allEmpty)
-            CorpseManager.RemoveCorpse(corpse.Id);
+            Program.Services.Corpses.RemoveCorpse(corpse.Id);
     }
 }

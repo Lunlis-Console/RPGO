@@ -6,10 +6,14 @@ using RPGGame.Server.Repositories;
 
 namespace RPGGame.Server;
 
-public static class DialogueManager
+public class DialogueManager
 {
-    private static readonly Dictionary<string, DialogueTree> _cache = new();
-    private static readonly object _lock = new();
+    private readonly GameWorld _world;
+    private readonly QuestManager _quests;
+    private readonly MerchantManager _merchant;
+    private INetworkHub? _hub;
+    private readonly Dictionary<string, DialogueTree> _cache = new();
+    private readonly object _lock = new();
 
     private const string ElderDialogueJson = @"{
   ""greeting"": {
@@ -70,7 +74,16 @@ public static class DialogueManager
   }
 }";
 
-    public static void LoadAll()
+    public DialogueManager(GameWorld world, QuestManager quests, MerchantManager merchant)
+    {
+        _world = world;
+        _quests = quests;
+        _merchant = merchant;
+    }
+
+    public void SetHub(INetworkHub hub) => _hub = hub;
+
+    public void LoadAll()
     {
         using (var conn = Db.Open())
         using (var cmd = conn.CreateCommand())
@@ -95,20 +108,21 @@ public static class DialogueManager
         Log.Info($"Загружено диалогов: {count}");
     }
 
-    public static DialogueTree? GetTree(string npcId)
+    public DialogueTree? GetTree(string npcId)
     {
         lock (_lock) return _cache.GetValueOrDefault(npcId);
     }
 
-    public static string? GetStartNodeId(string npcId)
+    public string? GetStartNodeId(string npcId)
     {
         var tree = GetTree(npcId);
         if (tree == null) return null;
         return tree.Nodes.ContainsKey("greeting") ? "greeting" : tree.Nodes.Keys.FirstOrDefault();
     }
 
-    public static async Task HandleChoice(ClientConnection client, Player player, int choiceIndex)
+    public async Task HandleChoice(ClientConnection client, Player player, int choiceIndex)
     {
+        if (_hub == null) return;
         if (!player.Dialogue.IsActive) return;
 
         var tree = GetTree(player.Dialogue.NpcId!);
@@ -150,7 +164,7 @@ public static class DialogueManager
         }
     }
 
-    public static List<DialogueChoice> FilterChoices(List<DialogueChoice> choices, Player player)
+    public List<DialogueChoice> FilterChoices(List<DialogueChoice> choices, Player player)
     {
         var result = new List<DialogueChoice>();
         foreach (var c in choices)
@@ -162,7 +176,7 @@ public static class DialogueManager
         return result;
     }
 
-    private static bool EvaluateCondition(string condition, Player player)
+    private bool EvaluateCondition(string condition, Player player)
     {
         if (condition.StartsWith("quest_active:"))
         {
@@ -187,23 +201,25 @@ public static class DialogueManager
         return true;
     }
 
-    private static async Task<bool> ApplyAction(ClientConnection client, Player player, string action)
+    private async Task<bool> ApplyAction(ClientConnection client, Player player, string action)
     {
+        if (_hub == null) return false;
+        var svc = Program.Services;
         if (action.StartsWith("accept_quest:"))
         {
             string qid = action["accept_quest:".Length..];
-            var def = QuestManager.FindQuest(qid);
+            var def = _quests.FindQuest(qid);
             if (def != null && !player.ActiveQuests.Any(q => q.QuestId == qid))
             {
                 player.ActiveQuests.Add(new QuestProgress { QuestId = qid });
-                await Program.Hub.SendQuestLog(client, player);
+                await _hub.SendQuestLog(client, player);
                 await Program.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
             }
         }
         else if (action.StartsWith("complete_quest:"))
         {
             string qid = action["complete_quest:".Length..];
-            var def = QuestManager.FindQuest(qid);
+            var def = _quests.FindQuest(qid);
             var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == qid);
             if (def != null && prog != null && prog.Completed)
             {
@@ -212,10 +228,10 @@ public static class DialogueManager
                 player.ActiveQuests.Remove(prog);
                 if (player.TryLevelUp())
                     Log.Info($"{player.Name} повысил уровень до {player.Level}!");
-                await Program.Hub.SendQuestLog(client, player);
+                await _hub.SendQuestLog(client, player);
                 await Program.ChatTo(client, ChatChannel.System, "Система",
                     $"Задание выполнено: {def.Title}! +{def.XpReward}XP, +{def.GoldReward} зол.");
-                await Program.Hub.SendStatusAsync(client, player);
+                await _hub.SendStatusAsync(client, player);
                 await CloseDialogue(client, player);
                 return true;
             }
@@ -234,8 +250,9 @@ public static class DialogueManager
         return false;
     }
 
-    public static async Task SendNode(ClientConnection client, Player player, DialogueTree tree, string nodeId)
+    public async Task SendNode(ClientConnection client, Player player, DialogueTree tree, string nodeId)
     {
+        if (_hub == null) return;
         if (!tree.Nodes.TryGetValue(nodeId, out var node)) return;
 
         var filtered = FilterChoices(node.Choices, player);
@@ -249,42 +266,44 @@ public static class DialogueManager
             Choices = filtered.Select(c => new { c.Text, NextNodeId = c.NextNodeId }).ToList()
         };
 
-        await Program.Hub.SendToClient(client, new GameMessage
+        await _hub.SendToClient(client, new GameMessage
         {
             Type = "dialogue_open",
             Data = data
         });
     }
 
-    public static async Task CloseDialogue(ClientConnection client, Player player)
+    public async Task CloseDialogue(ClientConnection client, Player player)
     {
+        if (_hub == null) return;
         player.Dialogue.Clear();
-        await Program.Hub.SendToClient(client, new GameMessage
+        await _hub.SendToClient(client, new GameMessage
         {
             Type = "dialogue_close",
             Data = null
         });
     }
 
-    private static async Task ProcessPendingInteraction(Player player, string type)
+    private async Task ProcessPendingInteraction(Player player, string type)
     {
-        var client = Program.World.FindClientByPlayer(player);
+        if (_hub == null) return;
+        var client = _world.FindClientByPlayer(player);
         if (client == null) return;
 
         switch (type)
         {
             case "merchant":
                 Log.Debug($"{player.Name} открыл магазин");
-                await Program.Hub.SendToClient(client, new GameMessage
+                await _hub.SendToClient(client, new GameMessage
                 {
                     Type = "shop_response",
                     Data = new
                     {
-                        MerchantX = MerchantManager.MerchantX,
-                        MerchantY = MerchantManager.MerchantY,
+                        MerchantX = _merchant.MerchantX,
+                        MerchantY = _merchant.MerchantY,
                         MerchantName = "Торговец",
                         Discount = 0,
-                        Items = MerchantManager.ShopItems.Select(i => new
+                        Items = _merchant.ShopItems.Select(i => new
                         {
                             i.Id, i.Name, i.Type,
                             Value = Balance.BuyPrice(i.Value),

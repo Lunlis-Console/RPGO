@@ -2,23 +2,30 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
-public static class MerchantManager
+public class MerchantManager
 {
-    public static int MerchantX
+    private readonly GameWorld _world;
+
+    public int MerchantX
     {
-        get => Program.World.Map.MerchantX;
-        private set => Program.World.Map.MerchantX = value;
+        get => _world.Map.MerchantX;
+        private set => _world.Map.MerchantX = value;
     }
 
-    public static int MerchantY
+    public int MerchantY
     {
-        get => Program.World.Map.MerchantY;
-        private set => Program.World.Map.MerchantY = value;
+        get => _world.Map.MerchantY;
+        private set => _world.Map.MerchantY = value;
     }
 
-    public static List<Item> ShopItems { get; private set; } = new();
+    public List<Item> ShopItems { get; private set; } = new();
 
-    public static void Initialize()
+    public MerchantManager(GameWorld world)
+    {
+        _world = world;
+    }
+
+    public void Initialize()
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "merchant");
         if (npc != null)
@@ -48,12 +55,12 @@ public static class MerchantManager
         Log.Info($"Загружено предметов магазина: {ShopItems.Count}");
     }
 
-    public static Item? FindItem(string itemId)
+    public Item? FindItem(string itemId)
     {
         return ShopItems.FirstOrDefault(i => i.Id == itemId);
     }
 
-    public static Item CreatePlayerCopy(Item template)
+    public Item CreatePlayerCopy(Item template)
     {
         var copy = template.Clone();
         copy.Id = Guid.NewGuid().ToString();

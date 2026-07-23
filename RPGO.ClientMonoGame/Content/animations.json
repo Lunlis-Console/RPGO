@@ -110,5 +110,173 @@
     "Cols": 6,
     "Rows": 1,
     "Fps": 4
+  },
+  {
+    "Key": "weapon_sword_walk_down",
+    "Sheet": "Sword_Walk_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_sword_walk_up",
+    "Sheet": "Sword_Walk_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_sword_walk_left",
+    "Sheet": "Sword_Walk_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_sword_walk_right",
+    "Sheet": "Sword_Walk_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "player_attack_down",
+    "Sheet": "Character_Attack_RightHand_Sword_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "player_attack_up",
+    "Sheet": "Character_Attack_RightHand_Sword_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "player_attack_left",
+    "Sheet": "Character_Attack_RightHand_Sword_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "player_attack_right",
+    "Sheet": "Character_Attack_RightHand_Sword_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_sword_attack_down",
+    "Sheet": "Attack_RightHand_Sword_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_sword_attack_up",
+    "Sheet": "Attack_RightHand_Sword_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_sword_attack_left",
+    "Sheet": "Attack_RightHand_Sword_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_sword_attack_right",
+    "Sheet": "Attack_RightHand_Sword_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_shield_idle_down",
+    "Sheet": "Idle_Shield_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_shield_idle_up",
+    "Sheet": "Idle_Shield_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_shield_idle_left",
+    "Sheet": "Idle_Shield_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_shield_idle_right",
+    "Sheet": "Idle_Shield_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 4
+  },
+  {
+    "Key": "weapon_shield_walk_down",
+    "Sheet": "Walk_Shield_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_shield_walk_up",
+    "Sheet": "Walk_Shield_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_shield_walk_left",
+    "Sheet": "Walk_Shield_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_shield_walk_right",
+    "Sheet": "Walk_Shield_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 8
+  },
+  {
+    "Key": "weapon_shield_attack_down",
+    "Sheet": "Attack_Shield_Down.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_shield_attack_up",
+    "Sheet": "Attack_Shield_Top.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_shield_attack_left",
+    "Sheet": "Attack_Shield_Left.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
+  },
+  {
+    "Key": "weapon_shield_attack_right",
+    "Sheet": "Attack_Shield_Right.png",
+    "Cols": 6,
+    "Rows": 1,
+    "Fps": 10
   }
 ]

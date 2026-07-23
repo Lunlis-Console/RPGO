@@ -23,7 +23,7 @@ public class BuyHandler : BaseHandler
 
         if (buyItemId == null) return;
 
-        var template = MerchantManager.FindItem(buyItemId);
+        var template = Program.Services.Merchant.FindItem(buyItemId);
         if (template == null)
         {
             await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
@@ -43,7 +43,7 @@ public class BuyHandler : BaseHandler
         }
 
         player.Gold -= totalCost;
-        var newItem = MerchantManager.CreatePlayerCopy(template);
+        var newItem = Program.Services.Merchant.CreatePlayerCopy(template);
         newItem.Quantity = qty;
         InventoryHelper.AddItem(player, newItem);
         Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");

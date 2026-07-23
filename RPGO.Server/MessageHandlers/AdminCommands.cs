@@ -197,7 +197,7 @@ public static class AdminCommands
 
     private static async Task SystemToSelf(Player player, INetworkHub hub, string msg)
     {
-        var conn = Program.World.FindClientByPlayer(player);
+        var conn = Program.Services.World.FindClientByPlayer(player);
         if (conn != null)
             await hub.SendChatToAsync(conn, ChatChannel.System, "Система", msg);
     }

@@ -75,10 +75,10 @@ public partial class Program
                         }
                         else
                         {
-                            spawnX = MerchantManager.MerchantX + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnY = MerchantManager.MerchantY + World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnX = Math.Clamp(spawnX, 0, World.Map.Width - 1);
-                            spawnY = Math.Clamp(spawnY, 0, World.Map.Height - 1);
+                            spawnX = Services.Merchant.MerchantX + Services.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnY = Services.Merchant.MerchantY + Services.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnX = Math.Clamp(spawnX, 0, Services.World.Map.Width - 1);
+                            spawnY = Math.Clamp(spawnY, 0, Services.World.Map.Height - 1);
                         }
 
                         var player = new Player
@@ -113,10 +113,9 @@ public partial class Program
                             || player.Name.Equals("тест", StringComparison.OrdinalIgnoreCase))
                             player.Speed = 50;
 
-                        World.AddPlayer(player);
+                        Services.World.AddPlayer(player);
                         connection.Player = player;
 
-                        // Create reconnect token
                         var sessionToken = SessionManager.CreateToken(player.Name);
 
                         await hub.SendToClient(connection, new GameMessage

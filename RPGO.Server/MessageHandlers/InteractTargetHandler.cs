@@ -28,9 +28,9 @@ public class InteractTargetHandler : BaseHandler
         {
             Monster? interMonster = null;
             if (monsterIdStr != null && Guid.TryParse(monsterIdStr, out Guid interMonsterId))
-                interMonster = MonsterManager.FindMonsterById(interMonsterId);
+                interMonster = Program.Services.Monsters.FindMonsterById(interMonsterId);
             if (interMonster == null)
-                interMonster = MonsterManager.FindMonsterAt(targetX, targetY);
+                interMonster = Program.Services.Monsters.FindMonsterAt(targetX, targetY);
 
             if (interMonster == null || interMonster.Health <= 0)
             {
@@ -90,9 +90,9 @@ public class InteractTargetHandler : BaseHandler
             int nx = targetX + dx[i];
             int ny = targetY + dy[i];
             if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-            if (nx == MerchantManager.MerchantX && ny == MerchantManager.MerchantY) continue;
-            if (nx == QuestManager.BoardX && ny == QuestManager.BoardY) continue;
-            if (MonsterManager.FindMonsterAt(nx, ny) != null) continue;
+            if (nx == Program.Services.Merchant.MerchantX && ny == Program.Services.Merchant.MerchantY) continue;
+            if (nx == Program.Services.Quests.BoardX && ny == Program.Services.Quests.BoardY) continue;
+            if (Program.Services.Monsters.FindMonsterAt(nx, ny) != null) continue;
 
             int dist = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);
             if (dist < bestDist)
@@ -113,7 +113,7 @@ public class InteractTargetHandler : BaseHandler
             return;
         }
 
-        var path = Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+        var path = Program.Services.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
         if (path.Count > 0)
         {
             player.Movement.SetPath(path);

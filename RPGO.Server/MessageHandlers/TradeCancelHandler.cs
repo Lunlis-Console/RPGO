@@ -13,7 +13,7 @@ public class TradeCancelHandler : BaseHandler
     {
         if (player == null) return;
 
-        var session = TradeManager.GetSession(player.Id);
+        var session = Program.Services.Trade.GetSession(player.Id);
         if (session == null) return;
 
         var other = session.GetOther(player);
@@ -33,6 +33,6 @@ public class TradeCancelHandler : BaseHandler
         if (initiatorConn != null) await SendToClient(initiatorConn, closeMsg);
         if (partnerConn != null) await SendToClient(partnerConn, closeMsg);
 
-        TradeManager.CancelSession(session, $"отменён игроком {player.Name}");
+        Program.Services.Trade.CancelSession(session, $"отменён игроком {player.Name}");
     }
 }

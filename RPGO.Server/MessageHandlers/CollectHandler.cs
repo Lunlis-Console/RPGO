@@ -12,7 +12,7 @@ public class CollectHandler : BaseHandler
     {
         if (player == null) return;
 
-        var lootItem = CollectibleManager.TryCollect(player.X, player.Y);
+        var lootItem = Program.Services.Collectibles.TryCollect(player.X, player.Y);
         if (lootItem == null)
         {
             await SendError(connection, ErrorCodes.NothingToCollect, "Здесь нечего собирать.");
@@ -26,7 +26,7 @@ public class CollectHandler : BaseHandler
             Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
         });
 
-        var collectResults = QuestManager.IncrementCollectProgress(player, lootItem.Id);
+        var collectResults = Program.Services.Quests.IncrementCollectProgress(player, lootItem.Id);
         foreach (var (title, current, target, completed) in collectResults)
         {
             string msg = completed
