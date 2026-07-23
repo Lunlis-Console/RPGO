@@ -59,7 +59,8 @@ internal static class InventoryRepository
                     TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
                     Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
                     DamageMin = reader.GetInt32(23),
-                    DamageMax = reader.GetInt32(24)
+                    DamageMax = reader.GetInt32(24),
+                    AttackRange = reader.IsDBNull(25) ? 1 : reader.GetInt32(25)
                 });
             }
 
@@ -103,7 +104,8 @@ internal static class InventoryRepository
                             DamageType = item.DamageType,
                             AttackSpeedModifier = item.AttackSpeedModifier,
                             DamageMin = item.DamageMin,
-                            DamageMax = item.DamageMax
+                            DamageMax = item.DamageMax,
+                            AttackRange = item.AttackRange
                         });
                     }
                 }
@@ -305,7 +307,8 @@ internal static class InventoryRepository
                 TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
                 Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
                 DamageMin = reader.GetInt32(23),
-                DamageMax = reader.GetInt32(24)
+                DamageMax = reader.GetInt32(24),
+                AttackRange = reader.IsDBNull(25) ? 1 : reader.GetInt32(25)
             };
             return SyncItemFromTemplate(connection, item);
         }

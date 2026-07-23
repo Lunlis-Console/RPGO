@@ -568,7 +568,12 @@ public class GameScreen : IScreen
         bool settingsOpen = _settingsWindow.Visible;
         bool mouseOverAnyWindow = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
 
-        if (settingsOpen) { _input.PrevKeyboard = keyboard; _input.PrevMouse = mouse; return; }
+        _input.HandleEscape(keyboard, _settingsWindow, game);
+
+        if (settingsOpen && _settingsWindow.Visible)
+        {
+            _input.PrevKeyboard = keyboard; _input.PrevMouse = mouse; return;
+        }
 
         _input.HandlePendingTrade(game);
         _input.HandleHotbarClick(mouse, mouseOverAnyWindow, game);
@@ -594,7 +599,6 @@ public class GameScreen : IScreen
             }
         }
 
-        _input.HandleEscape(keyboard);
         _input.HandlePendingSkill(game);
         _input.HandleChatInput(keyboard, game);
         _input.HandleWindowToggles(keyboard, game,
@@ -610,11 +614,13 @@ public class GameScreen : IScreen
         if (_hudDraw.IconRects.Length >= 6 &&
             mouse.LeftButton == ButtonState.Pressed && _input.PrevMouse.LeftButton == ButtonState.Released)
         {
-            int before = _hudDraw.IconRects.Length;
+            foreach (var r in _hudDraw.IconRects)
+            {
+                if (r.Contains(mouse.X, mouse.Y)) { clickedIcon = true; break; }
+            }
             _input.HandleIconClick(mouse, mouseOverAnyWindow, game,
                 _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
                 _socialWindow, _questLogWindow, _settingsWindow, _hudDraw.IconRects);
-            clickedIcon = _hudDraw.IconRects.Length == before && mouseOverAnyWindow;
         }
         mouseOverAnyWindow |= clickedIcon;
 

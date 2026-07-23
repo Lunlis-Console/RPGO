@@ -215,8 +215,8 @@ public static class Balance
 
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;
-    public const int BowAttackRange = 3;
-    public const int StaffAttackRange = 2;
+    public const int BowAttackRange = 5;
+    public const int StaffAttackRange = 4;
 
     // ===== СНАРЯДЫ =====
     public const int ProjectileFlightMs = 350;

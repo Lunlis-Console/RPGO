@@ -152,6 +152,9 @@ public static class ProjectileManager
             };
             await Program.Hub.SendToClient(client, hitMsg);
         }
+
+        if (snapshot.Count > 0)
+            await Program.Hub.BroadcastMapAsync();
     }
 
     public static async Task BroadcastSpawn(Projectile proj)

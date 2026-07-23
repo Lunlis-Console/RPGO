@@ -33,6 +33,9 @@ internal class GameInputHandler
     private int _lastTradeRequestTime;
     private const int TradeRequestCooldownMs = 500;
 
+    // Window open-order stack (LIFO) for ESC
+    internal readonly List<Windows.GameWindow> WindowStack = new();
+
     // Gold cache
     internal int PlayerGoldCache;
 
@@ -187,25 +190,28 @@ internal class GameInputHandler
         if (keyboard.IsKeyDown(Keys.I) && PrevKeyboard.IsKeyUp(Keys.I))
         {
             inventory.Visible = !inventory.Visible;
-            if (inventory.Visible) PositionInventoryRight(inventory, game);
+            if (inventory.Visible) { PositionInventoryRight(inventory, game); PushWindow(inventory); }
         }
         if (keyboard.IsKeyDown(Keys.J) && PrevKeyboard.IsKeyUp(Keys.J))
         {
             questLog.Visible = !questLog.Visible;
-            if (questLog.Visible) CenterWindow(questLog, game);
+            if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
         }
         if (keyboard.IsKeyDown(Keys.K) && PrevKeyboard.IsKeyUp(Keys.K))
         {
             skills.Visible = !skills.Visible;
-            if (skills.Visible) CenterWindow(skills, game);
+            if (skills.Visible) { CenterWindow(skills, game); PushWindow(skills); }
         }
         if (keyboard.IsKeyDown(Keys.E) && PrevKeyboard.IsKeyUp(Keys.E))
         {
             equipment.Visible = !equipment.Visible;
-            if (equipment.Visible) CenterWindow(equipment, game);
+            if (equipment.Visible) { CenterWindow(equipment, game); PushWindow(equipment); }
         }
         if (keyboard.IsKeyDown(Keys.P) && PrevKeyboard.IsKeyUp(Keys.P))
+        {
             status.Visible = !status.Visible;
+            if (status.Visible) PushWindow(status);
+        }
     }
 
     internal void HandleIconClick(MouseState mouse, bool mouseOverAnyWindow, GameMain game,
@@ -222,30 +228,33 @@ internal class GameInputHandler
             if (!iconRects[i].Contains(mouse.X, mouse.Y)) continue;
             switch (i)
             {
-                case 0: status.Visible = !status.Visible; break;
+                case 0:
+                    status.Visible = !status.Visible;
+                    if (status.Visible) PushWindow(status);
+                    break;
                 case 1:
                     inventory.Visible = !inventory.Visible;
-                    if (inventory.Visible) PositionInventoryRight(inventory, game);
+                    if (inventory.Visible) { PositionInventoryRight(inventory, game); PushWindow(inventory); }
                     break;
                 case 2:
                     skills.Visible = !skills.Visible;
-                    if (skills.Visible) CenterWindow(skills, game);
+                    if (skills.Visible) { CenterWindow(skills, game); PushWindow(skills); }
                     break;
                 case 3:
                     equipment.Visible = !equipment.Visible;
-                    if (equipment.Visible) CenterWindow(equipment, game);
+                    if (equipment.Visible) { CenterWindow(equipment, game); PushWindow(equipment); }
                     break;
                 case 4:
                     if (social.Visible) social.Visible = false;
-                    else social.Open();
+                    else { social.Open(); PushWindow(social); }
                     break;
                 case 5:
                     questLog.Visible = !questLog.Visible;
-                    if (questLog.Visible) CenterWindow(questLog, game);
+                    if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
                     break;
                 case 6:
                     settings.Visible = !settings.Visible;
-                    if (settings.Visible) CenterWindow(settings, game);
+                    if (settings.Visible) { CenterWindow(settings, game); PushWindow(settings); }
                     break;
             }
             return;
@@ -303,14 +312,40 @@ internal class GameInputHandler
         return false;
     }
 
-    internal void HandleEscape(KeyboardState keyboard)
+    internal void HandleEscape(KeyboardState keyboard, SettingsWindow settings, GameMain game)
     {
-        if (!Chat.IsTyping && keyboard.IsKeyDown(Keys.Escape) && PrevKeyboard.IsKeyUp(Keys.Escape))
+        if (Chat.IsTyping || !(keyboard.IsKeyDown(Keys.Escape) && PrevKeyboard.IsKeyUp(Keys.Escape)))
+            return;
+
+        PendingSkillId = null;
+        PendingSlot = -1;
+        PendingSent = false;
+
+        // Remove stale entries (closed via X button or hotkey toggle)
+        WindowStack.RemoveAll(w => !w.Visible);
+
+        if (WindowStack.Count > 0)
         {
-            PendingSkillId = null;
-            PendingSlot = -1;
-            PendingSent = false;
+            var top = WindowStack[^1];
+            WindowStack.RemoveAt(WindowStack.Count - 1);
+            top.Visible = false;
         }
+        else
+        {
+            settings.Visible = !settings.Visible;
+            if (settings.Visible)
+            {
+                settings.X = game.Graphics.PreferredBackBufferWidth / 2 - settings.Width / 2;
+                settings.Y = game.Graphics.PreferredBackBufferHeight / 2 - settings.Height / 2;
+                PushWindow(settings);
+            }
+        }
+    }
+
+    internal void PushWindow(Windows.GameWindow w)
+    {
+        WindowStack.Remove(w);
+        WindowStack.Add(w);
     }
 
     internal void HandlePendingSkill(GameMain game)

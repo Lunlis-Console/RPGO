@@ -48,7 +48,7 @@ public class AddBowAndStaff : ForwardOnlyMigration
             string cc = w.critChance.ToString(CultureInfo.InvariantCulture);
             string cd = w.critDmg.ToString(CultureInfo.InvariantCulture);
             string ev = w.evadeChance.ToString(CultureInfo.InvariantCulture);
-            int range = w.subtype == "bow" ? 3 : 2;
+            int range = w.subtype == "bow" ? 5 : 4;
 
             Execute.Sql(
                 "INSERT INTO items (id, name, type, value, attack, defense, max_health_bonus, heal_amount, stock, description, " +

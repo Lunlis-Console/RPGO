@@ -49,13 +49,16 @@ public partial class Program
 
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
                     int weaponRange = pl.Equipment.GetWeaponAttackRange();
+
+                    int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
+                    bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
+
                     if (dist > weaponRange)
                     {
                         int stepX = Math.Sign(monster.X - pl.X);
                         int stepY = Math.Sign(monster.Y - pl.Y);
 
-                        int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
-                        if ((DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs) continue;
+                        if (!canMove) continue;
 
                         int mx = 0, my = 0;
                         if (stepX != 0 && stepY != 0)
@@ -163,7 +166,7 @@ public partial class Program
                             }
 
                             var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
-                                MonsterManager.CalculateCombat(pl, monster, queuedSkill == null);
+                                MonsterManager.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1);
 
                             // Клив: наносим урон 50% по 3 клеткам
                             if (!isEvaded && weaponRange <= 1 && DebuffManager.HasDebuff(pl, DebuffType.CleaveReady))
