@@ -4,9 +4,14 @@ using RPGGame.Server.Network;
 
 namespace RPGGame.Server;
 
+/// <summary>
+/// Обработка убийств монстров:分配经验, лут, квесты.
+/// Зависимости инжектируются через конструктор вместо Program.Services.
+/// </summary>
 public class KillService
 {
     private readonly GameWorld _world;
+    private GameServices _svc = null!;
     private INetworkHub? _hub;
 
     public KillService(GameWorld world)
@@ -15,6 +20,13 @@ public class KillService
     }
 
     public void SetHub(INetworkHub hub) => _hub = hub;
+    public void SetGameServices(GameServices svc) => _svc = svc;
+
+    private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    {
+        if (conn == null || _hub == null) return Task.CompletedTask;
+        return _hub.SendChatToAsync(conn, channel, name, text);
+    }
 
     public async Task ResolveMonsterKill(
         Player killer,
@@ -25,7 +37,6 @@ public class KillService
         bool isProjectile = false)
     {
         if (_hub == null) return;
-        var svc = Program.Services;
         var client = _world.FindClientByPlayer(killer);
         if (client == null) return;
 
@@ -36,7 +47,7 @@ public class KillService
         string source = isProjectile ? "снарядом" : "";
         string sourcePrefix = isProjectile ? "Снаряд " : "";
         Log.Info($"{killer.Name} убил {monster.Name} {source}!");
-        await Program.ChatTo(client, ChatChannel.Combat, "Бой",
+        await ChatTo(client, ChatChannel.Combat, "Бой",
             $"{sourcePrefix}Вы нанесли {shownDmg} урона и убили {monster.Name}!");
 
         if (sendDamageMsg && damageMsg != null)
@@ -47,14 +58,13 @@ public class KillService
 
         await _hub.SendToClient(client, GameMessage.ResetCombat());
 
-        // === Мультиплеер: определяем пати и участников ===
         var damageTracker = monster.DamageTracker;
         var partyContributors = new List<(Player Player, int Damage)>();
         bool isPartyMode = false;
 
         if (killer.PartyId.HasValue)
         {
-            var party = svc.Party.GetParty(killer.PartyId.Value);
+            var party = _svc.Party.GetParty(killer.PartyId.Value);
             if (party != null)
             {
                 foreach (var kvp in damageTracker)
@@ -73,13 +83,9 @@ public class KillService
         int totalDamage = damageTracker.Values.Sum();
 
         if (isPartyMode)
-        {
             await ResolvePartyKill(killer, monster, partyContributors, totalDamage);
-        }
         else
-        {
             await ResolveSoloKill(killer, monster, damageTracker);
-        }
     }
 
     private async Task ResolveSoloKill(
@@ -88,7 +94,6 @@ public class KillService
         Dictionary<Guid, int> damageTracker)
     {
         if (_hub == null) return;
-        var svc = Program.Services;
         var topContributor = damageTracker.OrderByDescending(kvp => kvp.Value).FirstOrDefault();
         Player soloRecipient = topContributor.Key != Guid.Empty
             && _world.TryGetPlayer(topContributor.Key, out var topP) && topP != null
@@ -98,7 +103,7 @@ public class KillService
         soloRecipient.Experience += monster.XpReward;
         if (soloRecipient.TryLevelUp()) Log.Info($"{soloRecipient.Name} повысил уровень до {soloRecipient.Level}!");
 
-        var soloLoot = svc.Loot.RollLoot(monster.TemplateId);
+        var soloLoot = _svc.Loot.RollLoot(monster.TemplateId);
         var soloPlayerLoot = new Dictionary<Guid, CorpsePlayerLoot>
         {
             [soloRecipient.Id] = new CorpsePlayerLoot
@@ -110,8 +115,8 @@ public class KillService
             }
         };
 
-        svc.Corpses.CreateCorpse(monster, new List<Item>(), soloPlayerLoot);
-        svc.Monsters.RemoveMonster(monster);
+        _svc.Corpses.CreateCorpse(monster, new List<Item>(), soloPlayerLoot);
+        _svc.Monsters.RemoveMonster(monster);
 
         var soloClient = _world.FindClientByPlayer(soloRecipient);
         if (soloClient != null)
@@ -135,7 +140,6 @@ public class KillService
         int totalDamage)
     {
         if (_hub == null) return;
-        var svc = Program.Services;
         var playerLootDict = new Dictionary<Guid, CorpsePlayerLoot>();
 
         foreach (var (contributor, dmg) in partyContributors)
@@ -147,7 +151,7 @@ public class KillService
             contributor.Experience += xpReward;
             if (contributor.TryLevelUp()) Log.Info($"{contributor.Name} повысил уровень до {contributor.Level}!");
 
-            var contributorLoot = svc.Loot.RollLoot(monster.TemplateId);
+            var contributorLoot = _svc.Loot.RollLoot(monster.TemplateId);
             playerLootDict[contributor.Id] = new CorpsePlayerLoot
             {
                 PlayerName = contributor.Name,
@@ -160,36 +164,35 @@ public class KillService
             if (contribClient != null)
             {
                 if (xpReward > 0)
-                    await Program.ChatTo(contribClient, ChatChannel.System, "Система",
+                    await ChatTo(contribClient, ChatChannel.System, "Система",
                         $"[Группа] Вы получили {xpReward} опыта за {monster.Name} ({(int)(dmgShare * 100)}% урона).");
 
                 int personalItems = contributorLoot.Count;
                 if (personalItems > 0 || goldReward > 0)
-                    await Program.ChatTo(contribClient, ChatChannel.System, "Система",
+                    await ChatTo(contribClient, ChatChannel.System, "Система",
                         $"Тело {monster.Name} осталось на земле. Нажмите, чтобы забрать дроп ({personalItems} предм., {goldReward} зол.).");
                 else
-                    await Program.ChatTo(contribClient, ChatChannel.System, "Система",
+                    await ChatTo(contribClient, ChatChannel.System, "Система",
                         $"Тело {monster.Name} осталось на земле. Дропа нет.");
 
                 await SendQuestUpdates(contribClient, contributor, monster);
             }
         }
 
-        svc.Corpses.CreateCorpse(monster, new List<Item>(), playerLootDict);
-        svc.Monsters.RemoveMonster(monster);
+        _svc.Corpses.CreateCorpse(monster, new List<Item>(), playerLootDict);
+        _svc.Monsters.RemoveMonster(monster);
     }
 
     private async Task SendQuestUpdates(ClientConnection client, Player player, Monster monster)
     {
         if (_hub == null) return;
-        var svc = Program.Services;
-        var questResults = svc.Quests.IncrementKillProgress(player, monster.TemplateId);
+        var questResults = _svc.Quests.IncrementKillProgress(player, monster.TemplateId);
         foreach (var (title, current, target, completed) in questResults)
         {
             string msg = completed
                 ? $"[Задание] {title}: {current}/{target} — задание выполнено! Вернитесь на доску заданий, чтобы сдать."
                 : $"[Задание] {title}: {current}/{target}";
-            await Program.ChatTo(client, ChatChannel.System, "Система", msg);
+            await ChatTo(client, ChatChannel.System, "Система", msg);
         }
         await _hub.SendQuestLog(client, player);
     }

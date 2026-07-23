@@ -17,10 +17,10 @@ partial class Program
     public static GameWorld GetWorld() => Services.World;
 
     public static Task RespawnPlayer(Player player)
-        => _host?.RespawnPlayer(player) ?? Task.CompletedTask;
+        => Services.Combat.RespawnPlayer(player);
 
     public static Task ProcessPendingInteraction(Player player, string interactionType)
-        => _host?.ProcessPendingInteraction(player, interactionType) ?? Task.CompletedTask;
+        => Services.Interactions.ProcessPendingInteraction(player, interactionType);
 
     public static int GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
@@ -64,7 +64,7 @@ partial class Program
         monsters.Initialize();
         collectibles.Initialize();
 
-        // Создаём сетевой хаб (нужен GameWorld + менеджеры для BroadcastMapAsync)
+        // Создаём сетевой хаб
         var hub = new GameServer(world);
 
         // Связываем циклические зависимости
@@ -74,8 +74,23 @@ partial class Program
         party.SetHub(hub);
         world.SetDependencies(hub, player => { DatabaseManager.SavePlayerProgress(player); return true; });
 
-        // Создаём общий контейнер сервисов
-        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles, trade, dialogue, party, projectiles, killService, pathfinding, debuffs);
+        // Создаём контейнер сервисов (временно без Combat/Interactions/Auth — циклическая зависимость)
+        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
+            trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
+            combat: null!, interactions: null!, auth: null!);
+
+        // Создаём сервисы, зависящие от GameServices
+        var combat = new CombatService(Services);
+        var interactions = new InteractionService(Services);
+        var auth = new AuthService(Services);
+
+        // Пересоздаём контейнер с полным набором сервисов
+        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
+            trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
+            combat, interactions, auth);
+
+        // Передаём GameServices в KillService
+        killService.SetGameServices(Services);
 
         MessageHandlerRegistry.RegisterAll(world, hub);
 
@@ -125,7 +140,7 @@ partial class Program
                     return;
                 }
 
-                authenticated = await HandleAuthMessage(connection, message, Services.Hub);
+                authenticated = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
             }
 
             while (true)
@@ -162,6 +177,32 @@ partial class Program
 
             try { connection.Client.Close(); } catch (Exception ex) { Log.Warn($"Close client: {ex.Message}"); }
         }
+    }
+
+    private static async Task<Player?> ProcessMessage(ClientConnection connection, GameMessage message, Player? player)
+    {
+        try
+        {
+            if (message.Type is "register" or "login_auth")
+            {
+                await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
+                return player;
+            }
+
+            if (MessageHandlerRegistry.TryGet(message.Type, out var handler))
+            {
+                await handler.Handle(connection, message, player);
+                return player;
+            }
+
+            Log.Warn($"Неизвестный тип сообщения: {message.Type}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Ошибка обработки {message.Type}", ex);
+        }
+
+        return player;
     }
 
     public static async Task ReloadContent(ClientConnection? connection = null)
@@ -207,12 +248,6 @@ partial class Program
         await Services.Hub.SendChatToAsync(conn, channel, name, text);
     }
 
-    private static async Task ChatToPlayer(Player? player, ChatChannel channel, string name, string text)
-    {
-        if (player == null) return;
-        await ChatTo(Services.World.FindClientByPlayer(player), channel, name, text);
-    }
-
     private static List<string> GetLocalIPs()
     {
         var ips = new List<string> { "127.0.0.1 (localhost)" };
@@ -229,7 +264,7 @@ partial class Program
                 }
             }
         }
-        catch { /* network interfaces may not be available */ }
+        catch { }
         return ips;
     }
 }

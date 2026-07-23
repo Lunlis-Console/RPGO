@@ -7,9 +7,20 @@ using System.Text.Json;
 
 namespace RPGGame.Server;
 
-public partial class Program
+/// <summary>
+/// Обработка регистрации и входа игроков.
+/// Вынесена из Program.Auth.cs.
+/// </summary>
+public class AuthService
 {
-    private static async Task<bool> HandleAuthMessage(ClientConnection connection, GameMessage message, INetworkHub hub)
+    private readonly GameServices _svc;
+
+    public AuthService(GameServices svc)
+    {
+        _svc = svc;
+    }
+
+    public async Task<bool> HandleAuthMessage(ClientConnection connection, GameMessage message, INetworkHub hub)
     {
         switch (message.Type)
         {
@@ -75,10 +86,10 @@ public partial class Program
                         }
                         else
                         {
-                            spawnX = Services.Merchant.MerchantX + Services.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnY = Services.Merchant.MerchantY + Services.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnX = Math.Clamp(spawnX, 0, Services.World.Map.Width - 1);
-                            spawnY = Math.Clamp(spawnY, 0, Services.World.Map.Height - 1);
+                            spawnX = _svc.Merchant.MerchantX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnY = _svc.Merchant.MerchantY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnX = Math.Clamp(spawnX, 0, _svc.World.Map.Width - 1);
+                            spawnY = Math.Clamp(spawnY, 0, _svc.World.Map.Height - 1);
                         }
 
                         var player = new Player
@@ -108,12 +119,11 @@ public partial class Program
                         };
                         player.Mana = player.MaxMana;
 
-                        // Тестовый аккаунт: очень высокая скорость перемещения
                         if (player.Name.Equals("test", StringComparison.OrdinalIgnoreCase)
                             || player.Name.Equals("тест", StringComparison.OrdinalIgnoreCase))
                             player.Speed = 50;
 
-                        Services.World.AddPlayer(player);
+                        _svc.World.AddPlayer(player);
                         connection.Player = player;
 
                         var sessionToken = SessionManager.CreateToken(player.Name);

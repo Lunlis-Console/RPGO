@@ -5,7 +5,6 @@ namespace RPGGame.Server;
 /// <summary>
 /// Единый контейнер всех сервисов сервера. Создаётся один раз в Program.Main()
 /// и передаётся всем компонентам через конструктор.
-/// Заменяет статические синглтоны Program.World, Program.Hub и менеджеры.
 /// </summary>
 public sealed class GameServices
 {
@@ -24,6 +23,9 @@ public sealed class GameServices
     public KillService KillService { get; }
     public PathfindingService Pathfinding { get; }
     public DebuffManager Debuffs { get; }
+    public CombatService Combat { get; }
+    public InteractionService Interactions { get; }
+    public AuthService Auth { get; }
 
     public GameServices(
         GameWorld world,
@@ -40,7 +42,10 @@ public sealed class GameServices
         ProjectileManager projectiles,
         KillService killService,
         PathfindingService pathfinding,
-        DebuffManager debuffs)
+        DebuffManager debuffs,
+        CombatService combat,
+        InteractionService interactions,
+        AuthService auth)
     {
         World = world;
         Hub = hub;
@@ -57,5 +62,8 @@ public sealed class GameServices
         KillService = killService;
         Pathfinding = pathfinding;
         Debuffs = debuffs;
+        Combat = combat;
+        Interactions = interactions;
+        Auth = auth;
     }
 }
