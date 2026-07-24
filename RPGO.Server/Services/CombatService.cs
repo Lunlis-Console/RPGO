@@ -143,9 +143,9 @@ public class CombatService
             }
             else if (queuedSkill.Id == "SK0002")
             {
-                var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
-                    10000, "skill", "Проворность",
-                    "Увеличивает скорость атаки на 30%");
+                var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
+                    Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
+                    $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
                 _svc.Debuffs.ApplyDebuff(pl, buff);
                 pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
                 pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
@@ -394,9 +394,9 @@ public class CombatService
 
         if (skill.Id == "SK0002")
         {
-            var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
-                10000, "skill", "Проворность",
-                "Увеличивает скорость атаки на 30%");
+            var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
+                Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
+                $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
             _svc.Debuffs.ApplyDebuff(pl, buff);
         }
 

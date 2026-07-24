@@ -57,9 +57,9 @@ public class UseSkillHandler : BaseHandler
 
                 if (skill.Id == "SK0002")
                 {
-                    var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
-                        10000, "skill", "Проворность",
-                        "Увеличивает скорость атаки на 30%");
+                    var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
+                        Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
+                        $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
                     Program.Services.Debuffs.ApplyDebuff(player, buff);
                 }
 

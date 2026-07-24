@@ -211,6 +211,10 @@ public static class Balance
     public const double MaceDamageReductionValue = 0.15;
     public const double HammerAccuracyReductionValue = 0.15;
 
+    // Баффы (навыки)
+    public const double AttackSpeedBonusValue = 0.30;
+    public const int AttackSpeedBonusDurationMs = 10000;
+
     // Урон по area-of-effect (меч)
     public const double CleaveDamageFraction = 0.5;
 
