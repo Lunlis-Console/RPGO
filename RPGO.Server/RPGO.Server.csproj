@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="RPGO.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\RPGO.Shared\RPGO.Shared.csproj" />
   </ItemGroup>
 

@@ -248,6 +248,31 @@ public class InventoryWindow : GameWindow
                 DragStateChanged?.Invoke(null);
         }
 
+        // Правая кнопка мыши — мгновенное надевание/использование
+        bool rightPressed = mouse.RightButton == ButtonState.Pressed
+            && _prevMouse.RightButton == ButtonState.Released;
+        if (rightPressed && _dragIndex < 0)
+        {
+            for (int r = 0; r < GridRows && rightPressed; r++)
+            {
+                for (int c = 0; c < GridCols && rightPressed; c++)
+                {
+                    int idx = r * GridCols + c;
+                    if (idx >= _stacks.Count) continue;
+                    if (!_slotRects[c, r].Contains(mouse.X, mouse.Y)) continue;
+
+                    var item = _stacks[idx].item;
+                    if (ShopMode)
+                        RequestSell(item);
+                    else if (EquipmentSlots.IsEquippableType(item.Type))
+                        EquipItem?.Invoke(item.Id);
+                    else if (item.Type == "consumable" && item.HealAmount > 0)
+                        UseItem?.Invoke(item.Id);
+                    rightPressed = false;
+                }
+            }
+        }
+
         // Кнопка сортировки
         if (pressed && _sortRect.Contains(mouse.X, mouse.Y))
             SortItems?.Invoke();

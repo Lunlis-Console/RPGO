@@ -5,6 +5,24 @@ namespace RPGO.Tests;
 
 public class CombatTests
 {
+    private static readonly MonsterManager _monsters;
+
+    static CombatTests()
+    {
+        var world = new GameWorld(100, 100);
+        _monsters = new MonsterManager(world);
+        var debuffs = new DebuffManager();
+        var quests = new QuestManager(world);
+        var merchant = new MerchantManager(world);
+        Program.Services = new GameServices(world, null!, _monsters,
+            new LootManager(world), new CorpseManager(),
+            quests, merchant,
+            new CollectibleManager(world), new TradeManager(),
+            new DialogueManager(world, quests, merchant), new PartyManager(world),
+            new ProjectileManager(world), new KillService(world),
+            new PathfindingService(world, merchant, quests), debuffs,
+            combat: null!, interactions: null!, auth: null!);
+    }
     private static Monster CreateMonster(int level, int str, int sta, int agi, double evade, double crit, int hp)
         => new()
         {
@@ -27,7 +45,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
 
         var (dmgToM, dmgToP, dead, isCrit, isEvaded) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // Player total atk = 1 + (11-1)*2 = 21, monster def = 1 → 20
         Assert.Equal(20, dmgToM);
@@ -46,7 +64,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 200);
 
         var (dmgToM, _, dead, isCrit, _) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // baseDmg = Max(1, 21-1) = 20, critDmg = 1.5+(11-1)*0.05=2.0 → 20*2.0=40
         Assert.Equal(40, dmgToM);
@@ -61,7 +79,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 100, crit: 0, hp: 100);
 
         var (dmgToM, dmgToP, dead, isCrit, isEvaded) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // Monster evades → no player damage
         Assert.Equal(0, dmgToM);
@@ -78,7 +96,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 11, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
 
         var (_, dmgToP, dead, _, isEvaded) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // Player hits monster
         Assert.False(dead);
@@ -94,7 +112,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 5);
 
         var (dmgToM, dmgToP, dead, _, _) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // Damage = 20 > hp=5, monster dies
         Assert.Equal(20, dmgToM);
@@ -111,7 +129,7 @@ public class CombatTests
         monster.Endurance = 100; // high defense
 
         var (dmgToM, _, _, _, _) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // playerAtk=1, monsterDef=1+(100-1)*1=100 → Max(1, 1-100)=1
         Assert.True(dmgToM >= 1);
@@ -124,7 +142,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 11, sta: 1, agi: 1, evade: 0, crit: 100, hp: 100);
 
         var (_, dmgToP, _, _, _) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // No counter-attack from CalculateCombat (removed)
         Assert.Equal(0, dmgToP);
@@ -137,7 +155,7 @@ public class CombatTests
         var monster = CreateMonster(level: 10, str: 10, sta: 10, agi: 1, evade: 0, crit: 0, hp: 1000);
 
         var (dmgToM, dmgToP, dead, _, _) =
-            MonsterManager.CalculateCombat(player, monster);
+            _monsters.CalculateCombat(player, monster);
 
         // Player: BaseDmg=10 + (10-1)*2=18 = 28. Monster def: 10+(10-1)*1=19. → 9
         Assert.Equal(9, dmgToM);
@@ -157,7 +175,7 @@ public class CombatTests
         var defender = CreatePlayer(level: 5, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
 
         var (dmgToDefender, dmgToAttacker, dead, _, _) =
-            MonsterManager.CalculateCombat(attacker, defender);
+            _monsters.CalculateCombat(attacker, defender);
 
         // Attacker atk = 1 + (11-1)*2 = 21, defender def = 1 → 20
         Assert.Equal(20, dmgToDefender);

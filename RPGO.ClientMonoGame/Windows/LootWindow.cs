@@ -157,6 +157,25 @@ public class LootWindow : GameWindow
             return;
         }
 
+        // Правая кнопка мыши — мгновенный лут
+        bool rightPressed = mouse.RightButton == ButtonState.Pressed
+            && _lootPrevMouse.RightButton == ButtonState.Released;
+        if (rightPressed && _dragIndex < 0)
+        {
+            for (int r = 0; r < GridRows && rightPressed; r++)
+            {
+                for (int c = 0; c < GridCols && rightPressed; c++)
+                {
+                    int idx = r * GridCols + c;
+                    if (idx >= _items.Count) continue;
+                    if (!GetSlotRect(c, r).Contains(mouse.X, mouse.Y)) continue;
+
+                    TakeItem?.Invoke(_items[idx]);
+                    rightPressed = false;
+                }
+            }
+        }
+
         base.Update(gameTime, keyboard, mouse);
         _lootPrevMouse = mouse;
     }

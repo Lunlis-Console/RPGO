@@ -10,7 +10,7 @@ namespace RPGGame.Server;
 
 partial class Program
 {
-    public static GameServices Services { get; private set; } = null!;
+    public static GameServices Services { get; internal set; } = null!;
     private static GameServerHost? _host;
 
     public static List<Player> GetPlayers() => Services.World.GetPlayersSnapshot();
