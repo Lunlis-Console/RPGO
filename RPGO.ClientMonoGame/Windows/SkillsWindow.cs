@@ -254,7 +254,7 @@ public class SkillsWindow : GameWindow
             DrawText(sb, skill.Name, n.Rect.X + 40, n.Rect.Y + 6, nameColor);
 
             DrawText(sb, $"Тир {skill.Tier}", n.Rect.X + 40, n.Rect.Y + 24, new Color(160, 160, 175));
-            DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs}мс", n.Rect.X + 6, n.Rect.Y + 40,
+            DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  ОЧ.нав {skill.SkillPointCost}", n.Rect.X + 6, n.Rect.Y + 40,
                 n.Available ? new Color(120, 200, 130) : new Color(90, 110, 95));
 
             if (!n.Available)
@@ -275,7 +275,7 @@ public class SkillsWindow : GameWindow
         {
             skill.Name,
             $"Тир {skill.Tier}  |  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type)}",
-            $"МП: {skill.MpCost}   КД: {skill.CooldownMs} мс   x{skill.DamageMultiplier:F1}",
+            $"МП: {skill.MpCost}   КД: {skill.CooldownMs}мс   x{skill.DamageMultiplier:F1}   ОЧ.нав: {skill.SkillPointCost}",
             $"Мин. уровень: {skill.MinLevel}"
         };
         if (!string.IsNullOrEmpty(skill.Description))

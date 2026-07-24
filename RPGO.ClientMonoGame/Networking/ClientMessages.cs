@@ -217,6 +217,7 @@ public sealed class ClientSkillInfo
     public int CooldownMs { get; set; }
     public double DamageMultiplier { get; set; } = 1;
     public int MinLevel { get; set; } = 1;
+    public int SkillPointCost { get; set; } = 1;
     // Поля для древа навыков (опциональны; сервер может не заполнять):
     public string? ParentId { get; set; }
     public int Tier { get; set; } = 1;

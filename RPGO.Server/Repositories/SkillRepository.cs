@@ -14,7 +14,7 @@ internal static class SkillRepository
         var result = new List<Skill>();
         using var connection = Db.Open();
         var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT id, name, description, type, mp_cost, cooldown_ms, damage_multiplier, min_level
+        cmd.CommandText = @"SELECT id, name, description, type, mp_cost, cooldown_ms, damage_multiplier, min_level, skill_point_cost
             FROM skills";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -28,7 +28,8 @@ internal static class SkillRepository
                 MpCost = reader.GetInt32(4),
                 CooldownMs = reader.GetInt32(5),
                 DamageMultiplier = reader.GetDouble(6),
-                MinLevel = reader.GetInt32(7)
+                MinLevel = reader.GetInt32(7),
+                SkillPointCost = reader.IsDBNull(8) ? 1 : reader.GetInt32(8)
             });
         }
         _cache = result;

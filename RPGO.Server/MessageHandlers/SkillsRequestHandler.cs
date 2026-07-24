@@ -26,7 +26,8 @@ public class SkillsRequestHandler : BaseHandler
                     s.MpCost,
                     s.CooldownMs,
                     s.DamageMultiplier,
-                    s.MinLevel
+                    s.MinLevel,
+                    s.SkillPointCost
                 }).ToList()
             }
         });

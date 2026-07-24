@@ -124,4 +124,58 @@ public class DebuffManager
         };
         return (debuff, isNew);
     }
+
+    public (ActiveDebuff Debuff, bool IsNew) ForceWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
+    {
+        ActiveDebuff debuff;
+        ICombatant target;
+        switch (weaponSubtype)
+        {
+            case "dagger" or "spear":
+                debuff = ActiveDebuff.Create(DebuffType.ArmorPenetration, Balance.DaggerArmorPenValue,
+                    Balance.DaggerArmorPenDurationMs, weaponSubtype, "Пронзание",
+                    $"Снижает броню цели на {(int)(Balance.DaggerArmorPenValue * 100)}%");
+                target = defender;
+                break;
+
+            case "sword" or "greatsword":
+                debuff = ActiveDebuff.Create(DebuffType.CleaveReady, 0,
+                    500, weaponSubtype, "Рассекающий удар",
+                    "Следующая атака наносит урон по области");
+                target = attacker;
+                break;
+
+            case "axe" or "greataxe" or "halberd":
+                debuff = ActiveDebuff.Create(DebuffType.DamageBonus, Balance.AxeDamageBonusValue,
+                    Balance.AxeDamageBonusDurationMs, weaponSubtype, "Свирепость",
+                    $"Увеличивает ваш урон на {(int)(Balance.AxeDamageBonusValue * 100)}%");
+                target = attacker;
+                break;
+
+            case "mace":
+                debuff = ActiveDebuff.Create(DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
+                    Balance.MaceDisarmDurationMs, weaponSubtype, "Обезоруживание",
+                    $"Снижает урон цели на {(int)(Balance.MaceDamageReductionValue * 100)}%");
+                target = defender;
+                break;
+
+            case "hammer" or "greathammer":
+                debuff = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
+                    Balance.HammerStunDurationMs, weaponSubtype, "Контузия",
+                    $"Снижает точность цели на {(int)(Balance.HammerAccuracyReductionValue * 100)}%");
+                target = defender;
+                break;
+
+            default:
+                return default;
+        }
+
+        bool isNew = target switch
+        {
+            Player p => ApplyDebuff(p, debuff),
+            Monster m => ApplyDebuff(m, debuff),
+            _ => false
+        };
+        return (debuff, isNew);
+    }
 }

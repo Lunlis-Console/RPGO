@@ -1,7 +1,7 @@
 namespace RPGGame.Shared.Models;
 
 /// <summary>
-/// Боевой навык (умение). Пока один — «Сильный удар» (SK0001).
+/// Боевой навык (умение).
 /// </summary>
 public class Skill
 {
@@ -13,4 +13,5 @@ public class Skill
     public int CooldownMs { get; set; }               // откат
     public double DamageMultiplier { get; set; } = 1.0; // множитель урона
     public int MinLevel { get; set; } = 1;            // мин. уровень для использования
+    public int SkillPointCost { get; set; } = 1;      // стоимость в очках навыков
 }

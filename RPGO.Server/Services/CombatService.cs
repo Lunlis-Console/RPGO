@@ -100,9 +100,12 @@ public class CombatService
         pl.Combat.LastAttackTime = DateTime.UtcNow;
 
         string subtype = pl.Equipment.GetWeaponSubtype();
+        bool forceProc = queuedSkill?.Id == "SK0001" && weaponRange <= 1;
         if (!string.IsNullOrEmpty(subtype))
         {
-            var (debuff, isNew) = _svc.Debuffs.OnWeaponProc(pl, monster, subtype);
+            var (debuff, isNew) = forceProc
+                ? _svc.Debuffs.ForceWeaponProc(pl, monster, subtype)
+                : _svc.Debuffs.OnWeaponProc(pl, monster, subtype);
             if (debuff != null)
             {
                 string action = isNew ? "наложено" : "обновлено";
@@ -125,6 +128,16 @@ public class CombatService
 
         if (queuedSkill != null)
         {
+            bool skillBlocked = queuedSkill.Id == "SK0001" && weaponRange > 1;
+            if (skillBlocked)
+            {
+                await ChatTo(client, ChatChannel.Combat, "Бой",
+                    $"«{queuedSkill.Name}» доступен только с оружием ближнего боя.");
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+            }
+            else
+            {
             int baseDamage = (int)Math.Max(Balance.MinDamage,
                 _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - _svc.Monsters.GetEffectiveDefense(monster));
             int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
@@ -139,6 +152,7 @@ public class CombatService
                 Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
             });
             await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
+            }
         }
 
         if (weaponRange > 1 && !isEvaded)
