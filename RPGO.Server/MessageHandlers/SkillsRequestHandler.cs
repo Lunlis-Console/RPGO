@@ -27,7 +27,9 @@ public class SkillsRequestHandler : BaseHandler
                     s.CooldownMs,
                     s.DamageMultiplier,
                     s.MinLevel,
-                    s.SkillPointCost
+                    s.SkillPointCost,
+                    s.ParentId,
+                    s.Tier
                 }).ToList()
             }
         });

@@ -101,7 +101,7 @@ public class ReconnectHandler : BaseHandler
                 s
             )).ToList(),
             p.ActiveQuests.Select(q => new ActiveQuestState(q.QuestId, q.Current, q.Completed)).ToList(),
-            p.ActiveDebuffs.Select(d => new DebuffState(d.Type.ToString(), d.DisplayName, Math.Round(d.Value, 2), d.RemainingMs, d.DurationMs)).ToList()
+            p.ActiveDebuffs.Select(d => new DebuffState(d.Type.ToString(), d.DisplayName, d.Description, Math.Round(d.Value, 2), d.RemainingMs, d.DurationMs)).ToList()
         );
     }
 }

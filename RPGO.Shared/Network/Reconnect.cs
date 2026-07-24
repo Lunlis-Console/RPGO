@@ -30,7 +30,7 @@ public record PlayerState(
     List<DebuffState> ActiveDebuffs
 );
 
-public record DebuffState(string Type, string DisplayName, double Value, int RemainingMs, int DurationMs);
+public record DebuffState(string Type, string DisplayName, string Description, double Value, int RemainingMs, int DurationMs);
 
 public record ItemState(string Id, int Count, int? Slot);
 

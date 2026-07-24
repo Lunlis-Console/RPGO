@@ -52,6 +52,7 @@ public class GameScreen : IScreen
         _hudRenderer = new HudRenderer();
         _chatRenderer = new ChatRenderer();
         _inputManager = new InputManager();
+        _hudRenderer.SetInputManager(_inputManager);
         _input = new GameInputHandler(_inputManager, _mapRenderer, _hudRenderer, _chatRenderer, _windows);
         _hudDraw = new GameHudRenderer(_hudRenderer, _mapRenderer);
 
@@ -444,6 +445,7 @@ public class GameScreen : IScreen
             {
                 _input.PendingSkillId = null;
                 _input.PendingSlot = -1;
+                _ = GameMain.Instance!.Client.SendAsync("cancel_skill", new { });
                 return;
             }
             int slot = -1;
@@ -720,6 +722,7 @@ public class GameScreen : IScreen
         }
         _hudRenderer.DrawHotbar(spriteBatch, hotbarX, hotbarY, hotbarW, hotbarH, _inputManager.HotbarSlots, hotbarIcons, hotbarCounts,
             hoverSlot, highlightSlot, cdRemain, cdTotal);
+        _hudRenderer.DrawHotbarTooltip(spriteBatch);
 
         // Chat
         int hotbarLeft = (w - hotbarW) / 2;

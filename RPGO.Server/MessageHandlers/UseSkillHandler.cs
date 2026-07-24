@@ -7,6 +7,8 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class UseSkillHandler : BaseHandler
 {
+    private static readonly HashSet<string> InstantSkills = new() { "SK0002" };
+
     public UseSkillHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
@@ -26,6 +28,55 @@ public class UseSkillHandler : BaseHandler
 
         if (!player.Combat.InCombat)
         {
+            if (InstantSkills.Contains(skill.Id))
+            {
+                // Мгновенный бафф — применяем сразу без боя
+                if (player.LastSkillUse.TryGetValue(skill.Id, out var last)
+                    && (DateTime.UtcNow - last).TotalMilliseconds < skill.CooldownMs)
+                {
+                    await SendToClient(connection, new GameMessage
+                    {
+                        Type = "chat",
+                        Data = new { Name = "Бой", Text = $"«{skill.Name}» ещё на перезарядке." }
+                    });
+                    return;
+                }
+
+                if (player.Mana < skill.MpCost)
+                {
+                    await SendToClient(connection, new GameMessage
+                    {
+                        Type = "chat",
+                        Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
+                    });
+                    return;
+                }
+
+                player.Mana = Math.Max(0, player.Mana - skill.MpCost);
+                player.LastSkillUse[skill.Id] = DateTime.UtcNow;
+
+                if (skill.Id == "SK0002")
+                {
+                    var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
+                        10000, "skill", "Проворность",
+                        "Увеличивает скорость атаки на 30%");
+                    Program.Services.Debuffs.ApplyDebuff(player, buff);
+                }
+
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Бой", Text = $"Применён навык «{skill.Name}»!" }
+                });
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = skill.Id, RemainingMs = skill.CooldownMs, TotalMs = skill.CooldownMs }
+                });
+                await Program.Services.Hub.SendStatusAsync(connection, player);
+                return;
+            }
+
             // Мирный режим: прекаст одного навыка (заменяем, не добавляем).
             player.QueuedSkillIds.Clear();
             player.QueuedSkillIds.Add(skill.Id);

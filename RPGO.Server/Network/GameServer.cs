@@ -221,7 +221,7 @@ public sealed class GameServer : INetworkHub
                 MaxMana = player.MaxMana,
                 BaseAttack = player.GetBaseDamage(),
                 BaseDefense = player.GetBaseDefense(),
-                TotalAttack = player.GetTotalAttack(),
+                TotalAttack = GetBuffedPhysAttack(player),
                 TotalDefense = player.GetTotalDefense(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
@@ -241,7 +241,7 @@ public sealed class GameServer : INetworkHub
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                AttackIntervalMs = GetAttackIntervalMs(player),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player),
@@ -249,6 +249,7 @@ public sealed class GameServer : INetworkHub
                 {
                     Type = d.Type.ToString(),
                     d.DisplayName,
+                    d.Description,
                     Value = Math.Round(d.Value, 2),
                     d.RemainingMs,
                     DurationMs = d.DurationMs
@@ -288,8 +289,8 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = player.GetTotalAttack(),
-                MagAttack = player.GetMagAttack(),
+                PhysAttack = GetBuffedPhysAttack(player),
+                MagAttack = GetBuffedMagAttack(player),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
@@ -310,7 +311,7 @@ public sealed class GameServer : INetworkHub
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = Balance.AttackIntervalMs(Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier()),
+                AttackIntervalMs = GetAttackIntervalMs(player),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player)
@@ -476,9 +477,33 @@ public sealed class GameServer : INetworkHub
         };
     }
 
-    private static int GetAttackSpeed(Player player)
+    internal static int GetAttackSpeed(Player player)
     {
-        return Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
+        int baseSpeed = Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
+        double speedBuff = 1.0 + Program.Services.Debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
+        return (int)(baseSpeed * speedBuff);
+    }
+
+    internal static int GetAttackIntervalMs(Player player)
+    {
+        int baseInterval = Balance.AttackIntervalMs(
+            Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier());
+        double speedBuff = 1.0 + Program.Services.Debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
+        return (int)(baseInterval / speedBuff);
+    }
+
+    internal static int GetBuffedPhysAttack(Player player)
+    {
+        int base_ = player.GetTotalAttack();
+        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
+        return (int)(base_ * (1.0 + dmgBonus));
+    }
+
+    internal static int GetBuffedMagAttack(Player player)
+    {
+        int base_ = player.GetMagAttack();
+        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
+        return (int)(base_ * (1.0 + dmgBonus));
     }
 
     public async Task KickPlayer(ClientConnection connection, string reason)

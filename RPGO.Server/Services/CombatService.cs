@@ -57,8 +57,13 @@ public class CombatService
                         var client = _svc.World.FindClientByPlayer(pl);
                         if (client == null) continue;
 
+                        // Бафф-навыки применяются сразу, не дожидаясь атаки
+                        await ProcessInstantBuffs(pl, client);
+
                         int attackIntervalMs = Balance.AttackIntervalMs(
                             Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+                        double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
+                        attackIntervalMs = (int)(attackIntervalMs / speedBuff);
                         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
                         bool offHandReady = pl.Equipment.IsDualWielding()
                             && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
@@ -135,6 +140,23 @@ public class CombatService
                     $"«{queuedSkill.Name}» доступен только с оружием ближнего боя.");
                 pl.QueuedSkillIds.RemoveAt(0);
                 await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+            }
+            else if (queuedSkill.Id == "SK0002")
+            {
+                var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
+                    10000, "skill", "Проворность",
+                    "Увеличивает скорость атаки на 30%");
+                _svc.Debuffs.ApplyDebuff(pl, buff);
+                pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
+                pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
+                });
+                await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Проворность на 10 сек.");
             }
             else
             {
@@ -345,6 +367,47 @@ public class CombatService
     }
 
     // ──────────────── Навыки ────────────────
+
+    private static readonly HashSet<string> InstantBuffSkills = new() { "SK0002" };
+
+    private async Task ProcessInstantBuffs(Player pl, ClientConnection client)
+    {
+        if (pl.QueuedSkillIds.Count == 0) return;
+        var sid = pl.QueuedSkillIds[0];
+        if (!InstantBuffSkills.Contains(sid)) return;
+
+        var skill = DatabaseManager.GetSkill(sid);
+        if (skill == null) { pl.QueuedSkillIds.RemoveAt(0); return; }
+
+        bool onCd = pl.LastSkillUse.TryGetValue(sid, out var last)
+            && (DateTime.UtcNow - last).TotalMilliseconds < skill.CooldownMs;
+        if (onCd || pl.Mana < skill.MpCost)
+        {
+            pl.QueuedSkillIds.RemoveAt(0);
+            await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+            return;
+        }
+
+        pl.Mana = Math.Max(0, pl.Mana - skill.MpCost);
+        pl.LastSkillUse[skill.Id] = DateTime.UtcNow;
+        pl.QueuedSkillIds.RemoveAt(0);
+
+        if (skill.Id == "SK0002")
+        {
+            var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, 0.30,
+                10000, "skill", "Проворность",
+                "Увеличивает скорость атаки на 30%");
+            _svc.Debuffs.ApplyDebuff(pl, buff);
+        }
+
+        await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+        await _svc.Hub.SendToClient(client, new GameMessage
+        {
+            Type = "skill_cooldown",
+            Data = new { SkillId = skill.Id, RemainingMs = skill.CooldownMs, TotalMs = skill.CooldownMs }
+        });
+        await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{skill.Name}»!");
+    }
 
     public async Task<Skill?> ProcessSkillQueue(Player pl, ClientConnection client)
     {

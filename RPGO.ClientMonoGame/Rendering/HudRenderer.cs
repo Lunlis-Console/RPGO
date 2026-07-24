@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Data;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.Shared.Models;
@@ -19,6 +20,11 @@ public class HudRenderer
     // Хитбоксы иконок дебаффов для тултипа
     private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _playerDebuffHits = new();
     private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _targetDebuffHits = new();
+
+    // Данные хотбара для тултипа
+    private string?[] _hotbarSlots = Array.Empty<string?>();
+    private int _hotbarHoverSlot = -1;
+    private Input.InputManager? _inputManager;
 
     // Позиции UI-элементов
     private const float LeftPanelX = 4;
@@ -207,9 +213,13 @@ public class HudRenderer
         sb.DrawString(font, interactText, new Vector2(interactRect.X + (interactRect.Width - iSize.X) / 2, interactRect.Y + (interactRect.Height - iSize.Y) / 2), Color.White);
     }
 
+    public void SetInputManager(Input.InputManager im) => _inputManager = im;
+
     public void DrawHotbar(SpriteBatch sb, float x, float y, float w, float h, string?[] hotbarSlots, Texture2D?[] icons, int[] counts,
         int hoverSlot = -1, int dragSlot = -1, int[]? cdRemain = null, int[]? cdTotal = null)
     {
+        _hotbarSlots = hotbarSlots;
+        _hotbarHoverSlot = hoverSlot;
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
@@ -273,6 +283,109 @@ public class HudRenderer
                 var tsz = font.MeasureString(t);
                 sb.DrawString(font, t, new Vector2(slotRect.X + (slotRect.Width - tsz.X) / 2, slotRect.Y + (slotRect.Height - tsz.Y) / 2), Color.White);
             }
+        }
+    }
+
+    public void DrawHotbarTooltip(SpriteBatch sb)
+    {
+        var fontSmall = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (fontSmall == null || _inputManager == null) return;
+
+        int slot = _hotbarHoverSlot;
+        if (slot < 0 || slot >= _hotbarSlots.Length) return;
+
+        var slotValue = _hotbarSlots[slot];
+        if (string.IsNullOrEmpty(slotValue)) return;
+
+        var lines = new List<(string Text, Color Color)>();
+
+        if (slotValue.StartsWith("skill:"))
+        {
+            var skill = _inputManager.GetSkillById(slotValue[6..]);
+            if (skill == null)
+                skill = _inputManager.GetSkillByName(slotValue[6..]);
+            if (skill == null) return;
+
+            lines.Add((skill.Name, new Color(255, 215, 0)));
+            if (!string.IsNullOrEmpty(skill.Description))
+                lines.Add((skill.Description, new Color(180, 180, 200)));
+            if (skill.MpCost > 0)
+                lines.Add(($"MP: {skill.MpCost}", new Color(120, 160, 255)));
+            if (skill.CooldownMs > 0)
+                lines.Add(($"Кулдаун: {skill.CooldownMs / 1000}с", new Color(200, 180, 120)));
+            if (skill.DamageMultiplier > 1)
+                lines.Add(($"x{skill.DamageMultiplier:F1} урон", new Color(220, 120, 120)));
+            lines.Add(($"Очки навыков: {skill.SkillPointCost}", new Color(170, 170, 180)));
+        }
+        else if (slotValue.StartsWith("item:"))
+        {
+            var item = _inputManager.GetItemByName(slotValue[5..]);
+            if (item == null) return;
+
+            var typeLabel = item.Type switch
+            {
+                "weapon" => "Оружие",
+                "armor" => "Броня",
+                "consumable" => "Расходник",
+                "quest" => "Квестовый",
+                _ => item.Type
+            };
+            lines.Add((item.Name, new Color(255, 215, 0)));
+            lines.Add(($"[{typeLabel}]", new Color(140, 140, 160)));
+            if (!string.IsNullOrEmpty(item.Description))
+                lines.Add((item.Description, new Color(180, 180, 200)));
+            if (item.HealAmount > 0)
+                lines.Add(($"Лечение: {item.HealAmount}", new Color(120, 220, 120)));
+            if (item.MaxHealthBonus > 0)
+                lines.Add(($"+{item.MaxHealthBonus} HP", new Color(120, 220, 120)));
+            if (item.BonusPhysAttack > 0) lines.Add(($"+{item.BonusPhysAttack} Физ.Атк", new Color(220, 120, 120)));
+            if (item.BonusMagAttack > 0) lines.Add(($"+{item.BonusMagAttack} Маг.Атк", new Color(120, 120, 220)));
+            if (item.BonusDefense > 0) lines.Add(($"+{item.BonusDefense} Защита", new Color(120, 160, 220)));
+            if (item.BonusResistance > 0) lines.Add(($"+{item.BonusResistance} Сопротивление", new Color(140, 120, 220)));
+            if (item.BonusStrength > 0) lines.Add(($"+{item.BonusStrength} Сила", new Color(200, 100, 100)));
+            if (item.BonusEndurance > 0) lines.Add(($"+{item.BonusEndurance} Выносливость", new Color(180, 150, 80)));
+            if (item.BonusAgility > 0) lines.Add(($"+{item.BonusAgility} Ловкость", new Color(100, 180, 100)));
+            if (item.BonusCunning > 0) lines.Add(($"+{item.BonusCunning} Хитрость", new Color(140, 140, 140)));
+            if (item.BonusIntellect > 0) lines.Add(($"+{item.BonusIntellect} Интеллект", new Color(80, 140, 220)));
+            if (item.BonusWisdom > 0) lines.Add(($"+{item.BonusWisdom} Мудрость", new Color(180, 180, 100)));
+            if (item.BonusCritChance > 0) lines.Add(($"+{item.BonusCritChance * 100:F0}% Крит", new Color(220, 180, 80)));
+            if (item.BonusCritDamage > 0) lines.Add(($"+{item.BonusCritDamage * 100:F0}% Урон крита", new Color(220, 100, 80)));
+            if (item.BonusEvadeChance > 0) lines.Add(($"+{item.BonusEvadeChance * 100:F0}% Уклонение", new Color(120, 200, 180)));
+        }
+        else return;
+
+        if (lines.Count == 0) return;
+
+        int pad = 8;
+        int lineGap = 3;
+        float lineH = fontSmall.MeasureString("X").Y;
+        int tipW = 0;
+        foreach (var (text, _) in lines)
+        {
+            int tw = (int)fontSmall.MeasureString(text).X + pad * 2;
+            if (tw > tipW) tipW = tw;
+        }
+        int tipH = (int)(lineH * lines.Count + lineGap * (lines.Count - 1) + pad * 2);
+
+        var ms = Mouse.GetState();
+        var vp = sb.GraphicsDevice.Viewport;
+        int tipX = ms.X + 16;
+        int tipY = ms.Y + 16;
+        if (tipX + tipW > vp.Width) tipX = ms.X - tipW - 4;
+        if (tipY + tipH > vp.Height) tipY = ms.Y - tipH - 4;
+        if (tipX < 0) tipX = 0;
+        if (tipY < 0) tipY = 0;
+
+        var bg = new Rectangle(tipX, tipY, tipW, tipH);
+        sb.Draw(SpriteCache.Pixel, bg, new Color(15, 15, 20, 235));
+        UIHelper.DrawRectOutline(sb, bg, new Color(80, 80, 100));
+
+        float cx = tipX + pad;
+        float cy = tipY + pad;
+        foreach (var (text, color) in lines)
+        {
+            sb.DrawString(fontSmall, text, new Vector2(cx, cy), color);
+            cy += lineH + lineGap;
         }
     }
 

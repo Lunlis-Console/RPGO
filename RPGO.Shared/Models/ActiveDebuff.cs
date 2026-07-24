@@ -6,7 +6,8 @@ public enum DebuffType
     DamageBonus,
     DamageReduction,
     AccuracyReduction,
-    CleaveReady
+    CleaveReady,
+    AttackSpeedBonus
 }
 
 public class ActiveDebuff

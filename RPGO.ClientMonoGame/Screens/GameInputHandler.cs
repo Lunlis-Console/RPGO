@@ -317,6 +317,8 @@ internal class GameInputHandler
         if (Chat.IsTyping || !(keyboard.IsKeyDown(Keys.Escape) && PrevKeyboard.IsKeyUp(Keys.Escape)))
             return;
 
+        if (PendingSkillId != null)
+            _ = game.Client.SendAsync("cancel_skill", new { });
         PendingSkillId = null;
         PendingSlot = -1;
         PendingSent = false;
@@ -352,14 +354,10 @@ internal class GameInputHandler
     {
         if (PendingSkillId == null) return;
 
-        if (Hud.InCombat && !PendingSent)
+        if (!PendingSent)
         {
             _ = game.Client.SendAsync("use_skill", new { SkillId = PendingSkillId });
             PendingSent = true;
-        }
-        else if (!Hud.InCombat)
-        {
-            PendingSent = false;
         }
     }
 
@@ -379,6 +377,7 @@ internal class GameInputHandler
                     PendingSkillId = null;
                     PendingSlot = -1;
                     PendingSent = false;
+                    _ = game.Client.SendAsync("cancel_skill", new { });
                     return;
                 }
 

@@ -14,4 +14,6 @@ public class Skill
     public double DamageMultiplier { get; set; } = 1.0; // множитель урона
     public int MinLevel { get; set; } = 1;            // мин. уровень для использования
     public int SkillPointCost { get; set; } = 1;      // стоимость в очках навыков
+    public string? ParentId { get; set; }              // ID родительского навыка (дерево)
+    public int Tier { get; set; } = 1;                 // тир в дереве навыков
 }
