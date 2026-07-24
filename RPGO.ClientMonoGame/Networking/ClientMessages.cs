@@ -57,7 +57,7 @@ public sealed class StatusData
     public int SkillPoints { get; set; }
     public int Speed { get; set; }
     public int MoveIntervalMs { get; set; }
-    public int AttackSpeed { get; set; }
+    public double AttackSpeed { get; set; }
     public int AttackIntervalMs { get; set; }
     public string WeaponDamageType { get; set; } = "";
     public double WeaponSpeedModifier { get; set; } = 1.0;

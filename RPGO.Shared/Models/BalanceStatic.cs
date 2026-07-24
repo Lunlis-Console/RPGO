@@ -16,6 +16,7 @@ public static class BalanceStatic
     public const double EvadeChancePerCunning = 1.0;
 
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
+    public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;
     public const int AttributePointsPerLevel = 3;
     public const int XpPerLevel = 50;

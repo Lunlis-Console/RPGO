@@ -17,20 +17,20 @@ public class BalanceTests
         => Assert.Equal(500, Balance.MoveIntervalMs(0));
 
     [Fact]
-    public void AttackIntervalMs_Speed1_Returns1000()
-        => Assert.Equal(1000, Balance.AttackIntervalMs(1));
+    public void AttackIntervalMs_Speed1_Returns2000()
+        => Assert.Equal(2000, Balance.AttackIntervalMs(1));
 
     [Fact]
-    public void AttackIntervalMs_Speed2_Returns500()
-        => Assert.Equal(500, Balance.AttackIntervalMs(2));
+    public void AttackIntervalMs_Speed2_Returns1000()
+        => Assert.Equal(1000, Balance.AttackIntervalMs(2));
 
     [Fact]
     public void GetAttackSpeed_Agi0_Returns1()
-        => Assert.Equal(1, Balance.GetAttackSpeed(0));
+        => Assert.Equal(1.0, Balance.GetAttackSpeed(0));
 
     [Fact]
-    public void GetAttackSpeed_Agi10_Returns2()
-        => Assert.Equal(2, Balance.GetAttackSpeed(10));
+    public void GetAttackSpeed_Agi10_Returns1Point625()
+        => Assert.Equal(1.625, Balance.GetAttackSpeed(10));
 
     [Fact]
     public void XpNeededForNextLevel_Level1_Returns50()

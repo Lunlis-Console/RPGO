@@ -163,6 +163,21 @@ public static class SpriteCache
 
     public static SpriteAnimation? GetShieldAttackAnimation(string dir) => GetAnimation($"weapon_shield_attack_{dir}");
 
+    public static SpriteAnimation? GetPlayerSecondAttackAnimation(string dir) => GetAnimation($"player_second_attack_{dir}");
+
+    public static SpriteAnimation? GetWeaponSecondAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_second_attack_{dir}");
+
+    public static SpriteAnimation? GetOffHandWeaponAnimation(string subtype, string dir, bool isMoving = false)
+    {
+        var anim = GetAnimation($"weapon_off_{subtype}_walk_{dir}");
+        if (isMoving && anim != null) return anim;
+        return GetAnimation($"weapon_off_{subtype}_idle_{dir}");
+    }
+
+    public static SpriteAnimation? GetOffHandWeaponAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_off_{subtype}_attack_{dir}");
+
+    public static SpriteAnimation? GetOffHandWeaponSecondAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_off_{subtype}_second_attack_{dir}");
+
     // Загружает описания анимаций (animations.json) и спрайт-листы из папки Content.
     // contentRoot — папка Content рядом с исполняемым файлом клиента.
     public static void LoadAnimations(string contentRoot)

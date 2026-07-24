@@ -31,7 +31,7 @@ public static class Balance
 
     // ===== ДВИЖЕНИЕ =====
     public const double BaseMoveMs = 500.0;
-    public const double AttackBaseMs = 1000.0;
+    public const double AttackBaseMs = 2000.0;
 
     // ===== БОЙ: АТРИБУТЫ (shared c BalanceStatic) =====
     public const int AttackPerStrength = BalanceStatic.AttackPerStrength;
@@ -52,7 +52,7 @@ public static class Balance
     public const int BaseDefensePerLevel = 1;
 
     public const int AttackSpeedBase = 1;
-    public const int AttackSpeedAgilityDivisor = 5;
+    public const int AttackSpeedAgilityDivisor = 12;
     public const double AgilityDrK = 30.0;
     public const int MinAttackIntervalMs = 300;
 
@@ -60,6 +60,7 @@ public static class Balance
     public const int ChanceRollMax = 100;
 
     // ===== ОПЫТ / УРОВНИ =====
+    public const int MaxLevel = 50;
     public const int XpPerLevel = 50;
     public const int MaxHealthPerLevel = 10;
     public const int MaxHealthPerEndurance = 5;
@@ -158,23 +159,22 @@ public static class Balance
     public static int MoveIntervalMs(int speed)
         => (int)(BaseMoveMs / Math.Max(1, speed));
 
-    public static int AttackIntervalMs(int attackSpeed)
-        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(1, attackSpeed)));
+    public static int AttackIntervalMs(double attackSpeed)
+        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, attackSpeed)));
 
-    public static int AttackIntervalMs(int baseAgilitySpeed, double weaponSpeedMod)
+    public static int AttackIntervalMs(double baseAgilitySpeed, double weaponSpeedMod)
         => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod))));
 
-    public static int GetAttackSpeed(int agility)
+    public static double GetAttackSpeed(int agility)
     {
         double effective = AgilityDrK * agility / (AgilityDrK + agility);
-        return Math.Max(1, AttackSpeedBase + (int)(effective / AttackSpeedAgilityDivisor));
+        return Math.Max(1.0, AttackSpeedBase + effective / AttackSpeedAgilityDivisor);
     }
 
-    public static int GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
+    public static double GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
     {
-        int baseSpeed = GetAttackSpeed(agility);
-        double effective = baseSpeed * Math.Max(0.1, weaponSpeedMod);
-        return Math.Max(1, (int)Math.Round(effective));
+        double baseSpeed = GetAttackSpeed(agility);
+        return Math.Max(1.0, baseSpeed * Math.Max(0.1, weaponSpeedMod));
     }
 
     public static int XpNeededForNextLevel(int level)

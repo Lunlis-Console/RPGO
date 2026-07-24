@@ -205,11 +205,18 @@ public class GameScreen : IScreen
                         Logger.Debug($"  slot '{kv.Key}' -> {(kv.Value != null ? kv.Value.Name : "null")}");
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);
-            // Оверлей щита: берём подтип из слота левой руки
+            // Оверлей левой руки: щит или второе оружие
             string? shieldSub = null;
-            if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("lhand", out var sItem) && sItem?.Type == "shield")
-                shieldSub = "shield";
+            string? offWeaponSub = null;
+            if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("lhand", out var lItem))
+            {
+                if (lItem?.Type == "shield")
+                    shieldSub = "shield";
+                else if (lItem?.Type == "weapon")
+                    offWeaponSub = lItem?.WeaponSubtype;
+            }
             _mapRenderer.SetShieldSubtype(shieldSub);
+            _mapRenderer.SetOffHandWeaponSubtype(offWeaponSub);
         };
         _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;

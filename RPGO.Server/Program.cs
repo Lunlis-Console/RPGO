@@ -22,7 +22,7 @@ partial class Program
     public static Task ProcessPendingInteraction(Player player, string interactionType)
         => Services.Interactions.ProcessPendingInteraction(player, interactionType);
 
-    public static int GetAttackSpeed(Player player)
+    public static double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
     static async Task Main()

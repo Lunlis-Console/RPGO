@@ -211,7 +211,7 @@ public class StatusWindow : GameWindow
             ("Крит %", $"{_data.CritChance}"),
             ("Крит x", $"{_data.CritDamage}"),
             ("Уклон %", $"{_data.EvadeChance}"),
-            ("Скор. атк", $"{_data.AttackSpeed}"),
+            ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)
         {
@@ -377,7 +377,7 @@ public class StatusWindow : GameWindow
         if (_data == null) return;
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, RowH), RowBg);
         DrawText(sb, "Скор. атк", cx + 6, cy + 3, DimColor);
-        DrawText(sb, $"атк.скор {_data.AttackSpeed}", cx + 120, cy + 3, DimColor);
+        DrawText(sb, $"атк.скор {_data.AttackSpeed:F1}", cx + 120, cy + 3, DimColor);
         DrawText(sb, $"оруж.множ. {_data.WeaponSpeedModifier:F1}x", cx + 240, cy + 3, DimColor);
         DrawText(sb, $"= {_data.AttackIntervalMs}мс", cx + cw - 80, cy + 3, StatColor);
         cy += RowH;

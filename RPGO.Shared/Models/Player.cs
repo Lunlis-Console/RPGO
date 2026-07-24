@@ -137,6 +137,7 @@ public class Player : ICombatant
     /// </summary>
     public bool TryLevelUp()
     {
+        if (Level >= BalanceStatic.MaxLevel) return false;
         int needed = BalanceStatic.XpNeededForNextLevel(Level);
         if (Experience < needed) return false;
         Level++;

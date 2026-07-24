@@ -90,7 +90,7 @@ public abstract class BaseHandler : IMessageHandler
     protected Task ReloadContent(ClientConnection? connection = null)
         => Program.ReloadContent(connection);
 
-    protected int GetAttackSpeed(Player player)
+    protected double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
     protected StatsBreakdown BuildBreakdown(Player player)

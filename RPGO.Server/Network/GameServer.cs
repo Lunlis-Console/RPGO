@@ -498,11 +498,11 @@ public sealed class GameServer : INetworkHub
         };
     }
 
-    internal static int GetAttackSpeed(Player player)
+    internal static double GetAttackSpeed(Player player)
     {
-        int baseSpeed = Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
+        double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
         double speedBuff = 1.0 + Program.Services.Debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
-        return (int)(baseSpeed * speedBuff);
+        return baseSpeed * speedBuff;
     }
 
     internal static int GetAttackIntervalMs(Player player)
