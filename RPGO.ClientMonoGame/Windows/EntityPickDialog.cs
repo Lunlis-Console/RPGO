@@ -14,7 +14,7 @@ namespace RPGGame.ClientMonoGame.Windows
         private List<EntityInfo> _entities = new();
         private int _mapX, _mapY;
         private Rectangle[] _rowRects = Array.Empty<Rectangle>();
-        private MouseState _prevMouse;
+        private new MouseState _prevMouse;
 
         public Action<EntityInfo, int, int>? OnPick { get; set; }
 

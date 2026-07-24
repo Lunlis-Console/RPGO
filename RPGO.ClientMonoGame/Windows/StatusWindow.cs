@@ -10,7 +10,7 @@ namespace RPGGame.ClientMonoGame.Windows;
 public class StatusWindow : GameWindow
 {
     private StatusData? _data;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private Rectangle[] _attrBtnRects = Array.Empty<Rectangle>();
 
     private int _scrollY;
@@ -299,7 +299,7 @@ public class StatusWindow : GameWindow
         _ => "accessory"
     };
 
-    private void DrawButton(SpriteBatch sb, string text, int x, int y, int w, int h, Color bg, MouseState mouse, MouseState prevMouse)
+    private new void DrawButton(SpriteBatch sb, string text, int x, int y, int w, int h, Color bg, MouseState mouse, MouseState prevMouse)
     {
         var rect = new Rectangle(x, y, w, h);
         bool hover = rect.Contains(mouse.X, mouse.Y);

@@ -189,7 +189,7 @@ public class GameScreen : IScreen
         {
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
-            _equipmentWindow.UpdateData(inv.Equipment);
+            if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
             // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
             if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("rhand", out var wItem))
@@ -322,7 +322,7 @@ public class GameScreen : IScreen
         {
             _questLogWindow.UpdateActive(active);
             _activeQuests = active ?? new List<QuestInfo>();
-            _questBoardWindow.UpdateData(available, active);
+            _questBoardWindow.UpdateData(available, _activeQuests);
         };
         client.LootReceived += (corpseId, monsterName, damagePct, items, gold) =>
         {

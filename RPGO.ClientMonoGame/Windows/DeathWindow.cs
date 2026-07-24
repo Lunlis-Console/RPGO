@@ -9,7 +9,7 @@ public class DeathWindow : GameWindow
 {
     private float _remaining = 5f;
     private Rectangle _reviveRect = Rectangle.Empty;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private string _lostGoldText = "";
 
     public Action? ReviveRequested { get; set; }

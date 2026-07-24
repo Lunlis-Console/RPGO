@@ -16,8 +16,9 @@ public class LootWindow : GameWindow
     private int _damagePct;
     private List<LootItemInfo> _items = new();
     private int _gold;
+#pragma warning disable CS0414
     private int _goldTaken;
-
+#pragma warning restore CS0414
     private int _dragIndex = -1;
     private Point _dragStart;
     private Point _dragPos;

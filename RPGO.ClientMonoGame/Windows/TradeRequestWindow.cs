@@ -11,7 +11,7 @@ public class TradeRequestWindow : GameWindow
     private string _inviterName = "";
     private Rectangle _acceptRect = Rectangle.Empty;
     private Rectangle _declineRect = Rectangle.Empty;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
 
     public Action<string>? Accepted { get; set; }
     public Action<string>? Declined { get; set; }

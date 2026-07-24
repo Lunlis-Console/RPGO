@@ -196,7 +196,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task BroadcastChatAsync(string playerName, string text)
     {
-        bool isAdmin = _world.TryGetPlayerByName(playerName, out var sender) && sender.IsAdmin;
+        bool isAdmin = _world.TryGetPlayerByName(playerName, out var sender) && sender!.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
@@ -206,7 +206,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task BroadcastChatAsync(ChatChannel channel, string from, string text)
     {
-        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender!.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
             Type = "chat",
@@ -216,7 +216,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null)
     {
-        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender.IsAdmin;
+        bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender!.IsAdmin;
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

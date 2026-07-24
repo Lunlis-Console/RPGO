@@ -25,7 +25,7 @@ public class ShopWindow : GameWindow
 
     private int _hoverItem = -1;
     private Rectangle[,] _slotRects = new Rectangle[GridCols, GridRows];
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private int _lastClickIdx = -1;
     private TimeSpan _lastClickTime;
 

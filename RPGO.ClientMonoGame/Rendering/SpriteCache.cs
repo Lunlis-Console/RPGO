@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Reflection;
+using System.Runtime.Versioning;
 using System.Text.Json;
 
 namespace RPGGame.ClientMonoGame.Rendering;
@@ -252,6 +253,7 @@ public static class SpriteCache
 /// </summary>
 internal static class FontGenerator
 {
+    [SupportedOSPlatform("windows")]
     private static System.Drawing.Font CreateFont(string preferred, float size)
     {
         var candidates = new[] { preferred, "Segoe UI", "Verdana", "Tahoma", "Arial", "Calibri" };
@@ -270,6 +272,7 @@ internal static class FontGenerator
         return new System.Drawing.Font("Segoe UI", size, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
     }
 
+    [SupportedOSPlatform("windows")]
     public static SpriteFont Generate(GraphicsDevice device, string fontFamily, float fontSize)
     {
         string chars = BuildCharSet();

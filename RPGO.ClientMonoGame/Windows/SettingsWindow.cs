@@ -19,7 +19,7 @@ public class SettingsWindow : GameWindow
     private int _resIndex;
 
     private ComboWidget? _openCombo;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
 
     public Action? ApplyRequested { get; set; }
     public Action? LogoutRequested { get; set; }

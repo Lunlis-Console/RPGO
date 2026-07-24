@@ -10,7 +10,7 @@ public sealed class QuestLogWindow : GameWindow
 {
     private List<QuestInfo> _quests = new();
     private int _scrollOffset;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private readonly List<(Rectangle Rect, string QuestId)> _cardButtons = new();
 
     public Action<string>? AbandonQuest { get; set; }

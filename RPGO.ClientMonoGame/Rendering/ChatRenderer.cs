@@ -83,7 +83,6 @@ public class ChatRenderer
 
     private int CountVisibleLines()
     {
-        int lineH = 14;
         var fontSmall = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (fontSmall == null) return 0;
         float maxTextW = _lastW - 16;

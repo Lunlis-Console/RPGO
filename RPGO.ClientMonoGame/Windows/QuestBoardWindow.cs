@@ -11,7 +11,7 @@ public sealed class QuestBoardWindow : GameWindow
     private List<QuestInfo> _available = new();
     private List<QuestInfo> _active = new();
     private int _scrollOffset;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private int _tab; // 0 = Доступные, 1 = Активные, 2 = Сдать
 
     private static readonly string[] Tabs = { "Доступные", "Активные", "Сдать" };

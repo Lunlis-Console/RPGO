@@ -10,8 +10,10 @@ public class DialogueWindow : GameWindow
     private string _speaker = "";
     private string _text = "";
     private List<DialogueChoiceUi> _choices = new();
+#pragma warning disable CS0414
     private int _scrollY;
-    private MouseState _prevMouse;
+#pragma warning restore CS0414
+    private new MouseState _prevMouse;
     private bool _wasVisible;
 
     public event Action<int>? ChoiceSelected;

@@ -80,11 +80,11 @@ public abstract class BaseHandler : IMessageHandler
         }
 
         var fromConn = World.FindClientByPlayer(from);
-        var toConn = World.FindClientByPlayer(target);
+        var toConn = World.FindClientByPlayer(target!);
         if (toConn != null)
-            await SendChatToAsync(toConn, ChatChannel.Whisper, from.Name, text, to: target.Name);
+            await SendChatToAsync(toConn, ChatChannel.Whisper, from.Name, text, to: target!.Name);
         if (fromConn != null)
-            await SendChatToAsync(fromConn, ChatChannel.Whisper, from.Name, text, to: target.Name);
+            await SendChatToAsync(fromConn, ChatChannel.Whisper, from.Name, text, to: target!.Name);
     }
 
     protected Task ReloadContent(ClientConnection? connection = null)

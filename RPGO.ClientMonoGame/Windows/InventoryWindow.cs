@@ -42,7 +42,7 @@ public class InventoryWindow : GameWindow
     private int _lastClickIdx = -1;
     private TimeSpan _lastClickTime;
 
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private KeyboardState _prevKey;
 
     private const int GridCols = 10;

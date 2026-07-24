@@ -10,7 +10,7 @@ public class LogoutConfirmWindow : GameWindow
     private float _remaining = 5f;
     private Rectangle _confirmRect = Rectangle.Empty;
     private Rectangle _cancelRect = Rectangle.Empty;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
 
     public Action? Confirmed { get; set; }
     public Action? Cancelled { get; set; }

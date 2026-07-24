@@ -42,7 +42,7 @@ namespace RPGGame.ClientMonoGame.Windows
         private StringBuilder _goldInputBuffer = new();
         private KeyboardState _prevKeyboard;
 
-        private MouseState _prevMouse;
+        private new MouseState _prevMouse;
         private int _prevScrollWheel;
         private bool _wasVisible;
         private TradeItemData? _hoverItem;
@@ -455,7 +455,7 @@ namespace RPGGame.ClientMonoGame.Windows
 
             if (available > 1)
             {
-                RequestQuantity?.Invoke(item.Name, available, 1, qty =>
+                RequestQuantity?.Invoke(item.Name ?? "", available, 1, qty =>
                 {
                     qty = Math.Min(qty, available);
                     Logger.Debug($"ОБМЕН: добавление в оффер '{item.Name}' x{qty}");
@@ -518,7 +518,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             return _myOfferItems
                 .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
+                .Select(g => new KeyValuePair<string, int>(g.Key!, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
@@ -526,12 +526,12 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             var offeredQty = _myOfferItems
                 .GroupBy(i => i.Id)
-                .ToDictionary(g => g.Key, g => g.Sum(i => Math.Max(1, i.Quantity)));
+                .ToDictionary(g => g.Key!, g => g.Sum(i => Math.Max(1, i.Quantity)));
 
             var result = new List<TradeItemData>();
             foreach (var inv in _myInventoryItems)
             {
-                int avail = inv.Quantity - (offeredQty.TryGetValue(inv.Id, out var q) ? q : 0);
+                int avail = inv.Quantity - (offeredQty.TryGetValue(inv.Id ?? "", out var q) ? q : 0);
                 if (avail <= 0) continue;
                 result.Add(inv.WithQuantity(avail));
             }
@@ -542,7 +542,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             return GetAvailableInventory()
                 .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
+                .Select(g => new KeyValuePair<string, int>(g.Key!, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
@@ -550,7 +550,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             return _theirOfferItems
                 .GroupBy(i => i.Id)
-                .Select(g => new KeyValuePair<string, int>(g.Key, g.Sum(i => Math.Max(1, i.Quantity))))
+                .Select(g => new KeyValuePair<string, int>(g.Key!, g.Sum(i => Math.Max(1, i.Quantity))))
                 .ToList();
         }
 
@@ -788,7 +788,7 @@ namespace RPGGame.ClientMonoGame.Windows
                 .GroupBy(i => i.Id)
                 .Select(gr => new TradeOfferEntry
                 {
-                    ItemId = gr.Key,
+                    ItemId = gr.Key ?? "",
                     Quantity = gr.Sum(i => Math.Max(1, i.Quantity))
                 })
                 .ToList();
@@ -799,7 +799,7 @@ namespace RPGGame.ClientMonoGame.Windows
             return rect.Contains(mouse.X, mouse.Y) && mouse.LeftButton == ButtonState.Pressed;
         }
 
-        private static void DrawText(SpriteBatch sb, string text, int x, int y, Color color, SpriteFont font)
+        private static new void DrawText(SpriteBatch sb, string text, int x, int y, Color color, SpriteFont font)
             => UIHelper.DrawText(sb, text, x, y, color, font);
     }
 }

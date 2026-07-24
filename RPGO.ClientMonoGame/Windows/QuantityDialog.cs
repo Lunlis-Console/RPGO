@@ -13,7 +13,7 @@ namespace RPGGame.ClientMonoGame.Windows
         private int _maxQuantity;
         private int _pricePerUnit;
         private KeyboardState _prevKeyboard;
-        private MouseState _prevMouse;
+        private new MouseState _prevMouse;
         private bool _sliderDrag;
 
         private Rectangle _trackRect;

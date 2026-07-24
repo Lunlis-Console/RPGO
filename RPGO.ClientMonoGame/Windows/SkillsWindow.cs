@@ -11,7 +11,7 @@ public class SkillsWindow : GameWindow
     private List<ClientSkillInfo> _skills = new();
     private int _playerLevel = 1;
     private int _skillPoints;
-    private MouseState _prevMouse;
+    private new MouseState _prevMouse;
     private KeyboardState _prevKey;
     private NodeLayout? _hoverNode;
 
