@@ -486,16 +486,17 @@ public class HudRenderer
 
         string line1 = hit.Debuff.DisplayName;
         string line2 = hit.Debuff.Description;
-        string line3 = $"Осталось: {hit.Debuff.RemainingMs / 1000}с";
+        bool showDuration = hit.Debuff.Type != "DualWieldBonus";
+        string? line3 = showDuration ? $"Осталось: {hit.Debuff.RemainingMs / 1000}с" : null;
 
         var s1 = fontSmall.MeasureString(line1);
         var s2 = string.IsNullOrEmpty(line2) ? Vector2.Zero : fontSmall.MeasureString(line2);
-        var s3 = fontSmall.MeasureString(line3);
+        var s3 = string.IsNullOrEmpty(line3) ? Vector2.Zero : fontSmall.MeasureString(line3);
 
         int pad = 8;
         int lineGap = 4;
         float lineH = s1.Y;
-        int lines = 1 + (string.IsNullOrEmpty(line2) ? 0 : 1) + 1;
+        int lines = 1 + (string.IsNullOrEmpty(line2) ? 0 : 1) + (string.IsNullOrEmpty(line3) ? 0 : 1);
 
         int tipW = (int)Math.Max(s1.X, Math.Max(s2.X, s3.X)) + pad * 2;
         int tipH = (int)(lineH * lines + lineGap * (lines - 1) + pad * 2);
@@ -515,7 +516,8 @@ public class HudRenderer
             sb.DrawString(fontSmall, line2, new Vector2(cx, cy), new Color(170, 175, 190));
             cy += lineH + lineGap;
         }
-        sb.DrawString(fontSmall, line3, new Vector2(cx, cy), new Color(180, 140, 100));
+        if (!string.IsNullOrEmpty(line3))
+            sb.DrawString(fontSmall, line3, new Vector2(cx, cy), new Color(180, 140, 100));
     }
 
     private static void DrawDebuffIcon(SpriteBatch sb, Rectangle rect, DebuffInfo d)
@@ -527,6 +529,8 @@ public class HudRenderer
             "DamageReduction" => new Color(40, 80, 160),
             "AccuracyReduction" => new Color(120, 50, 160),
             "CleaveReady" => new Color(180, 160, 40),
+            "AttackSpeedBonus" => new Color(60, 160, 80),
+            "DualWieldBonus" => new Color(200, 140, 60),
             _ => new Color(80, 80, 100)
         };
         sb.Draw(SpriteCache.Pixel, rect, bg);

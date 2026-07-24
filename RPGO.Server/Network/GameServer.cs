@@ -260,6 +260,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendInventoryAndStatus(ClientConnection connection, Player player)
     {
+        Program.Services.Debuffs.RefreshDualWieldBuff(player);
         await SendToClient(connection, new GameMessage
         {
             Type = "inventory_response",

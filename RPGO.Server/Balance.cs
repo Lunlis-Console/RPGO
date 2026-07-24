@@ -75,6 +75,10 @@ public static class Balance
     public const double OffHandDamageFraction = 0.5;
     public const int OffHandDelayMs = 250;
 
+    // ===== DUAL WIELD STATUS EFFECT =====
+    public const double DualWieldBonusValue = 0.15;
+    public const int DualWieldBuffRefreshMs = 60000;
+
     // ===== РЕГЕНЕРАЦИЯ (игрок) =====
     public const int PlayerRegenInCombatDelayMs = 4000;
     public const int PlayerRegenOutOfCombatHeal = 5;

@@ -118,9 +118,12 @@ public class GameServerHost
                 foreach (var pl in _svc.World.GetPlayersSnapshot())
                 {
                     if (pl.IsDead) continue;
-                    if (pl.ActiveDebuffs.Count > 0)
-                    {
+                    bool dualWieldChanged = _svc.Debuffs.CheckDualWieldBuff(pl);
+                    bool hasDebuffs = pl.ActiveDebuffs.Count > 0;
+                    if (hasDebuffs)
                         _svc.Debuffs.TickDebuffs(pl);
+                    if (dualWieldChanged || hasDebuffs)
+                    {
                         var conn = _svc.World.FindClientByPlayer(pl);
                         if (conn != null) await _svc.Hub.SendStatusAsync(conn, pl);
                     }

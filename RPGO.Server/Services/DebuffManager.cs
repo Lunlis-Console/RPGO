@@ -68,6 +68,40 @@ public class DebuffManager
     public void ClearDebuffs(Player target) => target.ActiveDebuffs.Clear();
     public void ClearDebuffs(Monster target) => target.ActiveDebuffs.Clear();
 
+    public void RefreshDualWieldBuff(Player target)
+    {
+        var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == DebuffType.DualWieldBonus);
+        if (target.Equipment.IsDualWielding())
+        {
+            if (existing != null)
+            {
+                existing.RemainingMs = Balance.DualWieldBuffRefreshMs;
+                existing.DurationMs = Balance.DualWieldBuffRefreshMs;
+            }
+            else
+            {
+                ApplyDebuff(target, ActiveDebuff.Create(DebuffType.DualWieldBonus, Balance.DualWieldBonusValue,
+                    Balance.DualWieldBuffRefreshMs, "passive", "Второе оружие",
+                    $"Двойная атака, +{(int)(Balance.DualWieldBonusValue * 100)}% к скорости атаки"));
+            }
+        }
+        else if (existing != null)
+        {
+            target.ActiveDebuffs.Remove(existing);
+        }
+    }
+
+    /// <summary>
+    /// Обновляет/удаляет бафф двойного оружия. Возвращает true, если состояние изменилось.
+    /// </summary>
+    public bool CheckDualWieldBuff(Player target)
+    {
+        bool hadBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
+        RefreshDualWieldBuff(target);
+        bool hasBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
+        return hadBuff != hasBuff;
+    }
+
     public (ActiveDebuff Debuff, bool IsNew) OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
     {
         var rng = new Random();
