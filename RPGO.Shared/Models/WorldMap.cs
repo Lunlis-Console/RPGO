@@ -16,6 +16,12 @@ public class WorldMap
     public List<CollectiblePosition> Collectibles { get; set; } = new();
     public List<CorpsePosition> Corpses { get; set; } = new();
     public List<NpcPosition> Npcs { get; set; } = new();
+
+    // Зона
+    public string ZoneId { get; set; } = "main";
+    public string ZoneName { get; set; } = "";
+    public bool PvPEnabled { get; set; }
+    public List<PortalPosition> Portals { get; set; } = new();
 }
 
 public class PlayerPosition
@@ -39,11 +45,12 @@ public class MerchantPosition
 public class CollectiblePosition
 {
     public string Id { get; set; } = "";
-    public int X { get; set; }
-    public int Y { get; set; }
     public string Name { get; set; } = "";
     public string ItemName { get; set; } = "";
     public char Symbol { get; set; }
+    public int X { get; set; }
+    public int Y { get; set; }
+    public string ZoneId { get; set; } = "main";
 }
 
 public class CorpsePosition
@@ -55,6 +62,7 @@ public class CorpsePosition
     public char Symbol { get; set; }
     public int Level { get; set; }
     public int ItemCount { get; set; }
+    public string ZoneId { get; set; } = "main";
 }
 
 public class NpcPosition
@@ -66,4 +74,11 @@ public class NpcPosition
     public int Y { get; set; }
     public bool HasDialogue { get; set; }
     public string? QuestIndicator { get; set; }
+}
+
+public class PortalPosition
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public string TargetZone { get; set; } = "";
 }

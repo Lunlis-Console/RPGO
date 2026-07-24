@@ -380,6 +380,8 @@ public class MapRenderer
         StartInteraction(entity, mapX, mapY);
         if (entity.Type != "player")
             InteractRequested?.Invoke(entity, mapX, mapY);
+        else if (_currentMap?.PvPEnabled == true)
+            InteractRequested?.Invoke(entity, mapX, mapY);
     }
 
     private void HandleSingleEntityRightClick(EntityInfo entity, int mapX, int mapY)
@@ -550,8 +552,9 @@ public class MapRenderer
         _gridOX -= subCellX;
         _gridOY -= subCellY;
 
-        // Тайлы (слой земли) — спрайт травы на каждую клетку (+2px по краям из-за sub-cell offset)
-        var grass = SpriteCache.GetGrassSprite();
+        // Тайлы (слой земли) — спрайт травы/песка на каждую клетку (+2px по краям из-за sub-cell offset)
+        bool isSandy = map.ZoneId == "arena";
+        var grass = isSandy ? SpriteCache.GetSandSprite() : SpriteCache.GetGrassSprite();
         int viewW = _viewEndX - _viewStartX + 1;
         int viewH = _viewEndY - _viewStartY + 1;
         for (int y = -1; y <= viewH + 1; y++)
@@ -567,6 +570,22 @@ public class MapRenderer
                     sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
                 else
                     sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
+            }
+        }
+
+        // Порталы
+        if (map.Portals != null)
+        {
+            foreach (var portal in map.Portals)
+            {
+                int px = portal.X, py = portal.Y;
+                if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
+                {
+                    float ptx = _gridOX + (px - _viewStartX) * _cellW;
+                    float pty = _gridOY + (py - _viewStartY) * _cellH;
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(120, 60, 200, 180));
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(160, 100, 255, 200));
+                }
             }
         }
 
@@ -1007,9 +1026,11 @@ public class MapRenderer
             float centerX = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
 
             Color groupColor = new Color(110, 230, 130);
+            Color pvpEnemyColor = new Color(220, 60, 60);
             Color nickColor = p.Name == _playerName
                 ? Color.Goldenrod
-                : (_partyMemberNames.Contains(p.Name) ? groupColor : Color.LightGray);
+                : (_partyMemberNames.Contains(p.Name) ? groupColor
+                    : (map.PvPEnabled ? pvpEnemyColor : Color.LightGray));
 
             // Имя + уровень
             string nick = $"{p.Name} [{p.Level}]";

@@ -86,6 +86,7 @@ public class ReconnectHandler : BaseHandler
             p.MaxMana,
             p.Experience,
             p.AttributePoints,
+            p.SkillPoints,
             p.Strength,
             p.Endurance,
             p.Agility,

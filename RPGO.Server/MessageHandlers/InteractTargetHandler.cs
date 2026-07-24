@@ -18,6 +18,7 @@ public class InteractTargetHandler : BaseHandler
         int targetX = interEl.TryGetProperty("X", out var txProp) ? txProp.GetInt32() : -1;
         int targetY = interEl.TryGetProperty("Y", out var tyProp) ? tyProp.GetInt32() : -1;
         string? monsterIdStr = interEl.TryGetProperty("MonsterId", out var midProp) ? midProp.GetString() : null;
+        string? playerIdStr = interEl.TryGetProperty("PlayerId", out var pidProp) ? pidProp.GetString() : null;
 
         if (entityType == null || targetX < 0 || targetY < 0) return;
 
@@ -38,7 +39,7 @@ public class InteractTargetHandler : BaseHandler
                 return;
             }
 
-            player.Combat.Enter(interMonster.Id, player.Movement);
+            player.Combat.EnterMonster(interMonster.Id, player.Movement);
 
             var w = player.Equipment[EquipmentSlots.RightHand];
             Log.Debug($"[Interact] {player.Name} -> {interMonster.Name}: weapon='{w?.Name ?? "null"}' AttackRange={w?.AttackRange ?? -1} TemplateId='{w?.TemplateId ?? ""}'");
@@ -68,7 +69,63 @@ public class InteractTargetHandler : BaseHandler
             return;
         }
 
-        // Не-монстры: магазин, доска, собиратель
+        if (entityType == "player")
+        {
+            // PvP: проверяем что зона поддерживает PvP
+            if (!Program.Services.Zones.IsPvPEnabled(player.CurrentZoneId))
+            {
+                await SendError(connection, ErrorCodes.TargetNotFound, "PvP доступно только на Арене!");
+                return;
+            }
+
+            // Находим цель
+            Player? targetPlayer = null;
+            if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid pid))
+                targetPlayer = Program.Services.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == pid && p.CurrentZoneId == player.CurrentZoneId);
+            if (targetPlayer == null)
+                targetPlayer = Program.Services.World.GetPlayersSnapshot().FirstOrDefault(p => p.X == targetX && p.Y == targetY && p.CurrentZoneId == player.CurrentZoneId);
+
+            if (targetPlayer == null || targetPlayer.IsDead)
+            {
+                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
+                return;
+            }
+
+            if (targetPlayer.Id == player.Id)
+            {
+                await SendError(connection, ErrorCodes.TargetNotFound, "Нельзя атаковать себя!");
+                return;
+            }
+
+            player.Combat.EnterPlayer(targetPlayer.Id, player.Movement);
+
+            Log.Debug($"{player.Name} вступил в PvP бой с {targetPlayer.Name} ({targetPlayer.X},{targetPlayer.Y})");
+
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "combat_state",
+                Data = new
+                {
+                    InCombat = true,
+                    TargetId = targetPlayer.Id.ToString(),
+                    TargetName = targetPlayer.Name,
+                    TargetHp = targetPlayer.Health,
+                    TargetMaxHp = targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth(),
+                    TargetX = targetPlayer.X,
+                    TargetY = targetPlayer.Y,
+                    IsPvP = true
+                }
+            });
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
+            });
+            await BroadcastMapAsync();
+            return;
+        }
+
+        // Не-монстры и не-игроки: магазин, доска, собиратель
         player.Combat.Cancel();
 
         int distToTarget = Math.Abs(player.X - targetX) + Math.Abs(player.Y - targetY);

@@ -71,8 +71,9 @@ public class CompleteQuestHandler : BaseHandler
 
         if (player.TryLevelUp())
         {
-            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов");
-            await SendToClient(connection, GameMessage.SystemChat($"Уровень повышен! Вы теперь уровень {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов. HP восстановлены."));
+            string skillMsg = player.Level % 2 == 0 ? $" +1 очко навыков." : "";
+            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов{skillMsg}");
+            await SendToClient(connection, GameMessage.SystemChat($"Уровень повышен! Вы теперь уровень {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов.{skillMsg} HP восстановлены."));
         }
 
         await SendQuestLog(connection, player);

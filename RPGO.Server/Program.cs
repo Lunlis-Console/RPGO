@@ -53,12 +53,14 @@ partial class Program
         var projectiles = new ProjectileManager(world);
         var dialogue = new DialogueManager(world, quests, merchant);
         var pathfinding = new PathfindingService(world, merchant, quests);
+        var zones = new ZoneManager();
 
-        Log.Info("Загрузка данных (предметы, квесты)...");
+        Log.Info("Загрузка данных (предметы, квесты, зоны)...");
         merchant.Initialize();
         quests.Initialize();
         dialogue.LoadAll();
         loot.LoadFromDatabase();
+        zones.LoadAll();
 
         Log.Info("Загрузка монстров...");
         monsters.Initialize();
@@ -77,7 +79,7 @@ partial class Program
         // Создаём контейнер сервисов (временно без Combat/Interactions/Auth — циклическая зависимость)
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat: null!, interactions: null!, auth: null!);
+            combat: null!, interactions: null!, auth: null!, zones);
 
         // Создаём сервисы, зависящие от GameServices
         var combat = new CombatService(Services);
@@ -87,7 +89,7 @@ partial class Program
         // Пересоздаём контейнер с полным набором сервисов
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, interactions, auth);
+            combat, interactions, auth, zones);
 
         // Передаём GameServices в KillService
         killService.SetGameServices(Services);

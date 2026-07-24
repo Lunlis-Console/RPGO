@@ -16,12 +16,15 @@ public class PlayerData
     public int Intellect { get; set; } = 1;
     public int Wisdom { get; set; } = 1;
     public int AttributePoints { get; set; }
+    public int SkillPoints { get; set; }
+    public List<string> LearnedSkills { get; set; } = new();
     public int Speed { get; set; } = 1;
     public List<Item> Inventory { get; set; } = new();
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
     public Guid? PartyId { get; set; }
+    public string CurrentZoneId { get; set; } = "main";
 }
 
 public class Account
@@ -49,6 +52,7 @@ public class Item
     public int Value { get; set; }
     public int MaxHealthBonus { get; set; }
     public int HealAmount { get; set; }
+    public int RestoreMana { get; set; }
     public string Description { get; set; } = "";
     public int Stock { get; set; } = 1;
     public int MaxStack { get; set; } = 10;

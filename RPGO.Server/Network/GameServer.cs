@@ -41,47 +41,65 @@ public sealed class GameServer : INetworkHub
         foreach (var client in clientsCopy)
         {
             var player = client.Player!;
-            int viewRadius = _world.Map.ViewRadius;
+            string zoneId = player.CurrentZoneId;
+            var zone = svc.Zones.GetZone(zoneId);
+            var zoneMap = svc.Zones.GetOrCreateMap(zoneId);
+            int viewRadius = zoneMap.ViewRadius;
+            bool isPvp = zone?.PvpEnabled ?? false;
+
             var nearbyMonsters = allMonsters.Where(m =>
+                m.ZoneId == zoneId &&
                 Math.Abs(m.X - player.X) <= viewRadius &&
                 Math.Abs(m.Y - player.Y) <= viewRadius
             ).ToList();
 
             var nearbyCollectibles = allCollectibles.Where(c =>
+                c.ZoneId == zoneId &&
                 Math.Abs(c.X - player.X) <= viewRadius &&
                 Math.Abs(c.Y - player.Y) <= viewRadius
             ).ToList();
 
             var nearbyCorpses = allCorpses.Where(c =>
+                c.ZoneId == zoneId &&
                 Math.Abs(c.X - player.X) <= viewRadius &&
                 Math.Abs(c.Y - player.Y) <= viewRadius
             ).ToList();
 
-            var allPlayerPositions = clientsCopy.Select(c => new PlayerPosition
-            {
-                Id = c.Player!.Id,
-                Name = c.Player!.Name,
-                X = c.Player!.X,
-                Y = c.Player!.Y,
-                Level = c.Player!.Level,
-                Health = c.Player!.Health,
-                MaxHealth = c.Player!.MaxHealth
-            }).ToList();
+            var sameZonePlayers = clientsCopy
+                .Where(c => c.Player != null && c.Player.CurrentZoneId == zoneId)
+                .Select(c => new PlayerPosition
+                {
+                    Id = c.Player!.Id,
+                    Name = c.Player!.Name,
+                    X = c.Player!.X,
+                    Y = c.Player!.Y,
+                    Level = c.Player!.Level,
+                    Health = c.Player!.Health,
+                    MaxHealth = c.Player!.MaxHealth
+                }).ToList();
+
+            var portals = svc.Zones.GetPortalsForZone(zoneId)
+                .Select(p => new PortalPosition { X = p.FromX, Y = p.FromY, TargetZone = p.ToZone })
+                .ToList();
 
             var mapData = new WorldMap
             {
-                Width = _world.Map.Width,
-                Height = _world.Map.Height,
-                Players = allPlayerPositions,
-                Merchant = merchant,
-                Board = board,
+                Width = zoneMap.Width,
+                Height = zoneMap.Height,
+                Players = sameZonePlayers,
+                Merchant = (zoneId == "main") ? merchant : null,
+                Board = (zoneId == "main") ? board : null,
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
                 Corpses = nearbyCorpses,
                 Npcs = allNpcs.Where(n =>
                     Math.Abs(n.X - player.X) <= viewRadius &&
                     Math.Abs(n.Y - player.Y) <= viewRadius
-                ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
+                ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList(),
+                ZoneId = zoneId,
+                ZoneName = zone?.Name ?? zoneId,
+                PvPEnabled = isPvp,
+                Portals = portals
             };
 
             await SendToClient(client, new GameMessage
@@ -238,6 +256,7 @@ public sealed class GameServer : INetworkHub
                 player.Intellect,
                 player.Wisdom,
                 player.AttributePoints,
+                player.SkillPoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
@@ -309,6 +328,7 @@ public sealed class GameServer : INetworkHub
                 Intellect = player.Intellect,
                 player.Wisdom,
                 player.AttributePoints,
+                player.SkillPoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),

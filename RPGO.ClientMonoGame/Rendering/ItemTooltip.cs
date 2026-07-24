@@ -100,7 +100,7 @@ public static class ItemTooltip
         return lines;
     }
 
-    public static List<string> BuildLinesForTrade(string name, string type, int value, int attack, int defense, int maxHealth, int heal, string description)
+    public static List<string> BuildLinesForTrade(string name, string type, int value, int attack, int defense, int maxHealth, int heal, int restoreMana, string description)
     {
         var lines = new List<string>
         {
@@ -113,6 +113,7 @@ public static class ItemTooltip
         if (defense > 0) lines.Add($"Защита: +{defense}");
         if (maxHealth > 0) lines.Add($"Здоровье: +{maxHealth}");
         if (heal > 0) lines.Add($"Лечение: +{heal}");
+        if (restoreMana > 0) lines.Add($"Мана: +{restoreMana}");
         if (!string.IsNullOrEmpty(description)) lines.Add(description);
 
         return lines;
@@ -165,5 +166,6 @@ public static class ItemTooltip
 
         if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
         if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
+        if (item.RestoreMana > 0) lines.Add($"Мана: +{item.RestoreMana}");
     }
 }

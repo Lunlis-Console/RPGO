@@ -10,6 +10,7 @@ public class Collectible
     public char Symbol { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
+    public string ZoneId { get; set; } = "main";
 }
 
 /// <summary>
@@ -50,20 +51,22 @@ public class CollectibleManager
         foreach (var template in _templates)
         {
             for (int i = 0; i < template.Count; i++)
-                SpawnOne(template.Name, template.ItemName, template.Symbol);
+                SpawnOne(template.Name, template.ItemName, template.Symbol, "main");
         }
     }
 
-    private void SpawnOne(string name, string itemName, char symbol)
+    private void SpawnOne(string name, string itemName, char symbol, string zoneId)
     {
+        int mapW = _world.Map.Width;
+        int mapH = _world.Map.Height;
         int x, y;
         int attempts = 0;
         do
         {
-            x = _world.NextRandom(0, _world.Map.Width);
-            y = _world.NextRandom(0, _world.Map.Height);
+            x = _world.NextRandom(0, mapW);
+            y = _world.NextRandom(0, mapH);
             attempts++;
-        } while (IsOccupied(x, y) && attempts < Balance.SpawnMaxAttempts);
+        } while (IsOccupied(x, y, zoneId) && attempts < Balance.SpawnMaxAttempts);
 
         if (attempts >= Balance.SpawnMaxAttempts) return;
 
@@ -74,7 +77,8 @@ public class CollectibleManager
             ItemName = itemName,
             Symbol = symbol,
             X = x,
-            Y = y
+            Y = y,
+            ZoneId = zoneId
         });
     }
 
@@ -87,20 +91,21 @@ public class CollectibleManager
             Y = c.Y,
             Name = c.Name,
             ItemName = c.ItemName,
-            Symbol = c.Symbol
+            Symbol = c.Symbol,
+            ZoneId = c.ZoneId
         }).ToList();
     }
 
-    public Item? TryCollect(int x, int y)
+    public Item? TryCollect(int x, int y, string zoneId)
     {
         var collectible = _world.FindCollectibleAt(x, y);
-        if (collectible == null) return null;
+        if (collectible == null || collectible.ZoneId != zoneId) return null;
 
         string itemName = collectible.ItemName;
         string collectibleName = collectible.Name;
         string itemId = _itemIdByCollectibleName.TryGetValue(itemName, out var id) ? id : Guid.NewGuid().ToString();
         _world.RemoveCollectible(collectible);
-        SpawnOne(collectibleName, itemName, collectible.Symbol);
+        SpawnOne(collectibleName, itemName, collectible.Symbol, collectible.ZoneId);
 
         return new Item
         {
@@ -113,6 +118,6 @@ public class CollectibleManager
         };
     }
 
-    public bool IsOccupied(int x, int y)
-        => _world.GetCollectiblesSnapshot().Any(c => c.X == x && c.Y == y);
+    public bool IsOccupied(int x, int y, string zoneId)
+        => _world.GetCollectiblesSnapshot().Any(c => c.X == x && c.Y == y && c.ZoneId == zoneId);
 }

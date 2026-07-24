@@ -38,6 +38,7 @@ public static class MessageHandlerRegistry
         Register("inventory_sort", new InventorySortHandler(world, hub));
         Register("drop_item", new DropItemHandler(world, hub));
         Register("allocate_attribute", new AllocateAttributeHandler(world, hub));
+        Register("allocate_skill", new AllocateSkillHandler(world, hub));
         Register("quest_log_request", new QuestLogRequestHandler(world, hub));
         Register("take_quest", new TakeQuestHandler(world, hub));
         Register("hotbar_update", new HotbarUpdateHandler(world, hub));

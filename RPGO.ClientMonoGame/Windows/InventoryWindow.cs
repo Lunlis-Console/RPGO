@@ -125,7 +125,7 @@ public class InventoryWindow : GameWindow
     private static bool SameItem(Item a, Item b) =>
         a.Name == b.Name && a.Type == b.Type &&
         a.BonusPhysAttack == b.BonusPhysAttack && a.BonusDefense == b.BonusDefense &&
-        a.MaxHealthBonus == b.MaxHealthBonus && a.HealAmount == b.HealAmount &&
+        a.MaxHealthBonus == b.MaxHealthBonus && a.HealAmount == b.HealAmount && a.RestoreMana == b.RestoreMana &&
         a.Value == b.Value && a.Description == b.Description;
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -213,9 +213,10 @@ public class InventoryWindow : GameWindow
             {
                 // Перетаскивание — пробуем продать в магазин или надеть на слот снаряжения
                 var item = _stacks[idx].item;
-                if (ShopMode && IsStackable(item) && item.Quantity > 1)
+                int stackCount = _stacks[idx].count;
+                if (ShopMode && IsStackable(item) && stackCount > 1)
                 {
-                    PendingSell?.Invoke(item, item.Quantity);
+                    PendingSell?.Invoke(item, stackCount);
                 }
                 else
                 {
@@ -263,10 +264,10 @@ public class InventoryWindow : GameWindow
 
                     var item = _stacks[idx].item;
                     if (ShopMode)
-                        RequestSell(item);
+                        RequestSell(item, _stacks[idx].count);
                     else if (EquipmentSlots.IsEquippableType(item.Type))
                         EquipItem?.Invoke(item.Id);
-                    else if (item.Type == "consumable" && item.HealAmount > 0)
+                    else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
                         UseItem?.Invoke(item.Id);
                     rightPressed = false;
                 }
@@ -294,7 +295,7 @@ public class InventoryWindow : GameWindow
         _lastClickIdx = -1;
         if (EquipmentSlots.IsEquippableType(item.Type))
             EquipItem?.Invoke(item.Id);
-        else if (item.Type == "consumable" && item.HealAmount > 0)
+        else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
             UseItem?.Invoke(item.Id);
     }
 
@@ -308,14 +309,14 @@ public class InventoryWindow : GameWindow
         if (isDouble)
         {
             _lastClickIdx = -1;
-            RequestSell(item);
+            RequestSell(item, idx >= 0 ? _stacks[idx].count : 1);
         }
     }
 
-    private void RequestSell(Item item)
+    private void RequestSell(Item item, int stackCount)
     {
-        if (item.Quantity > 1)
-            PendingSell?.Invoke(item, item.Quantity);
+        if (stackCount > 1)
+            PendingSell?.Invoke(item, stackCount);
         else
             SellItem?.Invoke(item.Id, 1);
     }

@@ -16,6 +16,8 @@ public class HudRenderer
     private PartyInfo? _party;
     private EntityInfo? _selectedEntity;
     private List<DebuffInfo>? _targetDebuffs;
+    private bool _pvpEnabled;
+    private string _zoneName = "";
 
     // Хитбоксы иконок дебаффов для тултипа
     private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _playerDebuffHits = new();
@@ -38,6 +40,13 @@ public class HudRenderer
 
     public void UpdateStatus(StatusData status) => _status = status;
     public bool InCombat => _inCombat;
+
+    public void UpdateZone(string zoneName, bool pvpEnabled)
+    {
+        _zoneName = zoneName;
+        _pvpEnabled = pvpEnabled;
+    }
+
     public void UpdateCombatState(bool inCombat, string? targetName, int hp, int maxHp)
     {
         _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp;
@@ -336,6 +345,8 @@ public class HudRenderer
                 lines.Add((item.Description, new Color(180, 180, 200)));
             if (item.HealAmount > 0)
                 lines.Add(($"Лечение: {item.HealAmount}", new Color(120, 220, 120)));
+            if (item.RestoreMana > 0)
+                lines.Add(($"Мана: {item.RestoreMana}", new Color(100, 140, 240)));
             if (item.MaxHealthBonus > 0)
                 lines.Add(($"+{item.MaxHealthBonus} HP", new Color(120, 220, 120)));
             if (item.BonusPhysAttack > 0) lines.Add(($"+{item.BonusPhysAttack} Физ.Атк", new Color(220, 120, 120)));
@@ -594,5 +605,18 @@ public class HudRenderer
         string hpText = $"{hp} / {maxHp}";
         var hpSize = font.MeasureString(hpText);
         sb.DrawString(font, hpText, new Vector2(x + (barW - hpSize.X) / 2, y + (barH - hpSize.Y) / 2), Color.White);
+    }
+
+    public void DrawZoneIndicator(SpriteBatch sb, int screenW)
+    {
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font == null || string.IsNullOrEmpty(_zoneName)) return;
+
+        string label = _pvpEnabled ? $"[PvP] {_zoneName}" : _zoneName;
+        Color color = _pvpEnabled ? new Color(220, 60, 60) : new Color(120, 180, 220);
+        var sz = font.MeasureString(label);
+        int x = (int)((screenW - sz.X) / 2);
+        int y = 42;
+        sb.DrawString(font, label, new Vector2(x, y), color);
     }
 }

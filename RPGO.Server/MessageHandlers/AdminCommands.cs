@@ -87,14 +87,33 @@ public static class AdminCommands
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /tp <x> <y> или /tp <имя>");
+            await SystemToSelf(player, hub, "Использование: /tp <x> <y> или /tp <имя> или /tp <zone> <x> <y>");
+            return true;
+        }
+
+        if (args.Length >= 4 && int.TryParse(args[1], out int tz) && int.TryParse(args[2], out int tx2) && int.TryParse(args[3], out int ty2))
+        {
+            var zoneId = args[0] == "/tp" ? player.CurrentZoneId : args[1];
+            var zone = Program.Services.Zones.GetZone(zoneId);
+            if (zone == null)
+            {
+                await SystemToSelf(player, hub, $"Зона '{zoneId}' не найдена.");
+                return true;
+            }
+            player.CurrentZoneId = zoneId;
+            player.X = Math.Clamp(tx2, 0, zone.Width - 1);
+            player.Y = Math.Clamp(ty2, 0, zone.Height - 1);
+            await SystemToSelf(player, hub, $"Телепорт в '{zone.Name}': ({player.X}, {player.Y})");
+            await hub.SendInventoryAndStatus(connection, player);
+            await hub.BroadcastMapAsync();
             return true;
         }
 
         if (args.Length >= 3 && int.TryParse(args[1], out int tx) && int.TryParse(args[2], out int ty))
         {
-            player.X = Math.Clamp(tx, 0, world.Map.Width - 1);
-            player.Y = Math.Clamp(ty, 0, world.Map.Height - 1);
+            var zoneMap = Program.Services.Zones.GetOrCreateMap(player.CurrentZoneId);
+            player.X = Math.Clamp(tx, 0, zoneMap.Width - 1);
+            player.Y = Math.Clamp(ty, 0, zoneMap.Height - 1);
             await SystemToSelf(player, hub, $"Телепорт: ({player.X}, {player.Y})");
             await hub.SendInventoryAndStatus(connection, player);
             await hub.BroadcastMapAsync();

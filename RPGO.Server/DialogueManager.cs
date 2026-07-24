@@ -308,7 +308,7 @@ public class DialogueManager
                             i.Id, i.Name, i.Type,
                             Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
-                            i.MaxHealthBonus, i.HealAmount, i.Description,
+                            i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
                             i.Stock,
                             IsBuyback = false
                         }).ToList(),
@@ -317,7 +317,7 @@ public class DialogueManager
                             b.Id, b.Name, b.Type,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
-                            b.MaxHealthBonus, b.HealAmount, b.Description,
+                            b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
                             IsBuyback = true
                         }).ToList(),
                         PlayerGold = player.Gold

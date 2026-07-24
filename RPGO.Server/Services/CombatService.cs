@@ -37,8 +37,15 @@ public class CombatService
                 {
                     if (pl.IsDead || !pl.Combat.HasTarget) continue;
 
+                    // PvP target
+                    if (pl.Combat.IsPvPTarget)
+                    {
+                        changed |= await RunPvPTick(pl);
+                        continue;
+                    }
+
                     var monster = _svc.Monsters.FindMonsterById(pl.Combat.TargetMonsterId!.Value);
-                    if (monster == null || monster.Health <= 0)
+                    if (monster == null || monster.Health <= 0 || monster.ZoneId != pl.CurrentZoneId)
                     {
                         await HandleInvalidTarget(pl, monster);
                         changed = true;
@@ -458,10 +465,16 @@ public class CombatService
         pl.IsDead = false;
         pl.Health = Balance.RespawnHealth(pl.MaxHealth);
 
-        int sx = _svc.Merchant.MerchantX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-        int sy = _svc.Merchant.MerchantY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-        sx = Math.Clamp(sx, 0, _svc.World.Map.Width - 1);
-        sy = Math.Clamp(sy, 0, _svc.World.Map.Height - 1);
+        var zone = _svc.Zones.GetZone(pl.CurrentZoneId);
+        int baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
+        int baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
+        int mapW = zone?.Width ?? _svc.World.Map.Width;
+        int mapH = zone?.Height ?? _svc.World.Map.Height;
+
+        int sx = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+        int sy = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+        sx = Math.Clamp(sx, 0, mapW - 1);
+        sy = Math.Clamp(sy, 0, mapH - 1);
         pl.X = sx;
         pl.Y = sy;
 
@@ -575,6 +588,173 @@ public class CombatService
                 if (conn != null) await _svc.Hub.SendToClient(conn, msg);
             }
         }
+    }
+
+    // ──────────────── PvP ────────────────
+
+    private async Task<bool> RunPvPTick(Player pl)
+    {
+        if (!pl.Combat.IsPvPTarget || pl.Combat.TargetPlayerId == null) return false;
+
+        Player? target = _svc.World.GetPlayersSnapshot()
+            .FirstOrDefault(p => p.Id == pl.Combat.TargetPlayerId.Value && p.CurrentZoneId == pl.CurrentZoneId);
+
+        if (target == null || target.IsDead || target.Health <= 0)
+        {
+            pl.Combat.Cancel();
+            var client = _svc.World.FindClientByPlayer(pl);
+            if (client != null)
+                await _svc.Hub.SendToClient(client, GameMessage.ResetCombat());
+            return true;
+        }
+
+        int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
+        int weaponRange = pl.Equipment.GetWeaponAttackRange();
+
+        if (dist > weaponRange)
+        {
+            // Преследование PvP цели
+            if (ChasePlayerTarget(pl, target)) return true;
+            return false;
+        }
+
+        var atkClient = _svc.World.FindClientByPlayer(pl);
+        if (atkClient == null) return false;
+
+        int attackIntervalMs = Balance.AttackIntervalMs(
+            Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+        double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
+        attackIntervalMs = (int)(attackIntervalMs / speedBuff);
+        bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
+
+        if (!mainAttackReady) return false;
+
+        pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+        // Урон PvP: та же формула, но по игроку
+        int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack());
+        bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+        if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
+
+        double evadeRoll = Random.Shared.NextDouble() * 100;
+        bool isEvaded = evadeRoll < target.GetEvadeChance();
+
+        int finalDmg = isEvaded ? 0 : Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
+
+        if (!isEvaded)
+        {
+            target.Health -= finalDmg;
+            target.LastDamagedTime = DateTime.UtcNow;
+
+            // Уведомление атакующего
+            string critText = isCrit ? " (КРИТ!)" : "";
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"Вы нанесли {finalDmg} урона{critText} {target.Name}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+
+            // Урон目标
+            var targetClient = _svc.World.FindClientByPlayer(target);
+            if (targetClient != null)
+            {
+                var hitMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = finalDmg, IsCrit = isCrit }
+                };
+                await _svc.Hub.SendToClient(targetClient, hitMsg);
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, hitMsg, target);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                    $"{pl.Name} нанёс вам {finalDmg} урона{critText}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+                await _svc.Hub.SendStatusAsync(targetClient, target);
+            }
+        }
+        else
+        {
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от вашей атаки.");
+        }
+
+        // Обновление combat state
+        await _svc.Hub.SendToClient(atkClient, new GameMessage
+        {
+            Type = "combat_state",
+            Data = new
+            {
+                InCombat = true,
+                TargetId = target.Id.ToString(),
+                TargetName = target.Name,
+                TargetHp = target.Health,
+                TargetMaxHp = target.MaxHealth + target.Equipment.GetBonusMaxHealth(),
+                TargetX = target.X,
+                TargetY = target.Y,
+                IsPvP = true
+            }
+        });
+
+        await _svc.Hub.SendStatusAsync(atkClient, pl);
+
+        // Смерть PvP цели — без штрафа, просто респаун
+        if (target.Health <= 0)
+        {
+            target.Combat.Cancel();
+            target.Interaction.Clear();
+            target.Movement.Stop();
+            target.IsDead = true;
+            target.DeathTime = DateTime.UtcNow;
+
+            var targetClient = _svc.World.FindClientByPlayer(target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, GameMessage.ResetCombat());
+                await _svc.Hub.SendToClient(targetClient, GameMessage.PlayerDeath(0));
+                await ChatTo(targetClient, ChatChannel.System, "Система",
+                    $"Вы погибли в PvP от {pl.Name}! Возрождение через 5 сек...");
+            }
+
+            Log.Info($"{pl.Name} убил {target.Name} в PvP!");
+
+            var atkConn = _svc.World.FindClientByPlayer(pl);
+            if (atkConn != null)
+                await ChatTo(atkConn, ChatChannel.System, "Система", $"Вы победили {target.Name} в PvP!");
+        }
+
+        return true;
+    }
+
+    private bool ChasePlayerTarget(Player pl, Player target)
+    {
+        int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
+        bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
+        if (!canMove) return false;
+
+        int stepX = Math.Sign(target.X - pl.X);
+        int stepY = Math.Sign(target.Y - pl.Y);
+
+        int mx = 0, my = 0;
+        if (stepX != 0 && stepY != 0)
+        {
+            if (pl.X + stepX >= 0 && pl.X + stepX < _svc.World.Map.Width)
+                mx = stepX;
+            else
+                my = stepY;
+        }
+        else if (stepX != 0) mx = stepX;
+        else if (stepY != 0) my = stepY;
+
+        if (mx == 0 && my == 0) return false;
+
+        int nx = pl.X + mx;
+        int ny = pl.Y + my;
+        var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
+        if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) return false;
+
+        if (mx == 1) pl.Facing = "right";
+        else if (mx == -1) pl.Facing = "left";
+        else if (my == 1) pl.Facing = "down";
+        else if (my == -1) pl.Facing = "up";
+
+        pl.X = nx;
+        pl.Y = ny;
+        pl.Movement.LastMoveTime = DateTime.UtcNow;
+        return true;
     }
 
     // ──────────────── Вспомогательные ────────────────

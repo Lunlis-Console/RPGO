@@ -79,6 +79,7 @@ public class AuthService
                         }
 
                         int spawnX, spawnY;
+                        string zoneId = account.PlayerData.CurrentZoneId;
                         if (account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)
                         {
                             spawnX = account.PlayerData.X;
@@ -86,10 +87,15 @@ public class AuthService
                         }
                         else
                         {
-                            spawnX = _svc.Merchant.MerchantX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnY = _svc.Merchant.MerchantY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                            spawnX = Math.Clamp(spawnX, 0, _svc.World.Map.Width - 1);
-                            spawnY = Math.Clamp(spawnY, 0, _svc.World.Map.Height - 1);
+                            var zone = _svc.Zones.GetZone(zoneId);
+                            int baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
+                            int baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
+                            int mapW = zone?.Width ?? _svc.World.Map.Width;
+                            int mapH = zone?.Height ?? _svc.World.Map.Height;
+                            spawnX = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnY = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                            spawnX = Math.Clamp(spawnX, 0, mapW - 1);
+                            spawnY = Math.Clamp(spawnY, 0, mapH - 1);
                         }
 
                         var player = new Player
@@ -115,7 +121,8 @@ public class AuthService
                             ActiveQuests = account.PlayerData.ActiveQuests,
                             HotbarSlots = account.PlayerData.HotbarSlots,
                             MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
-                            IsAdmin = account.IsAdmin
+                            IsAdmin = account.IsAdmin,
+                            CurrentZoneId = account.PlayerData.CurrentZoneId
                         };
                         player.Mana = player.MaxMana;
 

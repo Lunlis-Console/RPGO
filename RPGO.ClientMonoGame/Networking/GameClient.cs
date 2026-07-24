@@ -24,6 +24,9 @@ public static class GameMessageExtensions
 public sealed class GameClient
 {
     private Action? _uiAction;
+    private int _skillPoints;
+
+    public int SkillPoints => _skillPoints;
 
     // Состояние игрока
     public string PlayerName { get; private set; } = "Игрок";
@@ -74,6 +77,9 @@ public sealed class GameClient
     public event Action<string, string>? PartyInviteReceived;
     public event Action<string>? TradeRequestReceived;
     public event Action<List<ClientSkillInfo>>? SkillsUpdated;
+
+    // Зоны
+    public event Action<string, string, bool>? ZoneChanged;
     public event Action<string?[]>? HotbarUpdated;
     public event Action<string>? TargetCleared;
     public event Action<string, int, int>? AttackCooldownUpdated;
@@ -247,6 +253,16 @@ public sealed class GameClient
                     AvailableQuests = log?.Available ?? new List<QuestInfo>();
                     ActiveQuests = log?.Active ?? new List<QuestInfo>();
                     Ui(() => QuestLogUpdated?.Invoke(AvailableQuests, ActiveQuests));
+                    break;
+
+                case "zone_transition":
+                    if (message.Data is JsonElement ztEl)
+                    {
+                        string zoneId = ztEl.TryGetProperty("ZoneId", out var zi) ? zi.GetString() ?? "main" : "main";
+                        string zoneName = ztEl.TryGetProperty("ZoneName", out var zn) ? zn.GetString() ?? zoneId : zoneId;
+                        bool pvp = ztEl.TryGetProperty("PvPEnabled", out var pv) && pv.GetBoolean();
+                        Ui(() => ZoneChanged?.Invoke(zoneId, zoneName, pvp));
+                    }
                     break;
 
                 case "shop_response":
@@ -505,11 +521,29 @@ public sealed class GameClient
                                     MpCost = e.TryGetProperty("MpCost", out var mp) ? mp.GetInt32() : 0,
                                     CooldownMs = e.TryGetProperty("CooldownMs", out var cd) ? cd.GetInt32() : 0,
                                     DamageMultiplier = e.TryGetProperty("DamageMultiplier", out var dm) ? dm.GetDouble() : 1,
-                                    MinLevel = e.TryGetProperty("MinLevel", out var ml) ? ml.GetInt32() : 1
+                                    MinLevel = e.TryGetProperty("MinLevel", out var ml) ? ml.GetInt32() : 1,
+                                    SkillPointCost = e.TryGetProperty("SkillPointCost", out var sp) ? sp.GetInt32() : 1,
+                                    ParentId = e.TryGetProperty("ParentId", out var pa) && pa.ValueKind != JsonValueKind.Null ? pa.GetString() : null,
+                                    Tier = e.TryGetProperty("Tier", out var ti) ? ti.GetInt32() : 1,
+                                    IconName = e.TryGetProperty("IconName", out var ic) && ic.ValueKind != JsonValueKind.Null ? ic.GetString() : null
                                 });
                             }
                         }
-                        Ui(() => SkillsUpdated?.Invoke(list));
+                        var learned = new List<string>();
+                        if (sk.TryGetProperty("LearnedSkills", out var ls) && ls.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var e in ls.EnumerateArray())
+                                if (e.ValueKind == JsonValueKind.String && e.GetString() is string sid)
+                                    learned.Add(sid);
+                        }
+                        int skillPts = sk.TryGetProperty("SkillPoints", out var spt) ? spt.GetInt32() : 0;
+                        Ui(() =>
+                        {
+                            foreach (var s in list)
+                                s.Learned = learned.Contains(s.Id);
+                            _skillPoints = skillPts;
+                            SkillsUpdated?.Invoke(list);
+                        });
                     }
                     break;
 

@@ -69,6 +69,11 @@ public class GameScreen : IScreen
             _mapRenderer.SetMap(map);
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
+            _hudRenderer.UpdateZone(map.ZoneName, map.PvPEnabled);
+        };
+        client.ZoneChanged += (zoneId, zoneName, pvp) =>
+        {
+            _hudRenderer.UpdateZone(zoneName, pvp);
         };
         client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
@@ -161,6 +166,7 @@ public class GameScreen : IScreen
             _statusWindow.UpdateData(status);
             _input.PlayerGoldCache = status.Gold;
             _skillsWindow.SetPlayerLevel(status.Level);
+            _skillsWindow.SetSkillPoints(status.SkillPoints);
             if (_input.LastXp < 0) { _input.LastXp = status.Experience; _input.LastLevel = status.Level; }
             else
             {
@@ -176,6 +182,7 @@ public class GameScreen : IScreen
         client.SkillsUpdated += skills =>
         {
             _inputManager.SetSkills(skills);
+            _skillsWindow.SetSkillPoints(client.SkillPoints);
             _skillsWindow.UpdateData(skills);
         };
         client.InventoryUpdated += inv =>
@@ -340,6 +347,8 @@ public class GameScreen : IScreen
             Logger.Action($"Взаимодействие с {entity.Type} '{entity.Name}' ({x}, {y})");
             if (entity.Type == "corpse" && entity.Id != null)
                 _ = client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
+            else if (entity.Type == "player")
+                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
             else
                 _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
         };
@@ -356,6 +365,8 @@ public class GameScreen : IScreen
                     _lootedCorpses.Add(single.Id);
                     _ = client.SendAsync("loot_corpse", new { CorpseId = single.Id });
                 }
+                else if (single.Type == "player")
+                    _ = client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, PlayerId = single.Id?.ToString() });
                 else
                     _ = client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, MonsterId = single.Id?.ToString() });
                 return;
@@ -374,6 +385,8 @@ public class GameScreen : IScreen
                 _lootedCorpses.Add(entity.Id);
                 _ = client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
             }
+            else if (entity.Type == "player")
+                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
             else
                 _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
         };
@@ -458,6 +471,8 @@ public class GameScreen : IScreen
         };
         _skillsWindow.SkillDragStateChanged += skill => _input.DragOverlaySkill = skill;
         _skillsWindow.SkillDragEnded += () => _input.HandleSkillDragEnd(GameMain.Instance!);
+        _skillsWindow.LearnSkill += skillId =>
+            _ = client.SendAsync("allocate_skill", new { SkillId = skillId });
 
         // Loot
         _lootWindow.TakeLoot += (corpseId, takeAll, ids, takeGold) =>
@@ -693,6 +708,7 @@ public class GameScreen : IScreen
         _hudRenderer.SetSelectedEntity(_mapRenderer.GetSelectedEntity());
         _hudRenderer.DrawTargetBar(spriteBatch, w);
         _hudRenderer.DrawTargetDebuffs(spriteBatch, w, 64 + 18 + 4);
+        _hudRenderer.DrawZoneIndicator(spriteBatch, w);
         _hudDraw.DrawTargetButtons(spriteBatch, w, GameMain.Instance!);
         int partyY = topH + 8 + 60 + 4 + (int)debuffH + 4;
         _hudDraw.DrawPartyPanel(spriteBatch, 8, partyY, 240, GameMain.Instance!);

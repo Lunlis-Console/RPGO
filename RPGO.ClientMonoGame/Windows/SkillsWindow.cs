@@ -10,6 +10,7 @@ public class SkillsWindow : GameWindow
 {
     private List<ClientSkillInfo> _skills = new();
     private int _playerLevel = 1;
+    private int _skillPoints;
     private MouseState _prevMouse;
     private KeyboardState _prevKey;
     private NodeLayout? _hoverNode;
@@ -31,6 +32,7 @@ public class SkillsWindow : GameWindow
     private List<Branch> _branches = new();
 
     public Action<string>? UseSkill { get; set; }
+    public Action<string>? LearnSkill { get; set; }
     public Action<ClientSkillInfo?>? SkillDragStateChanged { get; set; }
     public Action? SkillDragEnded { get; set; }
 
@@ -46,6 +48,8 @@ public class SkillsWindow : GameWindow
     }
 
     public void SetPlayerLevel(int level) => _playerLevel = level;
+
+    public void SetSkillPoints(int points) => _skillPoints = points;
 
     public void UpdateData(List<ClientSkillInfo> skills)
     {
@@ -99,9 +103,12 @@ public class SkillsWindow : GameWindow
             {
                 if (n.Rect.Contains(mouse.X, mouse.Y) && n.Available)
                 {
-                    _dragNode = n;
-                    _dragStart = new Point(mouse.X, mouse.Y);
-                    SkillDragStateChanged?.Invoke(n.Skill);
+                    if (n.Skill.Learned)
+                    {
+                        _dragNode = n;
+                        _dragStart = new Point(mouse.X, mouse.Y);
+                        SkillDragStateChanged?.Invoke(n.Skill);
+                    }
                     break;
                 }
             }
@@ -113,6 +120,17 @@ public class SkillsWindow : GameWindow
                 UseSkill?.Invoke(_dragNode.Skill.Id);
             _dragNode = null;
             SkillDragEnded?.Invoke();
+        }
+        else if (released)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.Rect.Contains(mouse.X, mouse.Y) && n.Available && !n.Skill.Learned)
+                {
+                    LearnSkill?.Invoke(n.Skill.Id);
+                    break;
+                }
+            }
         }
 
         base.Update(gameTime, keyboard, mouse);
@@ -189,9 +207,12 @@ public class SkillsWindow : GameWindow
 
         DrawText(sb, "Древо навыков", cx + cw / 2 - (int)(font.MeasureString("Древо навыков").X / 2), cy, new Color(100, 160, 255));
 
+        string ptsText = $"Очки навыков: {_skillPoints}";
+        DrawText(sb, ptsText, cx + cw - (int)font.MeasureString(ptsText).X - 4, cy, _skillPoints > 0 ? new Color(255, 215, 0) : new Color(120, 120, 130));
+
         if (_skills.Count == 0)
         {
-            DrawText(sb, "Нет изученных навыков.", cx + cw / 2 - (int)(font.MeasureString("Нет изученных навыков.").X / 2),
+            DrawText(sb, "Нет навыков.", cx + cw / 2 - (int)(font.MeasureString("Нет навыков.").X / 2),
                 cy + HeaderH + 30, new Color(120, 120, 130));
             return;
         }
@@ -234,15 +255,15 @@ public class SkillsWindow : GameWindow
             var skill = n.Skill;
             bool hover = n.Rect.Contains(mouse.X, mouse.Y);
             Color bg = !n.Available ? new Color(34, 34, 40)
-                      : hover ? new Color(60, 70, 95)
-                      : new Color(44, 48, 64);
+                      : skill.Learned ? (hover ? new Color(40, 75, 50) : new Color(34, 55, 44))
+                      : hover ? new Color(75, 65, 35) : new Color(55, 50, 34);
             sb.Draw(SpriteCache.Pixel, n.Rect, bg);
             sb.Draw(SpriteCache.Pixel, new Rectangle(n.Rect.X, n.Rect.Y, n.Rect.Width, 2),
-                n.Available ? new Color(90, 150, 220) : new Color(70, 70, 80));
+                n.Available ? (skill.Learned ? new Color(80, 180, 100) : new Color(180, 160, 80)) : new Color(70, 70, 80));
 
             // Рамка выделения при наведении
             if (hover)
-                DrawRect(sb, n.Rect, new Color(150, 200, 255), 2);
+                DrawRect(sb, n.Rect, skill.Learned ? new Color(100, 220, 130) : new Color(220, 200, 100), 2);
 
             // Иконка (по типу или дефолтная)
             var spr = !string.IsNullOrEmpty(skill.IconName) ? SpriteCache.Get(skill.IconName)
@@ -250,12 +271,22 @@ public class SkillsWindow : GameWindow
             if (spr != null)
                 sb.Draw(spr, new Rectangle(n.Rect.X + 6, n.Rect.Y + 8, 28, 28), Color.White);
 
-            Color nameColor = n.Available ? new Color(150, 190, 255) : new Color(110, 110, 120);
+            Color nameColor = !n.Available ? new Color(110, 110, 120)
+                            : skill.Learned ? new Color(130, 220, 150) : new Color(220, 200, 120);
             DrawText(sb, skill.Name, n.Rect.X + 40, n.Rect.Y + 6, nameColor);
 
             DrawText(sb, $"Тир {skill.Tier}", n.Rect.X + 40, n.Rect.Y + 24, new Color(160, 160, 175));
-            DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  ОЧ.нав {skill.SkillPointCost}", n.Rect.X + 6, n.Rect.Y + 40,
-                n.Available ? new Color(120, 200, 130) : new Color(90, 110, 95));
+            if (skill.Learned)
+            {
+                DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  Изучено", n.Rect.X + 6, n.Rect.Y + 40,
+                    n.Available ? new Color(100, 180, 120) : new Color(90, 110, 95));
+            }
+            else
+            {
+                string learnHint = n.Available && _skillPoints >= skill.SkillPointCost ? "  [ЛКМ: изучить]" : "";
+                DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  ОЧ.нав {skill.SkillPointCost}{learnHint}", n.Rect.X + 6, n.Rect.Y + 40,
+                    n.Available ? new Color(200, 180, 100) : new Color(90, 110, 95));
+            }
 
             if (!n.Available)
                 DrawText(sb, $"нужен ур. {skill.MinLevel}", n.Rect.X + 40, n.Rect.Y + 24 + 14, new Color(200, 120, 120));
@@ -276,7 +307,8 @@ public class SkillsWindow : GameWindow
             skill.Name,
             $"Тир {skill.Tier}  |  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type)}",
             $"МП: {skill.MpCost}   КД: {skill.CooldownMs}мс   x{skill.DamageMultiplier:F1}   ОЧ.нав: {skill.SkillPointCost}",
-            $"Мин. уровень: {skill.MinLevel}"
+            $"Мин. уровень: {skill.MinLevel}",
+            skill.Learned ? "Изучено" : $"Для изучения: ЛКМ ({skill.SkillPointCost} оч. навыков)"
         };
         if (!string.IsNullOrEmpty(skill.Description))
             lines.Add(skill.Description);

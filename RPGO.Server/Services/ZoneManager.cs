@@ -1,0 +1,71 @@
+using RPGGame.Server.Repositories;
+using RPGGame.Shared.Models;
+
+namespace RPGGame.Server;
+
+/// <summary>
+/// Менеджер зон: загружает зоны и порталы из БД, предоставляет GameMap для каждой зоны.
+/// </summary>
+public class ZoneManager
+{
+    private readonly Dictionary<string, Zone> _zones = new();
+    private readonly Dictionary<string, GameMap> _maps = new();
+    private readonly List<WorldPortal> _portals = new();
+    private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
+    private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
+
+    public IReadOnlyDictionary<string, Zone> Zones => _zones;
+    public IReadOnlyList<WorldPortal> Portals => _portals;
+
+    public void LoadAll()
+    {
+        _zones.Clear();
+        _maps.Clear();
+        _portals.Clear();
+        _portalLookup.Clear();
+        _portalsByZone.Clear();
+
+        foreach (var zone in ZoneRepository.LoadAll())
+        {
+            _zones[zone.Id] = zone;
+            _maps[zone.Id] = new GameMap(zone.Width, zone.Height);
+        }
+
+        foreach (var portal in ZoneRepository.LoadPortals())
+        {
+            _portals.Add(portal);
+            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+
+            if (!_portalsByZone.ContainsKey(portal.FromZone))
+                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+            _portalsByZone[portal.FromZone].Add(portal);
+        }
+
+        Log.Info($"Загружено {_zones.Count} зон, {_portals.Count} порталов");
+    }
+
+    public Zone? GetZone(string id) => _zones.TryGetValue(id, out var zone) ? zone : null;
+
+    public GameMap? GetMap(string zoneId) => _maps.TryGetValue(zoneId, out var map) ? map : null;
+
+    public bool IsPvPEnabled(string zoneId) => _zones.TryGetValue(zoneId, out var zone) && zone.PvpEnabled;
+
+    public WorldPortal? FindPortal(string zone, int x, int y)
+        => _portalLookup.TryGetValue((zone, x, y), out var portal) ? portal : null;
+
+    public List<WorldPortal> GetPortalsForZone(string zoneId)
+        => _portalsByZone.TryGetValue(zoneId, out var list) ? list : new List<WorldPortal>();
+
+    /// <summary>
+    /// Получить GameMap для зоны (создаёт дефолтную если зоны нет в БД).
+    /// </summary>
+    public GameMap GetOrCreateMap(string zoneId)
+    {
+        if (_maps.TryGetValue(zoneId, out var map))
+            return map;
+
+        var fallback = new GameMap(Balance.WorldWidth, Balance.WorldHeight);
+        _maps[zoneId] = fallback;
+        return fallback;
+    }
+}

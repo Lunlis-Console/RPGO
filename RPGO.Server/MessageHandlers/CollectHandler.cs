@@ -12,7 +12,7 @@ public class CollectHandler : BaseHandler
     {
         if (player == null) return;
 
-        var lootItem = Program.Services.Collectibles.TryCollect(player.X, player.Y);
+        var lootItem = Program.Services.Collectibles.TryCollect(player.X, player.Y, player.CurrentZoneId);
         if (lootItem == null)
         {
             await SendError(connection, ErrorCodes.NothingToCollect, "Здесь нечего собирать.");

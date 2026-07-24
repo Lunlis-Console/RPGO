@@ -21,7 +21,7 @@ public class CombatTests
             new DialogueManager(world, quests, merchant), new PartyManager(world),
             new ProjectileManager(world), new KillService(world),
             new PathfindingService(world, merchant, quests), debuffs,
-            combat: null!, interactions: null!, auth: null!);
+            combat: null!, interactions: null!, auth: null!, zones: null!);
     }
     private static Monster CreateMonster(int level, int str, int sta, int agi, double evade, double crit, int hp)
         => new()

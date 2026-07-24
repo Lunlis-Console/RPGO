@@ -123,4 +123,8 @@ public static class DatabaseManager
     public static List<string> GetReverseFriendNames(string ownerName) => FriendRepository.GetReverseNames(ownerName);
     public static bool PlayerNameExists(string playerName) => FriendRepository.PlayerNameExists(playerName);
     public const int MaxFriends = FriendRepository.MaxFriends;
+
+    // === Zones ===
+    public static List<Zone> LoadZones() => ZoneRepository.LoadAll();
+    public static List<WorldPortal> LoadPortals() => ZoneRepository.LoadPortals();
 }

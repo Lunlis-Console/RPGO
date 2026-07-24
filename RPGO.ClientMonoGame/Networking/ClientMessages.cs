@@ -54,6 +54,7 @@ public sealed class StatusData
     public int Intellect { get; set; }
     public int Wisdom { get; set; }
     public int AttributePoints { get; set; }
+    public int SkillPoints { get; set; }
     public int Speed { get; set; }
     public int MoveIntervalMs { get; set; }
     public int AttackSpeed { get; set; }
@@ -126,6 +127,7 @@ public sealed class TradeItemData
     public int Defense { get; set; }
     public int MaxHealthBonus { get; set; }
     public int HealAmount { get; set; }
+    public int RestoreMana { get; set; }
     public int MaxStack { get; set; }
 
     /// <summary>Создаёт копию предмета с указанным количеством.</summary>
@@ -134,7 +136,7 @@ public sealed class TradeItemData
         Id = Id, Name = Name, Type = Type, TemplateId = TemplateId,
         Value = Value, Description = Description, Attack = Attack,
         Defense = Defense, MaxHealthBonus = MaxHealthBonus, HealAmount = HealAmount,
-        MaxStack = MaxStack, Quantity = qty
+        MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana
     };
 }
 
@@ -222,6 +224,7 @@ public sealed class ClientSkillInfo
     public string? ParentId { get; set; }
     public int Tier { get; set; } = 1;
     public string? IconName { get; set; }
+    public bool Learned { get; set; }
 }
 
 public sealed class LootItemInfo

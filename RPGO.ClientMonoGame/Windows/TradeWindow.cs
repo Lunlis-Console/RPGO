@@ -762,7 +762,7 @@ namespace RPGGame.ClientMonoGame.Windows
         {
             var lines = ItemTooltip.BuildLinesForTrade(
                 item.Name ?? "", item.Type ?? "", item.Value,
-                item.Attack, item.Defense, item.MaxHealthBonus, item.HealAmount,
+                item.Attack, item.Defense, item.MaxHealthBonus, item.HealAmount, item.RestoreMana,
                 item.Description ?? "");
             var g = GameMain.Instance;
             int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;

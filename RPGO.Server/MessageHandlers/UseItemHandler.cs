@@ -48,6 +48,24 @@ public class UseItemHandler : BaseHandler
             });
             await SendInventoryAndStatus(connection, player);
         }
+        else if (item.Type == "consumable" && item.RestoreMana > 0)
+        {
+            if (player.Mana >= player.MaxMana)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, "Мана и так полная!");
+                return;
+            }
+            int restored = Math.Min(item.RestoreMana, player.MaxMana - player.Mana);
+            player.Mana += restored;
+            InventoryHelper.RemoveFromRecord(player, useItemId, 1);
+            Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {restored} MP");
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {restored} MP. ({player.Mana}/{player.MaxMana})" }
+            });
+            await SendInventoryAndStatus(connection, player);
+        }
         else
         {
             await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя использовать!");

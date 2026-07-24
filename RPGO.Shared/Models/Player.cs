@@ -34,6 +34,8 @@ public class Player : ICombatant
     public int Intellect { get; set; } = 1;  // +маг.атака, +шанс маг.эффекта
     public int Wisdom { get; set; } = 1;     // +MaxMP, +сопротивление маг.эффектам
     public int AttributePoints { get; set; }
+    public int SkillPoints { get; set; }
+    public List<string> LearnedSkills { get; set; } = new();
 
     // Базовые боевые параметры (редактируются позже бонусами экипировки/умений)
     public double BaseCritChance { get; set; } = 1.0;   // %
@@ -122,6 +124,9 @@ public class Player : ICombatant
     // Администрирование
     public bool IsAdmin { get; set; }
 
+    // Зона
+    public string CurrentZoneId { get; set; } = "main";
+
     // Смерть: флаг + время (для задержки 5с перед респауном)
     public bool IsDead { get; set; }
     public DateTime DeathTime { get; set; }
@@ -139,6 +144,8 @@ public class Player : ICombatant
         MaxHealth += BalanceStatic.MaxHealthPerLevel;
         Health = MaxHealth;
         AttributePoints += BalanceStatic.AttributePointsPerLevel;
+        if (Level % 2 == 0)
+            SkillPoints++;
         return true;
     }
 }

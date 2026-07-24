@@ -26,6 +26,7 @@ public sealed class GameServices
     public CombatService Combat { get; }
     public InteractionService Interactions { get; }
     public AuthService Auth { get; }
+    public ZoneManager Zones { get; }
 
     public GameServices(
         GameWorld world,
@@ -45,7 +46,8 @@ public sealed class GameServices
         DebuffManager debuffs,
         CombatService combat,
         InteractionService interactions,
-        AuthService auth)
+        AuthService auth,
+        ZoneManager zones)
     {
         World = world;
         Hub = hub;
@@ -65,5 +67,6 @@ public sealed class GameServices
         Combat = combat;
         Interactions = interactions;
         Auth = auth;
+        Zones = zones;
     }
 }

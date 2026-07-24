@@ -227,6 +227,7 @@ public class MonsterManager
             foreach (var p in players)
             {
                 if (p.Health <= 0) continue;
+                if (p.CurrentZoneId != m.ZoneId) continue;
                 int d = Math.Abs(p.X - m.X) + Math.Abs(p.Y - m.Y);
                 if (d <= m.AggroRange && d < bestDist)
                 {
@@ -370,7 +371,8 @@ public class MonsterManager
             MaxHealth = m.MaxHealth,
             Symbol = m.Symbol,
             Level = m.Level,
-            IsMannequin = m.IsMannequin
+            IsMannequin = m.IsMannequin,
+            ZoneId = m.ZoneId
         }).ToList();
     }
 

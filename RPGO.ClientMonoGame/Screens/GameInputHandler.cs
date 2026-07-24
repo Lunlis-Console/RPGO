@@ -399,7 +399,7 @@ internal class GameInputHandler
             var invItem = Input.GetItemByName(name);
             if (invItem != null)
             {
-                if (invItem.Type == "consumable" && invItem.HealAmount > 0)
+                if (invItem.Type == "consumable" && (invItem.HealAmount > 0 || invItem.RestoreMana > 0))
                     _ = game.Client.SendAsync("use_item", new { ItemId = invItem.Id });
                 else if (invItem.Type is "weapon" or "armor" or "accessory")
                     _ = game.Client.SendAsync("equip", new { ItemId = invItem.Id });

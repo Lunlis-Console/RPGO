@@ -15,6 +15,7 @@ public record PlayerState(
     int MaxMana,
     long Experience,
     int AttributePoints,
+    int SkillPoints,
     int Strength,
     int Endurance,
     int Agility,

@@ -30,7 +30,9 @@ public class SkillsRequestHandler : BaseHandler
                     s.SkillPointCost,
                     s.ParentId,
                     s.Tier
-                }).ToList()
+                }).ToList(),
+                LearnedSkills = player?.LearnedSkills ?? new(),
+                SkillPoints = player?.SkillPoints ?? 0
             }
         });
     }

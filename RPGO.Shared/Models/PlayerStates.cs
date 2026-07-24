@@ -30,22 +30,38 @@ public class CombatState
 {
     public bool InCombat { get; set; }
     public Guid? TargetMonsterId { get; set; }
+    public Guid? TargetPlayerId { get; set; }
     public DateTime LastAttackTime { get; set; } = DateTime.MinValue;
     public DateTime OffHandLastAttackTime { get; set; } = DateTime.MinValue;
 
-    public bool HasTarget => TargetMonsterId != null;
+    public bool HasTarget => TargetMonsterId != null || TargetPlayerId != null;
+    public bool IsPvPTarget => TargetPlayerId != null;
 
-    public void Enter(Guid monsterId, MovementState movement)
+    public void EnterMonster(Guid monsterId, MovementState movement)
     {
         TargetMonsterId = monsterId;
+        TargetPlayerId = null;
         InCombat = true;
         movement.Stop();
         OffHandLastAttackTime = DateTime.MinValue;
     }
 
+    public void EnterPlayer(Guid playerId, MovementState movement)
+    {
+        TargetPlayerId = playerId;
+        TargetMonsterId = null;
+        InCombat = true;
+        movement.Stop();
+        OffHandLastAttackTime = DateTime.MinValue;
+    }
+
+    // Совместимость
+    public void Enter(Guid monsterId, MovementState movement) => EnterMonster(monsterId, movement);
+
     public void Cancel()
     {
         TargetMonsterId = null;
+        TargetPlayerId = null;
         InCombat = false;
     }
 }

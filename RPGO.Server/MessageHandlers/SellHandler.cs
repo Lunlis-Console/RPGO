@@ -66,7 +66,7 @@ public class SellHandler : BaseHandler
                     b.Id, b.Name, b.Type,
                     Value = Balance.BuybackPrice(b.Value),
                     OriginalValue = b.Value,
-                    b.MaxHealthBonus, b.HealAmount, b.Description,
+                    b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
                     IsBuyback = true
                 }).ToList()
             }

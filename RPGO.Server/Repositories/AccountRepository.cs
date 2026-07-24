@@ -158,10 +158,13 @@ internal static class AccountRepository
                     intellect = $intel,
                     wisdom = $wis,
                     attribute_points = $ap,
+                    skill_points = $sp,
+                    learned_skills = $ls,
                     speed = $spd,
                     pos_x = $posx,
                     pos_y = $posy,
-                    hotbar_slots = $hotbar
+                    hotbar_slots = $hotbar,
+                    current_zone = $zone
                 WHERE player_name = $name";
 
             cmd.Parameters.AddWithValue("$level", player.Level);
@@ -176,11 +179,14 @@ internal static class AccountRepository
             cmd.Parameters.AddWithValue("$intel", player.Intellect);
             cmd.Parameters.AddWithValue("$wis", player.Wisdom);
             cmd.Parameters.AddWithValue("$ap", player.AttributePoints);
+            cmd.Parameters.AddWithValue("$sp", player.SkillPoints);
+            cmd.Parameters.AddWithValue("$ls", System.Text.Json.JsonSerializer.Serialize(player.LearnedSkills));
             cmd.Parameters.AddWithValue("$spd", player.Speed);
             cmd.Parameters.AddWithValue("$posx", player.X);
             cmd.Parameters.AddWithValue("$posy", player.Y);
             cmd.Parameters.AddWithValue("$name", player.Name);
             cmd.Parameters.AddWithValue("$hotbar", System.Text.Json.JsonSerializer.Serialize(player.HotbarSlots));
+            cmd.Parameters.AddWithValue("$zone", player.CurrentZoneId);
             cmd.ExecuteNonQuery();
 
             InventoryRepository.SaveEquipment(connection, player.Name, player.Equipment);
@@ -285,7 +291,7 @@ internal static class AccountRepository
             SELECT player_name, password_hash, level, experience, health, max_health,
                    gold, created_at, last_login,
                    strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, pos_x, pos_y,
-                   hotbar_slots, is_admin, is_banned, ban_reason
+                   hotbar_slots, is_admin, is_banned, ban_reason, skill_points, learned_skills, current_zone
             FROM accounts WHERE login = $login";
         cmd.Parameters.AddWithValue("$login", login);
 
@@ -322,6 +328,9 @@ internal static class AccountRepository
                 Speed = reader.GetInt32(16),
                 X = reader.GetInt32(17),
                 Y = reader.GetInt32(18),
+                SkillPoints = reader.GetInt32(23),
+                LearnedSkills = ParseStringList(reader.IsDBNull(24) ? "[]" : reader.GetString(24)),
+                CurrentZoneId = reader.IsDBNull(25) ? "main" : reader.GetString(25),
                 Inventory = InventoryRepository.GetForPlayer(playerName, equipIds),
                 Equipment = InventoryRepository.LoadEquipment(connection, playerName),
                 ActiveQuests = QuestRepository.Load(connection, playerName),
@@ -344,5 +353,12 @@ internal static class AccountRepository
             return list.Take(10).ToList();
         }
         catch { return default10; }
+    }
+
+    private static List<string> ParseStringList(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new();
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new(); }
+        catch { return new(); }
     }
 }

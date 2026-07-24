@@ -44,6 +44,7 @@ public class StatusHandler : BaseHandler
                 Intellect = player.Intellect,
                 player.Wisdom,
                 player.AttributePoints,
+                player.SkillPoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GameServer.GetAttackSpeed(player),

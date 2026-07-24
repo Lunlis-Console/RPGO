@@ -24,7 +24,8 @@ public class CorpseManager
                 Loot = loot,
                 PlayerLoot = playerLoot ?? new(),
                 Contributors = contributors ?? new(monster.DamageTracker),
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                ZoneId = monster.ZoneId
             });
         }
     }
@@ -67,7 +68,8 @@ public class CorpseManager
                 Level = c.Level,
                 ItemCount = c.PlayerLoot.Count > 0
                     ? c.PlayerLoot.Values.Sum(v => v.Items.Count)
-                    : c.Loot.Count
+                    : c.Loot.Count,
+                ZoneId = c.ZoneId
             }).ToList();
         }
     }
@@ -90,6 +92,7 @@ public class MonsterCorpse
     public char Symbol { get; set; }
     public int Level { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string ZoneId { get; set; } = "main";
 
     // Общий лут (для обратной совместимости)
     public int GoldReward { get; set; }

@@ -215,6 +215,7 @@ public static class SpriteCache
     public static Texture2D? GetBoardSprite() => Get("quest_desk");
     public static Texture2D? GetCollectibleSprite() => Get("collectible");
     public static Texture2D? GetGrassSprite() => Get("grass");
+    public static Texture2D? GetSandSprite() => Get("sand");
     public static Texture2D? GetCorpseSprite() => Get("gold");
 
     public static Texture2D? GetIconStatus() => Get("icon_status");

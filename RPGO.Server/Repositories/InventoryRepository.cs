@@ -18,7 +18,7 @@ internal static class InventoryRepository
             using var connection = Db.Open();
 
             var cmd = connection.CreateCommand();
-            cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+            cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, restore_mana, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
@@ -43,25 +43,26 @@ internal static class InventoryRepository
                     BonusDefense = reader.GetInt32(4),
                     MaxHealthBonus = reader.GetInt32(5),
                     HealAmount = reader.GetInt32(6),
-                    Description = reader.GetString(7),
-                    BonusStrength = reader.GetInt32(8),
-                    BonusEndurance = reader.GetInt32(9),
-                    BonusAgility = reader.GetInt32(10),
-                    BonusCunning = reader.GetInt32(11),
-                    BonusIntellect = reader.GetInt32(12),
-                    BonusWisdom = reader.GetInt32(13),
-                    BonusPhysAttack = reader.GetInt32(14),
-                    BonusMagAttack = reader.GetInt32(15),
-                    BonusResistance = reader.GetInt32(16),
-                    BonusCritChance = reader.GetDouble(17),
-                    BonusCritDamage = reader.GetDouble(18),
-                    BonusEvadeChance = reader.GetDouble(19),
-                    BonusAttackSpeed = reader.GetDouble(20),
-                    TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
-                    Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
-                    DamageMin = reader.GetInt32(23),
-                    DamageMax = reader.GetInt32(24),
-                    AttackRange = reader.IsDBNull(25) ? 1 : reader.GetInt32(25)
+                    RestoreMana = reader.GetInt32(7),
+                    Description = reader.GetString(8),
+                    BonusStrength = reader.GetInt32(9),
+                    BonusEndurance = reader.GetInt32(10),
+                    BonusAgility = reader.GetInt32(11),
+                    BonusCunning = reader.GetInt32(12),
+                    BonusIntellect = reader.GetInt32(13),
+                    BonusWisdom = reader.GetInt32(14),
+                    BonusPhysAttack = reader.GetInt32(15),
+                    BonusMagAttack = reader.GetInt32(16),
+                    BonusResistance = reader.GetInt32(17),
+                    BonusCritChance = reader.GetDouble(18),
+                    BonusCritDamage = reader.GetDouble(19),
+                    BonusEvadeChance = reader.GetDouble(20),
+                    BonusAttackSpeed = reader.GetDouble(21),
+                    TemplateId = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                    Quantity = reader.IsDBNull(23) ? 1 : reader.GetInt32(23),
+                    DamageMin = reader.GetInt32(24),
+                    DamageMax = reader.GetInt32(25),
+                    AttackRange = reader.IsDBNull(26) ? 1 : reader.GetInt32(26)
                 });
             }
 
@@ -85,6 +86,7 @@ internal static class InventoryRepository
                             BonusDefense = item.BonusDefense,
                             MaxHealthBonus = item.MaxHealthBonus,
                             HealAmount = item.HealAmount,
+                            RestoreMana = item.RestoreMana,
                             Description = item.Description,
                             MaxStack = item.MaxStack,
                             Quantity = 1,
@@ -155,12 +157,12 @@ internal static class InventoryRepository
 
         var insertItem = connection.CreateCommand();
         insertItem.CommandText = @"
-            INSERT INTO inventory (player_name, item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+            INSERT INTO inventory (player_name, item_id, name, type, value, defense, max_health_bonus, heal_amount, restore_mana, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
                 attack_range)
-            VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $desc,
+            VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $rmana, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
                 $cc, $cd, $ec, $as, $tid, $qty,
@@ -173,6 +175,7 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$def", item.BonusDefense);
         insertItem.Parameters.AddWithValue("$mhp", item.MaxHealthBonus);
         insertItem.Parameters.AddWithValue("$heal", item.HealAmount);
+        insertItem.Parameters.AddWithValue("$rmana", item.RestoreMana);
         insertItem.Parameters.AddWithValue("$desc", item.Description);
         insertItem.Parameters.AddWithValue("$str", item.BonusStrength);
         insertItem.Parameters.AddWithValue("$end", item.BonusEndurance);
@@ -270,7 +273,7 @@ internal static class InventoryRepository
     private static Item? FindItem(SqliteConnection connection, string playerName, string itemId)
     {
         var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, description,
+        cmd.CommandText = @"SELECT item_id, name, type, value, defense, max_health_bonus, heal_amount, restore_mana, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed, template_id, quantity,
@@ -291,25 +294,26 @@ internal static class InventoryRepository
                 BonusDefense = reader.GetInt32(4),
                 MaxHealthBonus = reader.GetInt32(5),
                 HealAmount = reader.GetInt32(6),
-                Description = reader.GetString(7),
-                BonusStrength = reader.GetInt32(8),
-                BonusEndurance = reader.GetInt32(9),
-                BonusAgility = reader.GetInt32(10),
-                BonusCunning = reader.GetInt32(11),
-                BonusIntellect = reader.GetInt32(12),
-                BonusWisdom = reader.GetInt32(13),
-                BonusPhysAttack = reader.GetInt32(14),
-                BonusMagAttack = reader.GetInt32(15),
-                BonusResistance = reader.GetInt32(16),
-                BonusCritChance = reader.GetDouble(17),
-                BonusCritDamage = reader.GetDouble(18),
-                BonusEvadeChance = reader.GetDouble(19),
-                BonusAttackSpeed = reader.GetDouble(20),
-                TemplateId = reader.IsDBNull(21) ? "" : reader.GetString(21),
-                Quantity = reader.IsDBNull(22) ? 1 : reader.GetInt32(22),
-                DamageMin = reader.GetInt32(23),
-                DamageMax = reader.GetInt32(24),
-                AttackRange = reader.IsDBNull(25) ? 1 : reader.GetInt32(25)
+                RestoreMana = reader.GetInt32(7),
+                Description = reader.GetString(8),
+                BonusStrength = reader.GetInt32(9),
+                BonusEndurance = reader.GetInt32(10),
+                BonusAgility = reader.GetInt32(11),
+                BonusCunning = reader.GetInt32(12),
+                BonusIntellect = reader.GetInt32(13),
+                BonusWisdom = reader.GetInt32(14),
+                BonusPhysAttack = reader.GetInt32(15),
+                BonusMagAttack = reader.GetInt32(16),
+                BonusResistance = reader.GetInt32(17),
+                BonusCritChance = reader.GetDouble(18),
+                BonusCritDamage = reader.GetDouble(19),
+                BonusEvadeChance = reader.GetDouble(20),
+                BonusAttackSpeed = reader.GetDouble(21),
+                TemplateId = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                Quantity = reader.IsDBNull(23) ? 1 : reader.GetInt32(23),
+                DamageMin = reader.GetInt32(24),
+                DamageMax = reader.GetInt32(25),
+                AttackRange = reader.IsDBNull(26) ? 1 : reader.GetInt32(26)
             };
             return SyncItemFromTemplate(connection, item);
         }
@@ -320,7 +324,7 @@ internal static class InventoryRepository
     {
         if (string.IsNullOrEmpty(item.TemplateId)) return item;
         var cmd = connection.CreateCommand();
-        cmd.CommandText = @"SELECT defense, value, max_health_bonus, heal_amount, description,
+        cmd.CommandText = @"SELECT defense, value, max_health_bonus, heal_amount, restore_mana, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
@@ -335,27 +339,28 @@ internal static class InventoryRepository
             item.Value = reader.GetInt32(1);
             item.MaxHealthBonus = reader.GetInt32(2);
             item.HealAmount = reader.GetInt32(3);
-            item.Description = reader.GetString(4);
-            item.BonusStrength = reader.GetInt32(5);
-            item.BonusEndurance = reader.GetInt32(6);
-            item.BonusAgility = reader.GetInt32(7);
-            item.BonusCunning = reader.GetInt32(8);
-            item.BonusIntellect = reader.GetInt32(9);
-            item.BonusWisdom = reader.GetInt32(10);
-            item.BonusPhysAttack = reader.GetInt32(11);
-            item.BonusMagAttack = reader.GetInt32(12);
-            item.BonusResistance = reader.GetInt32(13);
-            item.BonusCritChance = reader.GetDouble(14);
-            item.BonusCritDamage = reader.GetDouble(15);
-            item.BonusEvadeChance = reader.GetDouble(16);
-            item.BonusAttackSpeed = reader.GetDouble(17);
-            item.TwoHanded = !reader.IsDBNull(18) && reader.GetInt32(18) != 0;
-            item.DamageType = reader.IsDBNull(19) ? "" : reader.GetString(19);
-            item.AttackSpeedModifier = reader.IsDBNull(20) ? 1.0 : reader.GetDouble(20);
-            item.WeaponSubtype = reader.IsDBNull(21) ? "" : reader.GetString(21);
-            item.DamageMin = reader.GetInt32(22);
-            item.DamageMax = reader.GetInt32(23);
-            item.AttackRange = reader.IsDBNull(24) ? 1 : reader.GetInt32(24);
+            item.RestoreMana = reader.GetInt32(4);
+            item.Description = reader.GetString(5);
+            item.BonusStrength = reader.GetInt32(6);
+            item.BonusEndurance = reader.GetInt32(7);
+            item.BonusAgility = reader.GetInt32(8);
+            item.BonusCunning = reader.GetInt32(9);
+            item.BonusIntellect = reader.GetInt32(10);
+            item.BonusWisdom = reader.GetInt32(11);
+            item.BonusPhysAttack = reader.GetInt32(12);
+            item.BonusMagAttack = reader.GetInt32(13);
+            item.BonusResistance = reader.GetInt32(14);
+            item.BonusCritChance = reader.GetDouble(15);
+            item.BonusCritDamage = reader.GetDouble(16);
+            item.BonusEvadeChance = reader.GetDouble(17);
+            item.BonusAttackSpeed = reader.GetDouble(18);
+            item.TwoHanded = !reader.IsDBNull(19) && reader.GetInt32(19) != 0;
+            item.DamageType = reader.IsDBNull(20) ? "" : reader.GetString(20);
+            item.AttackSpeedModifier = reader.IsDBNull(21) ? 1.0 : reader.GetDouble(21);
+            item.WeaponSubtype = reader.IsDBNull(22) ? "" : reader.GetString(22);
+            item.DamageMin = reader.GetInt32(23);
+            item.DamageMax = reader.GetInt32(24);
+            item.AttackRange = reader.IsDBNull(25) ? 1 : reader.GetInt32(25);
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;

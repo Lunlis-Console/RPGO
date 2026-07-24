@@ -79,7 +79,7 @@ public class InteractionService
                             i.Id, i.Name, i.Type,
                             Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
-                            i.MaxHealthBonus, i.HealAmount, i.Description,
+                            i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
                             i.Stock,
                             IsBuyback = false
                         }).ToList(),
@@ -88,7 +88,7 @@ public class InteractionService
                             b.Id, b.Name, b.Type,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
-                            b.MaxHealthBonus, b.HealAmount, b.Description,
+                            b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
                             IsBuyback = true
                         }).ToList(),
                         PlayerGold = player.Gold
@@ -142,7 +142,7 @@ public class InteractionService
                 break;
 
             case "collectible":
-                var lootItem = _svc.Collectibles.TryCollect(player.Interaction.X, player.Interaction.Y);
+                var lootItem = _svc.Collectibles.TryCollect(player.Interaction.X, player.Interaction.Y, player.CurrentZoneId);
                 if (lootItem != null)
                 {
                     InventoryHelper.AddItem(player, lootItem);
@@ -275,8 +275,9 @@ public class InteractionService
                     var next = pl.Movement.Path[0];
                     pl.Movement.Path.RemoveAt(0);
 
-                    if (next.X < 0 || next.X >= _svc.World.Map.Width
-                        || next.Y < 0 || next.Y >= _svc.World.Map.Height
+                    var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
+                    if (next.X < 0 || next.X >= zoneMap.Width
+                        || next.Y < 0 || next.Y >= zoneMap.Height
                         || _svc.World.Map.IsObstacle(next.X, next.Y))
                     {
                         pl.Movement.Stop();
@@ -294,6 +295,16 @@ public class InteractionService
                     pl.Y = next.Y;
                     pl.Movement.LastMoveTime = DateTime.UtcNow;
                     moved = true;
+
+                    // Проверка портала при движении по пути
+                    var portal = _svc.Zones.FindPortal(pl.CurrentZoneId, pl.X, pl.Y);
+                    if (portal != null)
+                    {
+                        pl.Movement.Stop();
+                        pl.Interaction.Clear();
+                        await HandleZoneTransition(pl, portal);
+                        continue;
+                    }
 
                     if (_svc.Trade.IsInTrade(pl))
                     {
@@ -335,5 +346,30 @@ public class InteractionService
                 Log.Error("Ошибка цикла перемещения", ex);
             }
         }
+    }
+
+    private async Task HandleZoneTransition(Player player, WorldPortal portal)
+    {
+        string fromZone = player.CurrentZoneId;
+        player.CurrentZoneId = portal.ToZone;
+        player.X = portal.ToX;
+        player.Y = portal.ToY;
+
+        var targetZone = _svc.Zones.GetZone(portal.ToZone);
+        string zoneName = targetZone?.Name ?? portal.ToZone;
+        Log.Info($"{player.Name} перешёл из зоны '{fromZone}' в '{portal.ToZone}' ({portal.ToX},{portal.ToY})");
+
+        var conn = _svc.World.FindClientByPlayer(player);
+        if (conn != null)
+        {
+            await _svc.Hub.SendToClient(conn, new GameMessage
+            {
+                Type = "zone_transition",
+                Data = new { ZoneId = portal.ToZone, ZoneName = zoneName, X = portal.ToX, Y = portal.ToY, PvPEnabled = targetZone?.PvpEnabled ?? false }
+            });
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
+                $"Вы вошли в зону: {zoneName}{(targetZone?.PvpEnabled == true ? " [PvP]" : "")}");
+        }
+        await _svc.Hub.BroadcastMapAsync();
     }
 }

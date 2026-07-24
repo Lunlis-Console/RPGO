@@ -102,7 +102,7 @@ public class TradeAcceptHandler : BaseHandler
         var items = player.Inventory.Select(i => new
         {
             i.Id, i.Name, i.Type, i.Value, i.Description,
-            i.MaxHealthBonus, i.HealAmount,
+            i.MaxHealthBonus, i.HealAmount, i.RestoreMana,
             i.MaxStack, i.Quantity
         }).Cast<object>().ToList();
         return (items, player.Gold);
