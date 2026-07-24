@@ -1,282 +1,76 @@
 [
-  {
-    "Key": "player_down",
-    "Sheet": "Walk_front-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "player_up",
-    "Sheet": "Walk_back-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "player_left",
-    "Sheet": "Walk_side_left-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "player_right",
-    "Sheet": "Walk_side_right-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "player_idle_down",
-    "Sheet": "Idle_front-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "player_idle_up",
-    "Sheet": "Idle_top-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "player_idle_left",
-    "Sheet": "Idle_left-sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "player_idle_right",
-    "Sheet": "Idle_right-Sheet.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "player_death_down",
-    "Sheet": "Death_Down-Sheet.png",
-    "Cols": 7,
-    "Rows": 1,
-    "Fps": 6
-  },
-  {
-    "Key": "player_death_up",
-    "Sheet": "Death_Top-Sheet.png",
-    "Cols": 7,
-    "Rows": 1,
-    "Fps": 6
-  },
-  {
-    "Key": "player_death_left",
-    "Sheet": "Death_left-Sheet.png",
-    "Cols": 7,
-    "Rows": 1,
-    "Fps": 6
-  },
-  {
-    "Key": "player_death_right",
-    "Sheet": "Death_Right-Sheet.png",
-    "Cols": 7,
-    "Rows": 1,
-    "Fps": 6
-  },
-  {
-    "Key": "weapon_sword_idle_down",
-    "Sheet": "Sword_Idle_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_sword_idle_up",
-    "Sheet": "Sword_Idle_Up.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_sword_idle_left",
-    "Sheet": "Sword_Idle_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_sword_idle_right",
-    "Sheet": "Sword_Idle_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_sword_walk_down",
-    "Sheet": "Sword_Walk_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_sword_walk_up",
-    "Sheet": "Sword_Walk_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_sword_walk_left",
-    "Sheet": "Sword_Walk_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_sword_walk_right",
-    "Sheet": "Sword_Walk_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "player_attack_down",
-    "Sheet": "Character_Attack_RightHand_Sword_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "player_attack_up",
-    "Sheet": "Character_Attack_RightHand_Sword_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "player_attack_left",
-    "Sheet": "Character_Attack_RightHand_Sword_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "player_attack_right",
-    "Sheet": "Character_Attack_RightHand_Sword_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_sword_attack_down",
-    "Sheet": "Attack_RightHand_Sword_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_sword_attack_up",
-    "Sheet": "Attack_RightHand_Sword_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_sword_attack_left",
-    "Sheet": "Attack_RightHand_Sword_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_sword_attack_right",
-    "Sheet": "Attack_RightHand_Sword_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_shield_idle_down",
-    "Sheet": "Idle_Shield_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_shield_idle_up",
-    "Sheet": "Idle_Shield_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_shield_idle_left",
-    "Sheet": "Idle_Shield_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_shield_idle_right",
-    "Sheet": "Idle_Shield_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 4
-  },
-  {
-    "Key": "weapon_shield_walk_down",
-    "Sheet": "Walk_Shield_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_shield_walk_up",
-    "Sheet": "Walk_Shield_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_shield_walk_left",
-    "Sheet": "Walk_Shield_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_shield_walk_right",
-    "Sheet": "Walk_Shield_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 8
-  },
-  {
-    "Key": "weapon_shield_attack_down",
-    "Sheet": "Attack_Shield_Down.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_shield_attack_up",
-    "Sheet": "Attack_Shield_Top.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_shield_attack_left",
-    "Sheet": "Attack_Shield_Left.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  },
-  {
-    "Key": "weapon_shield_attack_right",
-    "Sheet": "Attack_Shield_Right.png",
-    "Cols": 6,
-    "Rows": 1,
-    "Fps": 10
-  }
+  { "Key": "player_idle_down",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 0,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "player_idle_right",  "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 1,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "player_idle_up",     "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 2,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "player_idle_left",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 3,  "FrameCount": 4, "Fps": 4 },
+
+  { "Key": "player_down",        "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 4,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "player_right",       "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 5,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "player_up",          "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 6,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "player_left",        "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 7,  "FrameCount": 4, "Fps": 8 },
+
+  { "Key": "player_attack_down",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 8,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_attack_right",  "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 9,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_attack_up",     "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 10, "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_attack_left",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 11, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "player_range_attack_down",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 12, "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_range_attack_right",  "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 13, "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_range_attack_up",     "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 14, "FrameCount": 4, "Fps": 10 },
+  { "Key": "player_range_attack_left",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 15, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "player_death_down",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 16, "FrameCount": 4, "Fps": 6 },
+  { "Key": "player_death_right",  "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 17, "FrameCount": 4, "Fps": 6 },
+  { "Key": "player_death_up",     "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 18, "FrameCount": 4, "Fps": 6 },
+  { "Key": "player_death_left",   "Sheet": "Sprites/SpriteSheets/Character_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 19, "FrameCount": 4, "Fps": 6 },
+
+  { "Key": "weapon_sword_idle_down",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 0,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_sword_idle_right",  "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 1,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_sword_idle_up",     "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 2,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_sword_idle_left",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 3,  "FrameCount": 4, "Fps": 4 },
+
+  { "Key": "weapon_sword_walk_down",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 4,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_sword_walk_right",  "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 5,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_sword_walk_up",     "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 6,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_sword_walk_left",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 7,  "FrameCount": 4, "Fps": 8 },
+
+  { "Key": "weapon_sword_attack_down",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 8,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_attack_right",  "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 9,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_attack_up",     "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 10, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_attack_left",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 11, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_sword_range_attack_down",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 12, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_range_attack_right",  "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 13, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_range_attack_up",     "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 14, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_sword_range_attack_left",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 15, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_sword_death_down",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 16, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_sword_death_right",  "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 17, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_sword_death_up",     "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 18, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_sword_death_left",   "Sheet": "Sprites/SpriteSheets/Sword_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 19, "FrameCount": 4, "Fps": 6 },
+
+  { "Key": "weapon_shield_idle_down",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 0,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_shield_idle_right",  "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 1,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_shield_idle_up",     "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 2,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_shield_idle_left",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 3,  "FrameCount": 4, "Fps": 4 },
+
+  { "Key": "weapon_shield_walk_down",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 4,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_shield_walk_right",  "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 5,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_shield_walk_up",     "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 6,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_shield_walk_left",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 7,  "FrameCount": 4, "Fps": 8 },
+
+  { "Key": "weapon_shield_attack_down",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 8,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_attack_right",  "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 9,  "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_attack_up",     "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 10, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_attack_left",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 11, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_shield_range_attack_down",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 12, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_range_attack_right",  "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 13, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_range_attack_up",     "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 14, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_shield_range_attack_left",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 15, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_shield_death_down",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 16, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_shield_death_right",  "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 17, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_shield_death_up",     "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 18, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_shield_death_left",   "Sheet": "Sprites/SpriteSheets/Shield_SS.png", "Cols": 4, "Rows": 20, "RowOffset": 19, "FrameCount": 4, "Fps": 6 }
 ]

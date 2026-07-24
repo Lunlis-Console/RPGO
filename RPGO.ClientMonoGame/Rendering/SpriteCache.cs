@@ -18,10 +18,10 @@ public sealed class SpriteAnimation
     public int FrameWidth { get; }
     public int FrameHeight { get; }
     public float FrameDuration { get; } // секунды на кадр
+    public int RowOffset { get; }
+    public int FrameCount { get; }
 
-    public int FrameCount => Cols * Rows;
-
-    public SpriteAnimation(Texture2D sheet, int cols, int rows, int frameWidth, int frameHeight, float frameDuration)
+    public SpriteAnimation(Texture2D sheet, int cols, int rows, int frameWidth, int frameHeight, float frameDuration, int rowOffset = 0, int? frameCount = null)
     {
         Sheet = sheet;
         Cols = Math.Max(1, cols);
@@ -29,12 +29,14 @@ public sealed class SpriteAnimation
         FrameWidth = frameWidth;
         FrameHeight = frameHeight;
         FrameDuration = frameDuration > 0 ? frameDuration : 0.125f;
+        RowOffset = rowOffset;
+        FrameCount = frameCount ?? (Cols * Math.Max(1, rows));
     }
 
     public Rectangle GetSourceRect(int frameIndex)
     {
         int c = frameIndex % Cols;
-        int r = frameIndex / Cols;
+        int r = RowOffset + (frameIndex / Cols);
         return new Rectangle(c * FrameWidth, r * FrameHeight, FrameWidth, FrameHeight);
     }
 }
@@ -177,8 +179,10 @@ public static class SpriteCache
             foreach (var e in entries)
             {
                 if (string.IsNullOrWhiteSpace(e?.Key) || string.IsNullOrWhiteSpace(e.Sheet)) continue;
-                string sheetPath = Path.Combine(animDir, e.Sheet);
-                if (!File.Exists(sheetPath)) continue;
+                string sheetPath = e.Sheet.Contains('/') || e.Sheet.Contains('\\')
+                    ? Path.Combine(contentRoot, e.Sheet)
+                    : Path.Combine(animDir, e.Sheet);
+                if (!File.Exists(sheetPath)) { Logger.Info($"SpriteCache: sheet not found '{sheetPath}' for '{e.Key}'"); continue; }
                 try
                 {
                     using var stream = File.OpenRead(sheetPath);
@@ -188,8 +192,10 @@ public static class SpriteCache
                     int fw = tex.Width / cols;
                     int fh = tex.Height / rows;
                     float fd = e.Fps > 0 ? 1f / e.Fps : 0.125f;
-                    _animations[e.Key] = new SpriteAnimation(tex, cols, rows, fw, fh, fd);
-                    Logger.Info($"SpriteCache: анимация '{e.Key}' загружена ({cols}x{rows}, {e.Fps} fps)");
+                    int rowOffset = Math.Max(0, e.RowOffset);
+                    int? fc = e.FrameCount > 0 ? e.FrameCount : null;
+                    _animations[e.Key] = new SpriteAnimation(tex, cols, rows, fw, fh, fd, rowOffset, fc);
+                    Logger.Info($"SpriteCache: анимация '{e.Key}' загружена ({cols}x{rows}, row={rowOffset}, fc={fc ?? cols * rows}, {e.Fps} fps)");
                 }
                 catch (Exception ex)
                 {
@@ -209,6 +215,8 @@ public static class SpriteCache
         public string Sheet { get; set; } = "";
         public int Cols { get; set; } = 1;
         public int Rows { get; set; } = 1;
+        public int RowOffset { get; set; } = 0;
+        public int FrameCount { get; set; } = 0;
         public int Fps { get; set; } = 8;
     }
 
