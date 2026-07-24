@@ -24,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Content\Sprites\*.png" />
+    <EmbeddedResource Include="Content\Sprites\**\*.*" />
   </ItemGroup>
 
   <ItemGroup>
@@ -37,6 +37,14 @@
   <ItemGroup>
     <None Include="Content\Animations\**\*.*" Exclude="Content\Animations\**\*.mgcb">
       <Link>Content\Animations\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Content\Sprites\**\*.*">
+      <Link>Content\Sprites\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Content\Sprites\SpriteSheets\*.png" Condition="Exists('Content\Sprites\SpriteSheets')">
+      <Link>Content\Sprites\SpriteSheets\%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Content\animations.json" Condition="Exists('Content\animations.json')">
