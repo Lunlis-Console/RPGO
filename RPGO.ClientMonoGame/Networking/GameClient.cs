@@ -646,6 +646,14 @@ public sealed class GameClient
                     }
                     break;
 
+                case "player_attack":
+                    if (message.Data is JsonElement paEl)
+                    {
+                        string hand = paEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
+                        Ui(() => PlayerAttackPerformed?.Invoke(hand));
+                    }
+                    break;
+
                 case "projectile_hit":
                     if (message.Data is JsonElement ph)
                     {

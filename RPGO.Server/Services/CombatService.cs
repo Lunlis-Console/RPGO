@@ -189,6 +189,14 @@ public class CombatService
             string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit);
             await _svc.Projectiles.BroadcastSpawn(proj);
+            
+            // Notify client to play ranged attack animation
+            await _svc.Hub.SendToClient(client, new GameMessage
+            {
+                Type = "player_attack",
+                Data = new { Hand = "main" }
+            });
+            
             return;
         }
 
