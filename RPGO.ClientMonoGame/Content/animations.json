@@ -424,8 +424,37 @@
   { "Key": "weapon_halberd_second_attack_up",     "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 22, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_second_attack_left",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 23, "FrameCount": 4, "Fps": 10 },
 
-  { "Key": "weapon_halberd_attack_down",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 24, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_attack_right",  "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 25, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_attack_up",     "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 26, "FrameCount": 4, "Fps": 10 },
-  { "Key": "weapon_halberd_attack_left",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 27, "FrameCount": 4, "Fps": 10 }
+  { "Key": "weapon_halberd_attack_left",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 27, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_spear_idle_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 0,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_spear_idle_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 1,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_spear_idle_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 2,  "FrameCount": 4, "Fps": 4 },
+  { "Key": "weapon_spear_idle_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 3,  "FrameCount": 4, "Fps": 4 },
+
+  { "Key": "weapon_spear_walk_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 4,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_spear_walk_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 5,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_spear_walk_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 6,  "FrameCount": 4, "Fps": 8 },
+  { "Key": "weapon_spear_walk_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 7,  "FrameCount": 4, "Fps": 8 },
+
+  { "Key": "weapon_spear_range_attack_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 12, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_range_attack_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 13, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_range_attack_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 14, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_range_attack_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 15, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_spear_death_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 16, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_spear_death_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 17, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_spear_death_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 18, "FrameCount": 4, "Fps": 6 },
+  { "Key": "weapon_spear_death_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 19, "FrameCount": 4, "Fps": 6 },
+
+  { "Key": "weapon_spear_second_attack_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 20, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_second_attack_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 21, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_second_attack_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 22, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_second_attack_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 23, "FrameCount": 4, "Fps": 10 },
+
+  { "Key": "weapon_spear_attack_down",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 24, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_attack_right",  "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 25, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_attack_up",     "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 26, "FrameCount": 4, "Fps": 10 },
+  { "Key": "weapon_spear_attack_left",   "Sheet": "Sprites/SpriteSheets/Spear_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 27, "FrameCount": 4, "Fps": 10 }
 ]
