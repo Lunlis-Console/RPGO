@@ -74,7 +74,6 @@ public static class Balance
     // ===== DUAL WIELD =====
     public const double DualWieldSpeedBonus = 1.15;
     public const double OffHandDamageFraction = 0.5;
-    public const int OffHandDelayMs = 250;
 
     // ===== DUAL WIELD STATUS EFFECT =====
     public const double DualWieldBonusValue = 0.15;
