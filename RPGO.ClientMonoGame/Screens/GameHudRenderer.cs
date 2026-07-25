@@ -192,6 +192,7 @@ internal class GameHudRenderer
             SpriteCache.GetIconJournal(),
             SpriteCache.GetIconSettings()
         };
+        var labels = new[] { "Статус", "Инвентарь", "Навыки", "Снаряжение", "Общение", "Журнал", "Настройки" };
 
         for (int i = 0; i < 7; i++)
         {
@@ -206,11 +207,23 @@ internal class GameHudRenderer
                 int pad = 6;
                 sb.Draw(spr, new Rectangle(r.X + pad, r.Y + pad, r.Width - pad * 2, r.Height - pad * 2), Color.White);
             }
-            else
+
+            if (hover)
             {
                 var font = SpriteCache.FontSmall ?? SpriteCache.Font;
                 if (font != null)
-                    sb.DrawString(font, "J", new Vector2(r.X + r.Width / 2 - 4, r.Y + r.Height / 2 - 8), Color.Gray);
+                {
+                    var text = labels[i];
+                    var ts = font.MeasureString(text);
+                    int tw = (int)ts.X + 12;
+                    int th = (int)ts.Y + 6;
+                    int tx = r.X + r.Width / 2 - tw / 2;
+                    int ty = r.Y - th - 4;
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, th), new Color(20, 22, 30, 230));
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, 1), new Color(90, 95, 115));
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty + th - 1, tw, 1), new Color(90, 95, 115));
+                    sb.DrawString(font, text, new Vector2(tx + 6, ty + 3), new Color(210, 215, 230));
+                }
             }
         }
     }
