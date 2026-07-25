@@ -40,6 +40,7 @@ public class GameScreen : IScreen
     private readonly SocialWindow _socialWindow;
     private readonly DeathWindow _deathWindow = new();
     private readonly DialogueWindow _dialogueWindow = new();
+    private readonly MailWindow _mailWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
@@ -192,10 +193,12 @@ public class GameScreen : IScreen
             if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
             // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
+            bool isTwoHanded = false;
             if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("rhand", out var wItem))
             {
                 weaponSub = wItem?.WeaponSubtype;
-                Logger.Debug($"WeaponOverlay inventory: rhand found, WeaponSubtype='{wItem?.WeaponSubtype}', Name='{wItem?.Name}', Type='{wItem?.Type}'");
+                isTwoHanded = wItem?.TwoHanded == true;
+                Logger.Debug($"WeaponOverlay inventory: rhand found, WeaponSubtype='{wItem?.WeaponSubtype}', TwoHanded={wItem?.TwoHanded}, Name='{wItem?.Name}', Type='{wItem?.Type}'");
             }
             else
             {
@@ -205,6 +208,7 @@ public class GameScreen : IScreen
                         Logger.Debug($"  slot '{kv.Key}' -> {(kv.Value != null ? kv.Value.Name : "null")}");
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);
+            _mapRenderer.SetTwoHanded(isTwoHanded);
             // Оверлей левой руки: щит или второе оружие
             string? shieldSub = null;
             string? offWeaponSub = null;
@@ -526,6 +530,42 @@ public class GameScreen : IScreen
         _windows.Add(_socialWindow);
         _windows.Add(_deathWindow);
         _windows.Add(_dialogueWindow);
+        _windows.Add(_mailWindow);
+
+        // Mail events
+        _mailWindow.InboxRequested += () =>
+        {
+            _ = client.SendAsync("mail", new { Action = "inbox" });
+        };
+        _mailWindow.OutboxRequested += () =>
+        {
+            _ = client.SendAsync("mail", new { Action = "outbox" });
+        };
+        _mailWindow.SendRequested += (recipient, subject, body, gold, itemId, itemQty) =>
+        {
+            _ = client.SendAsync("mail", new { Action = "send", RecipientName = recipient, Subject = subject, Body = body, GoldAmount = gold, ItemId = itemId, ItemQuantity = itemQty });
+        };
+        _mailWindow.ReadRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "read", MailId = id });
+        };
+        _mailWindow.DeleteRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "delete", MailId = id });
+        };
+        _mailWindow.TakeAttachmentRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "take", MailId = id });
+        };
+        _mailWindow.InventoryRequested += () =>
+        {
+            var items = client.Inventory?.Items?
+                .Where(i => i.Type != "gold")
+                .GroupBy(i => i.TemplateId)
+                .Select(g => (Id: g.Key, Name: g.First().Name, Qty: g.Sum(x => x.Quantity)))
+                .ToList() ?? new();
+            _mailWindow.SetInventory(items);
+        };
 
         // Dialogue events
         client.DialogueOpened += (npcId, speaker, text, choices) =>
@@ -578,6 +618,46 @@ public class GameScreen : IScreen
         };
         _tradeRequestWindow.Accepted += inviterName => _ = client.SendAsync("trade_accept", new { InviterName = inviterName });
         _tradeRequestWindow.Declined += inviterName => _ = client.SendAsync("trade_decline", new { InviterName = inviterName });
+
+        _mailWindow.InboxRequested += () =>
+        {
+            _ = client.SendAsync("mail", new { Action = "inbox" });
+        };
+        _mailWindow.OutboxRequested += () =>
+        {
+            _ = client.SendAsync("mail", new { Action = "outbox" });
+        };
+        _mailWindow.SendRequested += (recipient, subject, body, gold, itemId, itemQty) =>
+        {
+            _ = client.SendAsync("mail", new { Action = "send", RecipientName = recipient, Subject = subject, Body = body, GoldAmount = gold, ItemId = itemId, ItemQuantity = itemQty });
+        };
+        _mailWindow.ReadRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "read", MailId = id });
+        };
+        _mailWindow.DeleteRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "delete", MailId = id });
+        };
+        _mailWindow.TakeAttachmentRequested += id =>
+        {
+            _ = client.SendAsync("mail", new { Action = "take", MailId = id });
+        };
+
+        client.MailListReceived += mails =>
+        {
+            _mailWindow.SetInbox(mails);
+            _mailWindow.SetOutbox(mails);
+        };
+        client.MailDetailReceived += mail =>
+        {
+            _mailWindow.SelectMail(mail.Id);
+        };
+        client.MailResultReceived += (ok, msg) =>
+        {
+            if (!ok && !string.IsNullOrEmpty(msg))
+                _chatRenderer.AddMessage(ChatChannel.System, "Почта", msg);
+        };
     }
 
     private void ApplySettings()
@@ -621,7 +701,9 @@ public class GameScreen : IScreen
         bool settingsOpen = _settingsWindow.Visible;
         bool mouseOverAnyWindow = mouseOverAnyWindowBefore || _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
 
-        _input.HandleEscape(keyboard, _settingsWindow, game);
+        bool mailTyping = _mailWindow.IsInputActive;
+        if (!_chatRenderer.IsTyping && !mailTyping)
+            _input.HandleEscape(keyboard, _settingsWindow, game);
 
         if (settingsOpen && _settingsWindow.Visible)
         {
@@ -654,12 +736,13 @@ public class GameScreen : IScreen
 
         _input.HandlePendingSkill(game);
         _input.HandleChatInput(keyboard, game);
-        _input.HandleWindowToggles(keyboard, game,
-            _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
-            _questLogWindow, _socialWindow, _settingsWindow);
-        if (!_chatRenderer.IsTyping)
+        if (!_chatRenderer.IsTyping && !mailTyping)
+            _input.HandleWindowToggles(keyboard, game,
+                _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
+                _questLogWindow, _socialWindow, _settingsWindow);
+        if (!_chatRenderer.IsTyping && !mailTyping)
             _inputManager.HandleHotbarKeys(keyboard, _input.PrevKeyboard);
-        if (!_chatRenderer.IsTyping)
+        if (!_chatRenderer.IsTyping && !mailTyping)
             _inputManager.HandleMovement(keyboard, _input.PrevKeyboard, client, _mapRenderer);
 
         // Icon clicks
@@ -673,7 +756,7 @@ public class GameScreen : IScreen
             }
             _input.HandleIconClick(mouse, mouseOverAnyWindow, game,
                 _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
-                _socialWindow, _questLogWindow, _settingsWindow, _hudDraw.IconRects);
+                _socialWindow, _questLogWindow, _settingsWindow, _mailWindow, _hudDraw.IconRects);
         }
         mouseOverAnyWindow |= clickedIcon;
 

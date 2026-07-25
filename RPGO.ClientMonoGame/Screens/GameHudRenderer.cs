@@ -181,7 +181,7 @@ internal class GameHudRenderer
     internal void DrawIconBar(SpriteBatch sb)
     {
         var mouse = Mouse.GetState();
-        if (_iconRects.Length < 7) return;
+        if (_iconRects.Length < 8) return;
         var icons = new Texture2D?[]
         {
             SpriteCache.GetIconStatus(),
@@ -190,11 +190,12 @@ internal class GameHudRenderer
             SpriteCache.GetIconEquipment(),
             SpriteCache.GetIconCommunication(),
             SpriteCache.GetIconJournal(),
+            SpriteCache.GetIconMail(),
             SpriteCache.GetIconSettings()
         };
-        var labels = new[] { "Статус", "Инвентарь", "Навыки", "Снаряжение", "Общение", "Журнал", "Настройки" };
+        var labels = new[] { "Статус", "Инвентарь", "Навыки", "Снаряжение", "Общение", "Журнал", "Почта", "Настройки" };
 
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 8; i++)
         {
             var r = _iconRects[i];
             bool hover = r.Contains(mouse.X, mouse.Y);
@@ -232,7 +233,7 @@ internal class GameHudRenderer
 
     internal void LayoutIconBar(int w, int h)
     {
-        int iconCount = 7;
+        int iconCount = 8;
         int iconsTotalW = iconCount * IconSize + (iconCount - 1) * IconGap;
         int iconY = h - IconSize - 8;
         int iconStartX = w - 8 - iconsTotalW;

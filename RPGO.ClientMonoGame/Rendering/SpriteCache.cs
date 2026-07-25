@@ -81,7 +81,7 @@ public static class SpriteCache
             "grass", "gold", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
             "trader", "quest_desk", "maneken",
-            "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status",
+            "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status", "icon_mail",
             "skill",
             "Idle_front", "Idle_back", "Idle_side_left", "Idle_side_right"
         };
@@ -151,6 +151,8 @@ public static class SpriteCache
     }
 
     public static SpriteAnimation? GetPlayerAttackAnimation(string dir) => GetAnimation($"player_attack_{dir}");
+
+    public static SpriteAnimation? GetPlayerTwoHandAttackAnimation(string dir) => GetAnimation($"player_twohand_attack_{dir}");
 
     public static SpriteAnimation? GetWeaponAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_attack_{dir}");
 
@@ -249,6 +251,7 @@ public static class SpriteCache
     public static Texture2D? GetIconCommunication() => Get("icon_communication");
     public static Texture2D? GetIconSettings() => Get("icon_settings");
     public static Texture2D? GetIconJournal() => Get("icon_journal");
+    public static Texture2D? GetIconMail() => Get("icon_mail");
 
     public static Texture2D? ForItemType(string? type) => (type ?? "").ToLower() switch
     {

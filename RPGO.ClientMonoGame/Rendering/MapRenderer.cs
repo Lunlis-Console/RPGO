@@ -106,6 +106,15 @@ public class MapRenderer
         }
     }
 
+    public void SetTwoHanded(bool twoHanded)
+    {
+        if (_isTwoHanded != twoHanded)
+        {
+            Logger.Debug($"SetTwoHanded: {_isTwoHanded} -> {twoHanded}");
+            _isTwoHanded = twoHanded;
+        }
+    }
+
     public void TriggerAttack(string hand = "main")
     {
         if (hand == "off")
@@ -153,6 +162,9 @@ public class MapRenderer
 
     // Подтип щита в левой руке (для оверлея). null = нет щита.
     private string? _shieldSubtype;
+
+    // Двуручное оружие — специальная анимация тела и нет off-hand.
+    private bool _isTwoHanded;
 
     // Итоговое направление локального игрока:
     //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
@@ -808,7 +820,9 @@ public class MapRenderer
             else if (anyBodyAttack)
             {
                 if (mainAttackActive)
-                    playerAnim = SpriteCache.GetPlayerAttackAnimation(facing);
+                    playerAnim = _isTwoHanded
+                        ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
+                        : SpriteCache.GetPlayerAttackAnimation(facing);
                 else
                     playerAnim = SpriteCache.GetPlayerSecondAttackAnimation(facing);
                 if (playerAnim != null) useAttackAnim = true;
@@ -902,8 +916,8 @@ public class MapRenderer
                     }
                 }
 
-                // Щит поверх персонажа (только для локального игрока)
-                if (isLocal && !string.IsNullOrEmpty(_shieldSubtype))
+                // Щит поверх персонажа (только для локального игрока, не двуручное)
+                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_shieldSubtype))
                 {
                     SpriteAnimation? shieldAnim;
                     bool useShieldAttack = false;
@@ -940,7 +954,7 @@ public class MapRenderer
                 }
 
                 // Левое оружие (attack swing / second_attack swing)
-                if (isLocal && !string.IsNullOrEmpty(_offWeaponSubtype))
+                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_offWeaponSubtype))
                 {
                     SpriteAnimation? offAnim = null;
                     bool useOffSwing = false;
@@ -1043,7 +1057,7 @@ public class MapRenderer
                 }
 
                 // Щит поверх (статичный fallback)
-                if (isLocal && !string.IsNullOrEmpty(_shieldSubtype))
+                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_shieldSubtype))
                 {
                     SpriteAnimation? shieldAnim;
                     bool useShieldAttack = false;
@@ -1080,7 +1094,7 @@ public class MapRenderer
                 }
 
                 // Левое оружие (статичный fallback)
-                if (isLocal && !string.IsNullOrEmpty(_offWeaponSubtype))
+                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_offWeaponSubtype))
                 {
                     SpriteAnimation? offAnim = null;
                     bool useOffSwing = false;

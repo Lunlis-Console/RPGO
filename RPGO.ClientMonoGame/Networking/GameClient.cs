@@ -1,5 +1,6 @@
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
+using RPGGame.ClientMonoGame.Windows;
 using System.Text.Json;
 
 namespace RPGGame.ClientMonoGame.Networking;
@@ -98,6 +99,11 @@ public sealed class GameClient
     public bool IsDead { get; set; }
     public int DeathLostGold { get; set; }
     public event Action<int>? PlayerDeathReceived;
+
+    // Почта
+    public event Action<List<MailEntry>>? MailListReceived;
+    public event Action<MailEntry>? MailDetailReceived;
+    public event Action<bool, string>? MailResultReceived;
 
     public void Initialize(Action uiCallback)
     {
@@ -647,6 +653,77 @@ public sealed class GameClient
                         double hx = ph.TryGetProperty("X", out var phX) ? phX.GetDouble() : 0;
                         double hy = ph.TryGetProperty("Y", out var phY) ? phY.GetDouble() : 0;
                         Ui(() => ProjectileHit?.Invoke(hid, hx, hy));
+                    }
+                    break;
+
+                case "mail_list":
+                    if (message.Data is JsonElement mlData)
+                    {
+                        var messages = new List<MailEntry>();
+                        if (mlData.TryGetProperty("Mails", out var msgs))
+                        {
+                            foreach (var m in msgs.EnumerateArray())
+                            {
+                                var mm = new MailEntry
+                                {
+                                    Id = m.TryGetProperty("Id", out var mid) ? mid.GetInt32() : 0,
+                                    SenderName = m.TryGetProperty("SenderName", out var ms) ? ms.GetString() ?? "" : "",
+                                    RecipientName = m.TryGetProperty("RecipientName", out var mr) ? mr.GetString() ?? "" : "",
+                                    Subject = m.TryGetProperty("Subject", out var msu) ? msu.GetString() ?? "" : "",
+                                    Body = m.TryGetProperty("Body", out var mb) ? mb.GetString() ?? "" : "",
+                                    GoldAmount = m.TryGetProperty("GoldAmount", out var mg) ? mg.GetInt32() : 0,
+                                    ItemId = m.TryGetProperty("ItemId", out var mi) ? mi.GetString() ?? "" : "",
+                                    ItemName = m.TryGetProperty("ItemName", out var mn) ? mn.GetString() ?? "" : "",
+                                    ItemType = m.TryGetProperty("ItemType", out var mt) ? mt.GetString() ?? "" : "",
+                                    ItemQuantity = m.TryGetProperty("ItemQuantity", out var mq) ? mq.GetInt32() : 0,
+                                    SentAt = m.TryGetProperty("SentAt", out var mst) ? mst.GetString() ?? "" : "",
+                                    ReadAt = m.TryGetProperty("ReadAt", out var mrd) ? mrd.GetString() ?? "" : "",
+                                    TakenAt = m.TryGetProperty("TakenAt", out var mtn) ? mtn.GetString() ?? "" : ""
+                                };
+                                messages.Add(mm);
+                            }
+                        }
+                        Ui(() => MailListReceived?.Invoke(messages));
+                    }
+                    break;
+
+                case "mail_detail":
+                    if (message.Data is JsonElement mdData)
+                    {
+                        var msg = new MailEntry
+                        {
+                            Id = mdData.TryGetProperty("Id", out var did) ? did.GetInt32() : 0,
+                            SenderName = mdData.TryGetProperty("SenderName", out var ds) ? ds.GetString() ?? "" : "",
+                            RecipientName = mdData.TryGetProperty("RecipientName", out var dr) ? dr.GetString() ?? "" : "",
+                            Subject = mdData.TryGetProperty("Subject", out var dsu) ? dsu.GetString() ?? "" : "",
+                            Body = mdData.TryGetProperty("Body", out var db) ? db.GetString() ?? "" : "",
+                            GoldAmount = mdData.TryGetProperty("GoldAmount", out var dg) ? dg.GetInt32() : 0,
+                            ItemId = mdData.TryGetProperty("ItemId", out var di) ? di.GetString() ?? "" : "",
+                            ItemName = mdData.TryGetProperty("ItemName", out var dn) ? dn.GetString() ?? "" : "",
+                            ItemType = mdData.TryGetProperty("ItemType", out var dt) ? dt.GetString() ?? "" : "",
+                            ItemQuantity = mdData.TryGetProperty("ItemQuantity", out var dq) ? dq.GetInt32() : 0,
+                            SentAt = mdData.TryGetProperty("SentAt", out var dst) ? dst.GetString() ?? "" : "",
+                            ReadAt = mdData.TryGetProperty("ReadAt", out var drd) ? drd.GetString() ?? "" : "",
+                            TakenAt = mdData.TryGetProperty("TakenAt", out var dtn) ? dtn.GetString() ?? "" : ""
+                        };
+                        Ui(() => MailDetailReceived?.Invoke(msg));
+                    }
+                    break;
+
+                case "mail_unread":
+                    if (message.Data is JsonElement muData)
+                    {
+                        int count = muData.TryGetProperty("Count", out var uc) ? uc.GetInt32() : 0;
+                        Ui(() => MailResultReceived?.Invoke(true, $"Непрочитанных: {count}"));
+                    }
+                    break;
+
+                case "mail_result":
+                    if (message.Data is JsonElement mrData)
+                    {
+                        bool ok = mrData.TryGetProperty("Success", out var msucc) && msucc.GetBoolean();
+                        string err = mrData.TryGetProperty("Message", out var merr) ? merr.GetString() ?? "" : "";
+                        Ui(() => MailResultReceived?.Invoke(ok, err));
                     }
                     break;
 

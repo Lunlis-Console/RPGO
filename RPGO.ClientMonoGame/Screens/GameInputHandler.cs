@@ -217,13 +217,13 @@ internal class GameInputHandler
     internal void HandleIconClick(MouseState mouse, bool mouseOverAnyWindow, GameMain game,
         InventoryWindow inventory, StatusWindow status, SkillsWindow skills,
         EquipmentWindow equipment, SocialWindow social, QuestLogWindow questLog,
-        SettingsWindow settings, Rectangle[] iconRects)
+        SettingsWindow settings, MailWindow mail, Rectangle[] iconRects)
     {
-        if (iconRects.Length < 7 ||
+        if (iconRects.Length < 8 ||
             mouse.LeftButton != ButtonState.Pressed || PrevMouse.LeftButton != ButtonState.Released)
             return;
 
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 8; i++)
         {
             if (!iconRects[i].Contains(mouse.X, mouse.Y)) continue;
             switch (i)
@@ -253,6 +253,10 @@ internal class GameInputHandler
                     if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
                     break;
                 case 6:
+                    mail.Visible = !mail.Visible;
+                    if (mail.Visible) { CenterWindow(mail, game); PushWindow(mail); }
+                    break;
+                case 7:
                     settings.Visible = !settings.Visible;
                     if (settings.Visible) { CenterWindow(settings, game); PushWindow(settings); }
                     break;

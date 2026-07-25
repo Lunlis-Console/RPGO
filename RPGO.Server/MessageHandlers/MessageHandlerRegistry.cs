@@ -75,5 +75,6 @@ public static class MessageHandlerRegistry
         Register("friend", new FriendHandler(world, hub));
         Register("revive", new ReviveHandler(world, hub));
         Register("dialogue_choice", new DialogueChoiceHandler(world, hub));
+        Register("mail", new MailHandler(world, hub));
     }
 }
