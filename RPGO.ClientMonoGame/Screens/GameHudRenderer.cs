@@ -189,7 +189,7 @@ internal class GameHudRenderer
             SpriteCache.GetIconSkills(),
             SpriteCache.GetIconEquipment(),
             SpriteCache.GetIconCommunication(),
-            null,
+            SpriteCache.GetIconJournal(),
             SpriteCache.GetIconSettings()
         };
 
