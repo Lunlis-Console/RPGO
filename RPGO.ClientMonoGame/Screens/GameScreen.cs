@@ -94,7 +94,7 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
             }
         };
-        client.PlayerAttackPerformed += () => _mapRenderer.TriggerAttack();
+        client.PlayerAttackPerformed += (hand) => _mapRenderer.TriggerAttack(hand);
         client.TargetDebuffsUpdated += debuffs =>
         {
             _hudRenderer.UpdateTargetDebuffs(debuffs);

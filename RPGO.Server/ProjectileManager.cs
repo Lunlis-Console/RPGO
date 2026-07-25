@@ -88,7 +88,7 @@ public class ProjectileManager
                 var killDmgMsg = new GameMessage
                 {
                     Type = "damage",
-                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = shownDmg, IsCrit = proj.IsCrit }
+                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = shownDmg, IsCrit = proj.IsCrit, Hand = "main" }
                 };
                 await svc.KillService.ResolveMonsterKill(owner, monster, proj.Damage, true, killDmgMsg, isProjectile: true);
             }
@@ -100,7 +100,7 @@ public class ProjectileManager
                 var dmgMsg = new GameMessage
                 {
                     Type = "damage",
-                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = proj.Damage, IsCrit = proj.IsCrit }
+                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = proj.Damage, IsCrit = proj.IsCrit, Hand = "main" }
                 };
                 await _hub.SendToClient(client, dmgMsg);
                 await _hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, owner);

@@ -206,7 +206,7 @@ public class CombatService
             var killDmgMsg = !isEvaded ? new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit }
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit, Hand = "main" }
             } : null;
             await _svc.KillService.ResolveMonsterKill(pl, monster, dmgToMonster, !isEvaded, killDmgMsg);
             return;
@@ -225,7 +225,7 @@ public class CombatService
             var dmgMsg = new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmgToMonster, IsCrit = isCrit }
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmgToMonster, IsCrit = isCrit, Hand = "main" }
             };
             await _svc.Hub.SendToClient(client, dmgMsg);
             await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
@@ -298,7 +298,7 @@ public class CombatService
         var ohDmgMsg = new GameMessage
         {
             Type = "damage",
-            Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = ohDmg, IsCrit = ohCrit }
+            Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = ohDmg, IsCrit = ohCrit, Hand = "off" }
         };
         await _svc.Hub.SendToClient(client, ohDmgMsg);
         await _svc.Hub.SendDamageNearbyAsync(offMonster.X, offMonster.Y, ohDmgMsg, pl);
@@ -317,7 +317,7 @@ public class CombatService
             var ohKillMsg = new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + ohDmg), IsCrit = ohCrit }
+                Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + ohDmg), IsCrit = ohCrit, Hand = "off" }
             };
             await _svc.KillService.ResolveMonsterKill(pl, offMonster, ohDmg, true, ohKillMsg);
         }

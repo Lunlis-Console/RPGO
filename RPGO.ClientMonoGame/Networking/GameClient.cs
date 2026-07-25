@@ -87,7 +87,7 @@ public sealed class GameClient
     public event Action<string, double, double>? ProjectileHit;
 
     // Атака
-    public event Action? PlayerAttackPerformed;
+    public event Action<string>? PlayerAttackPerformed;
 
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
@@ -382,7 +382,10 @@ public sealed class GameClient
                         Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
                         Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
                         if (target == "monster" && amount > 0)
-                            Ui(() => PlayerAttackPerformed?.Invoke());
+                        {
+                            string hand = dmgEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
+                            Ui(() => PlayerAttackPerformed?.Invoke(hand));
+                        }
                     }
                     break;
 

@@ -187,7 +187,7 @@ internal class GameHudRenderer
             SpriteCache.GetIconStatus(),
             SpriteCache.GetIconInventory(),
             SpriteCache.GetIconSkills(),
-            SpriteCache.ForItemType("weapon"),
+            SpriteCache.GetIconEquipment(),
             SpriteCache.GetIconCommunication(),
             null,
             SpriteCache.GetIconSettings()
