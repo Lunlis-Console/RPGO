@@ -236,7 +236,7 @@ public class MapRenderer
                 Text = text,
                 Color = color,
                 StartTime = DateTime.UtcNow,
-                Scale = isCrit ? 1.35f : 1f
+                Scale = isCrit ? 1.6f : 1.2f
             });
         }
     }
@@ -1219,14 +1219,18 @@ public class MapRenderer
                 var c = new Color(ft.Color.R, ft.Color.G, ft.Color.B, (byte)alpha);
                 Vector2 origin = font.MeasureString(ft.Text) / 2f;
                 float scale = ft.Scale;
-                // Чёрная обводка (4 смещённые копии) для чёткости и читаемости
+                // Чёрная обводка (8 смещённых копий) для чёткости и читаемости
                 // поверх любого фона — стандартный приём ММОРПГ для всплывающего текста.
-                var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.8f));
-                float o = 1f * scale;
+                var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.9f));
+                float o = 1.2f * scale;
                 sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 sb.DrawString(font, ft.Text, new Vector2(fpx, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 sb.DrawString(font, ft.Text, new Vector2(fpx, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
+                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 // Цветной текст поверх обводки
                 sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
             }
