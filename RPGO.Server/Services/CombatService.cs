@@ -194,6 +194,12 @@ public class CombatService
 
         if (weaponRange > 1 && !isEvaded)
         {
+            // Face the target before ranged attack
+            if (dx == 1) pl.Facing = "right";
+            else if (dx == -1) pl.Facing = "left";
+            else if (dy == 1) pl.Facing = "down";
+            else if (dy == -1) pl.Facing = "up";
+
             string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit);
             await _svc.Projectiles.BroadcastSpawn(proj);
@@ -204,6 +210,9 @@ public class CombatService
                 Type = "player_attack",
                 Data = new { Hand = "main" }
             });
+
+            // Broadcast map to sync facing
+            await _svc.Hub.BroadcastMapAsync();
             
             return;
         }
