@@ -111,6 +111,14 @@ public class CombatService
     {
         pl.Combat.LastAttackTime = DateTime.UtcNow;
 
+        // Face the target before attacking
+        int dx = monster.X - pl.X;
+        int dy = monster.Y - pl.Y;
+        if (dx == 1) pl.Facing = "right";
+        else if (dx == -1) pl.Facing = "left";
+        else if (dy == 1) pl.Facing = "down";
+        else if (dy == -1) pl.Facing = "up";
+
         string subtype = pl.Equipment.GetWeaponSubtype();
         bool forceProc = queuedSkill?.Id == "SK0001" && weaponRange <= 1;
         if (!string.IsNullOrEmpty(subtype))
@@ -285,6 +293,15 @@ public class CombatService
         }
 
         pl.Combat.OffHandLastAttackTime = DateTime.UtcNow;
+
+        // Face the target before off-hand attack
+        int dx = offMonster.X - pl.X;
+        int dy = offMonster.Y - pl.Y;
+        if (dx == 1) pl.Facing = "right";
+        else if (dx == -1) pl.Facing = "left";
+        else if (dy == 1) pl.Facing = "down";
+        else if (dy == -1) pl.Facing = "up";
+
         var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
         if (ohEvaded)
