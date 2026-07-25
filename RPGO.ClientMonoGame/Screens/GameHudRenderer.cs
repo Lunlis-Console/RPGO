@@ -219,6 +219,8 @@ internal class GameHudRenderer
                     int th = (int)ts.Y + 6;
                     int tx = r.X + r.Width / 2 - tw / 2;
                     int ty = r.Y - th - 4;
+                    int screenW = sb.GraphicsDevice.PresentationParameters.BackBufferWidth;
+                    tx = Math.Clamp(tx, 4, screenW - tw - 4);
                     sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, th), new Color(20, 22, 30, 230));
                     sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, 1), new Color(90, 95, 115));
                     sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty + th - 1, tw, 1), new Color(90, 95, 115));
