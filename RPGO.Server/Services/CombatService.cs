@@ -74,7 +74,7 @@ public class CombatService
                         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
                         bool offHandReady = pl.Equipment.IsDualWielding()
                             && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
-                            && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs / 2;
+                            && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
 
                         if (!mainAttackReady && !offHandReady) continue;
 
