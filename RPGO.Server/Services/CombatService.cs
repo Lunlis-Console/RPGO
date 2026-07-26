@@ -86,7 +86,6 @@ public class CombatService
                             await _svc.Hub.SendStatusAsync(client, pl);
                             changed = true;
                         }
-                        else if (ChaseTarget(pl, monster)) changed = true;
                     }
                     else
                     {
