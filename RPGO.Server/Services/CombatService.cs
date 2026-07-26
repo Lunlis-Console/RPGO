@@ -54,10 +54,33 @@ public class CombatService
 
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
                     int weaponRange = pl.Equipment.GetWeaponAttackRange();
+                    var offHandWeapon = pl.Equipment.GetOffHandWeapon();
+                    int offHandRange = offHandWeapon?.AttackRange ?? 0;
+                    bool offHandCanShoot = offHandRange > 1 && dist <= offHandRange;
 
-                    if (dist > weaponRange)
+                    int attackIntervalMs = Balance.AttackIntervalMs(
+                        Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+                    double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
+                    attackIntervalMs = (int)(attackIntervalMs / speedBuff);
+                    bool offHandReady = pl.Equipment.IsDualWielding()
+                        && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
+                        && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
+
+                    if (dist > weaponRange && !offHandCanShoot)
                     {
                         if (ChaseTarget(pl, monster)) changed = true;
+                    }
+                    else if (dist > weaponRange && offHandCanShoot)
+                    {
+                        var client = _svc.World.FindClientByPlayer(pl);
+                        if (client == null) continue;
+                        if (offHandReady)
+                        {
+                            await ExecuteOffHandAttack(pl, client);
+                            await _svc.Hub.SendStatusAsync(client, pl);
+                            changed = true;
+                        }
+                        else if (ChaseTarget(pl, monster)) changed = true;
                     }
                     else
                     {
@@ -67,14 +90,7 @@ public class CombatService
                         // Бафф-навыки применяются сразу, не дожидаясь атаки
                         await ProcessInstantBuffs(pl, client);
 
-                        int attackIntervalMs = Balance.AttackIntervalMs(
-                            Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
-                        double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
-                        attackIntervalMs = (int)(attackIntervalMs / speedBuff);
                         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
-                        bool offHandReady = pl.Equipment.IsDualWielding()
-                            && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
-                            && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
 
                         if (!mainAttackReady && !offHandReady) continue;
 
@@ -321,23 +337,23 @@ public class CombatService
         string offSubtype = offWeapon?.WeaponSubtype ?? "";
         int offWeaponRange = offWeapon?.AttackRange ?? 1;
 
-        // Face the target before off-hand attack
         int dx = offMonster.X - pl.X;
         int dy = offMonster.Y - pl.Y;
+        int dist = Math.Abs(dx) + Math.Abs(dy);
+        bool isRangedAttack = offWeaponRange > 1 && dist > 1;
+
+        // Face the target before off-hand attack
         if (Math.Abs(dx) >= Math.Abs(dy))
             pl.Facing = dx > 0 ? "right" : "left";
         else
             pl.Facing = dy > 0 ? "down" : "up";
 
-        if (offWeaponRange > 1)
+        if (isRangedAttack)
         {
-            string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
-            int baseDmg = Math.Max(Balance.MinDamage, pl.GetPhysAttack() + offWeapon.DamageMax / 2);
-            bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
-            int dmg = isCrit ? (int)(baseDmg * pl.GetCritDamage()) : baseDmg;
-            dmg = Math.Max(Balance.MinDamage, dmg);
+            var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
-            var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, dmg, isCrit, "off");
+            string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
+            var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, ohDmg, ohCrit, "off");
             await _svc.Projectiles.BroadcastSpawn(proj);
             await _svc.Hub.SendToClient(client, new GameMessage
             {
@@ -348,31 +364,31 @@ public class CombatService
             return;
         }
 
-        var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
+        var (meleeDmg, meleeCrit, meleeEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
-        if (ohEvaded)
+        if (meleeEvaded)
         {
             await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} уклонился от удара вторым оружием.");
             return;
         }
 
-        if (ohDmg <= 0) return;
+        if (meleeDmg <= 0) return;
 
-        offMonster.Health -= ohDmg;
+        offMonster.Health -= meleeDmg;
         offMonster.LastDamagedTime = DateTime.UtcNow;
-        offMonster.DamageTracker[pl.Id] = offMonster.DamageTracker.GetValueOrDefault(pl.Id) + ohDmg;
+        offMonster.DamageTracker[pl.Id] = offMonster.DamageTracker.GetValueOrDefault(pl.Id) + meleeDmg;
 
-        string ohCritText = ohCrit ? " (КРИТ!)" : "";
+        string critText = meleeCrit ? " (КРИТ!)" : "";
         string ohWeaponName = pl.Equipment.GetOffHandWeapon()?.Name ?? "оружие";
-        await ChatTo(client, ChatChannel.Combat, "Бой", $"Второе оружие ({ohWeaponName}) нанесло {ohDmg} урона{ohCritText} {offMonster.Name}.");
+        await ChatTo(client, ChatChannel.Combat, "Бой", $"Второе оружие ({ohWeaponName}) нанесло {meleeDmg} урона{critText} {offMonster.Name}.");
 
-        var ohDmgMsg = new GameMessage
+        var dmgMsg = new GameMessage
         {
             Type = "damage",
-            Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = ohDmg, IsCrit = ohCrit, Hand = "off" }
+            Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = meleeDmg, IsCrit = meleeCrit, Hand = "off" }
         };
-        await _svc.Hub.SendToClient(client, ohDmgMsg);
-        await _svc.Hub.SendDamageNearbyAsync(offMonster.X, offMonster.Y, ohDmgMsg, pl);
+        await _svc.Hub.SendToClient(client, dmgMsg);
+        await _svc.Hub.SendDamageNearbyAsync(offMonster.X, offMonster.Y, dmgMsg, pl);
 
         if (offMonster.Health <= 0)
         {
@@ -380,17 +396,17 @@ public class CombatService
             {
                 offMonster.Health = offMonster.MaxHealth;
                 offMonster.LastDamagedTime = DateTime.UtcNow;
-                await ChatTo(client, ChatChannel.Combat, "Бой", $"Манекен восстановил все HP!{(ohCrit ? " (КРИТ!)" : "")}");
+                await ChatTo(client, ChatChannel.Combat, "Бой", $"Манекен восстановил все HP!{(meleeCrit ? " (КРИТ!)" : "")}");
                 await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(offMonster.Name, offMonster.Health, offMonster.MaxHealth));
                 return;
             }
 
-            var ohKillMsg = new GameMessage
+            var killMsg = new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + ohDmg), IsCrit = ohCrit, Hand = "off" }
+                Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + meleeDmg), IsCrit = meleeCrit, Hand = "off" }
             };
-            await _svc.KillService.ResolveMonsterKill(pl, offMonster, ohDmg, true, ohKillMsg);
+            await _svc.KillService.ResolveMonsterKill(pl, offMonster, meleeDmg, true, killMsg);
         }
         else
         {
