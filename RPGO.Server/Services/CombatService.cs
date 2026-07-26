@@ -317,6 +317,10 @@ public class CombatService
 
         pl.Combat.OffHandLastAttackTime = DateTime.UtcNow;
 
+        var offWeapon = pl.Equipment.GetOffHandWeapon();
+        string offSubtype = offWeapon?.WeaponSubtype ?? "";
+        int offWeaponRange = offWeapon?.AttackRange ?? 1;
+
         // Face the target before off-hand attack
         int dx = offMonster.X - pl.X;
         int dy = offMonster.Y - pl.Y;
@@ -324,6 +328,25 @@ public class CombatService
             pl.Facing = dx > 0 ? "right" : "left";
         else
             pl.Facing = dy > 0 ? "down" : "up";
+
+        if (offWeaponRange > 1)
+        {
+            string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
+            int baseDmg = Math.Max(Balance.MinDamage, pl.GetPhysAttack() + offWeapon.DamageMax / 2);
+            bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+            int dmg = isCrit ? (int)(baseDmg * pl.GetCritDamage()) : baseDmg;
+            dmg = Math.Max(Balance.MinDamage, dmg);
+
+            var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, dmg, isCrit, "off");
+            await _svc.Projectiles.BroadcastSpawn(proj);
+            await _svc.Hub.SendToClient(client, new GameMessage
+            {
+                Type = "player_attack",
+                Data = new { Hand = "off" }
+            });
+            await _svc.Hub.BroadcastMapAsync();
+            return;
+        }
 
         var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
