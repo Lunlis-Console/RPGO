@@ -75,7 +75,7 @@ public class Equipment
         var rh = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
         if (rh != null) return rh;
         var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
-        if (lh != null && (IsCasterOffhand(lh) || lh.Type == "weapon" && !lh.TwoHanded)) return lh;
+        if (lh != null && IsCasterOffhand(lh)) return lh;
         return null;
     }
 
@@ -88,13 +88,21 @@ public class Equipment
     public string GetWeaponSubtype()
     {
         var weapon = GetEffectiveMainHandWeapon();
-        return weapon?.WeaponSubtype ?? "";
+        if (weapon != null) return weapon.WeaponSubtype ?? "";
+        var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
+        if (lh != null && !IsCasterOffhand(lh) && !lh.TwoHanded && lh.WeaponSubtype != null)
+            return lh.WeaponSubtype;
+        return "";
     }
 
     public int GetWeaponAttackRange()
     {
         var weapon = GetEffectiveMainHandWeapon();
-        return weapon?.AttackRange ?? 1;
+        if (weapon != null) return weapon.AttackRange;
+        var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
+        if (lh != null && !IsCasterOffhand(lh) && !lh.TwoHanded && lh.AttackRange > 0)
+            return lh.AttackRange;
+        return 1;
     }
 
     public bool IsDualWielding()
