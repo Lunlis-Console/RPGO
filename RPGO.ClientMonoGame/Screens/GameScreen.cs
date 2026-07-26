@@ -191,8 +191,7 @@ public class GameScreen : IScreen
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
             if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
-            // Оверлей оружия: берём подтип из слота правой руки,
-            // а если правая пуста — из левой (невооружённой / не кастер-оффхенд)
+            // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
             bool isTwoHanded = false;
             if (inv.Equipment?.Slots != null)
@@ -201,12 +200,6 @@ public class GameScreen : IScreen
                 {
                     weaponSub = wItem.WeaponSubtype;
                     isTwoHanded = wItem.TwoHanded;
-                }
-                else if (inv.Equipment.Slots.TryGetValue("lhand", out var lItem) && lItem != null
-                         && !Equipment.IsCasterOffhand(lItem))
-                {
-                    weaponSub = lItem.WeaponSubtype;
-                    isTwoHanded = lItem.TwoHanded;
                 }
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);

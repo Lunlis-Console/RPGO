@@ -75,7 +75,7 @@ public class Equipment
         var rh = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
         if (rh != null) return rh;
         var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
-        if (lh != null && !IsCasterOffhand(lh)) return lh;
+        if (lh != null && IsCasterOffhand(lh)) return lh;
         return null;
     }
 

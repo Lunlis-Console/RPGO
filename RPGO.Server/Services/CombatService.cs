@@ -121,7 +121,18 @@ public class CombatService
             pl.Facing = dy > 0 ? "down" : "up";
 
         string subtype = pl.Equipment.GetWeaponSubtype();
-        string attackHand = Equipment.IsCasterOffhand(pl.Equipment.GetEffectiveMainHandWeapon()) ? "off" : "main";
+        string attackHand;
+        var effectiveMain = pl.Equipment.GetEffectiveMainHandWeapon();
+        if (effectiveMain != null)
+        {
+            attackHand = Equipment.IsCasterOffhand(effectiveMain) ? "off" : "main";
+        }
+        else
+        {
+            // No right-hand weapon; check if left hand has a non-caster one-hander
+            var lh = pl.Equipment.Slots.TryGetValue("lhand", out var l) ? l : null;
+            attackHand = (lh != null && !Equipment.IsCasterOffhand(lh) && !lh.TwoHanded) ? "off" : "main";
+        }
         bool forceProc = queuedSkill?.Id == "SK0001" && weaponRange <= 1;
         if (!string.IsNullOrEmpty(subtype))
         {
