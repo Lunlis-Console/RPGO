@@ -58,13 +58,15 @@ public class CombatService
                     int offHandRange = offHandWeapon?.AttackRange ?? 0;
                     bool offHandCanShoot = offHandRange > 1 && dist <= offHandRange;
 
-                    int attackIntervalMs = Balance.AttackIntervalMs(
-                        Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
-                    double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
-                    attackIntervalMs = (int)(attackIntervalMs / speedBuff);
-                    bool offHandReady = pl.Equipment.IsDualWielding()
-                        && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
-                        && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
+                     int attackIntervalMs = Balance.AttackIntervalMs(
+                         Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+                     double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
+                     attackIntervalMs = (int)(attackIntervalMs / speedBuff);
+                     bool offHandReady = pl.Equipment.IsDualWielding()
+                         && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
+                         && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
+                     bool offHandCanFireNow = pl.Equipment.IsDualWielding()
+                         && (DateTime.UtcNow - pl.Combat.OffHandLastAttackTime).TotalMilliseconds >= Balance.OffHandDelayMinMs;
 
                     if (dist > weaponRange && !offHandCanShoot)
                     {
@@ -74,7 +76,7 @@ public class CombatService
                     {
                         var client = _svc.World.FindClientByPlayer(pl);
                         if (client == null) continue;
-                        if (offHandReady)
+                        if (offHandCanFireNow)
                         {
                             await ExecuteOffHandAttack(pl, client);
                             await _svc.Hub.SendStatusAsync(client, pl);
