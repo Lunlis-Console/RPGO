@@ -65,8 +65,12 @@ public class CombatService
                      bool offHandReady = pl.Equipment.IsDualWielding()
                          && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
                          && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
-                     bool offHandCanFireNow = pl.Equipment.IsDualWielding()
-                         && (DateTime.UtcNow - pl.Combat.OffHandLastAttackTime).TotalMilliseconds >= Balance.OffHandDelayMinMs;
+                     bool offHandCanFireNow;
+                     if (offHandCanShoot)
+                         offHandCanFireNow = (DateTime.UtcNow - pl.Combat.OffHandLastAttackTime).TotalMilliseconds >= attackIntervalMs;
+                     else
+                         offHandCanFireNow = pl.Equipment.IsDualWielding()
+                             && (DateTime.UtcNow - pl.Combat.OffHandLastAttackTime).TotalMilliseconds >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
 
                     if (dist > weaponRange && !offHandCanShoot)
                     {
