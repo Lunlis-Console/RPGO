@@ -976,15 +976,18 @@ public class MapRenderer
                                 offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
                         }
                         else
-                        {
-                            offAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                        }
+                    {
+                         offAnim = SpriteCache.GetWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
+                         if (offAnim != null) useOffSwing = true;
+                         if (offAnim == null)
+                             offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                         if (offAnim != null) useOffSwing = true;
+                         if (offAnim == null)
+                             offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                     }
+                     else
+                     {
+                         offAnim = SpriteCache.GetWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
                     }
                     else if (_mainAttackActive)
                     {
