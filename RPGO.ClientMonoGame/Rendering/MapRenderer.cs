@@ -201,14 +201,8 @@ public class MapRenderer
                 int ddx = tx.Value - me.X;
                 int ddy = ty.Value - me.Y;
                 int manhattan = Math.Abs(ddx) + Math.Abs(ddy);
-                // Смотрим на цель только когда игрок уже у неё (на соседней/
-                // той же клетке). Пока в пути — смотрим по движению, иначе
-                // из-за пауз между шагами сервера спрайт мерцает (цель↔движение).
-                if (manhattan <= 1 && (ddx != 0 || ddy != 0))
+                if ((manhattan <= 1 || _mainAttackActive) && (ddx != 0 || ddy != 0))
                 {
-                    // Запоминаем показанный взгляд в _localFacing, чтобы после
-                    // снятия цели (смерть моба) спрайт не «прыгал» на
-                    // устаревшее направление движения, а оставался куда смотрел.
                     string dir = (Math.Abs(ddx) > Math.Abs(ddy))
                         ? (ddx < 0 ? "left" : "right")
                         : (ddy < 0 ? "up" : "down");
