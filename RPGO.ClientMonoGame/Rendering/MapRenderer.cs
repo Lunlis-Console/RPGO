@@ -962,13 +962,27 @@ public class MapRenderer
                     bool useOffSwing = false;
                     if (_offAttackActive)
                     {
-                        offAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
-                        if (offAnim != null) useOffSwing = true;
-                        if (offAnim == null)
-                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                        if (offAnim != null) useOffSwing = true;
-                        if (offAnim == null)
-                            offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        bool noMainWeapon = string.IsNullOrEmpty(_weaponSubtype);
+                        if (noMainWeapon)
+                        {
+                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        }
+                        else
+                        {
+                            offAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        }
                     }
                     else if (_mainAttackActive)
                     {
