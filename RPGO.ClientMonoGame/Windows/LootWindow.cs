@@ -215,7 +215,7 @@ public class LootWindow : GameWindow
                 if (filled && idx != _dragIndex)
                 {
                     var item = _items[idx];
-                    var spr = SpriteCache.ForItemType(item.Type);
+                    var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                     if (spr != null)
                         sb.Draw(spr, new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12), Color.White);
                     if (hover) _hoverItem = item;

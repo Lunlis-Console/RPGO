@@ -194,18 +194,13 @@ public class GameScreen : IScreen
             // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
             bool isTwoHanded = false;
-            if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("rhand", out var wItem))
+            if (inv.Equipment?.Slots != null)
             {
-                weaponSub = wItem?.WeaponSubtype;
-                isTwoHanded = wItem?.TwoHanded == true;
-                Logger.Debug($"WeaponOverlay inventory: rhand found, WeaponSubtype='{wItem?.WeaponSubtype}', TwoHanded={wItem?.TwoHanded}, Name='{wItem?.Name}', Type='{wItem?.Type}'");
-            }
-            else
-            {
-                Logger.Debug($"WeaponOverlay inventory: Equipment={(inv.Equipment != null ? "ok" : "null")}, Slots={(inv.Equipment?.Slots != null ? $"{inv.Equipment.Slots.Count} items" : "null")}");
-                if (inv.Equipment?.Slots != null)
-                    foreach (var kv in inv.Equipment.Slots)
-                        Logger.Debug($"  slot '{kv.Key}' -> {(kv.Value != null ? kv.Value.Name : "null")}");
+                if (inv.Equipment.Slots.TryGetValue("rhand", out var wItem) && wItem != null)
+                {
+                    weaponSub = wItem.WeaponSubtype;
+                    isTwoHanded = wItem.TwoHanded;
+                }
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);
             _mapRenderer.SetTwoHanded(isTwoHanded);
@@ -214,9 +209,9 @@ public class GameScreen : IScreen
             string? offWeaponSub = null;
             if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("lhand", out var lItem))
             {
-                if (lItem?.Type == "shield")
+                if (lItem?.Type == "shield" && !Equipment.IsCasterOffhand(lItem))
                     shieldSub = "shield";
-                else if (lItem?.Type == "weapon")
+                else if (lItem?.Type == "weapon" || Equipment.IsCasterOffhand(lItem))
                     offWeaponSub = lItem?.WeaponSubtype;
             }
             _mapRenderer.SetShieldSubtype(shieldSub);

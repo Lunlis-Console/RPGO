@@ -305,7 +305,7 @@ public class DialogueManager
                         Discount = 0,
                         Items = _merchant.ShopItems.Select(i => new
                         {
-                            i.Id, i.Name, i.Type,
+                            i.Id, i.Name, i.Type, i.WeaponSubtype,
                             Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
                             i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
@@ -314,7 +314,7 @@ public class DialogueManager
                         }).ToList(),
                         Buyback = player.BuybackItems.Select(b => new
                         {
-                            b.Id, b.Name, b.Type,
+                            b.Id, b.Name, b.Type, b.WeaponSubtype,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
                             b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,

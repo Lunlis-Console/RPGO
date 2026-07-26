@@ -247,7 +247,7 @@ internal class GameHudRenderer
         if (dragItem != null)
         {
             var ms = Mouse.GetState();
-            var spr = SpriteCache.ForItemType(dragItem.Type);
+            var spr = SpriteCache.ForItem(dragItem);
             int sz = 44;
             var r = new Rectangle(ms.X - sz / 2, ms.Y - sz / 2, sz, sz);
             if (spr != null)

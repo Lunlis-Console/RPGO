@@ -381,7 +381,7 @@ public class InventoryWindow : GameWindow
                 if (filled && !(r * GridCols + c == _dragIndex))
                 {
                     var stack = _stacks[r * GridCols + c];
-                    var spr = SpriteCache.ForItemType(stack.item.Type);
+                    var spr = SpriteCache.ForItem(stack.item);
                     if (spr != null)
                         sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), Color.White);
                     if (stack.count > 1)

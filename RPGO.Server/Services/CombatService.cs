@@ -114,12 +114,14 @@ public class CombatService
         // Face the target before attacking
         int dx = monster.X - pl.X;
         int dy = monster.Y - pl.Y;
-        if (dx == 1) pl.Facing = "right";
-        else if (dx == -1) pl.Facing = "left";
-        else if (dy == 1) pl.Facing = "down";
-        else if (dy == -1) pl.Facing = "up";
+        int dist = Math.Abs(dx) + Math.Abs(dy);
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            pl.Facing = dx > 0 ? "right" : "left";
+        else
+            pl.Facing = dy > 0 ? "down" : "up";
 
         string subtype = pl.Equipment.GetWeaponSubtype();
+        string attackHand = Equipment.IsCasterOffhand(pl.Equipment.GetEffectiveMainHandWeapon()) ? "off" : "main";
         bool forceProc = queuedSkill?.Id == "SK0001" && weaponRange <= 1;
         if (!string.IsNullOrEmpty(subtype))
         {
@@ -138,7 +140,8 @@ public class CombatService
         }
 
         var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
-            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1);
+            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1,
+                subtype == "wand" ? pl.RollAttackDamage(dist) : null);
 
         if (!isEvaded && weaponRange <= 1 && _svc.Debuffs.HasDebuff(pl, DebuffType.CleaveReady))
         {
@@ -195,20 +198,20 @@ public class CombatService
         if (weaponRange > 1 && !isEvaded)
         {
             // Face the target before ranged attack
-            if (dx == 1) pl.Facing = "right";
-            else if (dx == -1) pl.Facing = "left";
-            else if (dy == 1) pl.Facing = "down";
-            else if (dy == -1) pl.Facing = "up";
+            if (Math.Abs(dx) >= Math.Abs(dy))
+                pl.Facing = dx > 0 ? "right" : "left";
+            else
+                pl.Facing = dy > 0 ? "down" : "up";
 
             string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
-            var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit);
+            var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit, attackHand);
             await _svc.Projectiles.BroadcastSpawn(proj);
             
             // Notify client to play ranged attack animation
             await _svc.Hub.SendToClient(client, new GameMessage
             {
                 Type = "player_attack",
-                Data = new { Hand = "main" }
+                Data = new { Hand = attackHand }
             });
 
             // Broadcast map to sync facing
@@ -231,7 +234,7 @@ public class CombatService
             var killDmgMsg = !isEvaded ? new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit, Hand = "main" }
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit, Hand = attackHand }
             } : null;
             await _svc.KillService.ResolveMonsterKill(pl, monster, dmgToMonster, !isEvaded, killDmgMsg);
             return;
@@ -250,7 +253,7 @@ public class CombatService
             var dmgMsg = new GameMessage
             {
                 Type = "damage",
-                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmgToMonster, IsCrit = isCrit, Hand = "main" }
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmgToMonster, IsCrit = isCrit, Hand = attackHand }
             };
             await _svc.Hub.SendToClient(client, dmgMsg);
             await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
@@ -666,7 +669,7 @@ public class CombatService
         pl.Combat.LastAttackTime = DateTime.UtcNow;
 
         // Урон PvP: та же формула, но по игроку
-        int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack());
+        int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist));
         bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
         if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
 

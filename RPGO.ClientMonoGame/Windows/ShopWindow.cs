@@ -229,7 +229,7 @@ public class ShopWindow : GameWindow
                 if (filled)
                 {
                     var item = _items[idx];
-                    var spr = SpriteCache.ForItemType(item.Type);
+                    var spr = SpriteCache.ForItem(item);
                     if (spr != null)
                         sb.Draw(spr, new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12), Color.White);
                     int stock = Math.Max(1, item.Stock);

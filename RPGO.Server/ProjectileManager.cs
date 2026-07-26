@@ -20,7 +20,7 @@ public class ProjectileManager
 
     public Projectile Spawn(
         Player owner, Monster target,
-        string visualType, int damage, bool isCrit)
+        string visualType, int damage, bool isCrit, string attackHand = "main")
     {
         var proj = new Projectile
         {
@@ -36,6 +36,7 @@ public class ProjectileManager
             OwnerId = owner.Id,
             OwnerName = owner.Name,
             TargetMonsterId = target.Id,
+            AttackHand = attackHand,
             SpawnTime = DateTime.UtcNow
         };
         lock (_lock) { _projectiles.Add(proj); }
@@ -106,7 +107,7 @@ public class ProjectileManager
                         var dmgMsg = new GameMessage
                         {
                             Type = "damage",
-                            Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = proj.Damage, IsCrit = proj.IsCrit, Hand = "main" }
+                            Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = proj.Damage, IsCrit = proj.IsCrit, Hand = proj.AttackHand }
                         };
                         await _hub.SendToClient(client, dmgMsg);
                         await _hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, owner);

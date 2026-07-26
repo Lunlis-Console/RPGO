@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using RPGGame.Shared.Models;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
@@ -88,7 +89,11 @@ public static class SpriteCache
         foreach (var name in spriteNames)
             LoadTexture(name);
 
-        Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length} textures");
+        var iconSubtypes = new[] { "Axe", "Bow", "Dagger", "Grimoire", "Hammer", "Mace", "Sphere", "Staff", "GreatSword", "Poleaxe", "GreatHammer", "Halberd", "Spear", "Wand", "Shield", "HealingPotion", "MagicPotion" };
+        foreach (var sub in iconSubtypes)
+            LoadTexture($"icon_{sub.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
+
+        Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
     }
 
     private static Texture2D? LoadTexture(string name)
@@ -113,6 +118,30 @@ public static class SpriteCache
         catch (Exception ex)
         {
             Logger.Error($"LoadTexture '{name}' failed", ex);
+            return null;
+        }
+    }
+
+    private static Texture2D? LoadTexture(string key, string resName)
+    {
+        if (_textures.ContainsKey(key)) return _textures[key];
+        try
+        {
+            var asm = typeof(SpriteCache).Assembly;
+            using var stream = asm.GetManifestResourceStream(resName);
+            if (stream == null)
+            {
+                Logger.Warn($"LoadTexture '{key}': resource stream is null ({resName})");
+                return null;
+            }
+            var tex = Texture2D.FromStream(_device, stream);
+            _textures[key] = tex;
+            Logger.Debug($"LoadTexture '{key}' OK ({tex.Width}x{tex.Height})");
+            return tex;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"LoadTexture '{key}' failed", ex);
             return null;
         }
     }
@@ -152,9 +181,13 @@ public static class SpriteCache
 
     public static SpriteAnimation? GetPlayerAttackAnimation(string dir) => GetAnimation($"player_attack_{dir}");
 
+    public static SpriteAnimation? GetPlayerRangeAttackAnimation(string dir) => GetAnimation($"player_range_attack_{dir}");
+
     public static SpriteAnimation? GetPlayerTwoHandAttackAnimation(string dir) => GetAnimation($"player_twohand_attack_{dir}");
 
     public static SpriteAnimation? GetWeaponAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_attack_{dir}");
+
+    public static SpriteAnimation? GetWeaponRangeAttackAnimation(string subtype, string dir) => GetAnimation($"weapon_{subtype}_range_attack_{dir}");
 
     public static SpriteAnimation? GetShieldAnimation(string dir, bool isMoving = false)
     {
@@ -263,6 +296,46 @@ public static class SpriteCache
         "trophy" => Get("misc"),
         _ => Get("misc")
     };
+
+    public static Texture2D? ForItem(string? type, string? weaponSubtype)
+    {
+        var t = (type ?? "").ToLower();
+        if (t is "weapon" or "twohand")
+        {
+            if (!string.IsNullOrEmpty(weaponSubtype))
+            {
+                var tex = Get($"icon_{SubtypeIconName(weaponSubtype).ToLower()}");
+                if (tex != null) return tex;
+            }
+            return Get("weapon");
+        }
+        if (t is "shield")
+        {
+            if (!string.IsNullOrEmpty(weaponSubtype))
+            {
+                var tex = Get($"icon_{SubtypeIconName(weaponSubtype).ToLower()}");
+                if (tex != null) return tex;
+            }
+            return Get("icon_shield") ?? Get("armor");
+        }
+        return ForItemType(type);
+    }
+
+    private static string SubtypeIconName(string subtype) => subtype.ToLower() switch
+    {
+        "greataxe" => "poleaxe",
+        var s => s,
+    };
+
+    public static Texture2D? ForItem(Item item)
+    {
+        if (item.Type == "consumable")
+        {
+            if (item.HealAmount > 0) return Get("icon_healingpotion") ?? Get("consumable");
+            if (item.RestoreMana > 0) return Get("icon_magicpotion") ?? Get("consumable");
+        }
+        return ForItem(item.Type, item.WeaponSubtype);
+    }
 
     public static void Unload()
     {

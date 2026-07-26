@@ -591,6 +591,7 @@ public sealed class GameClient
                                     Id = iel.TryGetProperty("Id", out var idP) ? (idP.GetString() ?? "") : "",
                                     Name = iel.TryGetProperty("Name", out var nmP) ? (nmP.GetString() ?? "") : "",
                                     Type = iel.TryGetProperty("Type", out var tpP) ? (tpP.GetString() ?? "") : "",
+                                    WeaponSubtype = iel.TryGetProperty("WeaponSubtype", out var wsP) ? (wsP.GetString() ?? "") : "",
                                     Value = iel.TryGetProperty("Value", out var vP) ? vP.GetInt32() : 0,
                                     Description = iel.TryGetProperty("Description", out var dP) ? (dP.GetString() ?? "") : ""
                                 });

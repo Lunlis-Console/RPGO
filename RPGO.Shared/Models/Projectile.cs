@@ -15,5 +15,6 @@ public class Projectile
     public Guid OwnerId { get; set; }
     public string OwnerName { get; set; } = "";
     public Guid TargetMonsterId { get; set; }
+    public string AttackHand { get; set; } = "main";
     public DateTime SpawnTime { get; set; } = DateTime.UtcNow;
 }

@@ -82,15 +82,55 @@ public class Player : ICombatant
            + Equipment.GetBonusEvadeChance();
 
     private bool IsUsingStaff() => Equipment.GetWeaponSubtype() == "staff";
+    private bool IsUsingWand() => Equipment.GetWeaponSubtype() == "wand";
 
-    // Совместимость с ICombatant (физ. атака/защита)
+    private bool UsesMagicAttack(int dist)
+    {
+        string sub = Equipment.GetWeaponSubtype();
+        if (sub == "staff" || sub == "grimoire" || sub == "sphere") return true;
+        if (sub == "wand" && dist > 1) return true;
+        return false;
+    }
+
+    // Совместимость с ICombatant (физ. атака/защита) — без расстояния (ближний бой по умолчанию)
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
-    public int GetTotalAttack() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
+    public int GetTotalAttack() => GetTotalAttack(1);
     public int GetTotalDefense() => GetDefense();
-    public int RollAttackDamage() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
-    public int RollOffHandDamage() => GetPhysAttack() + Equipment.RollOffHandDamage();
-    public int GetMaxAttackDamage() => (IsUsingStaff() ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
+    public int RollAttackDamage() => RollAttackDamage(1);
+    public int RollOffHandDamage()
+    {
+        var offHand = Equipment.GetOffHandWeapon();
+        if (offHand != null && Equipment.IsCasterWeapon(offHand))
+            return GetMagAttack() + Equipment.RollOffHandDamage();
+        return GetPhysAttack() + Equipment.RollOffHandDamage();
+    }
+    public int GetMaxAttackDamage() => GetMaxAttackDamage(1);
+
+    // Методы с учётом расстояния (для гибридного оружия: жезл)
+    public int GetTotalAttack(int dist)
+    {
+        string sub = Equipment.GetWeaponSubtype();
+        if (sub == "wand" && dist > 1)
+            return GetMagAttack() + Equipment.GetWeaponMaxDamage() / 2;
+        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
+    }
+
+    public int RollAttackDamage(int dist)
+    {
+        string sub = Equipment.GetWeaponSubtype();
+        if (sub == "wand" && dist > 1)
+            return GetMagAttack() + Equipment.RollWeaponDamage() / 2;
+        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
+    }
+
+    public int GetMaxAttackDamage(int dist)
+    {
+        string sub = Equipment.GetWeaponSubtype();
+        if (sub == "wand" && dist > 1)
+            return GetMagAttack() + Equipment.GetWeaponMaxDamage() / 2;
+        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
+    }
 
     public int Speed { get; set; } = 1;   // определяет интервал перемещения
 

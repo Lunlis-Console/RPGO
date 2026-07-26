@@ -598,7 +598,7 @@ namespace RPGGame.ClientMonoGame.Windows
                     {
                         var item = GetAvailableInventory().First(i => i.Id == groupedInv[uniqueIdx].Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItemType(item.Type);
+                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
 
@@ -641,7 +641,7 @@ namespace RPGGame.ClientMonoGame.Windows
                         var kvp = groupedOffer[uniqueIdx];
                         var item = _myOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItemType(item.Type);
+                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
 
@@ -705,7 +705,7 @@ namespace RPGGame.ClientMonoGame.Windows
                         var kvp = groupedTheir[uniqueIdx];
                         var item = _theirOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItemType(item.Type);
+                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
                             sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, cellSize - 8, cellSize - 8), Color.White);
 

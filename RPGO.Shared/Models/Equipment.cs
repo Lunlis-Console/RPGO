@@ -56,21 +56,44 @@ public class Equipment
         return mod;
     }
 
+    public static bool IsCasterOffhand(Item? item)
+    {
+        if (item == null) return false;
+        string sub = (item.WeaponSubtype ?? "").ToLowerInvariant();
+        return sub == "grimoire" || sub == "sphere";
+    }
+
+    public static bool IsCasterWeapon(Item? item)
+    {
+        if (item == null) return false;
+        string sub = (item.WeaponSubtype ?? "").ToLowerInvariant();
+        return sub == "staff" || sub == "wand" || sub == "grimoire" || sub == "sphere";
+    }
+
+    public Item? GetEffectiveMainHandWeapon()
+    {
+        var rh = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        if (rh != null) return rh;
+        var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
+        if (lh != null && IsCasterOffhand(lh)) return lh;
+        return null;
+    }
+
     public string GetWeaponDamageType()
     {
-        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        var weapon = GetEffectiveMainHandWeapon();
         return weapon?.DamageType ?? "";
     }
 
     public string GetWeaponSubtype()
     {
-        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        var weapon = GetEffectiveMainHandWeapon();
         return weapon?.WeaponSubtype ?? "";
     }
 
     public int GetWeaponAttackRange()
     {
-        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        var weapon = GetEffectiveMainHandWeapon();
         return weapon?.AttackRange ?? 1;
     }
 
@@ -91,7 +114,7 @@ public class Equipment
 
     public (int min, int max) GetWeaponDamageRange()
     {
-        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
+        var weapon = GetEffectiveMainHandWeapon();
         if (weapon == null || weapon.DamageMax <= 0) return (0, 0);
         return (weapon.DamageMin, weapon.DamageMax);
     }

@@ -120,6 +120,7 @@ public sealed class TradeItemData
     public string? Name { get; set; }
     public string? Type { get; set; }
     public string? TemplateId { get; set; }
+    public string? WeaponSubtype { get; set; }
     public int Quantity { get; set; }
     public int Value { get; set; }
     public string? Description { get; set; }
@@ -134,6 +135,7 @@ public sealed class TradeItemData
     public TradeItemData WithQuantity(int qty) => new()
     {
         Id = Id, Name = Name, Type = Type, TemplateId = TemplateId,
+        WeaponSubtype = WeaponSubtype,
         Value = Value, Description = Description, Attack = Attack,
         Defense = Defense, MaxHealthBonus = MaxHealthBonus, HealAmount = HealAmount,
         MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana
@@ -232,6 +234,7 @@ public sealed class LootItemInfo
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
+    public string WeaponSubtype { get; set; } = "";
     public int Value { get; set; }
     public string Description { get; set; } = "";
 }

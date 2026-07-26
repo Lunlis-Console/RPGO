@@ -157,7 +157,7 @@ public class LootCorpseHandler : BaseHandler
                 DamagePercent = myLoot.DamagePercent,
                 Items = myLoot.Items.Select(i => new
                 {
-                    i.Id, i.Name, i.Type, i.Value, i.Description
+                    i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
                 }).ToList()
             }
         });

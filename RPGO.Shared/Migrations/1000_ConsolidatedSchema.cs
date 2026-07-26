@@ -309,7 +309,7 @@ public class ConsolidatedSchema : ForwardOnlyMigration
 
         // ── Consumables ──
         InsItem("I0014", "Зелье здоровья", "consumable", 20, 0, 0, 0, 50, 1, "Восстанавливает 50 HP", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1.0, "", 0, 0, 1);
-        InsItem("I0020", "Зелье маны", "consumable", 25, 0, 0, 0, 0, 1, "Восстанавливает 40 MP", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1.0, "", 0, 0, 1);
+        InsItem("I0020", "Зелье маны", "consumable", 25, 0, 0, 0, 0, 1, "Восстанавливает 40 MP", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1.0, "", 0, 0, 1, 40);
 
         // ── Collectibles (I0015-I0019) ──
         InsItem("I0015", "Ягоды", "collectible", 1, 0, 0, 0, 0, 99, "Сочные ягоды, годятся для квестов", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1.0, "", 0, 0, 1);
@@ -484,10 +484,11 @@ public class ConsolidatedSchema : ForwardOnlyMigration
         double critChance, double critDmg, double evadeChance, double atkSpdBonus,
         int twoHanded,
         string dmgType, double atkSpdMod, string subtype,
-        int dmgMin, int dmgMax, int atkRange)
+        int dmgMin, int dmgMax, int atkRange,
+        int restoreMana = 0)
     {
         Execute.Sql(FormattableString.Invariant(
-            $"INSERT INTO items ({ItemCols}) VALUES ('{id}','{name}','{type}',{value},{attack},{defense},{maxHpBonus},{healAmount},0,{stock},'{Esc(desc)}',{str},{end},{agi},{cun},{intel},{wis},{bonusPa},{bonusMa},{bonusDef},{bonusRes},{atkSpdBonus},{critChance},{critDmg},{evadeChance},{twoHanded},'{dmgType}',{atkSpdMod},'{subtype}',{dmgMin},{dmgMax},{atkRange})"));
+            $"INSERT INTO items ({ItemCols}) VALUES ('{id}','{name}','{type}',{value},{attack},{defense},{maxHpBonus},{healAmount},{restoreMana},{stock},'{Esc(desc)}',{str},{end},{agi},{cun},{intel},{wis},{bonusPa},{bonusMa},{bonusDef},{bonusRes},{atkSpdBonus},{critChance},{critDmg},{evadeChance},{twoHanded},'{dmgType}',{atkSpdMod},'{subtype}',{dmgMin},{dmgMax},{atkRange})"));
     }
 
     private void SeedMonsters()

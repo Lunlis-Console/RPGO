@@ -194,7 +194,7 @@ public class EquipmentWindow : GameWindow
             if (filled && it != null)
             {
                 // Надетый предмет — иконка строго по центру (подпись слота скрыта)
-                var spr = SpriteCache.ForItemType(it.Type);
+                var spr = SpriteCache.ForItem(it);
                 if (spr != null)
                     sb.Draw(spr, new Rectangle(r.X + 6, r.Y + 6, r.Width - 12, r.Height - 12), Color.White);
 

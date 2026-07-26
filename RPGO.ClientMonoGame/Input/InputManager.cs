@@ -51,7 +51,7 @@ public class InputManager
             var name = slot!.StartsWith("item:") ? slot["item:".Length..] : slot;
             var item = GetItemByName(name);
             if (item != null)
-                return SpriteCache.ForItemType(item.Type);
+                return SpriteCache.ForItem(item);
         }
         return null;
     }

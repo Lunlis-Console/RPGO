@@ -129,7 +129,7 @@ public class TradeOfferHandler : BaseHandler
             .Where(i => i != null)
             .Select(i => new
             {
-                i!.Id, i.TemplateId, i.Name, i.Type, i.Value, i.Description,
+                i!.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description,
                 i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.MaxStack,
                 Quantity = entries.First(x => x.ItemId == i.Id).Quantity
             })

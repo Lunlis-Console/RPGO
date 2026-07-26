@@ -23,7 +23,7 @@ public class ShopRequestHandler : BaseHandler
                 Discount = 0,
                 Items = Program.Services.Merchant.ShopItems.Select(i => new
                 {
-                    i.Id, i.Name, i.Type,
+                    i.Id, i.Name, i.Type, i.WeaponSubtype,
                     Value = Balance.BuyPrice(i.Value),
                     OriginalValue = i.Value,
                     i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
@@ -32,7 +32,7 @@ public class ShopRequestHandler : BaseHandler
                 }).ToList(),
                 Buyback = player.BuybackItems.Select(i => new
                 {
-                    i.Id, i.Name, i.Type,
+                    i.Id, i.Name, i.Type, i.WeaponSubtype,
                     Value = Balance.BuybackPrice(i.Value),
                     OriginalValue = i.Value,
                     i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,

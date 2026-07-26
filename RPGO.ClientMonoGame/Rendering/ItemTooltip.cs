@@ -39,6 +39,11 @@ public static class ItemTooltip
         "dagger" => "Кинжал",
         "halberd" => "Алебарда",
         "spear" => "Копьё",
+        "staff" => "Посох",
+        "bow" => "Лук",
+        "wand" => "Жезл",
+        "grimoire" => "Гримуар",
+        "sphere" => "Сфера",
         _ => subtype
     };
 
@@ -57,6 +62,9 @@ public static class ItemTooltip
         "axe" or "greataxe" or "halberd" => "5% шанс: Свирепость (+к урону)",
         "mace" => "5% шанс: Обезоруживание (снижает урон)",
         "hammer" or "greathammer" => "5% шанс: Контузия (снижает точность)",
+        "wand" => "Гибридное оружие: ближний бой (физ.) / дальний бой (маг.)",
+        "grimoire" => "Магическое оружие. С оружием в правой руке — только бафф.",
+        "sphere" => "Магическое оружие. С оружием в правой руке — только бафф.",
         _ => ""
     };
 
@@ -71,11 +79,19 @@ public static class ItemTooltip
         lines.Add($"Цена: {price} золота");
 
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
+        bool isCasterShield = item.Type == "shield" && Equipment.IsCasterOffhand(item);
 
-        if (isWeapon)
+        if (isWeapon || isCasterShield)
         {
-            string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
-            lines.Add($"Вид: {handLabel}");
+            if (isWeapon)
+            {
+                string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
+                lines.Add($"Вид: {handLabel}");
+            }
+            else
+            {
+                lines.Add($"Вид: Левая рука");
+            }
             if (!string.IsNullOrEmpty(item.WeaponSubtype))
                 lines.Add($"Тип оружия: {WeaponSubtypeLabel(item.WeaponSubtype)}");
             if (!string.IsNullOrEmpty(item.DamageType) && item.DamageType != "none")
@@ -133,14 +149,34 @@ public static class ItemTooltip
     private static void AddStatLines(List<string> lines, Item item)
     {
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
+        bool isShield = item.Type == "shield";
         if (isWeapon && item.DamageMax > 0)
+        {
+            if (item.WeaponSubtype == "wand")
+            {
+                if (item.DamageMin == item.DamageMax)
+                    lines.Add($"Урон (ближний): {item.DamageMax}");
+                else
+                    lines.Add($"Урон (ближний): {item.DamageMin}-{item.DamageMax}");
+                if (item.BonusMagAttack > 0)
+                    lines.Add($"Урон (дальний): +{item.BonusMagAttack} маг.");
+            }
+            else
+            {
+                if (item.DamageMin == item.DamageMax)
+                    lines.Add($"Урон: {item.DamageMax}");
+                else
+                    lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
+            }
+        }
+        if (isShield && (item.WeaponSubtype == "grimoire" || item.WeaponSubtype == "sphere") && item.DamageMax > 0)
         {
             if (item.DamageMin == item.DamageMax)
                 lines.Add($"Урон: {item.DamageMax}");
             else
                 lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
         }
-        if (isWeapon && item.AttackRange > 1) lines.Add($"Дальность: {item.AttackRange}");
+        if ((isWeapon || isShield) && item.AttackRange > 1) lines.Add($"Дальность: {item.AttackRange}");
         else if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
         if (item.BonusMagAttack > 0) lines.Add($"Маг.Атака: +{item.BonusMagAttack}");
         if (item.BonusDefense > 0) lines.Add($"Защита: +{item.BonusDefense}");

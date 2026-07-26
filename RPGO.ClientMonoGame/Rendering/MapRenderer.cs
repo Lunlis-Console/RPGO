@@ -201,7 +201,7 @@ public class MapRenderer
                 int ddx = tx.Value - me.X;
                 int ddy = ty.Value - me.Y;
                 int manhattan = Math.Abs(ddx) + Math.Abs(ddy);
-                if ((manhattan <= 1 || _mainAttackActive) && (ddx != 0 || ddy != 0))
+                if ((manhattan <= 1 || _mainAttackActive || _offAttackActive) && (ddx != 0 || ddy != 0))
                 {
                     string dir = (Math.Abs(ddx) > Math.Abs(ddy))
                         ? (ddx < 0 ? "left" : "right")
@@ -814,9 +814,14 @@ public class MapRenderer
             else if (anyBodyAttack)
             {
                 if (mainAttackActive)
-                    playerAnim = _isTwoHanded
-                        ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
-                        : SpriteCache.GetPlayerAttackAnimation(facing);
+                {
+                    if (_weaponSubtype == "bow")
+                        playerAnim = SpriteCache.GetPlayerRangeAttackAnimation(facing);
+                    else
+                        playerAnim = _isTwoHanded
+                            ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
+                            : SpriteCache.GetPlayerAttackAnimation(facing);
+                }
                 else
                     playerAnim = SpriteCache.GetPlayerSecondAttackAnimation(facing);
                 if (playerAnim != null) useAttackAnim = true;
@@ -871,7 +876,9 @@ public class MapRenderer
                     bool useWeaponSwing = false;
                     if (_mainAttackActive)
                     {
-                        weaponAnim = SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
+                        weaponAnim = _weaponSubtype == "bow"
+                            ? SpriteCache.GetWeaponRangeAttackAnimation(_weaponSubtype, facing)
+                            : SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
                         else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
                     }
@@ -1012,7 +1019,9 @@ public class MapRenderer
                         bool useWeaponSwing = false;
                         if (_mainAttackActive)
                         {
-                            weaponAnim = SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
+                            weaponAnim = _weaponSubtype == "bow"
+                                ? SpriteCache.GetWeaponRangeAttackAnimation(_weaponSubtype, facing)
+                                : SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
                             if (weaponAnim != null) useWeaponSwing = true;
                             else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
                         }
