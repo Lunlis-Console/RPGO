@@ -309,10 +309,10 @@ public class CombatService
         // Face the target before off-hand attack
         int dx = offMonster.X - pl.X;
         int dy = offMonster.Y - pl.Y;
-        if (dx == 1) pl.Facing = "right";
-        else if (dx == -1) pl.Facing = "left";
-        else if (dy == 1) pl.Facing = "down";
-        else if (dy == -1) pl.Facing = "up";
+        if (Math.Abs(dx) >= Math.Abs(dy))
+            pl.Facing = dx > 0 ? "right" : "left";
+        else
+            pl.Facing = dy > 0 ? "down" : "up";
 
         var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
