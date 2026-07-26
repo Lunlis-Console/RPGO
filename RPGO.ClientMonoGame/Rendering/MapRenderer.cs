@@ -986,19 +986,19 @@ public class MapRenderer
                              offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
                          }
                      }
-                     else if (_mainAttackActive)
-                     {
-                         bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "wand" || _weaponSubtype == "staff";
-                         if (mainIsRanged)
-                             offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                         else
-                         {
-                             offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                             if (offAnim != null) useOffSwing = true;
-                             if (offAnim == null)
-                                 offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                         }
-                     }
+                    else if (_mainAttackActive)
+                    {
+                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "wand" || _weaponSubtype == "staff";
+                        if (mainIsRanged)
+                            offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
+                        else
+                        {
+                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        }
+                    }
                      else
                          offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
                      if (offAnim != null)
@@ -1136,10 +1136,16 @@ public class MapRenderer
                     }
                     else if (_mainAttackActive)
                     {
-                        offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                        if (offAnim != null) useOffSwing = true;
-                        if (offAnim == null)
-                            offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "wand" || _weaponSubtype == "staff";
+                        if (mainIsRanged)
+                            offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
+                        else
+                        {
+                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            if (offAnim != null) useOffSwing = true;
+                            if (offAnim == null)
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                        }
                     }
                     else
                         offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
