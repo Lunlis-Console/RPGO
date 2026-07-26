@@ -884,7 +884,10 @@ public class MapRenderer
                     }
                     else if (_offAttackActive)
                     {
-                        weaponAnim = SpriteCache.GetWeaponSecondAttackAnimation(_weaponSubtype, facing);
+                        weaponAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_weaponSubtype, facing);
+                        if (weaponAnim != null) useWeaponSwing = true;
+                        if (weaponAnim == null)
+                            weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_weaponSubtype, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
                         if (weaponAnim == null)
                             weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
