@@ -424,6 +424,7 @@
   { "Key": "weapon_halberd_second_attack_up",     "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 22, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_second_attack_left",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 23, "FrameCount": 4, "Fps": 10 },
 
+  { "Key": "weapon_halberd_attack_down",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 24, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_attack_right",  "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 25, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_attack_up",     "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 26, "FrameCount": 4, "Fps": 10 },
   { "Key": "weapon_halberd_attack_left",   "Sheet": "Sprites/SpriteSheets/Halberd_SS.png", "Cols": 4, "Rows": 28, "RowOffset": 27, "FrameCount": 4, "Fps": 10 },
