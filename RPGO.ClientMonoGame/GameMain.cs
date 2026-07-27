@@ -152,9 +152,8 @@ public class GameMain : Game
             var tex = SpriteCache.GetCursor(ct) ?? SpriteCache.GetCursor("main");
             if (tex != null)
             {
-                var hs = SpriteCache.GetCursorHotspot(ct);
                 SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-                SpriteBatch.Draw(tex, new Vector2(ms.X - hs.X, ms.Y - hs.Y), Color.White);
+                SpriteBatch.Draw(tex, new Vector2(ms.X, ms.Y), Color.White);
                 SpriteBatch.End();
             }
         }
