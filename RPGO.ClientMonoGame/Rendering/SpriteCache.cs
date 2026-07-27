@@ -354,7 +354,24 @@ public static class SpriteCache
     public static Texture2D? GetCollectibleSprite() => Get("collectible");
     public static Texture2D? GetGrassSprite() => Get("grass");
     public static Texture2D? GetSandSprite() => Get("sand");
-    public static Texture2D? GetCorpseSprite() => Get("ashes");
+    public static Texture2D? GetCorpseSprite()
+    {
+        if (_textures.TryGetValue("ashes", out var t)) return t;
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Sprites", "Ashes.png");
+            if (File.Exists(path))
+            {
+                using var stream = File.OpenRead(path);
+                t = Texture2D.FromStream(_device, stream);
+                _textures["ashes"] = t;
+                Logger.Debug($"LoadCorpseSprite from file OK ({t.Width}x{t.Height})");
+                return t;
+            }
+        }
+        catch (Exception ex) { Logger.Error("LoadCorpseSprite failed", ex); }
+        return null;
+    }
 
     public static Texture2D? GetIconStatus() => Get("icon_status");
     public static Texture2D? GetIconInventory() => Get("icon_inventory");
