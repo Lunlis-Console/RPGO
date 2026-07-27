@@ -114,23 +114,25 @@ public static class SpriteCache
 
                 Color[] pixels = new Color[tex.Width * tex.Height];
                 tex.GetData(pixels);
-                bool fromBottom = name == "Cursor_Talk";
-                int hotX = 0, hotY = 0;
+                int minX = tex.Width, minY = tex.Height, maxX = 0, maxY = 0;
                 bool found = false;
-                if (fromBottom)
+                for (int i = 0; i < pixels.Length; i++)
                 {
-                    for (int y = tex.Height - 1; y >= 0 && !found; y--)
-                        for (int x = 0; x < tex.Width && !found; x++)
-                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
+                    if (pixels[i].A > 20)
+                    {
+                        int x = i % tex.Width;
+                        int y = i / tex.Width;
+                        if (x < minX) minX = x;
+                        if (y < minY) minY = y;
+                        if (x > maxX) maxX = x;
+                        if (y > maxY) maxY = y;
+                        found = true;
+                    }
                 }
-                else
-                {
-                    for (int y = 0; y < tex.Height && !found; y++)
-                        for (int x = 0; x < tex.Width && !found; x++)
-                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
-                }
+                int hotX = found ? (minX + maxX) / 2 : 0;
+                int hotY = found ? (minY + maxY) / 2 : 0;
                 _cursorHotspots[key] = new Point(hotX, hotY);
-                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hotX},{hotY})");
+                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hotX},{hotY}) bbox=({minX},{minY})-({maxX},{maxY})");
             }
             catch (Exception ex) { Logger.Error($"Cursor load failed: {file}", ex); }
         }
