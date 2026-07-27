@@ -88,7 +88,16 @@ public class MapRenderer
     public void SetPlayerLevel(int level) => _playerLevel = level;
     public void SetPlayerDead(bool dead)
     {
-        if (dead && !_isDead) { _deathFrame = 0; _deathAnimStart = DateTime.UtcNow; }
+        if (dead && !_isDead)
+        {
+            _deathFrame = 0;
+            _deathAnimStart = DateTime.UtcNow;
+            if (_visPos.TryGetValue($"player:{_playerName}", out var v))
+            {
+                _localDeathX = (int)Math.Round(v.X);
+                _localDeathY = (int)Math.Round(v.Y);
+            }
+        }
         _isDead = dead;
     }
     public void SetWeaponSubtype(string? subtype)
@@ -157,6 +166,8 @@ public class MapRenderer
     private bool _isDead;
     private int _deathFrame;
     private DateTime _deathAnimStart;
+    private int _localDeathX;
+    private int _localDeathY;
 
     // Атака основной рукой
     private bool _mainAttackActive;
@@ -815,23 +826,35 @@ private sealed class RemotePlayerState
          // Сущности
          DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
 
-         // Пепел на месте смерти удалённых игроков (1 минута)
-         {
-             var deathNow = DateTime.UtcNow;
-             foreach (var kvp in _remotePlayers)
-             {
-                 var rp = kvp.Value;
-                 if (!rp.IsDead) continue;
-                 var elapsed = (deathNow - rp.DeathStart).TotalSeconds;
-                 if (elapsed > 60) continue;
-                 if (rp.DeathX < _viewStartX || rp.DeathX > _viewEndX || rp.DeathY < _viewStartY || rp.DeathY > _viewEndY) continue;
-                 float ax = _gridOX + (rp.DeathX - _viewStartX) * _cellW + _cellW / 2;
-                 float ay = _gridOY + (rp.DeathY - _viewStartY) * _cellH + _cellH / 2;
-                 var ashes = SpriteCache.GetCorpseSprite();
-                 if (ashes != null)
-                     sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
-             }
-         }
+          // Пепел на месте смерти удалённых игроков и самого себя (1 минута)
+          {
+              var deathNow = DateTime.UtcNow;
+              foreach (var kvp in _remotePlayers)
+              {
+                  var rp = kvp.Value;
+                  if (!rp.IsDead) continue;
+                  var elapsed = (deathNow - rp.DeathStart).TotalSeconds;
+                  if (elapsed > 60) continue;
+                  if (rp.DeathX < _viewStartX || rp.DeathX > _viewEndX || rp.DeathY < _viewStartY || rp.DeathY > _viewEndY) continue;
+                  float ax = _gridOX + (rp.DeathX - _viewStartX) * _cellW + _cellW / 2;
+                  float ay = _gridOY + (rp.DeathY - _viewStartY) * _cellH + _cellH / 2;
+                  var ashes = SpriteCache.GetCorpseSprite();
+                  if (ashes != null)
+                      sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
+              }
+              if (_isDead)
+              {
+                  var elapsed = (deathNow - _deathAnimStart).TotalSeconds;
+                  if (elapsed <= 60)
+                  {
+                      float ax = _gridOX + (_localDeathX - _viewStartX) * _cellW + _cellW / 2;
+                      float ay = _gridOY + (_localDeathY - _viewStartY) * _cellH + _cellH / 2;
+                      var ashes = SpriteCache.GetCorpseSprite();
+                      if (ashes != null)
+                          sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
+                  }
+              }
+          }
 
          // Легенда
         int legendY = (int)(_gridOY + viewH * _cellH + 4);
@@ -1028,19 +1051,18 @@ private sealed class RemotePlayerState
                 moving = Math.Abs(tgt.X - v.X) > 0.05f || Math.Abs(tgt.Y - v.Y) > 0.05f;
             }
 
-             DateTime? deathAnimStart = null;
+              DateTime? deathAnimStart = null;
 
-             if (isLocal && _isDead)
-             {
-                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
-                 deathAnimStart = _deathAnimStart;
-             }
-             else if (deadRemote != null)
-             {
-                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
-                 deathAnimStart = deadRemote.DeathStart;
-             }
-             else if (anyBodyAttack)
+              if (isLocal && _isDead)
+              {
+                  playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+                  deathAnimStart = _deathAnimStart;
+              }
+              else if (deadRemote != null)
+              {
+                  continue;
+              }
+              else if (anyBodyAttack)
             {
                 if (mainAttackActive)
                 {

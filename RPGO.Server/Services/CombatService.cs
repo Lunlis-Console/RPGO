@@ -557,10 +557,42 @@ public class CombatService
         pl.Health = Balance.RespawnHealth(pl.MaxHealth);
 
         var zone = _svc.Zones.GetZone(pl.CurrentZoneId);
-        int baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
-        int baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
-        int mapW = zone?.Width ?? _svc.World.Map.Width;
-        int mapH = zone?.Height ?? _svc.World.Map.Height;
+        
+        // Если это PvP зона — респавним в безопасной (не-PvP) зоне рядом с торговцем
+        int baseX, baseY, mapW, mapH;
+        if (zone != null && zone.PvpEnabled)
+        {
+            // Ищем безопасную зону (не-PvP) с точкой спавна
+            var safeZone = _svc.Zones.Zones.Values
+                .Where(z => !z.PvpEnabled && (z.SpawnX > 0 || z.SpawnY > 0))
+                .OrderBy(z => Math.Abs(z.SpawnX - _svc.Merchant.MerchantX) + Math.Abs(z.SpawnY - _svc.Merchant.MerchantY))
+                .FirstOrDefault();
+            
+            if (safeZone != null)
+            {
+                baseX = safeZone.SpawnX;
+                baseY = safeZone.SpawnY;
+                mapW = safeZone.Width;
+                mapH = safeZone.Height;
+                pl.CurrentZoneId = safeZone.Id;
+            }
+            else
+            {
+                // Фоллбек — позиция торговца в текущей зоне
+                baseX = _svc.Merchant.MerchantX;
+                baseY = _svc.Merchant.MerchantY;
+                mapW = zone.Width;
+                mapH = zone.Height;
+            }
+        }
+        else
+        {
+            // Обычная зона — спавн в этой зоне или у торговца
+            baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
+            baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
+            mapW = zone?.Width ?? _svc.World.Map.Width;
+            mapH = zone?.Height ?? _svc.World.Map.Height;
+        }
 
         int sx = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
         int sy = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
