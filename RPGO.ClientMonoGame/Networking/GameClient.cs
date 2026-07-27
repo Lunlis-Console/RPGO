@@ -390,11 +390,6 @@ public sealed class GameClient
 
                         Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
                         Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
-                        if (target == "monster" && amount > 0)
-                        {
-                            string hand = dmgEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
-                            Ui(() => PlayerAttackPerformed?.Invoke(hand));
-                        }
                     }
                     break;
 
