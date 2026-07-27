@@ -46,6 +46,7 @@ public static class SpriteCache
 {
     private static readonly Dictionary<string, Texture2D> _textures = new();
     private static readonly Dictionary<string, SpriteAnimation> _animations = new();
+    private static readonly Dictionary<string, Point> _cursorHotspots = new();
     private static Texture2D _pixel = null!;
     private static SpriteFont _font = null!;
     private static SpriteFont _fontSmall = null!;
@@ -100,21 +101,48 @@ public static class SpriteCache
     {
         string cursorDir = Path.Combine(contentRoot, "Sprites", "Cursor");
         if (!Directory.Exists(cursorDir)) return;
+        _cursorHotspots.Clear();
         foreach (var file in Directory.GetFiles(cursorDir, "Cursor_*.png"))
         {
-            string key = "cursor_" + Path.GetFileNameWithoutExtension(file).Replace("Cursor_", "").ToLowerInvariant();
+            string name = Path.GetFileNameWithoutExtension(file);
+            string key = "cursor_" + name.Replace("Cursor_", "").ToLowerInvariant();
             try
             {
                 using var stream = File.OpenRead(file);
                 var tex = Texture2D.FromStream(_device, stream);
                 _textures[key] = tex;
-                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height})");
+
+                Color[] pixels = new Color[tex.Width * tex.Height];
+                tex.GetData(pixels);
+                bool fromBottom = name == "Cursor_Talk";
+                int hotX = 0, hotY = 0;
+                bool found = false;
+                if (fromBottom)
+                {
+                    for (int y = tex.Height - 1; y >= 0 && !found; y--)
+                        for (int x = 0; x < tex.Width && !found; x++)
+                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
+                }
+                else
+                {
+                    for (int y = 0; y < tex.Height && !found; y++)
+                        for (int x = 0; x < tex.Width && !found; x++)
+                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
+                }
+                _cursorHotspots[key] = new Point(hotX, hotY);
+                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hotX},{hotY})");
             }
             catch (Exception ex) { Logger.Error($"Cursor load failed: {file}", ex); }
         }
     }
 
     public static Texture2D? GetCursor(string type) => Get($"cursor_{type}");
+
+    public static Point GetCursorHotspot(string type)
+    {
+        string key = $"cursor_{type}";
+        return _cursorHotspots.TryGetValue(key, out var pt) ? pt : default;
+    }
 
     private static Texture2D? LoadTexture(string name)
     {
