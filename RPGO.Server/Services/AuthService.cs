@@ -1,4 +1,5 @@
 using RPGGame.Server.Network;
+using RPGGame.Server.Repositories;
 using RPGGame.Server.Services;
 using RPGGame.Shared.Commands;
 using RPGGame.Shared.Models;
@@ -152,6 +153,13 @@ public class AuthService
                         await hub.SendQuestLog(connection, player);
                         await hub.SendHotbar(connection, player);
                         await hub.SendInventoryAndStatus(connection, player);
+
+                        int unreadCount = MailRepository.CountUnread(player.Name);
+                        await hub.SendToClient(connection, new GameMessage
+                        {
+                            Type = "mail_unread",
+                            Data = new { Count = unreadCount }
+                        });
 
                         return true;
                     }

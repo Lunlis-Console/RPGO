@@ -28,7 +28,20 @@ public class MapRenderer
     private readonly object _stateLock = new();
     private DateTime _lastVisTime = DateTime.UtcNow;
 
-    // Всплывающий текст
+    private byte[]? _tileData;
+    private int _tileMapWidth;
+    private int _tileMapHeight;
+    private string _tilesetId = "";
+    private int _tileSize = 32;
+
+    public void SetTileData(byte[]? data, int width, int height, string tilesetId = "", int tileSize = 32)
+    {
+        _tileData = data;
+        _tileMapWidth = width;
+        _tileMapHeight = height;
+        _tilesetId = tilesetId;
+        _tileSize = tileSize;
+    }
     private readonly List<FloatingText> _floatingTexts = new();
     private static readonly Random _rng = new();
 
@@ -586,24 +599,74 @@ public class MapRenderer
         _gridOX -= subCellX;
         _gridOY -= subCellY;
 
-        // Тайлы (слой земли) — спрайт травы/песка на каждую клетку (+2px по краям из-за sub-cell offset)
+        // Тайлы (слой земли) — из тайлсета или fallback на цвет
         bool isSandy = map.ZoneId == "arena";
         var grass = isSandy ? SpriteCache.GetSandSprite() : SpriteCache.GetGrassSprite();
         int viewW = _viewEndX - _viewStartX + 1;
         int viewH = _viewEndY - _viewStartY + 1;
-        for (int y = -1; y <= viewH + 1; y++)
-        {
-            float ty = _gridOY + y * _cellH;
-            if (ty > offsetY + areaH) continue;
 
-            for (int x = -1; x <= viewW + 1; x++)
+        bool hasTileset = _tileData != null
+            && _tileMapWidth == map.Width && _tileMapHeight == map.Height
+            && _tileData.Length == map.Width * map.Height;
+
+        Texture2D? tilesetTex = null;
+        int tilesetCols = 1, tilesetRows = 1;
+        if (hasTileset && !string.IsNullOrEmpty(_tilesetId))
+        {
+            tilesetTex = SpriteCache.GetTileset(_tilesetId, _tileSize, out tilesetCols, out tilesetRows);
+            if (tilesetTex == null) hasTileset = false;
+        }
+
+        if (hasTileset && tilesetTex != null)
+        {
+            int tilePxW = (int)Math.Ceiling(_cellW);
+            int tilePxH = (int)Math.Ceiling(_cellH);
+            int srcTileW = tilesetTex.Width / Math.Max(1, tilesetCols);
+            int srcTileH = tilesetTex.Height / Math.Max(1, tilesetRows);
+            for (int y = -1; y <= viewH + 1; y++)
             {
-                float tx = _gridOX + x * _cellW;
-                if (tx > offsetX + areaW) continue;
-                if (grass != null)
-                    sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
-                else
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
+                float ty = _gridOY + y * _cellH;
+                if (ty > offsetY + areaH) continue;
+                for (int x = -1; x <= viewW + 1; x++)
+                {
+                    float tx = _gridOX + x * _cellW;
+                    if (tx > offsetX + areaW) continue;
+                    int mx = _viewStartX + x;
+                    int my = _viewStartY + y;
+                    if (mx < 0 || my < 0 || mx >= _tileMapWidth || my >= _tileMapHeight) continue;
+                    byte tileId = _tileData[my * _tileMapWidth + mx];
+                    if (tileId == 0 || tileId == 255)
+                    {
+                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
+                        continue;
+                    }
+                    int tCol = (tileId - 1) % tilesetCols;
+                    int tRow = (tileId - 1) / tilesetCols;
+                    if (tRow >= tilesetRows || tCol >= tilesetCols)
+                    {
+                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
+                        continue;
+                    }
+                    var src = new Rectangle(tCol * srcTileW, tRow * srcTileH, srcTileW, srcTileH);
+                    sb.Draw(tilesetTex, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), src, Color.White);
+                }
+            }
+        }
+        else
+        {
+            for (int y = -1; y <= viewH + 1; y++)
+            {
+                float ty = _gridOY + y * _cellH;
+                if (ty > offsetY + areaH) continue;
+                for (int x = -1; x <= viewW + 1; x++)
+                {
+                    float tx = _gridOX + x * _cellW;
+                    if (tx > offsetX + areaW) continue;
+                    if (grass != null)
+                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
+                    else
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
+                }
             }
         }
 

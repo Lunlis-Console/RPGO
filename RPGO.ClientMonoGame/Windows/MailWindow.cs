@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Rendering;
 using RPGGame.ClientMonoGame.Networking;
+using RPGGame.Shared.Models;
 using System.Text;
 
 namespace RPGGame.ClientMonoGame.Windows;
@@ -37,10 +38,15 @@ public class MailWindow : GameWindow
     private StringBuilder _fieldBuffer = new();
 
     private bool _showItemPicker;
-    private List<(string Id, string Name, int Qty)> _inventory = new();
-    private int _itemPickerScroll;
+    private List<Item> _groupedInventory = new();
+    private Item? _hoveredPickerItem;
+    private int _pickerScroll;
+    private int _bodyScroll;
+
+    private const int BodyFieldH = 80;
 
     public bool IsInputActive => _activeField >= 0;
+    public int SelectedMailId => _selectedMailId;
 
     private new MouseState _prevMouse;
     private int _prevScroll;
@@ -85,13 +91,46 @@ public class MailWindow : GameWindow
         _selectedMail = null;
         _activeField = -1;
         _showItemPicker = false;
+        _bodyScroll = 0;
+        _pickerScroll = 0;
         InboxRequested?.Invoke();
     }
 
     public void SetInbox(List<MailEntry> mails) { _inbox = mails; if (_lastRequestedFolder == 0) _selectedTab = 0; }
     public void SetOutbox(List<MailEntry> mails) { _outbox = mails; if (_lastRequestedFolder == 1) _selectedTab = 1; }
 
-    public void SetInventory(List<(string Id, string Name, int Qty)> items) { _inventory = items; _showItemPicker = true; }
+    public void RefreshInboxIfOpen()
+    {
+        if (Visible && _selectedTab == 0 && _selectedMail == null)
+            InboxRequested?.Invoke();
+    }
+
+    public void UpdateMail(MailEntry mail)
+    {
+        for (int i = 0; i < _inbox.Count; i++)
+            if (_inbox[i].Id == mail.Id) { _inbox[i] = mail; break; }
+        for (int i = 0; i < _outbox.Count; i++)
+            if (_outbox[i].Id == mail.Id) { _outbox[i] = mail; break; }
+        if (_selectedMailId == mail.Id)
+            _selectedMail = mail;
+    }
+
+    public void SetInventory(List<Item> items)
+    {
+        _groupedInventory = items
+            .Where(i => i.Type != "gold" && !string.IsNullOrEmpty(i.TemplateId) && i.TemplateId != _composeItemId)
+            .GroupBy(i => i.TemplateId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var grouped = first.Clone();
+                grouped.Quantity = g.Sum(x => x.Quantity);
+                return grouped;
+            })
+            .ToList();
+        _showItemPicker = true;
+        _pickerScroll = 0;
+    }
 
     public void SelectMail(int id)
     {
@@ -108,6 +147,21 @@ public class MailWindow : GameWindow
         if (_activeField >= 0)
         {
             HandleFieldInputVkb();
+
+            int scrollDelta = mouse.ScrollWheelValue - _prevScroll;
+            if (scrollDelta != 0 && _activeField == 2)
+            {
+                var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+                if (font != null)
+                {
+                    var wrapped = WrapText(font, _fieldBuffer.ToString(), GetFieldRect(2).Width - 8);
+                    int visibleLines = BodyFieldH / 18;
+                    int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
+                    if (scrollDelta < 0) _bodyScroll = Math.Min(maxScroll, _bodyScroll + 1);
+                    else _bodyScroll = Math.Max(0, _bodyScroll - 1);
+                }
+            }
+
             if (mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released)
             {
                 var r = GetFieldRect(_activeField);
@@ -145,46 +199,98 @@ public class MailWindow : GameWindow
 
             if (_selectedMail != null)
             {
-                var takeBtn = new Rectangle(ContentX, ContentY + TabH + 260, 150, BtnH);
-                if (takeBtn.Contains(mouse.X, mouse.Y) && _selectedMail.GoldAmount > 0 && _selectedMail.TakenAt == "" && _selectedTab == 0)
-                    TakeAttachmentRequested?.Invoke(_selectedMailId);
+                int btnY = GetDetailButtonY();
 
-                var replyBtn = new Rectangle(ContentX + 160, ContentY + TabH + 260, 100, BtnH);
-                if (replyBtn.Contains(mouse.X, mouse.Y))
-                {
-                    _selectedTab = 2;
-                    _composeRecipient = _selectedMail.SenderName;
-                    _composeSubject = $"RE: {_selectedMail.Subject}";
-                }
+                bool hasTakeable = (_selectedMail.GoldAmount > 0 || (!string.IsNullOrEmpty(_selectedMail.ItemId) && _selectedMail.ItemQuantity > 0)) && _selectedMail.TakenAt == "" && _selectedTab == 0;
 
-                var delBtn = new Rectangle(ContentX + ContentW - 100, ContentY + TabH + 260, 100, BtnH);
-                if (delBtn.Contains(mouse.X, mouse.Y))
-                    DeleteRequested?.Invoke(_selectedMailId);
+                    var takeBtn = new Rectangle(ContentX, btnY, 150, BtnH);
+                    if (takeBtn.Contains(mouse.X, mouse.Y) && hasTakeable)
+                    {
+                        TakeAttachmentRequested?.Invoke(_selectedMailId);
+                        _prevMouse = mouse;
+                        return;
+                    }
+
+                    if (_selectedTab < 2)
+                    {
+                        int replyX = hasTakeable ? ContentX + 160 : ContentX;
+                        var replyBtn = new Rectangle(replyX, btnY, 100, BtnH);
+                        if (replyBtn.Contains(mouse.X, mouse.Y))
+                        {
+                            _selectedTab = 2;
+                            _composeRecipient = _selectedMail.SenderName;
+                            _composeSubject = $"RE: {_selectedMail.Subject}";
+                            _composeBody = "";
+                            _composeGold = 0;
+                            _composeItemId = "";
+                            _composeItemName = "";
+                            _composeItemQty = 0;
+                            _selectedMail = null;
+                            _selectedMailId = -1;
+                            _prevMouse = mouse;
+                            return;
+                        }
+
+                        var delBtn = new Rectangle(ContentX + ContentW - 100, btnY, 100, BtnH);
+                        if (delBtn.Contains(mouse.X, mouse.Y))
+                        {
+                            DeleteRequested?.Invoke(_selectedMailId);
+                            _selectedMail = null;
+                            _selectedMailId = -1;
+                            InboxRequested?.Invoke();
+                            _prevMouse = mouse;
+                            return;
+                        }
+                    }
             }
 
             if (_selectedTab == 2)
             {
+                int goldBottom = GetFieldRect(3).Bottom;
+                int itemBtnY = goldBottom + 8;
+                int infoY = itemBtnY + BtnH + 6;
+                int pickerY = infoY + (string.IsNullOrEmpty(_composeItemId) ? 0 : (BtnH + 8)) + 6;
+                int sendY = pickerY + (_showItemPicker ? 150 + 6 : 0);
+
                 if (_showItemPicker)
                 {
-                    var pickerRect = new Rectangle(ContentX, ContentY + TabH + 240, ContentW, 150);
+                    var pickerRect = new Rectangle(ContentX, pickerY, ContentW, 150);
                     if (pickerRect.Contains(mouse.X, mouse.Y))
                     {
-                        int pickerStartY = ContentY + TabH + 240 + 24;
-                        for (int i = 0; i < _inventory.Count && i < 6; i++)
+                        int cellSize = 48;
+                        int gap = 4;
+                        int cols = Math.Max(1, (ContentW - 16) / (cellSize + gap));
+                        int startX = ContentX + 8;
+                        int startY = pickerY + 24;
+
+                        int totalItems = _groupedInventory.Count;
+                        int totalCols = Math.Max(1, cols);
+                        int rows = (150 - 24 - 8) / (cellSize + gap);
+                        int maxScroll = Math.Max(0, (totalItems + totalCols - 1) / totalCols - rows);
+                        int startIdx = _pickerScroll * totalCols;
+
+                        for (int i = 0; i < rows * totalCols; i++)
                         {
-                            int idx = i + _itemPickerScroll;
-                            if (idx >= _inventory.Count) break;
-                            var row = new Rectangle(ContentX + 4, pickerStartY + i * RowH, ContentW - 8, RowH);
-                            if (row.Contains(mouse.X, mouse.Y))
+                            int idx = startIdx + i;
+                            if (idx >= totalItems) break;
+                            int c = i % totalCols;
+                            int r = i / totalCols;
+                            var cellRect = new Rectangle(startX + c * (cellSize + gap), startY + r * (cellSize + gap), cellSize, cellSize);
+                            if (cellRect.Contains(mouse.X, mouse.Y))
                             {
-                                var item = _inventory[idx];
-                                _composeItemId = item.Id;
-                                _composeItemName = item.Name;
-                                _composeItemQty = 1;
-                                _showItemPicker = false;
-                                break;
+                                var item = _groupedInventory[idx];
+                                if (!string.IsNullOrEmpty(item.TemplateId))
+                                {
+                                    _composeItemId = item.TemplateId;
+                                    _composeItemName = item.Name;
+                                    _composeItemQty = 1;
+                                    _showItemPicker = false;
+                                }
+                                _prevMouse = mouse;
+                                return;
                             }
                         }
+
                         _prevMouse = mouse;
                         return;
                     }
@@ -202,13 +308,14 @@ public class MailWindow : GameWindow
                         _activeField = f;
                         _fieldBuffer.Clear();
                         _fieldBuffer.Append(f switch { 0 => _composeRecipient, 1 => _composeSubject, 2 => _composeBody, 3 => _composeGold > 0 ? _composeGold.ToString() : "", _ => "" });
+                        _bodyScroll = 0;
                         _prevMouse = mouse;
                         _prevDownVks.Clear();
                         return;
                     }
                 }
 
-                var addItemBtn = new Rectangle(ContentX, ContentY + TabH + 200, ContentW, BtnH);
+                var addItemBtn = new Rectangle(ContentX, itemBtnY, ContentW, BtnH);
                 if (addItemBtn.Contains(mouse.X, mouse.Y))
                 {
                     InventoryRequested?.Invoke();
@@ -218,22 +325,26 @@ public class MailWindow : GameWindow
 
                 if (!string.IsNullOrEmpty(_composeItemId))
                 {
-                    var removeItemBtn = new Rectangle(ContentX + ContentW - 120, ContentY + TabH + 220, 120, BtnH);
+                    var removeItemBtn = new Rectangle(ContentX + ContentW - 120, infoY, 120, BtnH);
                     if (removeItemBtn.Contains(mouse.X, mouse.Y))
                     {
                         _composeItemId = "";
                         _composeItemName = "";
                         _composeItemQty = 0;
+                        _prevMouse = mouse;
+                        return;
                     }
                 }
 
-                var sendBtn = new Rectangle(ContentX, ContentY + TabH + 395, 120, BtnH);
+                var sendBtn = new Rectangle(ContentX, sendY, 120, BtnH);
                 if (sendBtn.Contains(mouse.X, mouse.Y))
                 {
                     SendRequested?.Invoke(_composeRecipient, _composeSubject, _composeBody, _composeGold, _composeItemId, _composeItemQty);
                     _selectedTab = 0;
                     _composeRecipient = ""; _composeSubject = ""; _composeBody = ""; _composeGold = 0; _composeItemId = ""; _composeItemQty = 0;
                     InboxRequested?.Invoke();
+                    _prevMouse = mouse;
+                    return;
                 }
             }
 
@@ -257,11 +368,14 @@ public class MailWindow : GameWindow
 
             if (_selectedMail != null)
             {
-                var backBtn = new Rectangle(ContentX + ContentW - 80, ContentY + TabH + 260 + BtnH + 8, 80, BtnH);
+                int btnY = GetDetailButtonY();
+                var backBtn = new Rectangle(ContentX + ContentW - 80, btnY + BtnH + 8, 80, BtnH);
                 if (backBtn.Contains(mouse.X, mouse.Y))
                 {
                     _selectedMail = null;
                     _selectedMailId = -1;
+                    _prevMouse = mouse;
+                    return;
                 }
             }
         }
@@ -273,6 +387,18 @@ public class MailWindow : GameWindow
             int maxScroll = Math.Max(0, list.Count - _listVisibleRows);
             if (delta < 0) _scrollOffset = Math.Min(maxScroll, _scrollOffset + 2);
             else _scrollOffset = Math.Max(0, _scrollOffset - 2);
+        }
+        else if (delta != 0 && _selectedTab == 2 && _showItemPicker)
+        {
+            int cellSize = 48;
+            int gap = 4;
+            int cols = (ContentW - 16) / (cellSize + gap);
+            int totalCols = Math.Max(1, cols);
+            int totalItems = _groupedInventory.Count;
+            int rows = (150 - 24 - 8) / (cellSize + gap);
+            int maxScroll = Math.Max(0, (totalItems + totalCols - 1) / totalCols - rows);
+            if (delta < 0) _pickerScroll = Math.Min(maxScroll, _pickerScroll + 1);
+            else _pickerScroll = Math.Max(0, _pickerScroll - 1);
         }
 
         _prevMouse = mouse;
@@ -296,10 +422,17 @@ public class MailWindow : GameWindow
             }
             else if (vk == 0x0D)
             {
-                CommitField();
-                _activeField = -1;
-                _prevDownVks = nowDown;
-                return;
+                if (_activeField == 2 && _fieldBuffer.Length < 200)
+                {
+                    _fieldBuffer.Append('\n');
+                }
+                else
+                {
+                    CommitField();
+                    _activeField = -1;
+                    _prevDownVks = nowDown;
+                    return;
+                }
             }
             else if (vk == 0x1B)
             {
@@ -351,8 +484,15 @@ public class MailWindow : GameWindow
 
     private Rectangle GetFieldRect(int fieldIndex)
     {
-        int y = ContentY + TabH + 4 + fieldIndex * (FieldH + 6);
-        return new Rectangle(ContentX + 80, y, ContentW - 80, FieldH);
+        int y;
+        if (fieldIndex <= 1)
+            y = ContentY + TabH + 4 + fieldIndex * (FieldH + 6);
+        else if (fieldIndex == 2)
+            y = ContentY + TabH + 4 + 2 * (FieldH + 6);
+        else
+            y = ContentY + TabH + 4 + 2 * (FieldH + 6) + BodyFieldH + 6;
+        int h = fieldIndex == 2 ? BodyFieldH : FieldH;
+        return new Rectangle(ContentX + 80, y, ContentW - 80, h);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -368,6 +508,12 @@ public class MailWindow : GameWindow
         UIHelper.DrawRectOutline(sb, new Rectangle(X, Y, Width, Height), new Color(80, 90, 110));
         var tSize = font.MeasureString(Title);
         sb.DrawString(font, Title, new Vector2(X + 8, Y + (TitleH - tSize.Y) / 2), Color.White);
+
+        var closeRect = new Rectangle(X + Width - 20 - 4, Y + 4, 20, 20);
+        Color closeColor = closeRect.Contains(hoverMouse.X, hoverMouse.Y) ? new Color(200, 60, 60) : new Color(140, 40, 40);
+        sb.Draw(SpriteCache.Pixel, closeRect, closeColor);
+        var xSize = font.MeasureString("X");
+        sb.DrawString(font, "X", new Vector2(closeRect.X + (closeRect.Width - xSize.X) / 2, closeRect.Y + (closeRect.Height - xSize.Y) / 2), Color.White);
 
         string[] tabs = { "Входящие", "Исходящие", "Написать" };
         for (int t = 0; t < 3; t++)
@@ -443,7 +589,13 @@ public class MailWindow : GameWindow
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(lx, y, ContentW, 120), CFieldBg);
         UIHelper.DrawRectOutline(sb, new Rectangle(lx, y, ContentW, 120), CFieldBorder);
-        DrawText(sb, m.Body ?? "", lx + 6, y + 6, CLight, font);
+        var bodyLines = WrapText(font, m.Body ?? "", ContentW - 12);
+        int bodyY = y + 6;
+        for (int i = 0; i < bodyLines.Count; i++)
+        {
+            if (bodyY + 18 > y + 120) break;
+            DrawText(sb, bodyLines[i], lx + 6, bodyY + i * 18, CLight, font);
+        }
         y += 130;
 
         if (m.GoldAmount > 0 || (!string.IsNullOrEmpty(m.ItemId) && m.ItemQuantity > 0))
@@ -519,12 +671,41 @@ public class MailWindow : GameWindow
                 display = _fieldBuffer.ToString();
                 if ((Environment.TickCount / 500) % 2 == 0) display += "|";
             }
-            DrawText(sb, display, fr.X + 4, fr.Y + 3, Color.White, font);
-            y += FieldH + 6;
+
+            if (f == 2)
+            {
+                var wrapped = WrapText(font, display, fr.Width - 8);
+                int visibleLines = BodyFieldH / 18;
+                int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
+                _bodyScroll = Math.Clamp(_bodyScroll, 0, maxScroll);
+                for (int i = 0; i < visibleLines; i++)
+                {
+                    int idx = i + _bodyScroll;
+                    if (idx >= wrapped.Count) break;
+                    DrawText(sb, wrapped[idx], fr.X + 4, fr.Y + 3 + i * 18, Color.White, font);
+                }
+                if (maxScroll > 0)
+                {
+                    if (_bodyScroll > 0)
+                        DrawText(sb, "▲", fr.X + fr.Width - 16, fr.Y + 2, new Color(120, 120, 130), font);
+                    if (_bodyScroll < maxScroll)
+                        DrawText(sb, "▼", fr.X + fr.Width - 16, fr.Y + fr.Height - 18, new Color(120, 120, 130), font);
+                }
+            }
+            else
+            {
+                DrawText(sb, display, fr.X + 4, fr.Y + 3, Color.White, font);
+            }
+            y += f == 2 ? BodyFieldH + 6 : FieldH + 6;
         }
 
-        int itemY = ContentY + TabH + 200;
-        var addBtn = new Rectangle(lx, itemY, ContentW, BtnH);
+        int goldBottom = GetFieldRect(3).Bottom;
+        int itemBtnY = goldBottom + 8;
+        int infoY = itemBtnY + BtnH + 6;
+        int pickerY = infoY + (string.IsNullOrEmpty(_composeItemId) ? 0 : (BtnH + 8)) + 6;
+        int sendY = pickerY + (_showItemPicker ? 150 + 6 : 0);
+
+        var addBtn = new Rectangle(lx, itemBtnY, ContentW, BtnH);
         bool addHov = addBtn.Contains(hMouse.X, hMouse.Y);
         sb.Draw(SpriteCache.Pixel, addBtn, addHov ? CBtnActionHover : CBtnAction);
         string addLabel = string.IsNullOrEmpty(_composeItemId) ? "+ Вложить предмет" : "Заменить предмет";
@@ -533,8 +714,8 @@ public class MailWindow : GameWindow
 
         if (!string.IsNullOrEmpty(_composeItemId))
         {
-            DrawText(sb, $"Предмет: {_composeItemName}", lx, itemY + BtnH + 4, CLight, font);
-            var rmBtn = new Rectangle(lx + ContentW - 120, itemY + BtnH + 2, 120, BtnH - 4);
+            DrawText(sb, $"Предмет: {_composeItemName}", lx, infoY, CLight, font);
+            var rmBtn = new Rectangle(lx + ContentW - 120, infoY - 2, 120, BtnH - 4);
             bool rmHov = rmBtn.Contains(hMouse.X, hMouse.Y);
             sb.Draw(SpriteCache.Pixel, rmBtn, rmHov ? CBtnDeleteHover : CBtnDelete);
             var rmTs = font.MeasureString("Убрать");
@@ -546,7 +727,7 @@ public class MailWindow : GameWindow
             DrawItemPicker(sb, font, hMouse);
         }
 
-        var sendBtn = new Rectangle(lx, ContentY + TabH + 395, 120, BtnH);
+        var sendBtn = new Rectangle(lx, sendY, 120, BtnH);
         bool sHov = sendBtn.Contains(hMouse.X, hMouse.Y);
         sb.Draw(SpriteCache.Pixel, sendBtn, sHov ? CBtnSendHover : CBtnSend);
         var sTs = font.MeasureString("Отправить");
@@ -555,27 +736,84 @@ public class MailWindow : GameWindow
 
     private void DrawItemPicker(SpriteBatch sb, SpriteFont font, MouseState hMouse)
     {
-        int pickerY = ContentY + TabH + 240;
+        int goldBottom = GetFieldRect(3).Bottom;
+        int itemBtnY = goldBottom + 8;
+        int infoY = itemBtnY + BtnH + 6;
+        int pickerY = infoY + (string.IsNullOrEmpty(_composeItemId) ? 0 : (BtnH + 8)) + 6;
         int pickerH = 150;
+
         sb.Draw(SpriteCache.Pixel, new Rectangle(ContentX, pickerY, ContentW, pickerH), new Color(25, 28, 36));
         UIHelper.DrawRectOutline(sb, new Rectangle(ContentX, pickerY, ContentW, pickerH), CFieldBorder);
         DrawText(sb, "Выберите предмет:", ContentX + 8, pickerY + 4, CGold, font);
 
-        int startY = pickerY + 24;
-        int maxPickScroll = Math.Max(0, _inventory.Count - 5);
-        for (int i = 0; i < 5 && i < _inventory.Count; i++)
+        int cellSize = 48;
+        int gap = 4;
+        int cols = Math.Max(1, (ContentW - 16) / (cellSize + gap));
+        int startX = ContentX + 8;
+        int gridY = pickerY + 24;
+        int rows = (pickerH - 24 - 8) / (cellSize + gap);
+
+        int totalItems = _groupedInventory.Count;
+        int totalCols = Math.Max(1, cols);
+        int totalGridRows = (totalItems + totalCols - 1) / totalCols;
+        int maxScroll = Math.Max(0, totalGridRows - rows);
+        _pickerScroll = Math.Clamp(_pickerScroll, 0, maxScroll);
+
+        int startIdx = _pickerScroll * totalCols;
+        _hoveredPickerItem = null;
+
+        for (int i = 0; i < rows * totalCols; i++)
         {
-            int idx = i + _itemPickerScroll;
-            if (idx >= _inventory.Count) break;
-            var item = _inventory[idx];
-            var row = new Rectangle(ContentX + 4, startY + i * RowH, ContentW - 8, RowH);
-            bool hov = row.Contains(hMouse.X, hMouse.Y);
-            sb.Draw(SpriteCache.Pixel, row, hov ? new Color(50, 55, 70) : new Color(35, 38, 48));
-            DrawText(sb, $"{item.Name} x{item.Qty}", ContentX + 12, startY + i * RowH + 4, CLight, font);
+            int idx = startIdx + i;
+            if (idx >= totalItems) break;
+            int c = i % totalCols;
+            int r = i / totalCols;
+            int x = startX + c * (cellSize + gap);
+            int y = gridY + r * (cellSize + gap);
+            var rect = new Rectangle(x, y, cellSize, cellSize);
+
+            bool hover = rect.Contains(hMouse.X, hMouse.Y);
+            sb.Draw(SpriteCache.Pixel, rect, hover ? new Color(55, 60, 80) : new Color(35, 38, 48));
+
+            var item = _groupedInventory[idx];
+            var spr = SpriteCache.ForItem(item);
+            if (spr != null)
+                sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), Color.White);
+
+            if (item.Quantity > 1)
+                DrawText(sb, item.Quantity.ToString(), rect.X + rect.Width - 16, rect.Y + rect.Height - 16, new Color(230, 230, 120), font);
+
+            if (hover) _hoveredPickerItem = item;
         }
 
-        if (_inventory.Count == 0)
-            DrawText(sb, "Инвентарь пуст.", ContentX + 12, startY + 8, new Color(120, 120, 130), font);
+        if (_hoveredPickerItem != null)
+        {
+            var lines = ItemTooltip.BuildLines(_hoveredPickerItem);
+            var g = GameMain.Instance;
+            int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
+            int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
+            TooltipRenderer.Draw(sb, lines, hMouse, wRight, wBottom);
+        }
+
+        if (totalItems == 0)
+            DrawText(sb, "Инвентарь пуст.", ContentX + 12, gridY + 8, new Color(120, 120, 130), font);
+    }
+
+    private int GetDetailButtonY()
+    {
+        var m = _selectedMail;
+        if (m == null) return ContentY + TabH + 260;
+        int y = ContentY + TabH + 8;
+        y += 18 + 18 + 22;
+        y += 130;
+        if (m.GoldAmount > 0 || (!string.IsNullOrEmpty(m.ItemId) && m.ItemQuantity > 0))
+        {
+            y += 18;
+            if (m.GoldAmount > 0) y += 16;
+            if (!string.IsNullOrEmpty(m.ItemId) && m.ItemQuantity > 0) y += 18;
+        }
+        y += 8;
+        return y;
     }
 
     private static string FormatDate(string iso)
@@ -583,6 +821,46 @@ public class MailWindow : GameWindow
         if (DateTime.TryParse(iso, out var dt))
             return dt.ToString("dd.MM.yyyy HH:mm");
         return iso;
+    }
+
+    private static List<string> WrapText(SpriteFont font, string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        if (string.IsNullOrEmpty(text)) return lines;
+        foreach (var paragraph in text.Split('\n'))
+        {
+            if (paragraph.Length == 0)
+            {
+                lines.Add("");
+                continue;
+            }
+            var words = paragraph.Split(' ');
+            var currentLine = "";
+            foreach (var word in words)
+            {
+                var testLine = currentLine.Length == 0 ? word : currentLine + " " + word;
+                if (font.MeasureString(testLine).X > maxWidth)
+                {
+                    if (currentLine.Length > 0)
+                    {
+                        lines.Add(currentLine);
+                        currentLine = word;
+                    }
+                    else
+                    {
+                        lines.Add(word);
+                        currentLine = "";
+                    }
+                }
+                else
+                {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine.Length > 0)
+                lines.Add(currentLine);
+        }
+        return lines;
     }
 }
 

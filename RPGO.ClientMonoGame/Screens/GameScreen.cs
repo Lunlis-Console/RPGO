@@ -71,6 +71,10 @@ public class GameScreen : IScreen
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
             _hudRenderer.UpdateZone(map.ZoneName, map.PvPEnabled);
+            if (map.TileData != null && map.TileData.Length > 0)
+                _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
+            else
+                _mapRenderer.SetTileData(null, 0, 0);
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
@@ -556,8 +560,6 @@ public class GameScreen : IScreen
         {
             var items = client.Inventory?.Items?
                 .Where(i => i.Type != "gold")
-                .GroupBy(i => i.TemplateId)
-                .Select(g => (Id: g.Key, Name: g.First().Name, Qty: g.Sum(x => x.Quantity)))
                 .ToList() ?? new();
             _mailWindow.SetInventory(items);
         };
@@ -614,44 +616,28 @@ public class GameScreen : IScreen
         _tradeRequestWindow.Accepted += inviterName => _ = client.SendAsync("trade_accept", new { InviterName = inviterName });
         _tradeRequestWindow.Declined += inviterName => _ = client.SendAsync("trade_decline", new { InviterName = inviterName });
 
-        _mailWindow.InboxRequested += () =>
+        client.MailListReceived += (folder, mails) =>
         {
-            _ = client.SendAsync("mail", new { Action = "inbox" });
-        };
-        _mailWindow.OutboxRequested += () =>
-        {
-            _ = client.SendAsync("mail", new { Action = "outbox" });
-        };
-        _mailWindow.SendRequested += (recipient, subject, body, gold, itemId, itemQty) =>
-        {
-            _ = client.SendAsync("mail", new { Action = "send", RecipientName = recipient, Subject = subject, Body = body, GoldAmount = gold, ItemId = itemId, ItemQuantity = itemQty });
-        };
-        _mailWindow.ReadRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "read", MailId = id });
-        };
-        _mailWindow.DeleteRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "delete", MailId = id });
-        };
-        _mailWindow.TakeAttachmentRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "take", MailId = id });
-        };
-
-        client.MailListReceived += mails =>
-        {
-            _mailWindow.SetInbox(mails);
-            _mailWindow.SetOutbox(mails);
+            if (folder == "inbox")
+                _mailWindow.SetInbox(mails);
+            else if (folder == "outbox")
+                _mailWindow.SetOutbox(mails);
         };
         client.MailDetailReceived += mail =>
         {
-            _mailWindow.SelectMail(mail.Id);
+            _mailWindow.UpdateMail(mail);
         };
         client.MailResultReceived += (ok, msg) =>
         {
-            if (!ok && !string.IsNullOrEmpty(msg))
+            if (!string.IsNullOrEmpty(msg))
                 _chatRenderer.AddMessage(ChatChannel.System, "Почта", msg);
+            if (ok && _mailWindow.SelectedMailId > 0)
+                _ = client.SendAsync("mail", new { Action = "read", MailId = _mailWindow.SelectedMailId });
+        };
+        client.MailUnreadReceived += count =>
+        {
+            _hudDraw.SetMailUnreadCount(count);
+            _mailWindow.RefreshInboxIfOpen();
         };
     }
 

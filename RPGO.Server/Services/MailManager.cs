@@ -93,6 +93,7 @@ public static class MailManager
         }
 
         MailRepository.TakeAttachment(mail.Id);
+        mail.TakenAt = DateTime.UtcNow.ToString("o");
         return true;
     }
 }

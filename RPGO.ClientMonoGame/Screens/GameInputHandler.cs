@@ -253,8 +253,8 @@ internal class GameInputHandler
                     if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
                     break;
                 case 6:
-                    mail.Visible = !mail.Visible;
-                    if (mail.Visible) { CenterWindow(mail, game); PushWindow(mail); }
+                    if (mail.Visible) mail.Visible = false;
+                    else { mail.Open(); PushWindow(mail); }
                     break;
                 case 7:
                     settings.Visible = !settings.Visible;

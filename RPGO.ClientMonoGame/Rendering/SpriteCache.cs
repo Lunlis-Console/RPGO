@@ -146,6 +146,43 @@ public static class SpriteCache
         }
     }
 
+    public static Texture2D? GetTileset(string tilesetId, int tileSize, out int cols, out int rows)
+    {
+        cols = 0;
+        rows = 0;
+        var key = $"tileset_{tilesetId}";
+        if (_textures.TryGetValue(key, out var existing))
+        {
+            var tex = existing;
+            int ts = Math.Max(1, tileSize);
+            cols = tex.Width / ts;
+            rows = tex.Height / ts;
+            return tex;
+        }
+        try
+        {
+            var resName = $"RPGGame.ClientMonoGame.Content.Tilesets.{tilesetId}.png";
+            var asm = typeof(SpriteCache).Assembly;
+            using var stream = asm.GetManifestResourceStream(resName);
+            if (stream == null)
+            {
+                Logger.Warn($"LoadTileset '{tilesetId}': resource stream is null, looking for {resName}");
+                return null;
+            }
+            var tex = Texture2D.FromStream(_device, stream);
+            _textures[key] = tex;
+            cols = tex.Width / Math.Max(1, tileSize);
+            rows = tex.Height / Math.Max(1, tileSize);
+            Logger.Debug($"LoadTileset '{tilesetId}' OK ({tex.Width}x{tex.Height}, {cols}x{rows} tiles)");
+            return tex;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"LoadTileset '{tilesetId}' failed", ex);
+            return null;
+        }
+    }
+
     public static Texture2D? Get(string key) =>
         _textures.TryGetValue(key, out var tex) ? tex : null;
 

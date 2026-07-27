@@ -99,7 +99,12 @@ public sealed class GameServer : INetworkHub
                 ZoneId = zoneId,
                 ZoneName = zone?.Name ?? zoneId,
                 PvPEnabled = isPvp,
-                Portals = portals
+                Portals = portals,
+                TileMapId = zoneId,
+                TileData = zoneMap.GetTiles(),
+                TileWidth = 32,
+                TileHeight = 32,
+                TilesetId = zoneId
             };
 
             await SendToClient(client, new GameMessage

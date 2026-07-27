@@ -24,10 +24,34 @@ public sealed class GameMap
     /// <summary>Точки, недоступные для прохода (препятствия/здания).</summary>
     private readonly HashSet<(int X, int Y)> _obstacles = new();
 
+    /// <summary>Тайл-карта: плоский массив tileType по [y * Width + x]. null — карта не загружена.</summary>
+    private byte[]? _tiles;
+
     public GameMap(int width, int height)
     {
         Width = width;
         Height = height;
+    }
+
+    public void SetTiles(byte[] tiles)
+    {
+        if (tiles.Length != Width * Height)
+            throw new ArgumentException($"Tile array length {tiles.Length} != {Width * Height}");
+        _tiles = tiles;
+    }
+
+    public byte[]? GetTiles() => _tiles;
+
+    public byte GetTile(int x, int y)
+    {
+        if (_tiles == null || x < 0 || y < 0 || x >= Width || y >= Height) return (byte)255;
+        return _tiles[y * Width + x];
+    }
+
+    public void SetTile(int x, int y, byte tileType)
+    {
+        if (_tiles == null || x < 0 || y < 0 || x >= Width || y >= Height) return;
+        _tiles[y * Width + x] = tileType;
     }
 
     public void AddObstacle(int x, int y) => _obstacles.Add((x, y));

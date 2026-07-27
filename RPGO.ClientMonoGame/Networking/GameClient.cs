@@ -101,9 +101,10 @@ public sealed class GameClient
     public event Action<int>? PlayerDeathReceived;
 
     // Почта
-    public event Action<List<MailEntry>>? MailListReceived;
+    public event Action<string, List<MailEntry>>? MailListReceived;
     public event Action<MailEntry>? MailDetailReceived;
     public event Action<bool, string>? MailResultReceived;
+    public event Action<int>? MailUnreadReceived;
 
     public void Initialize(Action uiCallback)
     {
@@ -692,7 +693,8 @@ public sealed class GameClient
                                 messages.Add(mm);
                             }
                         }
-                        Ui(() => MailListReceived?.Invoke(messages));
+                        string folder = mlData.TryGetProperty("Folder", out var mf) ? mf.GetString() ?? "" : "";
+                        Ui(() => MailListReceived?.Invoke(folder, messages));
                     }
                     break;
 
@@ -723,7 +725,7 @@ public sealed class GameClient
                     if (message.Data is JsonElement muData)
                     {
                         int count = muData.TryGetProperty("Count", out var uc) ? uc.GetInt32() : 0;
-                        Ui(() => MailResultReceived?.Invoke(true, $"Непрочитанных: {count}"));
+                        Ui(() => MailUnreadReceived?.Invoke(count));
                     }
                     break;
 

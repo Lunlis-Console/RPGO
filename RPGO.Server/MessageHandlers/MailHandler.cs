@@ -77,8 +77,15 @@ public class MailHandler : BaseHandler
                 await SendError(connection, "mail_error", "Недостаточно предметов.");
                 return;
             }
-            attachment = invItem;
-            attachment.Quantity = attachQty;
+            attachment = new Item
+            {
+                Id = invItem.Id,
+                TemplateId = invItem.TemplateId,
+                Name = invItem.Name,
+                Type = invItem.Type,
+                Quantity = attachQty,
+                Value = invItem.Value,
+            };
         }
 
         var (id, error) = MailManager.SendMail(player, recipient, subject, body, gold, attachment);
@@ -125,6 +132,7 @@ public class MailHandler : BaseHandler
         if (mail.SenderName != player.Name && mail.RecipientName != player.Name) return;
 
         MailRepository.MarkRead(mailId);
+        mail.ReadAt = DateTime.UtcNow.ToString("o");
 
         await SendToClient(connection, new GameMessage
         {
@@ -166,6 +174,12 @@ public class MailHandler : BaseHandler
         {
             Type = "mail_result",
             Data = new { Success = true, Message = "Вложение получено." }
+        });
+
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "mail_detail",
+            Data = MapMail(mail)
         });
 
         await SendInventoryAndStatus(connection, player);

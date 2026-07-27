@@ -22,6 +22,13 @@ public class WorldMap
     public string ZoneName { get; set; } = "";
     public bool PvPEnabled { get; set; }
     public List<PortalPosition> Portals { get; set; } = new();
+
+    // Тайл-карта
+    public string? TileMapId { get; set; }
+    public byte[]? TileData { get; set; }
+    public int TileWidth { get; set; } = 32;
+    public int TileHeight { get; set; } = 32;
+    public string? TilesetId { get; set; }
 }
 
 public class PlayerPosition
