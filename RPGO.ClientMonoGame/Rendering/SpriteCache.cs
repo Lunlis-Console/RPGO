@@ -47,6 +47,16 @@ public static class SpriteCache
     private static readonly Dictionary<string, Texture2D> _textures = new();
     private static readonly Dictionary<string, SpriteAnimation> _animations = new();
     private static readonly Dictionary<string, Point> _cursorHotspots = new();
+    private static readonly Dictionary<string, Point> _cursorHotspotMap = new()
+    {
+        ["cursor_main"] = new Point(32, 32),
+        ["cursor_attack"] = new Point(32, 32),
+        ["cursor_talk"] = new Point(32, 32),
+        ["cursor_loot"] = new Point(32, 32),
+        ["cursor_harvest"] = new Point(32, 32),
+        ["cursor_moving"] = new Point(32, 32),
+        ["cursor_portal"] = new Point(32, 32),
+    };
     private static Texture2D _pixel = null!;
     private static SpriteFont _font = null!;
     private static SpriteFont _fontSmall = null!;
@@ -112,27 +122,9 @@ public static class SpriteCache
                 var tex = Texture2D.FromStream(_device, stream);
                 _textures[key] = tex;
 
-                Color[] pixels = new Color[tex.Width * tex.Height];
-                tex.GetData(pixels);
-                int minX = tex.Width, minY = tex.Height, maxX = 0, maxY = 0;
-                bool found = false;
-                for (int i = 0; i < pixels.Length; i++)
-                {
-                    if (pixels[i].A > 20)
-                    {
-                        int x = i % tex.Width;
-                        int y = i / tex.Width;
-                        if (x < minX) minX = x;
-                        if (y < minY) minY = y;
-                        if (x > maxX) maxX = x;
-                        if (y > maxY) maxY = y;
-                        found = true;
-                    }
-                }
-                int hotX = found ? (minX + maxX) / 2 : 0;
-                int hotY = found ? (minY + maxY) / 2 : 0;
-                _cursorHotspots[key] = new Point(hotX, hotY);
-                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hotX},{hotY}) bbox=({minX},{minY})-({maxX},{maxY})");
+                var hs = _cursorHotspotMap.TryGetValue(key, out var pt) ? pt : new Point(32, 32);
+                _cursorHotspots[key] = hs;
+                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hs.X},{hs.Y})");
             }
             catch (Exception ex) { Logger.Error($"Cursor load failed: {file}", ex); }
         }
