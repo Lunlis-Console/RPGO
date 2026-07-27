@@ -1041,6 +1041,16 @@ public class MapRenderer
                         if (weaponAnim != null) useWeaponSwing = true;
                         else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                     }
+                    else if (offAttackActive)
+                    {
+                        weaponAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(weaponSub, facing);
+                        if (weaponAnim != null) useWeaponSwing = true;
+                        if (weaponAnim == null)
+                            weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(weaponSub, facing);
+                        if (weaponAnim != null) useWeaponSwing = true;
+                        if (weaponAnim == null)
+                            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
+                    }
                     else
                         weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                     if (isLocal && _weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={weaponSub} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
