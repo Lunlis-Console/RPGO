@@ -152,8 +152,14 @@ public class GameMain : Game
             var tex = SpriteCache.GetCursor(ct) ?? SpriteCache.GetCursor("main");
             if (tex != null)
             {
+                var hs = SpriteCache.GetCursorHotspot(ct);
+                const float scale = 0.75f;
+                int scaledHs = (int)Math.Round(hs.X * scale);
+                int scaledHsY = (int)Math.Round(hs.Y * scale);
+                float drawW = tex.Width * scale;
+                float drawH = tex.Height * scale;
                 SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
-                SpriteBatch.Draw(tex, new Vector2(ms.X, ms.Y), Color.White);
+                SpriteBatch.Draw(tex, new Rectangle(ms.X - scaledHs, ms.Y - scaledHsY, (int)drawW, (int)drawH), Color.White);
                 SpriteBatch.End();
             }
         }
