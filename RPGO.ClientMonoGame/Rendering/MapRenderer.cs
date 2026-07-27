@@ -1031,7 +1031,7 @@ public class MapRenderer
                             ? SpriteCache.GetWeaponRangeAttackAnimation(weaponSub, facing)
                             : SpriteCache.GetWeaponAttackAnimation(weaponSub, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
-                        else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
+                        else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                     }
                     else if (offAttackActive)
                     {
@@ -1041,10 +1041,10 @@ public class MapRenderer
                             weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(weaponSub, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
                         if (weaponAnim == null)
-                            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
+                            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                     }
                     else
-                        weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
+                        weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                     if (isLocal && _weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={weaponSub} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
                     if (weaponAnim != null)
                     {
@@ -1069,14 +1069,14 @@ public class MapRenderer
                 {
                     SpriteAnimation? shieldAnim;
                     bool useShieldAttack = false;
-                    if (mainAttackActive)
+                        if (mainAttackActive)
                     {
                         shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
                         if (shieldAnim != null) useShieldAttack = true;
-                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
+                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
                     }
                     else
-                        shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
+                        shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
                     if (shieldAnim != null)
                     {
                         int sFrame;
@@ -1110,7 +1110,7 @@ public class MapRenderer
                                 offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
                         }
                         else
                         {
@@ -1120,7 +1120,7 @@ public class MapRenderer
                                 offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                             offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                             offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
                          }
                      }
                     else if (mainAttackActive)
@@ -1133,11 +1133,11 @@ public class MapRenderer
                             offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
                         }
                     }
                      else
-                         offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                         offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
                      if (offAnim != null)
                     {
                         int offFrame;
@@ -1166,7 +1166,7 @@ public class MapRenderer
                     // Оружие поверх (статичный fallback)
                     if (!string.IsNullOrEmpty(weaponSub))
                     {
-                        SpriteAnimation? weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
+                        SpriteAnimation? weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
                         if (weaponAnim != null)
                         {
                             int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
@@ -1178,7 +1178,7 @@ public class MapRenderer
                     // Щит поверх (статичный fallback)
                     if (!isTwoHanded && !string.IsNullOrEmpty(shieldSub))
                     {
-                        SpriteAnimation? shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
+                        SpriteAnimation? shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
                         if (shieldAnim != null)
                         {
                             int sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
@@ -1190,7 +1190,7 @@ public class MapRenderer
                     // Левое оружие (статичный fallback)
                     if (!isTwoHanded && !string.IsNullOrEmpty(offWeaponSub))
                     {
-                        SpriteAnimation? offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                        SpriteAnimation? offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
                         if (offAnim != null)
                         {
                             int offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
