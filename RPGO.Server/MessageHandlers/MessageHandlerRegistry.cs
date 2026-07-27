@@ -76,5 +76,6 @@ public static class MessageHandlerRegistry
         Register("revive", new ReviveHandler(world, hub));
         Register("dialogue_choice", new DialogueChoiceHandler(world, hub));
         Register("mail", new MailHandler(world, hub));
+        Register("player_facing", new PlayerFacingHandler(world, hub));
     }
 }

@@ -106,6 +106,8 @@ public class GameScreen : IScreen
         };
         client.PlayerAttackPerformed += (hand) => _mapRenderer.TriggerAttack(hand);
         client.RemotePlayerAttack += (playerName, hand) => _mapRenderer.TriggerRemoteAttack(playerName, hand);
+        client.RemotePlayerFacing += (playerName, facing) => _mapRenderer.UpdateRemotePlayerFacing(playerName, facing);
+        _mapRenderer.OnFacingChanged = facing => _ = client.SendAsync("player_facing", new { Facing = facing });
         client.TargetDebuffsUpdated += debuffs =>
         {
             _hudRenderer.UpdateTargetDebuffs(debuffs);

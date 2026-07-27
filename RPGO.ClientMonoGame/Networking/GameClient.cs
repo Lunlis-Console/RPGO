@@ -90,6 +90,7 @@ public sealed class GameClient
     // Атака
     public event Action<string>? PlayerAttackPerformed;
     public event Action<string, string>? RemotePlayerAttack; // (playerName, hand)
+    public event Action<string, string>? RemotePlayerFacing; // (playerName, facing)
 
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
@@ -658,6 +659,16 @@ public sealed class GameClient
                             Ui(() => RemotePlayerAttack?.Invoke(playerName, hand));
                         else
                             Ui(() => PlayerAttackPerformed?.Invoke(hand));
+                    }
+                    break;
+
+                case "player_facing":
+                    if (message.Data is JsonElement pfEl)
+                    {
+                        string pfName = pfEl.TryGetProperty("PlayerName", out var pfn) ? (pfn.GetString() ?? "") : "";
+                        string pfFacing = pfEl.TryGetProperty("Facing", out var pff) ? (pff.GetString() ?? "down") : "down";
+                        if (!string.IsNullOrEmpty(pfName) && pfName != PlayerName)
+                            Ui(() => RemotePlayerFacing?.Invoke(pfName, pfFacing));
                     }
                     break;
 

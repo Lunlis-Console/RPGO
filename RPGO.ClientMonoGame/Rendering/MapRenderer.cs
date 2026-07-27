@@ -181,6 +181,11 @@ public class MapRenderer
 
     // Per-player visual state for remote players
     private readonly Dictionary<string, RemotePlayerState> _remotePlayers = new();
+    // Per-player movement state for remote players (visPos != visTarget)
+    private readonly Dictionary<string, bool> _remoteMoving = new();
+    // Callback: local player changed facing → send to server
+    internal Action<string>? OnFacingChanged;
+    private string _lastRenderFacing = "down";
 
     private sealed class RemotePlayerState
     {
@@ -228,7 +233,13 @@ public class MapRenderer
         }
     }
 
-    public void RemoveRemotePlayer(string name) => _remotePlayers.Remove(name);
+    public void RemoveRemotePlayer(string name) { _remotePlayers.Remove(name); _remoteMoving.Remove(name); }
+
+    public void UpdateRemotePlayerFacing(string name, string facing)
+    {
+        if (_remotePlayers.TryGetValue(name, out var state))
+            state.Facing = facing;
+    }
 
     // Итоговое направление локального игрока:
     //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
@@ -914,6 +925,11 @@ public class MapRenderer
 
             bool isLocal = p.Name == _playerName;
             string facing = isLocal ? GetLocalFacing() : "down";
+            if (isLocal && facing != _lastRenderFacing)
+            {
+                _lastRenderFacing = facing;
+                try { OnFacingChanged?.Invoke(facing); } catch { }
+            }
             string weaponSub = _weaponSubtype ?? "";
             string offWeaponSub = _offWeaponSubtype ?? "";
             string shieldSub = _shieldSubtype ?? "";
@@ -995,8 +1011,14 @@ public class MapRenderer
                 }
                 else
                 {
-                    float frameDuration = playerAnim.FrameDuration;
-                    frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
+                    bool moving = isLocal ? _isMoving : (_remoteMoving.GetValueOrDefault(p.Name, false));
+                    if (moving)
+                    {
+                        float frameDuration = playerAnim.FrameDuration;
+                        frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
+                    }
+                    else
+                        frame = 0;
                 }
                  var src = playerAnim.GetSourceRect(frame);
                  sb.Draw(playerAnim.Sheet, EntityRect(px, py), src, Color.White);
@@ -1382,6 +1404,11 @@ public class MapRenderer
                         if (Math.Abs(dx) > Math.Abs(dy)) _localFacing = dx < 0 ? "left" : "right";
                         else _localFacing = dy < 0 ? "up" : "down";
                     }
+                }
+                else if (key.StartsWith("player:"))
+                {
+                    string pname = key.Substring(7);
+                    _remoteMoving[pname] = dist > 0.05f;
                 }
 
                 if (dist <= step || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
