@@ -144,6 +144,19 @@ public class GameWindow
         return mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released && rect.Contains(mouse.X, mouse.Y) ? 1 : 0;
     }
 
+    protected void DrawButtonHover(SpriteBatch sb, string text, Rectangle rect, MouseState mouse, Color? bg = null)
+    {
+        Color b = bg ?? new Color(60, 80, 120);
+        bool hover = rect.Contains(mouse.X, mouse.Y);
+        sb.Draw(SpriteCache.Pixel, rect, hover ? Color.Lerp(b, Color.White, 0.15f) : b);
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font != null)
+        {
+            var sz = font.MeasureString(text);
+            sb.DrawString(font, text, new Vector2(rect.X + (rect.Width - sz.X) / 2, rect.Y + (rect.Height - sz.Y) / 2), Color.White);
+        }
+    }
+
     protected void DrawBar(SpriteBatch sb, int x, int y, int w, int h, int value, int max, Color fill, string label)
     {
         float pct = max > 0 ? Math.Clamp((float)value / max, 0, 1) : 0;

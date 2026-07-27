@@ -28,6 +28,5 @@ CopilotIndices/
 ## macOS
 .DS_Store
 
-## Local database (keep schema, ignore local data)
-game.db
+## Local database journal
 *.db-journal

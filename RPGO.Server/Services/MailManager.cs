@@ -72,22 +72,11 @@ public static class MailManager
 
         if (!string.IsNullOrEmpty(mail.ItemId) && mail.ItemQuantity > 0)
         {
-            var template = DatabaseManager.GetItemTemplate(mail.ItemId);
-            if (template != null)
+            var item = DatabaseManager.GetItemTemplate(mail.ItemId);
+            if (item != null)
             {
-                var item = new Item
-                {
-                    TemplateId = template.Id,
-                    Name = template.Name,
-                    Type = template.Type,
-                    Value = template.Value,
-                    BonusDefense = template.BonusDefense,
-                    MaxHealthBonus = template.MaxHealthBonus,
-                    HealAmount = template.HealAmount,
-                    RestoreMana = template.RestoreMana,
-                    Description = template.Description,
-                    Quantity = mail.ItemQuantity
-                };
+                item.Id = Guid.NewGuid().ToString();
+                item.Quantity = mail.ItemQuantity;
                 InventoryHelper.AddItem(recipient, item);
             }
         }

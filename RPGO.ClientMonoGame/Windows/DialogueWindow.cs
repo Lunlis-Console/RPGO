@@ -120,6 +120,8 @@ public class DialogueWindow : GameWindow
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
+        base.Draw(sb);
+
         // Dynamic height based on content
         int contentX = X + 12;
         int contentY = Y + TitleH + 8;
@@ -132,24 +134,6 @@ public class DialogueWindow : GameWindow
         int totalChoicesH = _choices.Count * (choiceH + choiceGap);
         int neededH = TitleH + 12 + textH + 8 + totalChoicesH + 16;
         if (neededH > Height) Height = neededH;
-
-        // Background
-        var windowRect = new Rectangle(X, Y, Width, Height);
-        sb.Draw(SpriteCache.Pixel, windowRect, new Color(25, 28, 38));
-
-        // Title bar
-        sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, Width, TitleH), new Color(40, 50, 70));
-
-        // Borders
-        var border = new Color(70, 80, 100);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, Width, 2), border);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y + Height - 2, Width, 2), border);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(X, Y, 2, Height), border);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(X + Width - 2, Y, 2, Height), border);
-
-        // Title
-        var titleSize = font.MeasureString(Title);
-        sb.DrawString(font, Title, new Vector2(X + 8, Y + (TitleH - titleSize.Y) / 2), Color.White);
 
         // Speaker
         sb.DrawString(font, _speaker, new Vector2(contentX, contentY), new Color(220, 200, 120));
@@ -175,12 +159,6 @@ public class DialogueWindow : GameWindow
             sb.DrawString(font, label, new Vector2(r.X + 8, r.Y + (choiceH - labelSize.Y) / 2), hover ? new Color(220, 220, 240) : new Color(180, 185, 200));
         }
 
-        // Close button
-        var closeRect = new Rectangle(X + Width - 24, Y + 4, 20, 20);
-        Color closeColor = closeRect.Contains(mouse.X, mouse.Y) ? new Color(200, 60, 60) : new Color(140, 40, 40);
-        sb.Draw(SpriteCache.Pixel, closeRect, closeColor);
-        var xSize = font.MeasureString("X");
-        sb.DrawString(font, "X", new Vector2(closeRect.X + (closeRect.Width - xSize.X) / 2, closeRect.Y + (closeRect.Height - xSize.Y) / 2), Color.White);
     }
 
     private void DrawWrappedText(SpriteBatch sb, string text, int x, int y, int maxWidth, Color color)

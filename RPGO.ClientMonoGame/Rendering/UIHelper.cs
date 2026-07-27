@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -22,5 +23,53 @@ public static class UIHelper
     {
         if (!string.IsNullOrEmpty(text))
             sb.DrawString(font, text, new Vector2(x, y), color);
+    }
+
+    /// <summary>Разбивает текст на строки по слову, не превышающие maxWidth.</summary>
+    public static List<string> WrapText(SpriteFont font, string text, float maxWidth)
+    {
+        var lines = new List<string>();
+        if (string.IsNullOrEmpty(text)) return lines;
+        foreach (var paragraph in text.Split('\n'))
+        {
+            if (paragraph.Length == 0)
+            {
+                lines.Add("");
+                continue;
+            }
+            var words = paragraph.Split(' ');
+            var currentLine = "";
+            foreach (var word in words)
+            {
+                var testLine = currentLine.Length == 0 ? word : currentLine + " " + word;
+                if (font.MeasureString(testLine).X > maxWidth)
+                {
+                    if (currentLine.Length > 0)
+                    {
+                        lines.Add(currentLine);
+                        currentLine = word;
+                    }
+                    else
+                    {
+                        lines.Add(word);
+                        currentLine = "";
+                    }
+                }
+                else
+                {
+                    currentLine = testLine;
+                }
+            }
+            if (currentLine.Length > 0)
+                lines.Add(currentLine);
+        }
+        return lines;
+    }
+
+    /// <summary>Измеряет высоту текста, разбитого по строкам.</summary>
+    public static int MeasureWrappedHeight(SpriteFont font, string text, float maxWidth)
+    {
+        var lines = WrapText(font, text, maxWidth);
+        return lines.Count * (int)(font.MeasureString("Wg").Y) + Math.Max(0, lines.Count - 1) * 2;
     }
 }

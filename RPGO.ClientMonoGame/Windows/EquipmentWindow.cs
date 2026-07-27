@@ -205,7 +205,7 @@ public class EquipmentWindow : GameWindow
             else
             {
                 // Пустой слот — название слота по центру ячейки (тускло, с переносом)
-                var lines = WrapText(font, slot.NameRu, r.Width - 8);
+                var lines = UIHelper.WrapText(font, slot.NameRu, r.Width - 8);
                 int ly = r.Y + (r.Height - lines.Count * (int)font.LineSpacing) / 2;
                 foreach (var line in lines)
                 {
@@ -229,7 +229,7 @@ public class EquipmentWindow : GameWindow
             }
         }
 
-        DrawButton(sb, "Закрыть", _closeRect, mouse);
+            DrawButtonHover(sb, "Закрыть", _closeRect, mouse);
 
         if (_hoverItem != null)
             DrawTooltip(sb, _hoverItem, mouse);
@@ -255,45 +255,6 @@ public class EquipmentWindow : GameWindow
             }
         }
         return false;
-    }
-
-    private static List<string> WrapText(SpriteFont font, string text, float maxWidth)
-    {
-        var lines = new List<string>();
-        if (string.IsNullOrEmpty(text)) return lines;
-        foreach (var paragraph in text.Split('\n'))
-        {
-            var words = paragraph.Split(' ');
-            var cur = "";
-            foreach (var w in words)
-            {
-                var test = cur.Length == 0 ? w : cur + " " + w;
-                if (font.MeasureString(test).X > maxWidth && cur.Length > 0)
-                {
-                    lines.Add(cur);
-                    cur = w;
-                }
-                else
-                {
-                    cur = test;
-                }
-            }
-            if (cur.Length > 0) lines.Add(cur);
-        }
-        return lines;
-    }
-
-    private void DrawButton(SpriteBatch sb, string text, Rectangle r, MouseState mouse)
-    {
-        bool hover = r.Contains(mouse.X, mouse.Y);
-        var bg = new Color(60, 80, 120);
-        sb.Draw(SpriteCache.Pixel, r, hover ? Color.Lerp(bg, Color.White, 0.15f) : bg);
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font != null)
-        {
-            var sz = font.MeasureString(text);
-            sb.DrawString(font, text, new Vector2(r.X + (r.Width - sz.X) / 2, r.Y + (r.Height - sz.Y) / 2), Color.White);
-        }
     }
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)

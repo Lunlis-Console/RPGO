@@ -397,7 +397,7 @@ public class InventoryWindow : GameWindow
         int bottomY = Y + Height - BottomH - 6;
         int sortW = cw / 2 - 4;
         _sortRect = new Rectangle(cx, bottomY, sortW, BottomH);
-        DrawButton(sb, "Сортировать", _sortRect, mouse);
+        DrawButtonHover(sb, "Сортировать", _sortRect, mouse);
 
         _trashRect = new Rectangle(cx + sortW + 8, bottomY, sortW, BottomH);
         bool overTrash = _trashRect.Contains(mouse.X, mouse.Y);
@@ -418,19 +418,6 @@ public class InventoryWindow : GameWindow
         // Окно подтверждения
         if (_confirm.HasValue)
             DrawConfirm(sb, _confirm.Value, mouse);
-    }
-
-    private void DrawButton(SpriteBatch sb, string text, Rectangle r, MouseState mouse)
-    {
-        bool hover = r.Contains(mouse.X, mouse.Y);
-        var bg = new Color(60, 80, 120);
-        sb.Draw(SpriteCache.Pixel, r, hover ? Color.Lerp(bg, Color.White, 0.15f) : bg);
-        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font != null)
-        {
-            var sz = font.MeasureString(text);
-            sb.DrawString(font, text, new Vector2(r.X + (r.Width - sz.X) / 2, r.Y + (r.Height - sz.Y) / 2), Color.White);
-        }
     }
 
     private void DrawTrashIcon(SpriteBatch sb, Rectangle zone, bool hot)
@@ -470,8 +457,8 @@ public class InventoryWindow : GameWindow
         int bw = (pw - 36) / 2;
         _confirmYes = new Rectangle(px + 12, py + ph - 40, bw, 28);
         _confirmNo = new Rectangle(px + 24 + bw, py + ph - 40, bw, 28);
-        DrawButton(sb, "Да", _confirmYes, mouse);
-        DrawButton(sb, "Нет", _confirmNo, mouse);
+        DrawButtonHover(sb, "Да", _confirmYes, mouse);
+        DrawButtonHover(sb, "Нет", _confirmNo, mouse);
     }
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)

@@ -259,9 +259,7 @@ public class StatusWindow : GameWindow
             {
                 var btnRect = new Rectangle(cx + cw - BtnW, ry + 2, BtnW, BtnH);
                 _attrBtnRects[i] = btnRect;
-                bool hover = btnRect.Contains(mouse.X, mouse.Y);
-                Color btnBg = hover ? Color.Lerp(AttrBtnBg, Color.White, 0.2f) : AttrBtnBg;
-                DrawButton(sb, "+", cx + cw - BtnW, ry + 2, BtnW, BtnH, btnBg, mouse, _prevMouse);
+                DrawButtonHover(sb, "+", btnRect, mouse, AttrBtnBg);
             }
             cy += RowH + 2;
         }
@@ -298,19 +296,6 @@ public class StatusWindow : GameWindow
         "head" or "torso" or "legs" or "feet" => "armor",
         _ => "accessory"
     };
-
-    private new void DrawButton(SpriteBatch sb, string text, int x, int y, int w, int h, Color bg, MouseState mouse, MouseState prevMouse)
-    {
-        var rect = new Rectangle(x, y, w, h);
-        bool hover = rect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, rect, hover ? Color.Lerp(bg, Color.White, 0.15f) : bg);
-        var f = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (f != null)
-        {
-            var sz = f.MeasureString(text);
-            sb.DrawString(f, text, new Vector2(x + (w - sz.X) / 2, y + (h - sz.Y) / 2), Color.White);
-        }
-    }
 
     private int DrawSection(SpriteBatch sb, string title, int x, int y, int w)
     {
