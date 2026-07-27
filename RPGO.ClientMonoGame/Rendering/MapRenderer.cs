@@ -1051,7 +1051,7 @@ public class MapRenderer
                      }
                     else if (_mainAttackActive)
                     {
-                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "wand" || _weaponSubtype == "staff";
+                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "staff";
                         if (mainIsRanged)
                             offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
                         else
@@ -1199,7 +1199,7 @@ public class MapRenderer
                     }
                     else if (_mainAttackActive)
                     {
-                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "wand" || _weaponSubtype == "staff";
+                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "staff";
                         if (mainIsRanged)
                             offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
                         else

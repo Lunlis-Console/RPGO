@@ -227,7 +227,6 @@ public static class Balance
     public const int DefaultAttackRange = 1;
     public const int BowAttackRange = 5;
     public const int StaffAttackRange = 4;
-    public const int WandAttackRange = 3;
     public const int CasterOffhandAttackRange = 4;
 
     // ===== СНАРЯДЫ =====

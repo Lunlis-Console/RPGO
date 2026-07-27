@@ -41,7 +41,6 @@ public static class ItemTooltip
         "spear" => "Копьё",
         "staff" => "Посох",
         "bow" => "Лук",
-        "wand" => "Жезл",
         "grimoire" => "Гримуар",
         "sphere" => "Сфера",
         _ => subtype
@@ -62,7 +61,6 @@ public static class ItemTooltip
         "axe" or "greataxe" or "halberd" => "5% шанс: Свирепость (+к урону)",
         "mace" => "5% шанс: Обезоруживание (снижает урон)",
         "hammer" or "greathammer" => "5% шанс: Контузия (снижает точность)",
-        "wand" => "Гибридное оружие: ближний бой (физ.) / дальний бой (маг.)",
         "grimoire" => "Магическое оружие. С оружием в правой руке — только бафф.",
         "sphere" => "Магическое оружие. С оружием в правой руке — только бафф.",
         _ => ""
@@ -152,22 +150,10 @@ public static class ItemTooltip
         bool isShield = item.Type == "shield";
         if (isWeapon && item.DamageMax > 0)
         {
-            if (item.WeaponSubtype == "wand")
-            {
-                if (item.DamageMin == item.DamageMax)
-                    lines.Add($"Урон (ближний): {item.DamageMax}");
-                else
-                    lines.Add($"Урон (ближний): {item.DamageMin}-{item.DamageMax}");
-                if (item.BonusMagAttack > 0)
-                    lines.Add($"Урон (дальний): +{item.BonusMagAttack} маг.");
-            }
+            if (item.DamageMin == item.DamageMax)
+                lines.Add($"Урон: {item.DamageMax}");
             else
-            {
-                if (item.DamageMin == item.DamageMax)
-                    lines.Add($"Урон: {item.DamageMax}");
-                else
-                    lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
-            }
+                lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
         }
         if (isShield && (item.WeaponSubtype == "grimoire" || item.WeaponSubtype == "sphere") && item.DamageMax > 0)
         {

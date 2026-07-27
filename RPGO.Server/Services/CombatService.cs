@@ -172,8 +172,7 @@ public class CombatService
         }
 
         var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
-            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1,
-                subtype == "wand" ? pl.RollAttackDamage(dist) : null);
+            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1);
 
         if (!isEvaded && weaponRange <= 1 && _svc.Debuffs.HasDebuff(pl, DebuffType.CleaveReady))
         {

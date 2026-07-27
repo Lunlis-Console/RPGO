@@ -89,7 +89,7 @@ public static class SpriteCache
         foreach (var name in spriteNames)
             LoadTexture(name);
 
-        var iconSubtypes = new[] { "Axe", "Bow", "Dagger", "Grimoire", "Hammer", "Mace", "Sphere", "Staff", "GreatSword", "Poleaxe", "GreatHammer", "Halberd", "Spear", "Sword", "Wand", "Shield", "HealingPotion", "MagicPotion" };
+        var iconSubtypes = new[] { "Axe", "Bow", "Dagger", "Grimoire", "Hammer", "Mace", "Sphere", "Staff", "GreatSword", "Poleaxe", "GreatHammer", "Halberd", "Spear", "Sword", "Shield", "HealingPotion", "MagicPotion" };
         foreach (var sub in iconSubtypes)
             LoadTexture($"icon_{sub.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 

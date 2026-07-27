@@ -82,13 +82,11 @@ public class Player : ICombatant
            + Equipment.GetBonusEvadeChance();
 
     private bool IsUsingStaff() => Equipment.GetWeaponSubtype() == "staff";
-    private bool IsUsingWand() => Equipment.GetWeaponSubtype() == "wand";
 
     private bool UsesMagicAttack(int dist)
     {
         string sub = Equipment.GetWeaponSubtype();
         if (sub == "staff" || sub == "grimoire" || sub == "sphere") return true;
-        if (sub == "wand" && dist > 1) return true;
         return false;
     }
 
@@ -107,30 +105,14 @@ public class Player : ICombatant
     }
     public int GetMaxAttackDamage() => GetMaxAttackDamage(1);
 
-    // Методы с учётом расстояния (для гибридного оружия: жезл)
     public int GetTotalAttack(int dist)
-    {
-        string sub = Equipment.GetWeaponSubtype();
-        if (sub == "wand" && dist > 1)
-            return GetMagAttack() + Equipment.GetWeaponMaxDamage() / 2;
-        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
-    }
+        => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
 
     public int RollAttackDamage(int dist)
-    {
-        string sub = Equipment.GetWeaponSubtype();
-        if (sub == "wand" && dist > 1)
-            return GetMagAttack() + Equipment.RollWeaponDamage() / 2;
-        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
-    }
+        => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
 
     public int GetMaxAttackDamage(int dist)
-    {
-        string sub = Equipment.GetWeaponSubtype();
-        if (sub == "wand" && dist > 1)
-            return GetMagAttack() + Equipment.GetWeaponMaxDamage() / 2;
-        return (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
-    }
+        => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
 
     public int Speed { get; set; } = 1;   // определяет интервал перемещения
 

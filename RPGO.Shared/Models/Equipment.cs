@@ -67,7 +67,7 @@ public class Equipment
     {
         if (item == null) return false;
         string sub = (item.WeaponSubtype ?? "").ToLowerInvariant();
-        return sub == "staff" || sub == "wand" || sub == "grimoire" || sub == "sphere";
+        return sub == "staff" || sub == "grimoire" || sub == "sphere";
     }
 
     public Item? GetEffectiveMainHandWeapon()

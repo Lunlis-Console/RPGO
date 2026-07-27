@@ -415,11 +415,11 @@ public class MonsterManager
     }
 
     public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
-        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, int? preRolledAttack = null)
+        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true)
     {
         var rng = new Random();
 
-        int rolledAttack = preRolledAttack ?? attacker.RollAttackDamage();
+        int rolledAttack = attacker.RollAttackDamage();
         double effectiveAttackerAttack = GetEffectiveAttack(attacker, rolledAttack);
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
         double accuracyReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);

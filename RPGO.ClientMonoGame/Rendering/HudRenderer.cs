@@ -456,6 +456,7 @@ public class HudRenderer
         int cy = (int)y;
         for (int i = 0; i < debuffs.Count; i++)
         {
+            if (debuffs[i] == null) continue;
             if (i > 0 && i % cols == 0) { cx = (int)x; cy += DebuffRowH + DebuffIconGap; }
             var iconRect = new Rectangle(cx, cy, DebuffIconSize, DebuffIconSize);
             DrawDebuffIcon(sb, iconRect, debuffs[i]);
@@ -477,6 +478,7 @@ public class HudRenderer
         int cols = Math.Max(1, barW / (DebuffIconSize + DebuffIconGap));
         for (int i = 0; i < _targetDebuffs.Count; i++)
         {
+            if (_targetDebuffs[i] == null) continue;
             if (i > 0 && i % cols == 0) { cx = startX; cy += DebuffRowH + DebuffIconGap; }
             var iconRect = new Rectangle(cx, cy, DebuffIconSize, DebuffIconSize);
             DrawDebuffIcon(sb, iconRect, _targetDebuffs[i]);
