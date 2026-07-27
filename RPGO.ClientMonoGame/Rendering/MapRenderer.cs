@@ -1014,13 +1014,8 @@ public class MapRenderer
                 }
                 else
                 {
-                    if (moving)
-                    {
-                        float frameDuration = playerAnim.FrameDuration;
-                        frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
-                    }
-                    else
-                        frame = 0;
+                    float frameDuration = playerAnim.FrameDuration;
+                    frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
                 }
                  var src = playerAnim.GetSourceRect(frame);
                  sb.Draw(playerAnim.Sheet, EntityRect(px, py), src, Color.White);
