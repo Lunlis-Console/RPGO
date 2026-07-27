@@ -957,7 +957,15 @@ public class MapRenderer
             bool useAttackAnim = false;
 
             bool anyBodyAttack = mainAttackActive || offAttackActive;
-            bool moving = isLocal ? _isMoving : (_remoteMoving.GetValueOrDefault(p.Name, false));
+            bool moving;
+            if (isLocal)
+                moving = _isMoving;
+            else
+            {
+                (int X, int Y) tgt = ((int)v.X, (int)v.Y);
+                lock (_stateLock) { _visTarget.TryGetValue($"player:{p.Name}", out tgt); }
+                moving = Math.Abs(tgt.X - v.X) > 0.05f || Math.Abs(tgt.Y - v.Y) > 0.05f;
+            }
 
             if (isLocal && _isDead)
                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
