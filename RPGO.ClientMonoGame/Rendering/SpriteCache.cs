@@ -90,7 +90,7 @@ public static class SpriteCache
         {
             "player", "zombie", "wolf", "weapon", "water", "spyder",
             "snake", "skelet", "sand", "rat", "ork", "misc", "lich",
-             "grass", "ahes", "goblin", "dragon_baby", "dragon",
+             "grass", "ashes", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
             "trader", "quest_desk", "maneken",
             "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status", "icon_mail",
@@ -354,7 +354,7 @@ public static class SpriteCache
     public static Texture2D? GetCollectibleSprite() => Get("collectible");
     public static Texture2D? GetGrassSprite() => Get("grass");
     public static Texture2D? GetSandSprite() => Get("sand");
-    public static Texture2D? GetCorpseSprite() => Get("ahes");
+    public static Texture2D? GetCorpseSprite() => Get("ashes");
 
     public static Texture2D? GetIconStatus() => Get("icon_status");
     public static Texture2D? GetIconInventory() => Get("icon_inventory");
