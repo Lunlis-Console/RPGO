@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -756,6 +757,7 @@ public class GameScreen : IScreen
         mouseOverAnyWindow |= partyHandled;
 
         bool overHotbar = _input.HitHotbarSlot(mouse.X, mouse.Y, game) >= 0;
+        bool overIconBar = _hudDraw.IconRects.Length > 0 && _hudDraw.IconRects.Any(r => r.Contains(mouse.X, mouse.Y));
 
         if (!mouseOverAnyWindow && !overHotbar)
         {
@@ -772,7 +774,7 @@ public class GameScreen : IScreen
             int w2 = game.Graphics.PreferredBackBufferWidth;
             int h2 = game.Graphics.PreferredBackBufferHeight;
             int topH2 = 40;
-            bool overMap = !mouseOverAnyWindow && !overHotbar && mouse.Y >= topH2;
+            bool overMap = !mouseOverAnyWindow && !overHotbar && !overIconBar && mouse.Y >= topH2;
             string ct = "main";
             if (overMap)
             {
