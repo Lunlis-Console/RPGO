@@ -722,6 +722,22 @@ public class CombatService
 
         pl.Combat.LastAttackTime = DateTime.UtcNow;
 
+        string attackHand;
+        var effectiveMain = pl.Equipment.GetEffectiveMainHandWeapon();
+        if (effectiveMain != null)
+            attackHand = Equipment.IsCasterOffhand(effectiveMain) ? "off" : "main";
+        else
+        {
+            var lh = pl.Equipment.Slots.TryGetValue("lhand", out var l) ? l : null;
+            attackHand = (lh != null && !Equipment.IsCasterOffhand(lh) && !lh.TwoHanded) ? "off" : "main";
+        }
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = attackHand }
+        });
+
         // Урон PvP: та же формула, но по игроку
         int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist));
         bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
