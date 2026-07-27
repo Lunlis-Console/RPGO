@@ -767,6 +767,22 @@ public class GameScreen : IScreen
         if (!mouseOverAnyWindow && !overHotbar)
             _inputManager.HandleMapRightClick(mouse, _input.PrevMouse, _mapRenderer);
 
+        // Compute cursor type for current frame
+        {
+            int w2 = game.Graphics.PreferredBackBufferWidth;
+            int h2 = game.Graphics.PreferredBackBufferHeight;
+            int topH2 = 40;
+            bool overMap = !mouseOverAnyWindow && !overHotbar && mouse.Y >= topH2;
+            string ct = "main";
+            if (overMap)
+            {
+                int areaW = w2;
+                int areaH = h2 - topH2;
+                ct = _mapRenderer.GetCursorType(mouse.X, mouse.Y - topH2, areaW, areaH);
+            }
+            CurrentCursorType = ct;
+        }
+
         _input.PrevKeyboard = keyboard;
         _input.PrevMouse = mouse;
     }
@@ -841,27 +857,10 @@ public class GameScreen : IScreen
         int dragHitIdx = _input.HitHotbarSlot(Mouse.GetState().X, Mouse.GetState().Y, GameMain.Instance!);
         _hudDraw.DrawDragOverlay(spriteBatch, _input.DragOverlayItem, _input.DragOverlaySkill, dragHitIdx, GameMain.Instance!);
 
-        // Custom cursor
-        {
-            var ms = Mouse.GetState();
-            bool overWindow = _windows.IsMouseOverVisibleWindow(ms.X, ms.Y);
-            bool overHotbar2 = _input.HitHotbarSlot(ms.X, ms.Y, GameMain.Instance!) >= 0;
-            bool overMap = !overWindow && !overHotbar2 && ms.Y >= topH;
-            string cursorType = "main";
-            if (overMap)
-            {
-                int mapAreaW = w;
-                int mapAreaH = h - topH;
-                cursorType = _mapRenderer.GetCursorType(ms.X, ms.Y - topH, mapAreaW, mapAreaH);
-            }
-            var cursorTex = SpriteCache.GetCursor(cursorType);
-            if (cursorTex == null) cursorTex = SpriteCache.GetCursor("main");
-            if (cursorTex != null)
-                spriteBatch.Draw(cursorTex, new Vector2(ms.X, ms.Y), Color.White);
-        }
-
         spriteBatch.End();
     }
+
+    public static string? CurrentCursorType { get; set; }
 
     public void Dispose() { }
 }

@@ -144,6 +144,20 @@ public class GameMain : Game
     {
         GraphicsDevice.Clear(new Color(24, 24, 32));
         _screens.Draw(gameTime, SpriteBatch);
+
+        // Custom cursor поверх всех экранов
+        {
+            var ms = Mouse.GetState();
+            string ct = Screens.GameScreen.CurrentCursorType ?? "main";
+            var tex = SpriteCache.GetCursor(ct) ?? SpriteCache.GetCursor("main");
+            if (tex != null)
+            {
+                SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+                SpriteBatch.Draw(tex, new Vector2(ms.X, ms.Y), Color.White);
+                SpriteBatch.End();
+            }
+        }
+
         base.Draw(gameTime);
     }
 
