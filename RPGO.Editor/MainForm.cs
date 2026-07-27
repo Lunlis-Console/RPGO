@@ -19,6 +19,7 @@ public partial class MainForm : Form
     private TabPage _merchantTab = null!;
     private TabPage _animTab = null!;
     private TabPage _mapTab = null!;
+    private TabPage _accountsTab = null!;
 
     // Map editor
     private Panel _mapCanvas = null!;
@@ -70,22 +71,7 @@ public partial class MainForm : Form
     private System.Drawing.Image? _animPreviewImage;
     private readonly Stopwatch _animStopwatch = new();
 
-    // Dark theme colors
-    private static readonly System.Drawing.Color BgDark = System.Drawing.Color.FromArgb(30, 32, 40);
-    private static readonly System.Drawing.Color BgMedium = System.Drawing.Color.FromArgb(40, 43, 55);
-    private static readonly System.Drawing.Color BgLight = System.Drawing.Color.FromArgb(50, 54, 68);
-    private static readonly System.Drawing.Color BgControl = System.Drawing.Color.FromArgb(55, 60, 75);
-    private static readonly System.Drawing.Color TextMain = System.Drawing.Color.FromArgb(210, 215, 230);
-    private static readonly System.Drawing.Color TextDim = System.Drawing.Color.FromArgb(140, 145, 160);
-    private static readonly System.Drawing.Color Accent = System.Drawing.Color.FromArgb(80, 160, 220);
-    private static readonly System.Drawing.Color AccentGreen = System.Drawing.Color.FromArgb(70, 170, 90);
-    private static readonly System.Drawing.Color AccentRed = System.Drawing.Color.FromArgb(200, 70, 70);
-    private static readonly System.Drawing.Color GridBg = System.Drawing.Color.FromArgb(35, 38, 48);
-    private static readonly System.Drawing.Color GridRow = System.Drawing.Color.FromArgb(40, 44, 56);
-    private static readonly System.Drawing.Color GridRowAlt = System.Drawing.Color.FromArgb(45, 50, 62);
-    private static readonly System.Drawing.Color GridHeader = System.Drawing.Color.FromArgb(50, 55, 70);
-    private static readonly System.Drawing.Color GridSel = System.Drawing.Color.FromArgb(60, 80, 120);
-    private static readonly System.Drawing.Color BorderCol = System.Drawing.Color.FromArgb(70, 75, 90);
+    // Colors (system theme)
 
     public MainForm(string dbFile)
     {
@@ -94,8 +80,6 @@ public partial class MainForm : Form
         Size = new Size(1200, 720);
         MinimumSize = new Size(900, 500);
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = BgDark;
-        ForeColor = TextMain;
         KeyPreview = true;
         KeyDown += (s, e) =>
         {
@@ -111,38 +95,25 @@ public partial class MainForm : Form
 
     private void InitializeUI()
     {
-        _tabs = new TabControl
-        {
-            Dock = DockStyle.Fill,
-            BackColor = BgDark,
-            ForeColor = TextMain,
-        };
-        _tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-        _tabs.DrawItem += Tabs_DrawItem;
+        _tabs = new TabControl { Dock = DockStyle.Fill };
 
         // --- Предметы ---
         _itemsTab = new TabPage("Предметы");
-        _itemsTab.BackColor = BgDark;
-        _itemsTab.ForeColor = TextMain;
-        var itemsPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
+        var itemsPanel = new Panel { Dock = DockStyle.Fill };
 
-        var itemsTop = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = BgMedium, Padding = new Padding(6) };
-        var itemsSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, BackColor = BgMedium, Padding = new Padding(6, 2, 6, 2) };
+        var itemsTop = new Panel { Dock = DockStyle.Top, Height = 64, Padding = new Padding(6) };
+        var itemsSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, Padding = new Padding(6, 2, 6, 2) };
         _itemsSearch = MakeSearchBox("Поиск предметов...");
         _itemsSearch.TextChanged += (s, e) => ApplyItemsFilter();
         itemsSearchRow.Controls.Add(_itemsSearch);
 
-        var itemsTypeRow = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
-        var typeLabel = new Label { Text = "Тип:", Dock = DockStyle.Left, Width = 35, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextDim, BackColor = BgMedium };
+        var itemsTypeRow = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
+        var typeLabel = new Label { Text = "Тип:", Dock = DockStyle.Left, Width = 35, TextAlign = ContentAlignment.MiddleLeft };
         _itemTypeSelector = new ComboBox
         {
             Dock = DockStyle.Left,
             Width = 160,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            BackColor = BgControl,
-            ForeColor = TextMain,
-            FlatStyle = FlatStyle.Flat,
-        };
+            DropDownStyle = ComboBoxStyle.DropDownList};
         _itemTypeSelector.Items.AddRange(new object[] { "все", "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
         _itemTypeSelector.SelectedIndex = 0;
         _itemTypeSelector.SelectedIndexChanged += (s, e) => ApplyItemTypeView();
@@ -155,42 +126,12 @@ public partial class MainForm : Form
         _itemsGrid = MakeGrid();
         _itemsGrid.AllowUserToAddRows = true;
         _itemsGrid.AllowUserToDeleteRows = true;
-        _itemsGrid.RowsAdded += (s, e) =>
+        _itemsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _itemsGrid.CellDoubleClick += (s, e) =>
         {
-            string sel = _itemTypeSelector?.SelectedItem?.ToString() ?? "все";
-            if (sel == "все" || _itemsGrid.Columns["type"] == null) return;
-            for (int i = e.RowIndex; i < e.RowIndex + e.RowCount; i++)
-            {
-                if (i >= 0 && i < _itemsGrid.Rows.Count)
-                {
-                    var row = _itemsGrid.Rows[i];
-                    if (row.Cells["type"].Value == null || string.IsNullOrWhiteSpace(row.Cells["type"].Value?.ToString()))
-                        row.Cells["type"].Value = sel;
-                }
-            }
-        };
-        _itemsGrid.CellValueChanged += (s, e) =>
-        {
-            if (e.ColumnIndex < 0 || e.RowIndex < 0) return;
-            var col = _itemsGrid.Columns[e.ColumnIndex];
-            if (col?.Name != "type") return;
-            var row = _itemsGrid.Rows[e.RowIndex];
-            string t = row.Cells["type"].Value?.ToString() ?? "";
-            var toClear = t switch
-            {
-                "collectible" => new[] { "damage_min", "damage_max", "defense", "max_health_bonus", "heal_amount",
-                    "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-                "consumable" => new[] { "damage_min", "damage_max", "defense",
-                    "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
-                "weapon" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
-                "armor" => new[] { "heal_amount", "bonus_cunning", "bonus_intellect" },
-                _ => Array.Empty<string>()
-            };
-            foreach (var c in toClear)
-            {
-                if (_itemsGrid.Columns.Contains(c) && row.Cells[c] is DataGridViewCell cell)
-                    cell.Value = 0;
-            }
+            if (e.RowIndex < 0 || e.RowIndex >= _itemsGrid.Rows.Count) return;
+            if (_itemsGrid.Rows[e.RowIndex].IsNewRow) return;
+            EditItemRow(_itemsGrid.Rows[e.RowIndex]);
         };
         itemsPanel.Controls.Add(_itemsGrid);
         itemsPanel.Controls.Add(itemsTop);
@@ -201,10 +142,8 @@ public partial class MainForm : Form
 
         // --- Монстры ---
         _monstersTab = new TabPage("Монстры");
-        _monstersTab.BackColor = BgDark;
-        _monstersTab.ForeColor = TextMain;
-        var monstersPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
-        var monstersTop = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
+        var monstersPanel = new Panel { Dock = DockStyle.Fill };
+        var monstersTop = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
         _monstersSearch = MakeSearchBox("Поиск монстров...");
         _monstersSearch.TextChanged += (s, e) => ApplyGridFilter(_monstersGrid, _monstersSearch.Text);
         monstersTop.Controls.Add(_monstersSearch);
@@ -217,10 +156,8 @@ public partial class MainForm : Form
 
         // --- Лут ---
         _lootTab = new TabPage("Лут");
-        _lootTab.BackColor = BgDark;
-        _lootTab.ForeColor = TextMain;
-        var lootPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
-        var lootTop = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
+        var lootPanel = new Panel { Dock = DockStyle.Fill };
+        var lootTop = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
         _lootSearch = MakeSearchBox("Поиск лута...");
         _lootSearch.TextChanged += (s, e) => ApplyGridFilter(_lootGrid, _lootSearch.Text);
         lootTop.Controls.Add(_lootSearch);
@@ -233,10 +170,8 @@ public partial class MainForm : Form
 
         // --- Квесты ---
         _questsTab = new TabPage("Квесты");
-        _questsTab.BackColor = BgDark;
-        _questsTab.ForeColor = TextMain;
-        var questsPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
-        var questsTop = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
+        var questsPanel = new Panel { Dock = DockStyle.Fill };
+        var questsTop = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
         _questsSearch = MakeSearchBox("Поиск квестов...");
         _questsSearch.TextChanged += (s, e) => ApplyGridFilter(_questsGrid, _questsSearch.Text);
         questsTop.Controls.Add(_questsSearch);
@@ -249,9 +184,7 @@ public partial class MainForm : Form
 
         // --- Мир (NPC + размер карты) ---
         _worldTab = new TabPage("Мир");
-        _worldTab.BackColor = BgDark;
-        _worldTab.ForeColor = TextMain;
-        var worldPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
+        var worldPanel = new Panel { Dock = DockStyle.Fill };
         _worldGrid = MakeGrid();
         _worldGrid.AllowUserToAddRows = true;
         _worldGrid.AllowUserToDeleteRows = true;
@@ -263,31 +196,25 @@ public partial class MainForm : Form
 
         // --- Торговец ---
         _merchantTab = new TabPage("Торговец");
-        _merchantTab.BackColor = BgDark;
-        _merchantTab.ForeColor = TextMain;
-        var merchantPanel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
+        var merchantPanel = new Panel { Dock = DockStyle.Fill };
 
-        var merchantTop = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = BgMedium, Padding = new Padding(6) };
-        var merchantSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, BackColor = BgMedium, Padding = new Padding(6, 2, 6, 2) };
+        var merchantTop = new Panel { Dock = DockStyle.Top, Height = 64, Padding = new Padding(6) };
+        var merchantSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, Padding = new Padding(6, 2, 6, 2) };
         _merchantSearch = MakeSearchBox("Поиск предметов...");
         _merchantSearch.TextChanged += (s, e) => ApplyMerchantFilter();
         merchantSearchRow.Controls.Add(_merchantSearch);
 
-        var merchantBtnRow = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
-        var selectAllBtn = MakeSmallButton("Выбрать все", AccentGreen);
+        var merchantBtnRow = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
+        var selectAllBtn = MakeSmallButton("Выбрать все", SystemColors.ControlDark);
         selectAllBtn.Click += (s, e) => { for (int i = 0; i < _merchantStockList.Items.Count; i++) _merchantStockList.SetItemChecked(i, true); };
-        var selectNoneBtn = MakeSmallButton("Снять все", AccentRed);
+        var selectNoneBtn = MakeSmallButton("Снять все", SystemColors.ControlDarkDark);
         selectNoneBtn.Click += (s, e) => { for (int i = 0; i < _merchantStockList.Items.Count; i++) _merchantStockList.SetItemChecked(i, false); };
-        var catLabel = new Label { Text = "Категория:", Dock = DockStyle.Left, Width = 75, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextDim, BackColor = BgMedium };
+        var catLabel = new Label { Text = "Категория:", Dock = DockStyle.Left, Width = 75, TextAlign = ContentAlignment.MiddleLeft };
         _merchantCategoryFilter = new ComboBox
         {
             Dock = DockStyle.Left,
             Width = 130,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-            BackColor = BgControl,
-            ForeColor = TextMain,
-            FlatStyle = FlatStyle.Flat,
-        };
+            DropDownStyle = ComboBoxStyle.DropDownList};
         _merchantCategoryFilter.Items.AddRange(new object[] { "все", "Оружие", "Доспехи", "Расходники", "Другое" });
         _merchantCategoryFilter.SelectedIndex = 0;
         _merchantCategoryFilter.SelectedIndexChanged += (s, e) => ApplyMerchantFilter();
@@ -304,10 +231,7 @@ public partial class MainForm : Form
             Dock = DockStyle.Fill,
             CheckOnClick = true,
             Font = new Font("Segoe UI", 10),
-            BackColor = BgGrid,
-            ForeColor = TextMain,
-            BorderStyle = BorderStyle.FixedSingle,
-        };
+            BorderStyle = BorderStyle.FixedSingle};
 
         merchantPanel.Controls.Add(_merchantStockList);
         merchantPanel.Controls.Add(merchantTop);
@@ -316,6 +240,7 @@ public partial class MainForm : Form
         merchantPanel.Controls.Add(merchantBtn);
         _merchantTab.Controls.Add(merchantPanel);
 
+        _tabs.TabPages.Add(_accountsTab = BuildAccountsTab());
         _tabs.TabPages.Add(_itemsTab);
         _tabs.TabPages.Add(_monstersTab);
         _tabs.TabPages.Add(_lootTab);
@@ -333,47 +258,18 @@ public partial class MainForm : Form
             Dock = DockStyle.Bottom,
             Height = 24,
             Text = "Готово",
-            BackColor = BgMedium,
-            ForeColor = TextDim,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0),
-        };
+            Padding = new Padding(8, 0, 0, 0)};
         Controls.Add(_status);
-    }
-
-    private static readonly System.Drawing.Color BgGrid = System.Drawing.Color.FromArgb(35, 38, 48);
-
-    private void Tabs_DrawItem(object? sender, DrawItemEventArgs e)
-    {
-        bool selected = e.Index == _tabs.SelectedIndex;
-        var bgColor = selected ? BgLight : BgMedium;
-        var fgColor = selected ? Accent : TextDim;
-        using var brush = new System.Drawing.SolidBrush(bgColor);
-        e.Graphics.FillRectangle(brush, e.Bounds);
-        var rect = new Rectangle(e.Bounds.X, e.Bounds.Bottom - 2, e.Bounds.Width, 2);
-        if (selected) e.Graphics.FillRectangle(new System.Drawing.SolidBrush(Accent), rect);
-        else e.Graphics.FillRectangle(new System.Drawing.SolidBrush(BgMedium), rect);
-        var font = new Font("Segoe UI", 9f, selected ? FontStyle.Bold : FontStyle.Regular);
-        var textRect = new Rectangle(e.Bounds.X + 8, e.Bounds.Y, e.Bounds.Width - 16, e.Bounds.Height - 2);
-        var sf = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center };
-        TextRenderer.DrawText(e.Graphics, _tabs.TabPages[e.Index].Text, font, textRect, fgColor, TextFormatFlags.NoPadding);
-        font.Dispose();
     }
 
     private TextBox MakeSearchBox(string placeholder)
     {
-        var tb = new TextBox
-        {
-            Dock = DockStyle.Fill,
-            BackColor = BgControl,
-            ForeColor = TextMain,
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 9f),
-        };
-        tb.GotFocus += (s, e) => { if (tb.Text == placeholder) { tb.Text = ""; tb.ForeColor = TextMain; } };
-        tb.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(tb.Text)) { tb.Text = placeholder; tb.ForeColor = TextDim; } };
+        var tb = new TextBox { Dock = DockStyle.Fill };
+        tb.GotFocus += (s, e) => { if (tb.Text == placeholder) { tb.Text = ""; tb.ForeColor = SystemColors.WindowText; } };
+        tb.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(tb.Text)) { tb.Text = placeholder; tb.ForeColor = SystemColors.GrayText; } };
         tb.Text = placeholder;
-        tb.ForeColor = TextDim;
+        tb.ForeColor = SystemColors.GrayText;
         return tb;
     }
 
@@ -384,11 +280,10 @@ public partial class MainForm : Form
             Text = text,
             Dock = DockStyle.Bottom,
             Height = 34,
-            BackColor = AccentGreen,
-            ForeColor = System.Drawing.Color.White,
-            FlatStyle = FlatStyle.Flat,
+            ForeColor = SystemColors.ControlText,
+            FlatStyle = FlatStyle.Standard,
             Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            Cursor = Cursors.Hand,
+            Cursor = Cursors.Hand
         };
     }
 
@@ -401,53 +296,23 @@ public partial class MainForm : Form
             Width = 100,
             Height = 26,
             BackColor = bg,
-            ForeColor = System.Drawing.Color.White,
-            FlatStyle = FlatStyle.Flat,
+            ForeColor = SystemColors.ControlText,
+            FlatStyle = FlatStyle.Standard,
             Font = new Font("Segoe UI", 8f),
-            Cursor = Cursors.Hand,
+            Cursor = Cursors.Hand
         };
     }
 
     private DataGridView MakeGrid()
     {
-        var grid = new DataGridView
+        return new DataGridView
         {
             Dock = DockStyle.Fill,
             AllowUserToAddRows = true,
             AllowUserToDeleteRows = true,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-            BackColor = GridBg,
-            ForeColor = TextMain,
-            GridColor = BorderCol,
-            CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
-            ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None,
-            DefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = GridRow,
-                ForeColor = TextMain,
-                SelectionBackColor = GridSel,
-                SelectionForeColor = System.Drawing.Color.White,
-                Font = new Font("Segoe UI", 9f),
-                Padding = new Padding(2),
-            },
-            AlternatingRowsDefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = GridRowAlt,
-            },
-            ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
-            {
-                BackColor = GridHeader,
-                ForeColor = Accent,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Padding = new Padding(4, 2, 4, 2),
-            },
-            EnableHeadersVisualStyles = false,
             RowHeadersWidth = 30,
-            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-            BackgroundColor = GridBg,
-            BorderStyle = BorderStyle.None,
-        };
-        return grid;
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect};
     }
 
     // === FILTER METHODS ===
@@ -563,6 +428,7 @@ public partial class MainForm : Form
         LoadQuests();
         LoadWorld();
         LoadMerchantStockEditor();
+        LoadAccounts();
         LoadTileMap();
     }
 
@@ -624,9 +490,7 @@ public partial class MainForm : Form
             {
                 Name = "type",
                 HeaderText = "Тип",
-                DataPropertyName = "type",
-                FlatStyle = FlatStyle.Flat,
-            };
+                DataPropertyName = "type"};
             combo.Items.AddRange(new object[] { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
             _itemsGrid.Columns.Insert(idx, combo);
         }
@@ -760,13 +624,11 @@ public partial class MainForm : Form
         _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
             DataPropertyName = "monster", HeaderText = "Монстр (цель)", Name = "monster",
-            DataSource = _monsterRefs.Select(r => r.Name).ToList(), FlatStyle = FlatStyle.Flat
-        });
+            DataSource = _monsterRefs.Select(r => r.Name).ToList()});
         _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
             DataPropertyName = "item", HeaderText = "Предмет (цель)", Name = "item",
-            DataSource = _collectibleRefs.Select(r => r.Name).ToList(), FlatStyle = FlatStyle.Flat
-        });
+            DataSource = _collectibleRefs.Select(r => r.Name).ToList()});
         AddText("target", "Кол-во");
         AddText("xp_reward", "Опыт");
         AddText("gold_reward", "Золото");
@@ -885,16 +747,14 @@ public partial class MainForm : Form
     private TabPage BuildAnimationsTab()
     {
         var tab = new TabPage("Анимации");
-        tab.BackColor = BgDark;
-        tab.ForeColor = TextMain;
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
+        var panel = new Panel { Dock = DockStyle.Fill };
 
-        var top = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
-        _animAddBtn = new Button { Text = "Добавить…", Dock = DockStyle.Left, Width = 110, BackColor = Accent, ForeColor = System.Drawing.Color.White, FlatStyle = FlatStyle.Flat };
+        var top = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(6, 4, 6, 4) };
+        _animAddBtn = new Button { Text = "Добавить…", Dock = DockStyle.Left, Width = 110 };
         _animAddBtn.Click += (s, e) => AddAnimation();
-        _animDelBtn = new Button { Text = "Удалить", Dock = DockStyle.Left, Width = 90, BackColor = AccentRed, ForeColor = System.Drawing.Color.White, FlatStyle = FlatStyle.Flat };
+        _animDelBtn = new Button { Text = "Удалить", Dock = DockStyle.Left, Width = 90 };
         _animDelBtn.Click += (s, e) => DeleteAnimation();
-        _animSaveBtn = new Button { Text = "Сохранить анимации", Dock = DockStyle.Right, Width = 160, BackColor = AccentGreen, ForeColor = System.Drawing.Color.White, FlatStyle = FlatStyle.Flat };
+        _animSaveBtn = new Button { Text = "Сохранить анимации", Dock = DockStyle.Right, Width = 160 };
         _animSaveBtn.Click += (s, e) => SaveAnimations();
         top.Controls.Add(_animSaveBtn);
         top.Controls.Add(_animDelBtn);
@@ -916,8 +776,7 @@ public partial class MainForm : Form
             Dock = DockStyle.Right,
             Width = 170,
             BackColor = System.Drawing.Color.FromArgb(20, 22, 28),
-            SizeMode = PictureBoxSizeMode.CenterImage,
-        };
+            SizeMode = PictureBoxSizeMode.CenterImage};
 
         var leftPanel = new Panel { Dock = DockStyle.Fill };
         leftPanel.Controls.Add(_animGrid);
@@ -1080,6 +939,7 @@ public partial class MainForm : Form
         else if (idx == _tabs.TabPages.IndexOf(_questsTab)) SaveQuests();
         else if (idx == _tabs.TabPages.IndexOf(_worldTab)) SaveWorld();
         else if (idx == _tabs.TabPages.IndexOf(_merchantTab)) SaveMerchantStockEditor();
+        else if (idx == _tabs.TabPages.IndexOf(_accountsTab)) SaveAccounts();
         else if (idx == _tabs.TabPages.IndexOf(_animTab)) SaveAnimations();
         else if (idx == _tabs.TabPages.IndexOf(_mapTab)) SaveTileMap();
     }
@@ -1327,32 +1187,578 @@ public partial class MainForm : Form
         catch (Exception ex) { SetStatus("Ошибка (ассортимент): " + ex.Message); }
     }
 
-    // === MAP EDITOR ===
+    // === ACCOUNTS TAB ===
 
-    private TabPage BuildMapTab()
+    private DataGridView _accountsGrid = null!;
+    private DataGridView _inventoryGrid = null!;
+    private TextBox _accountsSearch = null!;
+    private Button _banBtn = null!;
+    private Button _adminBtn = null!;
+    private Button _resetPwdBtn = null!;
+    private Button _giveItemBtn = null!;
+    private Label _selectedPlayerLabel = null!;
+
+    private TabPage BuildAccountsTab()
+    {
+        var tab = new TabPage("Аккаунты");
+
+        var split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            Orientation = Orientation.Horizontal};
+
+        // ── Top panel: accounts grid + buttons ──
+        var topPanel = new Panel { Dock = DockStyle.Fill };
+
+        var accountsSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, Padding = new Padding(6, 2, 6, 2) };
+        _accountsSearch = MakeSearchBox("Поиск аккаунтов...");
+        _accountsSearch.TextChanged += (s, e) => ApplyAccountsFilter();
+        accountsSearchRow.Controls.Add(_accountsSearch);
+
+        var actionRow = new Panel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(6, 3, 6, 3) };
+
+        _banBtn = MakeSmallButton("Забанить", SystemColors.ControlDarkDark);
+        _banBtn.Click += (s, e) => ToggleBan();
+        _adminBtn = MakeSmallButton("Админ", SystemColors.ControlDark);
+        _adminBtn.Click += (s, e) => ToggleAdmin();
+        _resetPwdBtn = MakeSmallButton("Сбросить пароль", SystemColors.ControlLight);
+        _resetPwdBtn.Click += (s, e) => ResetPassword();
+        _giveItemBtn = MakeSmallButton("Выдать предмет", SystemColors.ControlDark);
+        _giveItemBtn.Click += (s, e) => GiveItem();
+
+        var saveAccountsBtn = MakeSmallButton("Сохранить", SystemColors.ControlDark);
+        saveAccountsBtn.Click += (s, e) => SaveAccounts();
+
+        actionRow.Controls.Add(saveAccountsBtn);
+        actionRow.Controls.Add(_giveItemBtn);
+        actionRow.Controls.Add(_resetPwdBtn);
+        actionRow.Controls.Add(_adminBtn);
+        actionRow.Controls.Add(_banBtn);
+
+        _accountsGrid = MakeGrid();
+        _accountsGrid.AllowUserToAddRows = true;
+        _accountsGrid.AllowUserToDeleteRows = true;
+        _accountsGrid.SelectionChanged += (s, e) => LoadPlayerInventory();
+
+        topPanel.Controls.Add(_accountsGrid);
+        topPanel.Controls.Add(actionRow);
+        topPanel.Controls.Add(accountsSearchRow);
+
+        split.Panel1.Controls.Add(topPanel);
+
+        // ── Bottom panel: inventory/equipment of selected account ──
+        var bottomPanel = new Panel { Dock = DockStyle.Fill };
+
+        _selectedPlayerLabel = new Label
+        {
+            Dock = DockStyle.Top,
+            Height = 24,
+            Text = "Выберите аккаунт",
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0)};
+
+        _inventoryGrid = MakeGrid();
+        _inventoryGrid.AllowUserToAddRows = false;
+        _inventoryGrid.AllowUserToDeleteRows = false;
+
+        bottomPanel.Controls.Add(_inventoryGrid);
+        bottomPanel.Controls.Add(_selectedPlayerLabel);
+        split.Panel2.Controls.Add(bottomPanel);
+
+        split.SplitterDistance = (int)(split.Height * 0.65);
+        tab.Controls.Add(split);
+        return tab;
+    }
+
+    private void ApplyAccountsFilter()
+    {
+        if (_accountsGrid.DataSource is not DataTable dt) return;
+        string search = GetSearchText(_accountsSearch);
+        if (string.IsNullOrWhiteSpace(search)) { dt.DefaultView.RowFilter = ""; return; }
+        dt.DefaultView.RowFilter = $"login LIKE '%{search}%' OR player_name LIKE '%{search}%'";
+    }
+
+    private void LoadAccounts()
+    {
+        var dt = new DataTable();
+        using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT * FROM accounts ORDER BY login";
+            using var reader = cmd.ExecuteReader();
+            dt.Load(reader);
+        }
+
+        _accountsGrid.DataSource = dt;
+
+        foreach (DataGridViewColumn col in _accountsGrid.Columns)
+        {
+            if (col.Name is "login" or "player_name" or "ban_reason" or "current_zone")
+                col.AutoSizeMode = DataGridViewAutoSizeColumnMode.DisplayedCells;
+            else if (col.Name is "is_admin" or "is_banned")
+            {
+                col.ValueType = typeof(bool);
+                col.DefaultCellStyle.BackColor = Color.FromArgb(55, 40, 40);
+            }
+        }
+
+        // Hide technical columns
+        var hiddenCols = new[] { "password_hash", "created_at", "last_login",
+            "weapon_id", "armor_id", "accessory_id",
+            "hotbar_slots", "learned_skills" };
+        foreach (var name in hiddenCols)
+            if (_accountsGrid.Columns[name] != null)
+                _accountsGrid.Columns[name].Visible = false;
+
+        // Move is_admin, is_banned to the end
+        if (_accountsGrid.Columns["is_admin"] != null)
+            _accountsGrid.Columns["is_admin"].DisplayIndex = _accountsGrid.ColumnCount - 1;
+        if (_accountsGrid.Columns["is_banned"] != null)
+            _accountsGrid.Columns["is_banned"].DisplayIndex = _accountsGrid.ColumnCount - 1;
+    }
+
+    private void LoadPlayerInventory()
+    {
+        if (_accountsGrid.SelectedRows.Count == 0 || _accountsGrid.SelectedRows[0].IsNewRow)
+        {
+            _inventoryGrid.DataSource = null;
+            _selectedPlayerLabel.Text = "Выберите аккаунт";
+            return;
+        }
+
+        var row = _accountsGrid.SelectedRows[0];
+        string login = row.Cells["login"]?.Value?.ToString() ?? "";
+        string playerName = row.Cells["player_name"]?.Value?.ToString() ?? "";
+        _selectedPlayerLabel.Text = $"Инвентарь: {login} ({playerName})";
+
+        var dt = new DataTable();
+        using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT i.id, i.item_id, i.name, i.type, i.quantity, i.value,
+                       i.damage_min, i.damage_max, i.defense
+                FROM inventory i
+                WHERE i.player_name = $p
+                ORDER BY i.id";
+            cmd.Parameters.AddWithValue("$p", playerName);
+            using var reader = cmd.ExecuteReader();
+            dt.Load(reader);
+        }
+
+        _inventoryGrid.DataSource = dt;
+    }
+
+    private void ToggleBan()
+    {
+        if (_accountsGrid.SelectedRows.Count == 0) return;
+        var row = _accountsGrid.SelectedRows[0];
+        if (row.IsNewRow) return;
+
+        bool current = IsChecked(row.Cells["is_banned"]);
+        row.Cells["is_banned"].Value = current ? 0 : 1;
+        if (!current)
+            row.Cells["ban_reason"].Value = "Нарушение правил";
+        else
+            row.Cells["ban_reason"].Value = "";
+        SetStatus(current ? "Аккаунт разбанен" : "Аккаунт забанен");
+    }
+
+    private void ToggleAdmin()
+    {
+        if (_accountsGrid.SelectedRows.Count == 0) return;
+        var row = _accountsGrid.SelectedRows[0];
+        if (row.IsNewRow) return;
+
+        bool current = IsChecked(row.Cells["is_admin"]);
+        row.Cells["is_admin"].Value = current ? 0 : 1;
+        SetStatus(current ? "Админ права сняты" : "Админ права выданы");
+    }
+
+    private void ResetPassword()
+    {
+        if (_accountsGrid.SelectedRows.Count == 0) return;
+        var row = _accountsGrid.SelectedRows[0];
+        if (row.IsNewRow) return;
+
+        string login = row.Cells["login"]?.Value?.ToString() ?? "";
+        var result = MessageBox.Show($"Сбросить пароль для {login} на '123'?", "Сброс пароля",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (result != DialogResult.Yes) return;
+
+        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE accounts SET password_hash = $p WHERE login = $l";
+        cmd.Parameters.AddWithValue("$p", HashPassword("123"));
+        cmd.Parameters.AddWithValue("$l", login);
+        cmd.ExecuteNonQuery();
+        SetStatus($"Пароль для {login} сброшен на '123'");
+    }
+
+    private static string HashPassword(string password)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        byte[] bytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+        return Convert.ToBase64String(bytes);
+    }
+
+    private void GiveItem()
+    {
+        if (_accountsGrid.SelectedRows.Count == 0) return;
+        var row = _accountsGrid.SelectedRows[0];
+        if (row.IsNewRow) return;
+
+        string login = row.Cells["login"]?.Value?.ToString() ?? "";
+        string playerName = row.Cells["player_name"]?.Value?.ToString() ?? "";
+
+        // Get all item templates
+        var items = new List<(string Id, string Name, string Type)>();
+        using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name, type FROM items ORDER BY id";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                items.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
+        }
+
+        if (items.Count == 0) { MessageBox.Show("Нет предметов в базе", "Ошибка"); return; }
+
+        // Show selection dialog
+        var pickForm = new Form
+        {
+            Text = "Выдать предмет",
+            Size = new Size(500, 500),
+            StartPosition = FormStartPosition.CenterParent,
+        };
+
+        var searchBox = new TextBox
+        {
+            Dock = DockStyle.Top,
+            BorderStyle = BorderStyle.FixedSingle
+        };
+        searchBox.GotFocus += (s, e) => { if (searchBox.Text == "Поиск...") { searchBox.Text = ""; searchBox.ForeColor = SystemColors.WindowText; } };
+        searchBox.LostFocus += (s, e) => { if (string.IsNullOrWhiteSpace(searchBox.Text)) { searchBox.Text = "Поиск..."; searchBox.ForeColor = SystemColors.GrayText; } };
+        searchBox.Text = "Поиск...";
+        searchBox.ForeColor = SystemColors.GrayText;
+
+        var listBox = new ListBox
+        {
+            Dock = DockStyle.Fill,
+            BorderStyle = BorderStyle.None,
+            SelectionMode = SelectionMode.One
+        };
+        listBox.Items.AddRange(items.Select(i => $"{i.Id}  —  {i.Name}  [{i.Type}]").ToArray());
+
+        searchBox.TextChanged += (s, e) =>
+        {
+            listBox.Items.Clear();
+            string f = searchBox.ForeColor == SystemColors.GrayText ? "" : searchBox.Text.ToLower();
+            listBox.Items.AddRange(items
+                .Where(i => string.IsNullOrWhiteSpace(f) || i.Name.ToLower().Contains(f) || i.Id.ToLower().Contains(f))
+                .Select(i => $"{i.Id}  —  {i.Name}  [{i.Type}]").ToArray());
+        };
+
+        var qtyPanel = new Panel { Dock = DockStyle.Bottom, Height = 40, Padding = new Padding(6) };
+        var qtyLabel = new Label { Text = "Количество:", Dock = DockStyle.Left, Width = 80, TextAlign = ContentAlignment.MiddleLeft };
+        var qtyBox = new NumericUpDown { Dock = DockStyle.Left, Width = 60, Minimum = 1, Maximum = 9999, Value = 1 };
+        var okBtn = new Button
+        {
+            Text = "Выдать",
+            Dock = DockStyle.Right,
+            Width = 80,
+            Height = 30,
+            BackColor = SystemColors.ControlDark,
+            ForeColor = SystemColors.WindowText,
+            Cursor = Cursors.Hand
+        };
+        qtyPanel.Controls.Add(okBtn);
+        qtyPanel.Controls.Add(qtyBox);
+        qtyPanel.Controls.Add(qtyLabel);
+
+        pickForm.Controls.Add(listBox);
+        pickForm.Controls.Add(searchBox);
+        pickForm.Controls.Add(qtyPanel);
+
+        string? selectedItemLine = null;
+        okBtn.Click += (s, e) =>
+        {
+            if (listBox.SelectedItem == null) { MessageBox.Show("Выберите предмет", "Ошибка"); return; }
+            selectedItemLine = listBox.SelectedItem.ToString();
+            pickForm.DialogResult = DialogResult.OK;
+            pickForm.Close();
+        };
+
+        if (pickForm.ShowDialog() != DialogResult.OK || selectedItemLine == null) return;
+
+        int sep = selectedItemLine.IndexOf("  —  ");
+        string selectedId = selectedItemLine.Substring(0, sep).Trim();
+        int qty = (int)qtyBox.Value;
+
+        // Get the template
+        var template = items.First(i => i.Id == selectedId);
+
+        // Insert into inventory
+        using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO inventory (player_name, item_id, name, type, value, quantity)
+                VALUES ($p, $id, $n, $t, $v, $q)";
+            cmd.Parameters.AddWithValue("$p", playerName);
+            cmd.Parameters.AddWithValue("$id", template.Id);
+            cmd.Parameters.AddWithValue("$n", template.Name);
+            cmd.Parameters.AddWithValue("$t", template.Type);
+            cmd.Parameters.AddWithValue("$v", 0);
+            cmd.Parameters.AddWithValue("$q", qty);
+            cmd.ExecuteNonQuery();
+        }
+
+        SetStatus($"Выдано {qty}x {template.Name} игроку {login}");
+        LoadPlayerInventory();
+    }
+
+    private void SaveAccounts()
+    {
+        try
+        {
+            _accountsGrid.EndEdit();
+            if (_accountsGrid.DataSource is not DataTable dt) return;
+
+            EnsureId(dt, "A");
+            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            conn.Open();
+            using var transaction = conn.BeginTransaction();
+
+            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM accounts"; del.ExecuteNonQuery(); }
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                if (dr.RowState == DataRowState.Deleted) continue;
+                if (string.IsNullOrWhiteSpace(dr["login"]?.ToString())) continue;
+
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    INSERT INTO accounts (login, password_hash, player_name, level, experience,
+                        health, max_health, phys_attack, phys_defense, gold, created_at, last_login,
+                        weapon_id, armor_id, accessory_id,
+                        strength, endurance, agility, cunning, intellect, wisdom,
+                        attribute_points, speed, pos_x, pos_y,
+                        hotbar_slots, is_admin, is_banned, ban_reason, skill_points, learned_skills, current_zone)
+                    VALUES ($l, $ph, $pn, $lv, $exp,
+                        $hp, $mhp, $pa, $pd, $g, $ca, $ll,
+                        $wi, $ai, $aci,
+                        $str, $end, $agi, $cun, $int, $wis,
+                        $ap, $spd, $px, $py,
+                        $hs, $adm, $ban, $br, $skp, $ls, $cz)";
+
+                cmd.Parameters.AddWithValue("$l", dr["login"]);
+                cmd.Parameters.AddWithValue("$ph", dr.Table.Columns.Contains("password_hash")
+                    && dr["password_hash"] != DBNull.Value
+                    && !string.IsNullOrWhiteSpace(dr["password_hash"]?.ToString())
+                    ? dr["password_hash"].ToString() : HashPassword("123"));
+                cmd.Parameters.AddWithValue("$pn", dr["player_name"] ?? "");
+                cmd.Parameters.AddWithValue("$lv", ToInt(dr["level"]));
+                cmd.Parameters.AddWithValue("$exp", ToInt(dr["experience"]));
+                cmd.Parameters.AddWithValue("$hp", ToInt(dr["health"]));
+                cmd.Parameters.AddWithValue("$mhp", ToInt(dr["max_health"]));
+                cmd.Parameters.AddWithValue("$pa", ToInt(dr["phys_attack"]));
+                cmd.Parameters.AddWithValue("$pd", ToInt(dr["phys_defense"]));
+                cmd.Parameters.AddWithValue("$g", ToInt(dr["gold"]));
+                cmd.Parameters.AddWithValue("$ca", DateTime.UtcNow.ToString("O"));
+                cmd.Parameters.AddWithValue("$ll", DateTime.UtcNow.ToString("O"));
+                cmd.Parameters.AddWithValue("$wi", dr["weapon_id"] ?? "");
+                cmd.Parameters.AddWithValue("$ai", dr["armor_id"] ?? "");
+                cmd.Parameters.AddWithValue("$aci", dr["accessory_id"] ?? "");
+                cmd.Parameters.AddWithValue("$str", ToInt(dr["strength"]));
+                cmd.Parameters.AddWithValue("$end", ToInt(dr["endurance"]));
+                cmd.Parameters.AddWithValue("$agi", ToInt(dr["agility"]));
+                cmd.Parameters.AddWithValue("$cun", ToInt(dr["cunning"]));
+                cmd.Parameters.AddWithValue("$int", ToInt(dr["intellect"]));
+                cmd.Parameters.AddWithValue("$wis", ToInt(dr["wisdom"]));
+                cmd.Parameters.AddWithValue("$ap", ToInt(dr["attribute_points"]));
+                cmd.Parameters.AddWithValue("$spd", ToInt(dr["speed"]));
+                cmd.Parameters.AddWithValue("$px", ToInt(dr["pos_x"]));
+                cmd.Parameters.AddWithValue("$py", ToInt(dr["pos_y"]));
+                cmd.Parameters.AddWithValue("$hs", dr["hotbar_slots"] ?? "");
+                cmd.Parameters.AddWithValue("$adm", IsChecked(dr["is_admin"]) ? 1 : 0);
+                cmd.Parameters.AddWithValue("$ban", IsChecked(dr["is_banned"]) ? 1 : 0);
+                cmd.Parameters.AddWithValue("$br", dr["ban_reason"] ?? "");
+                cmd.Parameters.AddWithValue("$skp", ToInt(dr["skill_points"]));
+                cmd.Parameters.AddWithValue("$ls", dr["learned_skills"] ?? "[]");
+                cmd.Parameters.AddWithValue("$cz", dr["current_zone"] ?? "main");
+                cmd.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            SetStatus("Аккаунты сохранены");
+        }
+        catch (Exception ex) { SetStatus("Ошибка (аккаунты): " + ex.Message); }
+    }
+
+    private static bool IsChecked(object? v)
+    {
+        if (v is bool b) return b;
+        if (v is int i) return i != 0;
+        if (v is string s) return s == "1" || s.Equals("true", StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
+
+    private void EditItemRow(DataGridViewRow row)
+    {
+        using var dlg = new ItemEditForm(row, _itemsGrid);
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        SetStatus("Предмет изменён");
+    }
+
+    internal class ItemEditForm : Form
+    {
+        private readonly DataGridView _grid;
+        private readonly int _rowIndex;
+        internal ItemEditForm(DataGridViewRow row, DataGridView grid) : base()
+        {
+            _grid = grid;
+            _rowIndex = row.Index;
+            Text = "Редактирование предмета";
+            Size = new Size(420, 520);
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            Padding = new Padding(8);
+
+            var top = new Panel { Dock = DockStyle.Top, AutoSize = true };
+            top.Controls.Add(MakeField("ID:", _idBox = new TextBox { Dock = DockStyle.Fill }));
+            _idBox.Text = Cell(row, "id");
+            top.Controls.Add(MakeField("Name:", _nameBox = new TextBox { Dock = DockStyle.Fill }));
+            _nameBox.Text = Cell(row, "name");
+            top.Controls.Add(MakeField("Тип:", _typeCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
+            _typeCombo.Items.AddRange(new object[] { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
+            _typeCombo.SelectedItem = Cell(row, "type");
+
+            top.Controls.Add(MakeField("Стоимость:", _valueBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _valueBox.Value = Num(row, "value");
+            top.Controls.Add(MakeField("Урон мин:", _minBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _minBox.Value = Num(row, "damage_min");
+            top.Controls.Add(MakeField("Урон макс:", _maxBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _maxBox.Value = Num(row, "damage_max");
+            top.Controls.Add(MakeField("Защита:", _defBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _defBox.Value = Num(row, "defense");
+            top.Controls.Add(MakeField("HP макс:", _hpBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _hpBox.Value = Num(row, "max_health_bonus");
+            top.Controls.Add(MakeField("Лечение:", _healBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _healBox.Value = Num(row, "heal_amount");
+            top.Controls.Add(MakeField("Сток:", _stockBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
+            _stockBox.Value = Num(row, "stock");
+            top.Controls.Add(MakeField("Двуручная:", _thBox = new CheckBox()));
+            _thBox.Checked = Num(row, "two_handed") != 0;
+
+            _typeCombo.SelectedIndexChanged += (s, e) => UpdateFields();
+
+            _descBox = new TextBox { Dock = DockStyle.Top, Height = 50, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            _descBox.Text = Cell(row, "description");
+
+            var okBtn = new Button { Text = "Сохранить", Dock = DockStyle.Bottom, Height = 34, BackColor = SystemColors.ControlDark, FlatStyle = FlatStyle.Standard, Cursor = Cursors.Hand };
+            okBtn.Click += (s, e) =>
+            {
+                SetCell(row, "id", _idBox.Text.Trim());
+                SetCell(row, "name", _nameBox.Text.Trim());
+                SetCell(row, "type", _typeCombo.SelectedItem?.ToString() ?? "");
+                SetCell(row, "value", (int)_valueBox.Value);
+                SetCell(row, "damage_min", (int)_minBox.Value);
+                SetCell(row, "damage_max", (int)_maxBox.Value);
+                SetCell(row, "defense", (int)_defBox.Value);
+                SetCell(row, "max_health_bonus", (int)_hpBox.Value);
+                SetCell(row, "heal_amount", (int)_healBox.Value);
+                SetCell(row, "stock", (int)_stockBox.Value);
+                SetCell(row, "two_handed", _thBox.Checked ? 1 : 0);
+                SetCell(row, "description", _descBox.Text);
+                DialogResult = DialogResult.OK;
+                Close();
+            };
+
+            var cancelBtn = new Button { Text = "Отмена", Dock = DockStyle.Bottom, Height = 34, Margin = new Padding(0, 0, 0, 4) };
+            cancelBtn.Click += (s, e) => DialogResult = DialogResult.Cancel;
+
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            scroll.Controls.Add(top);
+
+            Controls.Add(okBtn);
+            Controls.Add(cancelBtn);
+            Controls.Add(scroll);
+            UpdateFields();
+        }
+
+        private TextBox _idBox = null!;
+        private TextBox _nameBox = null!;
+        private ComboBox _typeCombo = null!;
+        private NumericUpDown _valueBox = null!;
+        private NumericUpDown _minBox = null!;
+        private NumericUpDown _maxBox = null!;
+        private NumericUpDown _defBox = null!;
+        private NumericUpDown _hpBox = null!;
+        private NumericUpDown _healBox = null!;
+        private NumericUpDown _stockBox = null!;
+        private CheckBox _thBox = null!;
+        private TextBox _descBox = null!;
+
+        private string Cell(DataGridViewRow r, string col) => r.Cells[col]?.Value?.ToString() ?? "";
+        private void SetCell(DataGridViewRow r, string col, object val) => r.Cells[col].Value = val;
+        private int Num(DataGridViewRow r, string col) { var v = r.Cells[col]?.Value; return v == null || v is DBNull ? 0 : Convert.ToInt32(v); }
+
+        private Panel MakeField(string labelText, Control ctrl)
+        {
+            var p = new Panel { Dock = DockStyle.Top, Height = 26 };
+            var lbl = new Label { Text = labelText, Dock = DockStyle.Left, Width = 90, TextAlign = ContentAlignment.MiddleRight };
+            ctrl.Dock = DockStyle.Fill;
+            ctrl.Margin = new Padding(0);
+            p.Controls.Add(ctrl);
+            p.Controls.Add(lbl);
+            return p;
+        }
+
+        private void UpdateFields()
+        {
+            string t = _typeCombo.SelectedItem?.ToString() ?? "";
+            _minBox.Enabled = t is "weapon" or "twohand";
+            _maxBox.Enabled = t is "weapon" or "twohand";
+            _thBox.Enabled = t is "weapon" or "twohand";
+            _defBox.Enabled = t is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt";
+            _hpBox.Enabled = t is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" or "consumable" or "trophy" or "weapon" or "twohand";
+            _healBox.Enabled = t is "consumable" or "trophy" or "weapon" or "twohand";
+        }
+    }
+
+    // === MAP EDITOR ===    // === MAP EDITOR ===
+
+private TabPage BuildMapTab()
     {
         var tab = new TabPage("Карта");
-        tab.BackColor = BgDark;
-        tab.ForeColor = TextMain;
-        var panel = new Panel { Dock = DockStyle.Fill, BackColor = BgDark };
+        var panel = new Panel { Dock = DockStyle.Fill };
 
-        var topBar = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
+        var topBar = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(6, 4, 6, 4) };
 
-        var sizeLabel = new Label { Text = "Размер:", Dock = DockStyle.Left, Width = 50, ForeColor = TextDim, BackColor = BgMedium, TextAlign = ContentAlignment.MiddleRight };
-        _mapWidthNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100, BackColor = BgControl, ForeColor = TextMain };
-        var xLabel = new Label { Text = "x", Dock = DockStyle.Left, Width = 15, ForeColor = TextDim, BackColor = BgMedium, TextAlign = ContentAlignment.MiddleCenter };
-        _mapHeightNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100, BackColor = BgControl, ForeColor = TextMain };
+        var sizeLabel = new Label { Text = "Размер:", Dock = DockStyle.Left, Width = 50, TextAlign = ContentAlignment.MiddleRight };
+        _mapWidthNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100 };
+        var xLabel = new Label { Text = "x", Dock = DockStyle.Left, Width = 15, TextAlign = ContentAlignment.MiddleCenter };
+        _mapHeightNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100 };
 
-        _mapBrushBtn = MakeSmallButton("Кисть", Accent);
+        _mapBrushBtn = MakeSmallButton("Кисть", SystemColors.ControlDark);
         _mapBrushBtn.Click += (s, e) => { _currentTool = "brush"; UpdateToolButtons(); };
-        _mapEraserBtn = MakeSmallButton("Ластик", AccentRed);
+        _mapEraserBtn = MakeSmallButton("Ластик", SystemColors.ControlDarkDark);
         _mapEraserBtn.Click += (s, e) => { _currentTool = "eraser"; UpdateToolButtons(); };
-        _mapFillBtn = MakeSmallButton("Заливка", Accent);
+        _mapFillBtn = MakeSmallButton("Заливка", SystemColors.ControlDark);
         _mapFillBtn.Click += (s, e) => { _currentTool = "fill"; UpdateToolButtons(); };
 
-        var toolLabel = new Label { Text = "Инструмент:", Dock = DockStyle.Left, Width = 70, ForeColor = TextDim, BackColor = BgMedium, TextAlign = ContentAlignment.MiddleRight };
+        var toolLabel = new Label { Text = "Инструмент:", Dock = DockStyle.Left, Width = 70, TextAlign = ContentAlignment.MiddleRight };
 
-        _mapSaveBtn = MakeSmallButton("Сохранить карту", AccentGreen);
+        _mapSaveBtn = MakeSmallButton("Сохранить карту", SystemColors.ControlDark);
         _mapSaveBtn.Click += (s, e) => SaveTileMap();
 
         topBar.Controls.Add(_mapSaveBtn);
@@ -1365,16 +1771,13 @@ public partial class MainForm : Form
         topBar.Controls.Add(_mapWidthNumeric);
         topBar.Controls.Add(sizeLabel);
 
-        var midPanel = new Panel { Dock = DockStyle.Top, Height = 30, BackColor = BgMedium, Padding = new Padding(6, 4, 6, 4) };
-        var tileLabel = new Label { Text = "Тайл:", Dock = DockStyle.Left, Width = 50, ForeColor = TextDim, BackColor = BgMedium, TextAlign = ContentAlignment.MiddleRight };
+        var midPanel = new Panel { Dock = DockStyle.Top, Height = 30, Padding = new Padding(6, 4, 6, 4) };
+        var tileLabel = new Label { Text = "Тайл:", Dock = DockStyle.Left, Width = 50, TextAlign = ContentAlignment.MiddleRight };
         _tileTypeCombo = new ComboBox
         {
             Dock = DockStyle.Left,
             Width = 180,
             DropDownStyle = ComboBoxStyle.DropDownList,
-            BackColor = BgControl,
-            ForeColor = TextMain,
-            FlatStyle = FlatStyle.Flat,
         };
         _tileTypeCombo.Items.AddRange(Enum.GetNames<TileType>());
         _tileTypeCombo.SelectedIndex = 0;
@@ -1390,7 +1793,7 @@ public partial class MainForm : Form
         {
             Dock = DockStyle.Fill,
             BackColor = Color.FromArgb(20, 22, 28),
-            BorderStyle = BorderStyle.FixedSingle,
+            BorderStyle = BorderStyle.FixedSingle
         };
         _mapCanvas.Paint += MapCanvas_Paint;
         _mapCanvas.MouseDown += MapCanvas_MouseDown;
@@ -1403,10 +1806,8 @@ public partial class MainForm : Form
             Dock = DockStyle.Bottom,
             Height = 22,
             Text = "Карта: готово",
-            BackColor = BgMedium,
-            ForeColor = TextDim,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0),
+            Padding = new Padding(8, 0, 0, 0)
         };
 
         panel.Controls.Add(_mapCanvas);
@@ -1419,9 +1820,9 @@ public partial class MainForm : Form
 
     private void UpdateToolButtons()
     {
-        _mapBrushBtn.BackColor = _currentTool == "brush" ? Accent : BgControl;
-        _mapEraserBtn.BackColor = _currentTool == "eraser" ? AccentRed : BgControl;
-        _mapFillBtn.BackColor = _currentTool == "fill" ? Accent : BgControl;
+        _mapBrushBtn.BackColor = _currentTool == "brush" ? SystemColors.ControlDark : SystemColors.Control;
+        _mapEraserBtn.BackColor = _currentTool == "eraser" ? SystemColors.ControlDarkDark : SystemColors.Control;
+        _mapFillBtn.BackColor = _currentTool == "fill" ? SystemColors.ControlDark : SystemColors.Control;
     }
 
     private void MapCanvas_Paint(object? sender, PaintEventArgs e)
@@ -1446,8 +1847,7 @@ public partial class MainForm : Form
                     6 => Color.FromArgb(139, 119, 101),
                     7 => Color.FromArgb(220, 220, 230),
                     8 => Color.FromArgb(200, 60, 20),
-                    _ => Color.DarkSlateGray,
-                };
+                    _ => Color.DarkSlateGray};
                 var rect = new Rectangle(x * tw, y * th, tw, th);
                 e.Graphics.FillRectangle(new SolidBrush(color), rect);
                 e.Graphics.DrawRectangle(new Pen(Color.FromArgb(50, 55, 70)), rect);
