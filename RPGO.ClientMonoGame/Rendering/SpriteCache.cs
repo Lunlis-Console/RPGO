@@ -111,26 +111,8 @@ public static class SpriteCache
                 using var stream = File.OpenRead(file);
                 var tex = Texture2D.FromStream(_device, stream);
                 _textures[key] = tex;
-
-                Color[] pixels = new Color[tex.Width * tex.Height];
-                tex.GetData(pixels);
-                bool fromBottom = name == "Cursor_Talk";
-                int hotX = 0, hotY = 0;
-                bool found = false;
-                if (fromBottom)
-                {
-                    for (int y = tex.Height - 1; y >= 0 && !found; y--)
-                        for (int x = 0; x < tex.Width && !found; x++)
-                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
-                }
-                else
-                {
-                    for (int y = 0; y < tex.Height && !found; y++)
-                        for (int x = 0; x < tex.Width && !found; x++)
-                            if (pixels[y * tex.Width + x].A > 0) { hotX = x; hotY = y; found = true; }
-                }
-                _cursorHotspots[key] = new Point(hotX, hotY);
-                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height}) hotspot=({hotX},{hotY})");
+                _cursorHotspots[key] = new Point(0, 0);
+                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height})");
             }
             catch (Exception ex) { Logger.Error($"Cursor load failed: {file}", ex); }
         }
