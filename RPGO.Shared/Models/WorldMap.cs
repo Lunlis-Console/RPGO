@@ -45,6 +45,7 @@ public class PlayerPosition
     public string OffWeaponSubtype { get; set; } = "";
     public string ShieldSubtype { get; set; } = "";
     public bool IsTwoHanded { get; set; }
+    public bool IsDead { get; set; }
 }
 
 public class MerchantPosition

@@ -187,20 +187,24 @@ public class MapRenderer
     internal Action<string>? OnFacingChanged;
     private string _lastRenderFacing = "down";
 
-    private sealed class RemotePlayerState
-    {
-        public string Facing = "down";
-        public string WeaponSubtype = "";
-        public string OffWeaponSubtype = "";
-        public string ShieldSubtype = "";
-        public bool IsTwoHanded;
-        public bool MainAttackActive;
-        public bool OffAttackActive;
-        public DateTime MainAttackStart;
-        public DateTime OffAttackStart;
-    }
+private sealed class RemotePlayerState
+{
+    public string Facing = "down";
+    public string WeaponSubtype = "";
+    public string OffWeaponSubtype = "";
+    public string ShieldSubtype = "";
+    public bool IsTwoHanded;
+    public bool MainAttackActive;
+    public bool OffAttackActive;
+    public DateTime MainAttackStart;
+    public DateTime OffAttackStart;
+    public bool IsDead;
+    public DateTime DeathStart;
+    public int DeathX;
+    public int DeathY;
+}
 
-    public void UpdateRemotePlayer(string name, string facing, string weaponSub, string offWeaponSub, string shieldSub, bool twoHanded)
+    public void UpdateRemotePlayer(string name, string facing, string weaponSub, string offWeaponSub, string shieldSub, bool twoHanded, bool isDead, int deathX, int deathY)
     {
         if (!_remotePlayers.TryGetValue(name, out var state))
         {
@@ -212,6 +216,17 @@ public class MapRenderer
         state.OffWeaponSubtype = offWeaponSub;
         state.ShieldSubtype = shieldSub;
         state.IsTwoHanded = twoHanded;
+        if (isDead && !state.IsDead)
+        {
+            state.IsDead = true;
+            state.DeathStart = DateTime.UtcNow;
+            state.DeathX = deathX;
+            state.DeathY = deathY;
+        }
+        else if (!isDead)
+        {
+            state.IsDead = false;
+        }
     }
 
     public void TriggerRemoteAttack(string playerName, string hand)
@@ -797,10 +812,28 @@ public class MapRenderer
             }
         }
 
-        // Сущности
-        DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
+         // Сущности
+         DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
 
-        // Легенда
+         // Пепел на месте смерти удалённых игроков (1 минута)
+         {
+             var deathNow = DateTime.UtcNow;
+             foreach (var kvp in _remotePlayers)
+             {
+                 var rp = kvp.Value;
+                 if (!rp.IsDead) continue;
+                 var elapsed = (deathNow - rp.DeathStart).TotalSeconds;
+                 if (elapsed > 60) continue;
+                 if (rp.DeathX < _viewStartX || rp.DeathX > _viewEndX || rp.DeathY < _viewStartY || rp.DeathY > _viewEndY) continue;
+                 float ax = _gridOX + (rp.DeathX - _viewStartX) * _cellW + _cellW / 2;
+                 float ay = _gridOY + (rp.DeathY - _viewStartY) * _cellH + _cellH / 2;
+                 var ashes = SpriteCache.GetCorpseSprite();
+                 if (ashes != null)
+                     sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
+             }
+         }
+
+         // Легенда
         int legendY = (int)(_gridOY + viewH * _cellH + 4);
         DrawLegend(sb, font, fontSmall, offsetX, legendY);
 
@@ -941,42 +974,44 @@ public class MapRenderer
             }
         }
 
-        foreach (var p in map.Players)
-        {
-            (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
-            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
-            if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
-            float px = _gridOX + (v.X - startX) * _cellW + 3;
-            float py = _gridOY + (v.Y - startY) * _cellH;
+         foreach (var p in map.Players)
+         {
+             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
+             int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+             if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
+             float px = _gridOX + (v.X - startX) * _cellW + 3;
+             float py = _gridOY + (v.Y - startY) * _cellH;
 
-            bool isLocal = p.Name == _playerName;
-            string facing = isLocal ? GetLocalFacing() : "down";
-            if (isLocal && facing != _lastRenderFacing)
-            {
-                _lastRenderFacing = facing;
-                try { OnFacingChanged?.Invoke(facing); } catch { }
-            }
-            string weaponSub = _weaponSubtype ?? "";
-            string offWeaponSub = _offWeaponSubtype ?? "";
-            string shieldSub = _shieldSubtype ?? "";
-            bool isTwoHanded = _isTwoHanded;
-            bool mainAttackActive = _mainAttackActive;
-            bool offAttackActive = _offAttackActive;
-            DateTime mainAttackStart = _mainAttackStart;
-            DateTime offAttackStart = _offAttackStart;
+             bool isLocal = p.Name == _playerName;
+             string facing = isLocal ? GetLocalFacing() : "down";
+             if (isLocal && facing != _lastRenderFacing)
+             {
+                 _lastRenderFacing = facing;
+                 try { OnFacingChanged?.Invoke(facing); } catch { }
+             }
+             string weaponSub = _weaponSubtype ?? "";
+             string offWeaponSub = _offWeaponSubtype ?? "";
+             string shieldSub = _shieldSubtype ?? "";
+             bool isTwoHanded = _isTwoHanded;
+             bool mainAttackActive = _mainAttackActive;
+             bool offAttackActive = _offAttackActive;
+             DateTime mainAttackStart = _mainAttackStart;
+             DateTime offAttackStart = _offAttackStart;
+             RemotePlayerState? deadRemote = null;
 
-            if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rp))
-            {
-                facing = rp.Facing;
-                weaponSub = rp.WeaponSubtype;
-                offWeaponSub = rp.OffWeaponSubtype;
-                shieldSub = rp.ShieldSubtype;
-                isTwoHanded = rp.IsTwoHanded;
-                mainAttackActive = rp.MainAttackActive;
-                offAttackActive = rp.OffAttackActive;
-                mainAttackStart = rp.MainAttackStart;
-                offAttackStart = rp.OffAttackStart;
-            }
+             if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rp))
+             {
+                 facing = rp.Facing;
+                 weaponSub = rp.WeaponSubtype;
+                 offWeaponSub = rp.OffWeaponSubtype;
+                 shieldSub = rp.ShieldSubtype;
+                 isTwoHanded = rp.IsTwoHanded;
+                 mainAttackActive = rp.MainAttackActive;
+                 offAttackActive = rp.OffAttackActive;
+                 mainAttackStart = rp.MainAttackStart;
+                 offAttackStart = rp.OffAttackStart;
+                 if (rp.IsDead) deadRemote = rp;
+             }
 
             // Выбор анимации: death при смерти, attack при атаке, walk при движении, idle при стоянии
             SpriteAnimation? playerAnim = null;
@@ -993,9 +1028,19 @@ public class MapRenderer
                 moving = Math.Abs(tgt.X - v.X) > 0.05f || Math.Abs(tgt.Y - v.Y) > 0.05f;
             }
 
-            if (isLocal && _isDead)
-                playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
-            else if (anyBodyAttack)
+             DateTime? deathAnimStart = null;
+
+             if (isLocal && _isDead)
+             {
+                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+                 deathAnimStart = _deathAnimStart;
+             }
+             else if (deadRemote != null)
+             {
+                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+                 deathAnimStart = deadRemote.DeathStart;
+             }
+             else if (anyBodyAttack)
             {
                 if (mainAttackActive)
                 {
@@ -1016,16 +1061,16 @@ public class MapRenderer
                     ? SpriteCache.GetPlayerAnimation(facing)
                     : SpriteCache.GetAnimation($"player_idle_{facing}") ?? SpriteCache.GetPlayerAnimation(facing);
 
-            if (playerAnim != null)
-            {
-                int frame;
-                if (isLocal && _isDead)
-                {
-                    float elapsed = (float)(DateTime.UtcNow - _deathAnimStart).TotalSeconds;
-                    _deathFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
-                    frame = _deathFrame;
-                }
-                else if (useAttackAnim)
+             if (playerAnim != null)
+             {
+                 int frame;
+                 if (deathAnimStart.HasValue)
+                 {
+                     float elapsed = (float)(DateTime.UtcNow - deathAnimStart.Value).TotalSeconds;
+                     frame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
+                     if (isLocal) _deathFrame = frame;
+                 }
+                 else if (useAttackAnim)
                 {
                     DateTime animStart = mainAttackActive ? mainAttackStart : offAttackStart;
                     float elapsed = (float)(DateTime.UtcNow - animStart).TotalSeconds;

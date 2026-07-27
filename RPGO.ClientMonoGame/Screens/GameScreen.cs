@@ -79,7 +79,7 @@ public class GameScreen : IScreen
             foreach (var p in map.Players)
             {
                 if (p.Name == client.PlayerName) continue;
-                _mapRenderer.UpdateRemotePlayer(p.Name, p.Facing, p.WeaponSubtype, p.OffWeaponSubtype, p.ShieldSubtype, p.IsTwoHanded);
+                _mapRenderer.UpdateRemotePlayer(p.Name, p.Facing, p.WeaponSubtype, p.OffWeaponSubtype, p.ShieldSubtype, p.IsTwoHanded, p.IsDead, p.X, p.Y);
             }
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
