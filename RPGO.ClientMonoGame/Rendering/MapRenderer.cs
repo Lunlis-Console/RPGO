@@ -179,6 +179,57 @@ public class MapRenderer
     // Двуручное оружие — специальная анимация тела и нет off-hand.
     private bool _isTwoHanded;
 
+    // Per-player visual state for remote players
+    private readonly Dictionary<string, RemotePlayerState> _remotePlayers = new();
+
+    private sealed class RemotePlayerState
+    {
+        public string Facing = "down";
+        public string WeaponSubtype = "";
+        public string OffWeaponSubtype = "";
+        public string ShieldSubtype = "";
+        public bool IsTwoHanded;
+        public bool MainAttackActive;
+        public bool OffAttackActive;
+        public DateTime MainAttackStart;
+        public DateTime OffAttackStart;
+    }
+
+    public void UpdateRemotePlayer(string name, string facing, string weaponSub, string offWeaponSub, string shieldSub, bool twoHanded)
+    {
+        if (!_remotePlayers.TryGetValue(name, out var state))
+        {
+            state = new RemotePlayerState();
+            _remotePlayers[name] = state;
+        }
+        state.Facing = facing;
+        state.WeaponSubtype = weaponSub;
+        state.OffWeaponSubtype = offWeaponSub;
+        state.ShieldSubtype = shieldSub;
+        state.IsTwoHanded = twoHanded;
+    }
+
+    public void TriggerRemoteAttack(string playerName, string hand)
+    {
+        if (!_remotePlayers.TryGetValue(playerName, out var state)) return;
+        if (hand == "off")
+        {
+            if (!state.OffAttackActive)
+                state.OffAttackStart = DateTime.UtcNow;
+            state.OffAttackActive = true;
+            state.MainAttackActive = false;
+        }
+        else
+        {
+            if (!state.MainAttackActive)
+                state.MainAttackStart = DateTime.UtcNow;
+            state.MainAttackActive = true;
+            state.OffAttackActive = false;
+        }
+    }
+
+    public void RemoveRemotePlayer(string name) => _remotePlayers.Remove(name);
+
     // Итоговое направление локального игрока:
     //  - пока игрок ДВИЖЕТСЯ к цели — смотрим по направлению движения
     //    (иначе «идёт боком»);
@@ -863,13 +914,32 @@ public class MapRenderer
 
             bool isLocal = p.Name == _playerName;
             string facing = isLocal ? GetLocalFacing() : "down";
+            string weaponSub = _weaponSubtype ?? "";
+            string offWeaponSub = _offWeaponSubtype ?? "";
+            string shieldSub = _shieldSubtype ?? "";
+            bool isTwoHanded = _isTwoHanded;
+            bool mainAttackActive = _mainAttackActive;
+            bool offAttackActive = _offAttackActive;
+            DateTime mainAttackStart = _mainAttackStart;
+            DateTime offAttackStart = _offAttackStart;
+
+            if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rp))
+            {
+                facing = rp.Facing;
+                weaponSub = rp.WeaponSubtype;
+                offWeaponSub = rp.OffWeaponSubtype;
+                shieldSub = rp.ShieldSubtype;
+                isTwoHanded = rp.IsTwoHanded;
+                mainAttackActive = rp.MainAttackActive;
+                offAttackActive = rp.OffAttackActive;
+                mainAttackStart = rp.MainAttackStart;
+                offAttackStart = rp.OffAttackStart;
+            }
 
             // Выбор анимации: death при смерти, attack при атаке, walk при движении, idle при стоянии
             SpriteAnimation? playerAnim = null;
             bool useAttackAnim = false;
 
-            bool mainAttackActive = isLocal && _mainAttackActive;
-            bool offAttackActive = isLocal && _offAttackActive;
             bool anyBodyAttack = mainAttackActive || offAttackActive;
 
             if (isLocal && _isDead)
@@ -878,10 +948,10 @@ public class MapRenderer
             {
                 if (mainAttackActive)
                 {
-                    if (_weaponSubtype == "bow")
+                    if (weaponSub == "bow")
                         playerAnim = SpriteCache.GetPlayerRangeAttackAnimation(facing);
                     else
-                        playerAnim = _isTwoHanded
+                        playerAnim = isTwoHanded
                             ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
                             : SpriteCache.GetPlayerAttackAnimation(facing);
                 }
@@ -890,10 +960,8 @@ public class MapRenderer
                 if (playerAnim != null) useAttackAnim = true;
                 else playerAnim = SpriteCache.GetPlayerAnimation(facing);
             }
-            else if (isLocal)
-                playerAnim = _isMoving
-                    ? SpriteCache.GetPlayerAnimation(facing)
-                    : SpriteCache.GetAnimation($"player_idle_{facing}");
+            else
+                playerAnim = SpriteCache.GetPlayerAnimation(facing) ?? SpriteCache.GetAnimation($"player_idle_{facing}");
 
             if (playerAnim != null)
             {
@@ -904,116 +972,103 @@ public class MapRenderer
                     _deathFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
                     frame = _deathFrame;
                 }
-                  else if (isLocal && useAttackAnim)
-                  {
-                      DateTime animStart = mainAttackActive ? _mainAttackStart : _offAttackStart;
-                      float elapsed = (float)(DateTime.UtcNow - animStart).TotalSeconds;
-                      float totalAnimDur = playerAnim.FrameDuration * playerAnim.FrameCount;
-                      int atkFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
-                      if (elapsed >= totalAnimDur)
-                      {
-                          if (_mainAttackActive) _mainAttackActive = false;
-                          if (_offAttackActive) _offAttackActive = false;
-                      }
-                      frame = atkFrame;
-                  }
+                else if (useAttackAnim)
+                {
+                    DateTime animStart = mainAttackActive ? mainAttackStart : offAttackStart;
+                    float elapsed = (float)(DateTime.UtcNow - animStart).TotalSeconds;
+                    float totalAnimDur = playerAnim.FrameDuration * playerAnim.FrameCount;
+                    int atkFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
+                    if (elapsed >= totalAnimDur)
+                    {
+                        if (isLocal)
+                        {
+                            if (_mainAttackActive) _mainAttackActive = false;
+                            if (_offAttackActive) _offAttackActive = false;
+                        }
+                        else if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rpClear))
+                        {
+                            rpClear.MainAttackActive = false;
+                            rpClear.OffAttackActive = false;
+                        }
+                    }
+                    frame = atkFrame;
+                }
                 else
                 {
                     float frameDuration = playerAnim.FrameDuration;
-                    // Walk-анимация синхронизирована со скоростью движения
-                    if (_isMoving)
-                    {
-                        int moveMs = 500;
-                        try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                        frameDuration = (moveMs / 1000f) / playerAnim.FrameCount;
-                    }
                     frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
                 }
                  var src = playerAnim.GetSourceRect(frame);
                  sb.Draw(playerAnim.Sheet, EntityRect(px, py), src, Color.White);
 
-                // Оружие поверх персонажа (только для локального игрока)
-                if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
+                // Оружие поверх персонажа
+                if (!string.IsNullOrEmpty(weaponSub))
                 {
                     SpriteAnimation? weaponAnim = null;
                     bool useWeaponSwing = false;
-                    if (_mainAttackActive)
+                    if (mainAttackActive)
                     {
-                        weaponAnim = _weaponSubtype == "bow"
-                            ? SpriteCache.GetWeaponRangeAttackAnimation(_weaponSubtype, facing)
-                            : SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
+                        weaponAnim = weaponSub == "bow"
+                            ? SpriteCache.GetWeaponRangeAttackAnimation(weaponSub, facing)
+                            : SpriteCache.GetWeaponAttackAnimation(weaponSub, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
-                        else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
+                        else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
                     }
-                    else if (_offAttackActive)
+                    else if (offAttackActive)
                     {
-                        weaponAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_weaponSubtype, facing);
+                        weaponAnim = SpriteCache.GetWeaponSecondAttackAnimation(weaponSub, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
                         if (weaponAnim == null)
-                            weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_weaponSubtype, facing);
+                            weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(weaponSub, facing);
                         if (weaponAnim != null) useWeaponSwing = true;
                         if (weaponAnim == null)
-                            weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
+                            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
                     }
                     else
-                        weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
-                    if (_weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={_weaponSubtype} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
+                        weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
+                    if (isLocal && _weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={weaponSub} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
                     if (weaponAnim != null)
                     {
                         int wFrame;
                         if (useWeaponSwing)
                         {
-                            DateTime swingStart = _mainAttackActive ? _mainAttackStart : _offAttackStart;
+                            DateTime swingStart = mainAttackActive ? mainAttackStart : offAttackStart;
                             float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
                             wFrame = Math.Min((int)(elapsed / weaponAnim.FrameDuration), weaponAnim.FrameCount - 1);
                         }
                         else
                         {
-                            float wFrameDur = weaponAnim.FrameDuration;
-                            if (_isMoving)
-                            {
-                                int moveMs = 500;
-                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                wFrameDur = (moveMs / 1000f) / weaponAnim.FrameCount;
-                            }
-                            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / wFrameDur) % weaponAnim.FrameCount;
+                            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
                         }
                          var wSrc = weaponAnim.GetSourceRect(wFrame);
                          sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
                     }
                 }
 
-                // Щит поверх персонажа (только для локального игрока, не двуручное)
-                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_shieldSubtype))
+                // Щит поверх персонажа (не двуручное)
+                if (!isTwoHanded && !string.IsNullOrEmpty(shieldSub))
                 {
                     SpriteAnimation? shieldAnim;
                     bool useShieldAttack = false;
-                    if (_mainAttackActive)
+                    if (mainAttackActive)
                     {
                         shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
                         if (shieldAnim != null) useShieldAttack = true;
-                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
                     }
                     else
-                        shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
+                        shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
                     if (shieldAnim != null)
                     {
                         int sFrame;
                         if (useShieldAttack)
                         {
-                            float elapsed = (float)(DateTime.UtcNow - _mainAttackStart).TotalSeconds;
+                            float elapsed = (float)(DateTime.UtcNow - mainAttackStart).TotalSeconds;
                             sFrame = Math.Min((int)(elapsed / shieldAnim.FrameDuration), shieldAnim.FrameCount - 1);
                         }
                         else
                         {
-                            float sFrameDur = shieldAnim.FrameDuration;
-                            if (_isMoving)
-                            {
-                                int moveMs = 500;
-                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                sFrameDur = (moveMs / 1000f) / shieldAnim.FrameCount;
-                            }
-                            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / sFrameDur) % shieldAnim.FrameCount;
+                            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
                         }
                         var sSrc = shieldAnim.GetSourceRect(sFrame);
                         sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
@@ -1021,68 +1076,61 @@ public class MapRenderer
                 }
 
                 // Левое оружие (attack swing / second_attack swing)
-                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_offWeaponSubtype))
+                if (!isTwoHanded && !string.IsNullOrEmpty(offWeaponSub))
                 {
                     SpriteAnimation? offAnim = null;
                     bool useOffSwing = false;
-                    if (_offAttackActive)
+                    if (offAttackActive)
                     {
-                        bool noMainWeapon = string.IsNullOrEmpty(_weaponSubtype);
+                        bool noMainWeapon = string.IsNullOrEmpty(weaponSub);
                         if (noMainWeapon)
                         {
-                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
+                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
                         }
                         else
                         {
-                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
+                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                             offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                             offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
                          }
                      }
-                    else if (_mainAttackActive)
+                    else if (mainAttackActive)
                     {
-                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "staff";
+                        bool mainIsRanged = weaponSub == "bow" || weaponSub == "staff";
                         if (mainIsRanged)
-                            offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            offAnim = SpriteCache.GetWeaponAttackAnimation(offWeaponSub, facing);
                         else
                         {
-                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
+                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
                             if (offAnim != null) useOffSwing = true;
                             if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
                         }
                     }
                      else
-                         offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
+                         offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
                      if (offAnim != null)
                     {
                         int offFrame;
                         if (useOffSwing)
                         {
-                            DateTime swingStart = _offAttackActive ? _offAttackStart : _mainAttackStart;
+                            DateTime swingStart = offAttackActive ? offAttackStart : mainAttackStart;
                             float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
                             offFrame = Math.Min((int)(elapsed / offAnim.FrameDuration), offAnim.FrameCount - 1);
                         }
                         else
                         {
-                            float offFrameDur = offAnim.FrameDuration;
-                            if (_isMoving)
-                            {
-                                int moveMs = 500;
-                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                offFrameDur = (moveMs / 1000f) / offAnim.FrameCount;
-                            }
-                            offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offFrameDur) % offAnim.FrameCount;
+                            offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
                         }
                         var offSrc = offAnim.GetSourceRect(offFrame);
                         sb.Draw(offAnim.Sheet, EntityRect(px, py), offSrc, Color.White);
@@ -1091,147 +1139,42 @@ public class MapRenderer
             }
             else
             {
-                var playerSprite = isLocal
-                    ? SpriteCache.GetPlayerSprite(facing)
-                    : SpriteCache.GetPlayerSprite("down");
+                var playerSprite = SpriteCache.GetPlayerSprite(facing) ?? SpriteCache.GetPlayerSprite("down");
                 if (playerSprite != null)
                 {
                     sb.Draw(playerSprite, EntityRect(px, py), Color.White);
 
                     // Оружие поверх (статичный fallback)
-                    if (isLocal && !string.IsNullOrEmpty(_weaponSubtype))
+                    if (!string.IsNullOrEmpty(weaponSub))
                     {
-                        SpriteAnimation? weaponAnim = null;
-                        bool useWeaponSwing = false;
-                        if (_mainAttackActive)
-                        {
-                            weaponAnim = _weaponSubtype == "bow"
-                                ? SpriteCache.GetWeaponRangeAttackAnimation(_weaponSubtype, facing)
-                                : SpriteCache.GetWeaponAttackAnimation(_weaponSubtype, facing);
-                            if (weaponAnim != null) useWeaponSwing = true;
-                            else weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
-                        }
-                        else if (_offAttackActive)
-                        {
-                            weaponAnim = SpriteCache.GetWeaponSecondAttackAnimation(_weaponSubtype, facing);
-                            if (weaponAnim != null) useWeaponSwing = true;
-                            if (weaponAnim == null)
-                                weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
-                        }
-                        else
-                            weaponAnim = SpriteCache.GetWeaponAnimation(_weaponSubtype, facing, _isMoving);
+                        SpriteAnimation? weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, false);
                         if (weaponAnim != null)
                         {
-                            int wFrame;
-                        if (useWeaponSwing)
-                        {
-                            DateTime swingStart = _mainAttackActive ? _mainAttackStart : _offAttackStart;
-                            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
-                            wFrame = Math.Min((int)(elapsed / weaponAnim.FrameDuration), weaponAnim.FrameCount - 1);
+                            int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+                            var wSrc = weaponAnim.GetSourceRect(wFrame);
+                            sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
                         }
-                        else
-                        {
-                            float wFrameDur = weaponAnim.FrameDuration;
-                            if (_isMoving)
-                            {
-                                int moveMs = 500;
-                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                wFrameDur = (moveMs / 1000f) / weaponAnim.FrameCount;
-                            }
-                            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / wFrameDur) % weaponAnim.FrameCount;
-                        }
-                        var wSrc = weaponAnim.GetSourceRect(wFrame);
-                        sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
                     }
-                }
 
-                // Щит поверх (статичный fallback)
-                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_shieldSubtype))
-                {
-                    SpriteAnimation? shieldAnim;
-                    bool useShieldAttack = false;
-                    if (_mainAttackActive)
+                    // Щит поверх (статичный fallback)
+                    if (!isTwoHanded && !string.IsNullOrEmpty(shieldSub))
                     {
-                        shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
-                        if (shieldAnim != null) useShieldAttack = true;
-                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
-                    }
-                    else
-                        shieldAnim = SpriteCache.GetShieldAnimation(facing, _isMoving);
-                    if (shieldAnim != null)
-                    {
-                        int sFrame;
-                        if (useShieldAttack)
+                        SpriteAnimation? shieldAnim = SpriteCache.GetShieldAnimation(facing, false);
+                        if (shieldAnim != null)
                         {
-                            float elapsed = (float)(DateTime.UtcNow - _mainAttackStart).TotalSeconds;
-                            sFrame = Math.Min((int)(elapsed / shieldAnim.FrameDuration), shieldAnim.FrameCount - 1);
+                            int sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
+                            var sSrc = shieldAnim.GetSourceRect(sFrame);
+                            sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
                         }
-                        else
-                        {
-                            float sFrameDur = shieldAnim.FrameDuration;
-                            if (_isMoving)
-                            {
-                                int moveMs = 500;
-                                try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                sFrameDur = (moveMs / 1000f) / shieldAnim.FrameCount;
-                            }
-                            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / sFrameDur) % shieldAnim.FrameCount;
-                        }
-                        var sSrc = shieldAnim.GetSourceRect(sFrame);
-                        sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
                     }
-                }
 
-                // Левое оружие (статичный fallback)
-                if (isLocal && !_isTwoHanded && !string.IsNullOrEmpty(_offWeaponSubtype))
-                {
-                    SpriteAnimation? offAnim = null;
-                    bool useOffSwing = false;
-                    if (_offAttackActive)
+                    // Левое оружие (статичный fallback)
+                    if (!isTwoHanded && !string.IsNullOrEmpty(offWeaponSub))
                     {
-                        offAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(_offWeaponSubtype, facing);
-                        if (offAnim != null) useOffSwing = true;
-                        if (offAnim == null)
-                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                        if (offAnim != null) useOffSwing = true;
-                        if (offAnim == null)
-                            offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                    }
-                    else if (_mainAttackActive)
-                    {
-                        bool mainIsRanged = _weaponSubtype == "bow" || _weaponSubtype == "staff";
-                        if (mainIsRanged)
-                            offAnim = SpriteCache.GetWeaponAttackAnimation(_offWeaponSubtype, facing);
-                        else
+                        SpriteAnimation? offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, false);
+                        if (offAnim != null)
                         {
-                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(_offWeaponSubtype, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                        }
-                    }
-                    else
-                        offAnim = SpriteCache.GetOffHandWeaponAnimation(_offWeaponSubtype, facing, _isMoving);
-                    if (offAnim != null)
-                    {
-                        int offFrame;
-                        if (useOffSwing)
-                        {
-                            DateTime swingStart = _offAttackActive ? _offAttackStart : _mainAttackStart;
-                            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
-                            offFrame = Math.Min((int)(elapsed / offAnim.FrameDuration), offAnim.FrameCount - 1);
-                        }
-                            else
-                            {
-                                float offFrameDur = offAnim.FrameDuration;
-                                if (_isMoving)
-                                {
-                                    int moveMs = 500;
-                                    try { var st = GameMain.Instance?.Client.Status; if (st?.MoveIntervalMs > 0) moveMs = st.MoveIntervalMs; } catch { }
-                                    offFrameDur = (moveMs / 1000f) / offAnim.FrameCount;
-                                }
-                                offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offFrameDur) % offAnim.FrameCount;
-                            }
+                            int offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
                             var offSrc = offAnim.GetSourceRect(offFrame);
                             sb.Draw(offAnim.Sheet, EntityRect(px, py), offSrc, Color.White);
                         }

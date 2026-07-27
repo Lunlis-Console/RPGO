@@ -75,6 +75,11 @@ public class GameScreen : IScreen
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
             else
                 _mapRenderer.SetTileData(null, 0, 0);
+            foreach (var p in map.Players)
+            {
+                if (p.Name == client.PlayerName) continue;
+                _mapRenderer.UpdateRemotePlayer(p.Name, p.Facing, p.WeaponSubtype, p.OffWeaponSubtype, p.ShieldSubtype, p.IsTwoHanded);
+            }
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
@@ -100,6 +105,7 @@ public class GameScreen : IScreen
             }
         };
         client.PlayerAttackPerformed += (hand) => _mapRenderer.TriggerAttack(hand);
+        client.RemotePlayerAttack += (playerName, hand) => _mapRenderer.TriggerRemoteAttack(playerName, hand);
         client.TargetDebuffsUpdated += debuffs =>
         {
             _hudRenderer.UpdateTargetDebuffs(debuffs);

@@ -40,6 +40,11 @@ public class PlayerPosition
     public int Level { get; set; }
     public int Health { get; set; }
     public int MaxHealth { get; set; }
+    public string Facing { get; set; } = "down";
+    public string WeaponSubtype { get; set; } = "";
+    public string OffWeaponSubtype { get; set; } = "";
+    public string ShieldSubtype { get; set; } = "";
+    public bool IsTwoHanded { get; set; }
 }
 
 public class MerchantPosition

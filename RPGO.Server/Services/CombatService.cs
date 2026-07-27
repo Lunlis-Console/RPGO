@@ -226,6 +226,12 @@ public class CombatService
             }
         }
 
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = attackHand }
+        });
+
         if (weaponRange > 1 && !isEvaded)
         {
             // Face the target before ranged attack
@@ -237,13 +243,6 @@ public class CombatService
             string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit, attackHand);
             await _svc.Projectiles.BroadcastSpawn(proj);
-            
-            // Notify client to play ranged attack animation
-            await _svc.Hub.SendToClient(client, new GameMessage
-            {
-                Type = "player_attack",
-                Data = new { Hand = attackHand }
-            });
 
             // Broadcast map to sync facing
             await _svc.Hub.BroadcastMapAsync();
@@ -359,14 +358,15 @@ public class CombatService
             string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, ohDmg, ohCrit, "off");
             await _svc.Projectiles.BroadcastSpawn(proj);
-            await _svc.Hub.SendToClient(client, new GameMessage
-            {
-                Type = "player_attack",
-                Data = new { Hand = "off" }
-            });
             await _svc.Hub.BroadcastMapAsync();
             return;
         }
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "off" }
+        });
 
         var (meleeDmg, meleeCrit, meleeEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 

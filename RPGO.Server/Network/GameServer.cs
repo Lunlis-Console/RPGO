@@ -75,7 +75,12 @@ public sealed class GameServer : INetworkHub
                     Y = c.Player!.Y,
                     Level = c.Player!.Level,
                     Health = c.Player!.Health,
-                    MaxHealth = c.Player!.MaxHealth
+                    MaxHealth = c.Player!.MaxHealth,
+                    Facing = c.Player!.Facing,
+                    WeaponSubtype = c.Player!.Equipment.Slots.TryGetValue("rhand", out var rh) ? (rh?.WeaponSubtype ?? "") : "",
+                    OffWeaponSubtype = c.Player!.Equipment.Slots.TryGetValue("lhand", out var lh) ? (lh?.WeaponSubtype ?? "") : "",
+                    ShieldSubtype = (c.Player!.Equipment.Slots.TryGetValue("lhand", out var lsh) && lsh != null && lsh.Type == "shield" && !Equipment.IsCasterOffhand(lsh)) ? "shield" : "",
+                    IsTwoHanded = c.Player!.Equipment.Slots.TryGetValue("rhand", out var rh2) && rh2 != null && rh2.TwoHanded
                 }).ToList();
 
             var portals = svc.Zones.GetPortalsForZone(zoneId)

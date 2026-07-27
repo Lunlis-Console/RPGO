@@ -89,6 +89,7 @@ public sealed class GameClient
 
     // Атака
     public event Action<string>? PlayerAttackPerformed;
+    public event Action<string, string>? RemotePlayerAttack; // (playerName, hand)
 
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
@@ -652,7 +653,11 @@ public sealed class GameClient
                     if (message.Data is JsonElement paEl)
                     {
                         string hand = paEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
-                        Ui(() => PlayerAttackPerformed?.Invoke(hand));
+                        string playerName = paEl.TryGetProperty("PlayerName", out var pn) ? (pn.GetString() ?? "") : "";
+                        if (!string.IsNullOrEmpty(playerName) && playerName != PlayerName)
+                            Ui(() => RemotePlayerAttack?.Invoke(playerName, hand));
+                        else
+                            Ui(() => PlayerAttackPerformed?.Invoke(hand));
                     }
                     break;
 
