@@ -957,6 +957,7 @@ public class MapRenderer
             bool useAttackAnim = false;
 
             bool anyBodyAttack = mainAttackActive || offAttackActive;
+            bool moving = isLocal ? _isMoving : (_remoteMoving.GetValueOrDefault(p.Name, false));
 
             if (isLocal && _isDead)
                 playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
@@ -977,7 +978,9 @@ public class MapRenderer
                 else playerAnim = SpriteCache.GetPlayerAnimation(facing);
             }
             else
-                playerAnim = SpriteCache.GetPlayerAnimation(facing) ?? SpriteCache.GetAnimation($"player_idle_{facing}");
+                playerAnim = moving
+                    ? SpriteCache.GetPlayerAnimation(facing)
+                    : SpriteCache.GetAnimation($"player_idle_{facing}") ?? SpriteCache.GetPlayerAnimation(facing);
 
             if (playerAnim != null)
             {
@@ -1011,7 +1014,6 @@ public class MapRenderer
                 }
                 else
                 {
-                    bool moving = isLocal ? _isMoving : (_remoteMoving.GetValueOrDefault(p.Name, false));
                     if (moving)
                     {
                         float frameDuration = playerAnim.FrameDuration;
