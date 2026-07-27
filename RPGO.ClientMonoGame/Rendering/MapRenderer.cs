@@ -460,15 +460,16 @@ public class MapRenderer
         var entities = GetEntitiesAt(mapX, mapY);
         if (entities.Count > 0)
         {
-            var first = entities[0];
-            return first.Type switch
-            {
-                "monster" => "attack",
-                "corpse" => "loot",
-                "collectible" => "harvest",
-                "npc" or "merchant" or "board" => "talk",
-                _ => "main"
-            };
+             var first = entities[0];
+             return first.Type switch
+             {
+                 "monster" => "attack",
+                 "corpse" => "loot",
+                 "collectible" => "harvest",
+                 "npc" or "merchant" or "board" => "talk",
+                 "player" when _currentMap?.PvPEnabled == true => "attack",
+                 _ => "main"
+             };
         }
 
         return "moving";
@@ -1354,11 +1355,14 @@ public class MapRenderer
             {
                 float tx = _gridOX + (hx - startX) * _cellW;
                 float ty = _gridOY + (hy - startY) * _cellH;
-                Color hc = _selectedEntityType switch
-                {
-                    "monster" => Color.Red, "move" => Color.DodgerBlue,
-                    "corpse" => Color.Gray, _ => Color.LimeGreen
-                };
+                 Color hc = _selectedEntityType switch
+                 {
+                     "monster" => Color.Red,
+                     "player" when _currentMap?.PvPEnabled == true => Color.Red,
+                     "move" => Color.DodgerBlue,
+                     "corpse" => Color.Gray,
+                     _ => Color.LimeGreen
+                 };
                 DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, hc, 2);
             }
         }
