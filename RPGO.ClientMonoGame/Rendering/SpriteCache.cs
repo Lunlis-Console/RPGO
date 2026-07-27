@@ -96,6 +96,26 @@ public static class SpriteCache
         Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
     }
 
+    public static void LoadCursors(string contentRoot)
+    {
+        string cursorDir = Path.Combine(contentRoot, "Sprites", "Cursor");
+        if (!Directory.Exists(cursorDir)) return;
+        foreach (var file in Directory.GetFiles(cursorDir, "Cursor_*.png"))
+        {
+            string key = "cursor_" + Path.GetFileNameWithoutExtension(file).Replace("Cursor_", "").ToLowerInvariant();
+            try
+            {
+                using var stream = File.OpenRead(file);
+                var tex = Texture2D.FromStream(_device, stream);
+                _textures[key] = tex;
+                Logger.Debug($"Cursor '{key}' loaded ({tex.Width}x{tex.Height})");
+            }
+            catch (Exception ex) { Logger.Error($"Cursor load failed: {file}", ex); }
+        }
+    }
+
+    public static Texture2D? GetCursor(string type) => Get($"cursor_{type}");
+
     private static Texture2D? LoadTexture(string name)
     {
         if (_textures.ContainsKey(name)) return _textures[name];

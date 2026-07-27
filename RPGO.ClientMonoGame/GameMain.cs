@@ -51,7 +51,7 @@ public class GameMain : Game
                 break;
         }
         Content.RootDirectory = "Content";
-        IsMouseVisible = true;
+        IsMouseVisible = false;
         Window.Title = "RPGO — MonoGame клиент";
         IsFixedTimeStep = true;
         TargetElapsedTime = System.TimeSpan.FromMilliseconds(16.67); // ~60fps
@@ -90,6 +90,7 @@ public class GameMain : Game
         SpriteBatch = new SpriteBatch(GraphicsDevice);
         SpriteCache.Load(GraphicsDevice, Content);
         SpriteCache.LoadAnimations(Path.Combine(AppContext.BaseDirectory, "Content"));
+        SpriteCache.LoadCursors(Path.Combine(AppContext.BaseDirectory, "Content"));
     }
 
     public void ShowSettings()

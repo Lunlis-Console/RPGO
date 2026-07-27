@@ -449,6 +449,31 @@ public class MapRenderer
         }
     }
 
+    public string GetCursorType(float screenX, float screenY, float areaW, float areaH)
+    {
+        if (_currentMap == null) return "main";
+        if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return "main";
+
+        if (_currentMap.Portals != null && _currentMap.Portals.Any(p => p.X == mapX && p.Y == mapY))
+            return "portal";
+
+        var entities = GetEntitiesAt(mapX, mapY);
+        if (entities.Count > 0)
+        {
+            var first = entities[0];
+            return first.Type switch
+            {
+                "monster" => "attack",
+                "corpse" => "loot",
+                "collectible" => "harvest",
+                "npc" or "merchant" or "board" => "talk",
+                _ => "main"
+            };
+        }
+
+        return "moving";
+    }
+
     // Запрос окна выбора сущности, когда в клетке несколько сущностей
     public event Action<List<EntityInfo>, int, int>? EntityPickRequested;
 
