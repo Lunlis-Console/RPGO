@@ -30,6 +30,8 @@ public class StatusHandler : BaseHandler
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
+                BlockChance = Math.Round(player.GetBlockChance(), 2),
+                ParryChance = Math.Round(player.GetParryChance(), 2),
                 player.Gold,
                 player.X,
                 player.Y,

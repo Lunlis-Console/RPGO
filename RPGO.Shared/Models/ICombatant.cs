@@ -23,4 +23,7 @@ public interface ICombatant
     double GetCritChance();
     double GetCritDamage();
     double GetEvadeChance();
+    double GetBlockChance();
+    double GetParryChance();
+    int GetBlockValue();
 }

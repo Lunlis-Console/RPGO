@@ -101,6 +101,9 @@ public class MonsterManager
         monster.CritChance = template.CritChance;
         monster.CritDamage = template.CritDamage;
         monster.EvadeChance = template.EvadeChance;
+        monster.BlockChance = template.BlockChance;
+        monster.ParryChance = template.ParryChance;
+        monster.ShieldDefense = template.ShieldDefense;
         _world.AddMonster(monster);
     }
 
@@ -416,8 +419,8 @@ public class MonsterManager
         }
     }
 
-    public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded)
-        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true)
+    public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
+        CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
     {
         var rng = new Random();
 
@@ -436,35 +439,51 @@ public class MonsterManager
         }
 
         bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus);
+        if (defenderEvaded)
+            return (0, 0, false, false, true, false, false);
+
+        bool defenderParried = isMelee && rng.Next(Balance.ChanceRollMax) < defender.GetParryChance();
+        if (defenderParried)
+            return (0, 0, false, false, false, true, false);
+
+        bool defenderBlocked = rng.Next(Balance.ChanceRollMax) < defender.GetBlockChance();
         int attackerDamage = 0;
-        bool isCrit = false;
-        if (!defenderEvaded)
+        bool isCrit = rng.Next(Balance.ChanceRollMax) < (attacker.GetCritChance() + passiveCritBonus);
+        int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
+        attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
+        attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
+
+        if (defenderBlocked)
         {
-            isCrit = rng.Next(Balance.ChanceRollMax) < (attacker.GetCritChance() + passiveCritBonus);
-            int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
-            attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
-            attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
-            if (applyDefenderDamage && defender is Monster mon)
-            {
-                mon.Health -= attackerDamage;
-                mon.LastDamagedTime = DateTime.UtcNow;
-                if (attacker is Player pl)
-                    mon.DamageTracker[pl.Id] = mon.DamageTracker.GetValueOrDefault(pl.Id) + attackerDamage;
-            }
+            int blockValue = defender.GetBlockValue();
+            attackerDamage = Math.Max(Balance.MinDamage, attackerDamage - blockValue);
+        }
+
+        if (applyDefenderDamage && defender is Monster mon)
+        {
+            mon.Health -= attackerDamage;
+            mon.LastDamagedTime = DateTime.UtcNow;
+            if (attacker is Player pl)
+                mon.DamageTracker[pl.Id] = mon.DamageTracker.GetValueOrDefault(pl.Id) + attackerDamage;
         }
         bool targetDead = defender.Health <= 0;
 
-        return (attackerDamage, 0, targetDead, isCrit, false);
+        return (attackerDamage, 0, targetDead, isCrit, false, false, defenderBlocked);
     }
 
-    public (int damage, bool isCrit, bool isEvaded)
+    public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateOffHandAttack(Player attacker, Monster target)
     {
         var rng = new Random();
-        if (!attacker.Equipment.IsDualWielding()) return (0, false, false);
+        if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
 
         bool evaded = rng.Next(Balance.ChanceRollMax) < target.GetEvadeChance();
-        if (evaded) return (0, false, true);
+        if (evaded) return (0, false, true, false, false);
+
+        bool parried = rng.Next(Balance.ChanceRollMax) < target.GetParryChance();
+        if (parried) return (0, false, false, true, false);
+
+        bool blocked = rng.Next(Balance.ChanceRollMax) < target.GetBlockChance();
 
         bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
@@ -474,7 +493,14 @@ public class MonsterManager
             ? 0.75
             : Equipment.OffHandDamageFraction;
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * offHandFraction));
-        return (finalDmg, crit, false);
+
+        if (blocked)
+        {
+            int blockValue = target.GetBlockValue();
+            finalDmg = Math.Max(Balance.MinDamage, finalDmg - blockValue);
+        }
+
+        return (finalDmg, crit, false, false, blocked);
     }
 
     public void CalculateCleave(Player attacker, Monster primaryTarget)

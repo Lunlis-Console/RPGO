@@ -211,6 +211,8 @@ public class StatusWindow : GameWindow
             ("Крит %", $"{_data.CritChance}"),
             ("Крит x", $"{_data.CritDamage}"),
             ("Уклон %", $"{_data.EvadeChance}"),
+            ("Блок %", $"{_data.BlockChance}"),
+            ("Парир %", $"{_data.ParryChance}"),
             ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)
@@ -318,6 +320,8 @@ public class StatusWindow : GameWindow
         DrawBreakdownRow(sb, ref cy, cx, cw, "Крит %", b.Crit);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Крит x", b.CritDmg);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Уклон %", b.Evade);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Блок %", b.Block);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Парир %", b.Parry);
         DrawAttackSpeedBreakdown(sb, ref cy, cx, cw);
         cy += 4;
 

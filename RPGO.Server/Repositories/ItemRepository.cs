@@ -15,6 +15,7 @@ internal static class ItemRepository
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
+                bonus_block_chance, bonus_parry_chance,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
                 damage_min, damage_max, attack_range
                 FROM items";
@@ -47,13 +48,15 @@ internal static class ItemRepository
                     BonusCritDamage = reader.GetDouble(20),
                     BonusEvadeChance = reader.GetDouble(21),
                     BonusAttackSpeed = reader.GetDouble(22),
-                    TwoHanded = reader.GetInt32(23) != 0,
-                    DamageType = reader.IsDBNull(24) ? "" : reader.GetString(24),
-                    AttackSpeedModifier = reader.IsDBNull(25) ? 1.0 : reader.GetDouble(25),
-                    WeaponSubtype = reader.IsDBNull(26) ? "" : reader.GetString(26),
-                    DamageMin = reader.GetInt32(27),
-                    DamageMax = reader.GetInt32(28),
-                    AttackRange = reader.IsDBNull(29) ? 1 : reader.GetInt32(29),
+                    BonusBlockChance = reader.GetDouble(23),
+                    BonusParryChance = reader.GetDouble(24),
+                    TwoHanded = reader.GetInt32(25) != 0,
+                    DamageType = reader.IsDBNull(26) ? "" : reader.GetString(26),
+                    AttackSpeedModifier = reader.IsDBNull(27) ? 1.0 : reader.GetDouble(27),
+                    WeaponSubtype = reader.IsDBNull(28) ? "" : reader.GetString(28),
+                    DamageMin = reader.GetInt32(29),
+                    DamageMax = reader.GetInt32(30),
+                    AttackRange = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 });
             }
@@ -71,6 +74,7 @@ internal static class ItemRepository
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
+                bonus_block_chance, bonus_parry_chance,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
                 damage_min, damage_max, attack_range
                 FROM items WHERE id = $id";
@@ -103,13 +107,15 @@ internal static class ItemRepository
                 BonusCritDamage = reader.GetDouble(20),
                 BonusEvadeChance = reader.GetDouble(21),
                 BonusAttackSpeed = reader.GetDouble(22),
-                TwoHanded = reader.GetInt32(23) != 0,
-                DamageType = reader.IsDBNull(24) ? "" : reader.GetString(24),
-                AttackSpeedModifier = reader.IsDBNull(25) ? 1.0 : reader.GetDouble(25),
-                WeaponSubtype = reader.IsDBNull(26) ? "" : reader.GetString(26),
-                DamageMin = reader.GetInt32(27),
-                DamageMax = reader.GetInt32(28),
-                AttackRange = reader.IsDBNull(29) ? 1 : reader.GetInt32(29),
+                BonusBlockChance = reader.GetDouble(23),
+                BonusParryChance = reader.GetDouble(24),
+                TwoHanded = reader.GetInt32(25) != 0,
+                DamageType = reader.IsDBNull(26) ? "" : reader.GetString(26),
+                AttackSpeedModifier = reader.IsDBNull(27) ? 1.0 : reader.GetDouble(27),
+                WeaponSubtype = reader.IsDBNull(28) ? "" : reader.GetString(28),
+                DamageMin = reader.GetInt32(29),
+                DamageMax = reader.GetInt32(30),
+                AttackRange = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
             };
         }

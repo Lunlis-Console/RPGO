@@ -12,7 +12,7 @@ internal static class MonsterRepository
             var result = new List<MonsterTemplate>();
             using var connection = Db.Open();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, name, tier, health, xp_reward, gold_reward, symbol, strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance FROM monsters";
+            cmd.CommandText = "SELECT id, name, tier, health, xp_reward, gold_reward, symbol, strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance, block_chance, parry_chance, shield_defense FROM monsters";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -34,6 +34,9 @@ internal static class MonsterRepository
                     CritChance = reader.GetDouble(13),
                     CritDamage = reader.GetDouble(14),
                     EvadeChance = reader.GetDouble(15),
+                    BlockChance = reader.IsDBNull(16) ? 0 : reader.GetDouble(16),
+                    ParryChance = reader.IsDBNull(17) ? 0 : reader.GetDouble(17),
+                    ShieldDefense = reader.IsDBNull(18) ? 0 : reader.GetInt32(18),
                 });
             }
             return result;

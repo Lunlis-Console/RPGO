@@ -41,6 +41,8 @@ public class Player : ICombatant
     public double BaseCritChance { get; set; } = 1.0;   // %
     public double BaseCritDamage { get; set; } = 1.5;   // множитель
     public double BaseEvadeChance { get; set; } = 1.0;  // %
+    public double BaseBlockChance { get; set; } = 0.0;  // %
+    public double BaseParryChance { get; set; } = 0.0;  // %
 
     // --- Производные боевые характеристики ---
 
@@ -80,6 +82,21 @@ public class Player : ICombatant
     public double GetEvadeChance()
         => BaseEvadeChance + (GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning
            + Equipment.GetBonusEvadeChance();
+
+    public double GetBlockChance()
+    {
+        double shieldBase = Equipment.GetEquippedShield() != null ? 2.0 : 0.0;
+        return BaseBlockChance + shieldBase
+            + (GetEffEndurance() - 1) * BalanceStatic.BlockChancePerEndurance
+            + Equipment.GetBonusBlockChance();
+    }
+
+    public double GetParryChance()
+        => BaseParryChance + (GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility
+           + Equipment.GetBonusParryChance();
+
+    public int GetBlockValue()
+        => (int)(Equipment.GetShieldBonusDefense() * BalanceStatic.ShieldBlockValueMultiplier);
 
     private bool IsUsingStaff() => Equipment.GetWeaponSubtype() == "staff";
 

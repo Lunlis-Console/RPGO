@@ -74,6 +74,8 @@ public class Item
     public double BonusCritDamage { get; set; }
     public double BonusEvadeChance { get; set; }
     public double BonusAttackSpeed { get; set; }
+    public double BonusBlockChance { get; set; }
+    public double BonusParryChance { get; set; }
 
     // Тип урона оружия
     public string DamageType { get; set; } = "";

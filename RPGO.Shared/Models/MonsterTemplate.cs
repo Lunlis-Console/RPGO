@@ -18,4 +18,7 @@ public class MonsterTemplate
     public double CritChance = 1.0;
     public double CritDamage = 1.5;
     public double EvadeChance = 1.0;
+    public double BlockChance = 0.0;
+    public double ParryChance = 0.0;
+    public int ShieldDefense = 0;
 }

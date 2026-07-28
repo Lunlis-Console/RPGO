@@ -9,6 +9,8 @@ public class StatsBreakdown
     public BreakdownPart Crit { get; set; } = new();
     public BreakdownPart CritDmg { get; set; } = new();
     public BreakdownPart Evade { get; set; } = new();
+    public BreakdownPart Block { get; set; } = new();
+    public BreakdownPart Parry { get; set; } = new();
     public EffectiveAttrs Effective { get; set; } = new();
 }
 

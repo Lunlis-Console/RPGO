@@ -170,6 +170,8 @@ public static class ItemTooltip
         if (item.BonusCritChance > 0) lines.Add($"Крит. шанс: +{item.BonusCritChance}%");
         if (item.BonusCritDamage > 0) lines.Add($"Крит. урон: +{item.BonusCritDamage}%");
         if (item.BonusEvadeChance > 0) lines.Add($"Уклонение: +{item.BonusEvadeChance}%");
+        if (item.BonusBlockChance > 0) lines.Add($"Блок: +{item.BonusBlockChance}%");
+        if (item.BonusParryChance > 0) lines.Add($"Парирование: +{item.BonusParryChance}%");
         if (item.BonusAttackSpeed > 0) lines.Add($"Скор. атаки: +{item.BonusAttackSpeed}");
 
         bool hasAttr = item.BonusStrength > 0 || item.BonusEndurance > 0 || item.BonusAgility > 0

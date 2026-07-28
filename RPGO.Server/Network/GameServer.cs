@@ -267,6 +267,8 @@ public sealed class GameServer : INetworkHub
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
+                BlockChance = Math.Round(player.GetBlockChance(), 2),
+                ParryChance = Math.Round(player.GetParryChance(), 2),
                 player.Gold,
                 player.X,
                 player.Y,
@@ -338,6 +340,8 @@ public sealed class GameServer : INetworkHub
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
+                BlockChance = Math.Round(player.GetBlockChance(), 2),
+                ParryChance = Math.Round(player.GetParryChance(), 2),
                 player.Gold,
                 player.X,
                 player.Y,
@@ -506,6 +510,20 @@ public sealed class GameServer : INetworkHub
                 AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning,
                 EquipBonus = player.Equipment.GetBonusEvadeChance(),
                 Total = Math.Round(player.GetEvadeChance(), 2)
+            },
+            Block = new BreakdownPart
+            {
+                Base = player.BaseBlockChance,
+                AttrBonus = (player.GetEffEndurance() - 1) * BalanceStatic.BlockChancePerEndurance,
+                EquipBonus = player.Equipment.GetBonusBlockChance(),
+                Total = Math.Round(player.GetBlockChance(), 2)
+            },
+            Parry = new BreakdownPart
+            {
+                Base = player.BaseParryChance,
+                AttrBonus = (player.GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility,
+                EquipBonus = player.Equipment.GetBonusParryChance(),
+                Total = Math.Round(player.GetParryChance(), 2)
             },
             Effective = new EffectiveAttrs
             {

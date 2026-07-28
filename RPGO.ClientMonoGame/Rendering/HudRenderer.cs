@@ -363,6 +363,8 @@ public class HudRenderer
             if (item.BonusCritChance > 0) lines.Add(($"+{item.BonusCritChance * 100:F0}% Крит", new Color(220, 180, 80)));
             if (item.BonusCritDamage > 0) lines.Add(($"+{item.BonusCritDamage * 100:F0}% Урон крита", new Color(220, 100, 80)));
             if (item.BonusEvadeChance > 0) lines.Add(($"+{item.BonusEvadeChance * 100:F0}% Уклонение", new Color(120, 200, 180)));
+            if (item.BonusBlockChance > 0) lines.Add(($"+{item.BonusBlockChance * 100:F0}% Блок", new Color(160, 180, 220)));
+            if (item.BonusParryChance > 0) lines.Add(($"+{item.BonusParryChance * 100:F0}% Парирование", new Color(200, 160, 220)));
         }
         else return;
 

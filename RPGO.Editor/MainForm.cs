@@ -516,16 +516,16 @@ public partial class MainForm : Form
         var alwaysVisible = new HashSet<string> { "id", "name", "type", "value", "stock", "description", "two_handed" };
         var relevant = selected switch
         {
-            "weapon" or "twohand" => new HashSet<string> { "damage_min", "damage_max", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "damage_type", "attack_speed_modifier", "weapon_subtype", "attack_range" },
-            "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" => new HashSet<string> { "defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance" },
+            "weapon" or "twohand" => new HashSet<string> { "damage_min", "damage_max", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_parry_chance", "damage_type", "attack_speed_modifier", "weapon_subtype", "attack_range" },
+            "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" => new HashSet<string> { "defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
             "accessory" or "necklace" or "ring" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus",
                 "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
-                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
             "consumable" => new HashSet<string> { "heal_amount", "max_health_bonus" },
             "collectible" => new HashSet<string> { },
             "trophy" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus", "heal_amount",
                 "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
-                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance" },
+                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
             _ => null
         };
 
@@ -541,7 +541,7 @@ public partial class MainForm : Form
     private void LoadMonsters()
     {
         _monstersGrid.DataSource = LoadTable(@"SELECT id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, symbol,
-            strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance
+            strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance, block_chance, parry_chance, shield_defense
             FROM monsters ORDER BY id");
     }
 

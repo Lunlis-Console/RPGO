@@ -42,6 +42,8 @@ public sealed class StatusData
     public double CritChance { get; set; }
     public double CritDamage { get; set; }
     public double EvadeChance { get; set; }
+    public double BlockChance { get; set; }
+    public double ParryChance { get; set; }
     public int Gold { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
@@ -186,6 +188,8 @@ public sealed class BreakdownData
     public BreakdownPart? Crit { get; set; }
     public BreakdownPart? CritDmg { get; set; }
     public BreakdownPart? Evade { get; set; }
+    public BreakdownPart? Block { get; set; }
+    public BreakdownPart? Parry { get; set; }
     public EffectiveData? Effective { get; set; }
 }
 

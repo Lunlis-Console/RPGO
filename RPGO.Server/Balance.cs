@@ -42,6 +42,9 @@ public static class Balance
     public const double CritChancePerCunning = BalanceStatic.CritChancePerCunning;
     public const double CritDamagePerStrength = BalanceStatic.CritDamagePerStrength;
     public const double EvadeChancePerCunning = BalanceStatic.EvadeChancePerCunning;
+    public const double BlockChancePerEndurance = BalanceStatic.BlockChancePerEndurance;
+    public const double ParryChancePerAgility = BalanceStatic.ParryChancePerAgility;
+    public const double ShieldBlockValueMultiplier = BalanceStatic.ShieldBlockValueMultiplier;
 
     // Базовые боевые множители
     public const double BaseCritChance = 1.0;

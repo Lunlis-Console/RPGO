@@ -33,6 +33,9 @@ public class Monster : ICombatant
     public double CritChance { get; set; } = 1.0;   // %
     public double CritDamage { get; set; } = 1.5;   // множитель
     public double EvadeChance { get; set; } = 1.0;  // %
+    public double BlockChance { get; set; } = 0.0;  // %
+    public double ParryChance { get; set; } = 0.0;  // %
+    public int ShieldDefense { get; set; } = 0;
 
     // --- Производные боевые характеристики ---
     public int GetBaseDamage() => 1 + (Level - 1);
@@ -50,6 +53,9 @@ public class Monster : ICombatant
     public double GetCritChance() => CritChance + (Cunning - 1) * BalanceStatic.CritChancePerCunning;
     public double GetCritDamage() => CritDamage + (Strength - 1) * BalanceStatic.CritDamagePerStrength;
     public double GetEvadeChance() => EvadeChance + (Cunning - 1) * BalanceStatic.EvadeChancePerCunning;
+    public double GetBlockChance() => BlockChance;
+    public double GetParryChance() => ParryChance + (Agility - 1) * BalanceStatic.ParryChancePerAgility;
+    public int GetBlockValue() => (int)(ShieldDefense * BalanceStatic.ShieldBlockValueMultiplier);
 
     // --- Новые характеристики (монстры могут использовать по желанию) ---
     public int GetPhysAttack() => GetTotalAttack();

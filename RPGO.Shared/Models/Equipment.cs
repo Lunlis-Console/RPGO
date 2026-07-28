@@ -44,6 +44,18 @@ public class Equipment
     public double GetBonusCritDamage() => SumD(_slots.Values, i => i.BonusCritDamage);
     public double GetBonusEvadeChance() => SumD(_slots.Values, i => i.BonusEvadeChance);
     public double GetBonusAttackSpeed() => SumD(_slots.Values, i => i.BonusAttackSpeed);
+    public double GetBonusBlockChance() => SumD(_slots.Values, i => i.BonusBlockChance);
+    public double GetBonusParryChance() => SumD(_slots.Values, i => i.BonusParryChance);
+
+    public Item? GetEquippedShield()
+    {
+        var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
+        if (lh != null && (lh.Type ?? "").ToLowerInvariant() == "shield" && !IsCasterOffhand(lh))
+            return lh;
+        return null;
+    }
+
+    public int GetShieldBonusDefense() => GetEquippedShield()?.BonusDefense ?? 0;
 
     public double GetWeaponSpeedModifier()
     {

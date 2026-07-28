@@ -44,7 +44,7 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
 
-        var (dmgToM, dmgToP, dead, isCrit, isEvaded) =
+        var (dmgToM, dmgToP, dead, isCrit, isEvaded, isParried, isBlocked) =
             _monsters.CalculateCombat(player, monster);
 
         // Player total atk = 1 + (11-1)*2 = 21, monster def = 1 → 20
@@ -63,7 +63,7 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 100, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 200);
 
-        var (dmgToM, _, dead, isCrit, _) =
+        var (dmgToM, _, dead, isCrit, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // baseDmg = Max(1, 21-1) = 20, critDmg = 1.5+(11-1)*0.05=2.0 → 20*2.0=40
@@ -78,14 +78,13 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 100, crit: 0, hp: 100);
 
-        var (dmgToM, dmgToP, dead, isCrit, isEvaded) =
+        var (dmgToM, dmgToP, dead, isCrit, isEvaded, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // Monster evades → no player damage
         Assert.Equal(0, dmgToM);
         Assert.False(dead);
-        // No counter-attack (removed from CalculateCombat)
-        Assert.False(isEvaded);
+        Assert.True(isEvaded);
         Assert.Equal(0, dmgToP);
     }
 
@@ -95,7 +94,7 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 100);
         var monster = CreateMonster(level: 1, str: 11, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
 
-        var (_, dmgToP, dead, _, isEvaded) =
+        var (_, dmgToP, dead, _, isEvaded, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // Player hits monster
@@ -111,7 +110,7 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 5);
 
-        var (dmgToM, dmgToP, dead, _, _) =
+        var (dmgToM, dmgToP, dead, _, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // Damage = 20 > hp=5, monster dies
@@ -128,7 +127,7 @@ public class CombatTests
         var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 100);
         monster.Endurance = 100; // high defense
 
-        var (dmgToM, _, _, _, _) =
+        var (dmgToM, _, _, _, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // playerAtk=1, monsterDef=1+(100-1)*1=100 → Max(1, 1-100)=1
@@ -141,7 +140,7 @@ public class CombatTests
         var player = CreatePlayer(level: 1, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 1, str: 11, sta: 1, agi: 1, evade: 0, crit: 100, hp: 100);
 
-        var (_, dmgToP, _, _, _) =
+        var (_, dmgToP, _, _, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // No counter-attack from CalculateCombat (removed)
@@ -154,7 +153,7 @@ public class CombatTests
         var player = CreatePlayer(level: 10, str: 10, sta: 10, agi: 1, critChance: 0, evadeChance: 0);
         var monster = CreateMonster(level: 10, str: 10, sta: 10, agi: 1, evade: 0, crit: 0, hp: 1000);
 
-        var (dmgToM, dmgToP, dead, _, _) =
+        var (dmgToM, dmgToP, dead, _, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
         // Player: BaseDmg=10 + (10-1)*2=18 = 28. Monster def: 10+(10-1)*1=19. → 9
@@ -174,7 +173,7 @@ public class CombatTests
         var attacker = CreatePlayer(level: 5, str: 11, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
         var defender = CreatePlayer(level: 5, str: 1, sta: 1, agi: 1, critChance: 0, evadeChance: 0);
 
-        var (dmgToDefender, dmgToAttacker, dead, _, _) =
+        var (dmgToDefender, dmgToAttacker, dead, _, _, _, _) =
             _monsters.CalculateCombat(attacker, defender);
 
         // Attacker atk = 1 + (11-1)*2 = 21, defender def = 1 → 20

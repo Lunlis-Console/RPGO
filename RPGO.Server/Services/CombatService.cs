@@ -195,8 +195,8 @@ public class CombatService
             }
         }
 
-        var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded) =
-            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1);
+        var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded, isParried, isBlocked) =
+            _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1, weaponRange <= 1);
 
         if (!isEvaded && weaponRange <= 1 && _svc.Debuffs.HasDebuff(pl, DebuffType.CleaveReady))
         {
@@ -254,10 +254,12 @@ public class CombatService
                 double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
                 double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
                 bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+                bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
+                bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
                 int hitDmg = 0;
                 bool hitCrit = false;
 
-                if (!evaded)
+                if (!evaded && !parried)
                 {
                     hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
                     int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
@@ -265,6 +267,8 @@ public class CombatService
                     if (hitCrit)
                         hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
                     hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+                    if (blocked)
+                        hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
                     monster.Health -= hitDmg;
                     monster.LastDamagedTime = DateTime.UtcNow;
                     monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
@@ -275,11 +279,17 @@ public class CombatService
                     await ChatTo(client, ChatChannel.Combat, "Бой",
                         $"{monster.Name} уклонился от первого удара «{queuedSkill.Name}».");
                 }
+                else if (parried)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} парировал первый удар «{queuedSkill.Name}»!");
+                }
                 else
                 {
                     string critText = hitCrit ? " (КРИТ!)" : "";
+                    string blockText = blocked ? " (блок)" : "";
                     await ChatTo(client, ChatChannel.Combat, "Бой",
-                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText} {monster.Name}.");
+                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText}{blockText} {monster.Name}.");
                     var dmgMsg = new GameMessage
                     {
                         Type = "damage",
@@ -334,10 +344,12 @@ public class CombatService
                 double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
                 double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
                 bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+                bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
+                bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
                 int hitDmg = 0;
                 bool hitCrit = false;
 
-                if (!evaded)
+                if (!evaded && !parried)
                 {
                     hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
                     int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
@@ -345,6 +357,8 @@ public class CombatService
                     if (hitCrit)
                         hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
                     hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+                    if (blocked)
+                        hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
                     monster.Health -= hitDmg;
                     monster.LastDamagedTime = DateTime.UtcNow;
                     monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
@@ -355,11 +369,17 @@ public class CombatService
                     await ChatTo(client, ChatChannel.Combat, "Бой",
                         $"{monster.Name} уклонился от первого удара «{queuedSkill.Name}».");
                 }
+                else if (parried)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} парировал первый удар «{queuedSkill.Name}»!");
+                }
                 else
                 {
                     string critText = hitCrit ? " (КРИТ!)" : "";
+                    string blockText = blocked ? " (блок)" : "";
                     await ChatTo(client, ChatChannel.Combat, "Бой",
-                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText} {monster.Name}.");
+                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText}{blockText} {monster.Name}.");
                     var dmgMsg = new GameMessage
                     {
                         Type = "damage",
@@ -476,6 +496,10 @@ public class CombatService
 
         if (isEvaded)
             await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} уклонился от вашей атаки.");
+        else if (isParried)
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} парировал вашу атаку!");
+        else if (isBlocked)
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} заблокировал часть урона щитом!");
         else
         {
             string critText = isCrit ? " (КРИТ!)" : "";
@@ -548,10 +572,12 @@ public class CombatService
         var rng = new Random();
         double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+        bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
+        bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
         int hitDmg = 0;
         bool hitCrit = false;
 
-        if (!evaded)
+        if (!evaded && !parried)
         {
             double effAttack;
             double dmgMult;
@@ -581,6 +607,8 @@ public class CombatService
             }
 
             hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+            if (blocked)
+                hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
             monster.Health -= hitDmg;
             monster.LastDamagedTime = DateTime.UtcNow;
             monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
@@ -591,6 +619,25 @@ public class CombatService
         {
             await ChatTo(client, ChatChannel.Combat, "Бой",
                 $"{monster.Name} уклонился от удара «{skillName}».");
+        }
+        else if (parried)
+        {
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"{monster.Name} парировал удар «{skillName}»!");
+        }
+        else if (blocked)
+        {
+            string critText = hitCrit ? " (КРИТ!)" : "";
+            string handLabel = isHolyTrinity ? "" : " — левая рука";
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"«{skillName}»{handLabel}: {hitDmg} урона{critText} {monster.Name} (блок).");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = hitCrit, Hand = hitHand }
+            };
+            await _svc.Hub.SendToClient(client, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
         }
         else
         {
@@ -699,7 +746,7 @@ public class CombatService
 
         if (isRangedAttack)
         {
-            var (ohDmg, ohCrit, ohEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
+            var (ohDmg, ohCrit, ohEvaded, ohParried, ohBlocked) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
             string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, ohDmg, ohCrit, "off");
@@ -714,12 +761,24 @@ public class CombatService
             Data = new { PlayerName = pl.Name, Hand = "off" }
         });
 
-        var (meleeDmg, meleeCrit, meleeEvaded) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
+        var (meleeDmg, meleeCrit, meleeEvaded, meleeParried, meleeBlocked) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
         if (meleeEvaded)
         {
             await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} уклонился от удара вторым оружием.");
             return;
+        }
+        if (meleeParried)
+        {
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} парировал удар вторым оружием!");
+            return;
+        }
+        if (meleeBlocked)
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} заблокировал часть урона щитом!");
+        else
+        {
+            string ohCritText = meleeCrit ? " (КРИТ!)" : "";
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {meleeDmg} урона{ohCritText} {offMonster.Name}.");
         }
 
         if (meleeDmg <= 0) return;
@@ -973,18 +1032,40 @@ public class CombatService
                 foreach (var (monster, player, damage) in attacks)
                 {
                     if (player.IsDead) continue;
-                    player.Health -= damage;
+
+                    var rng = new Random();
+                    bool evaded = rng.Next(Balance.ChanceRollMax) < player.GetEvadeChance();
+                    bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < player.GetParryChance();
+                    bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < player.GetBlockChance();
+                    int finalDmg = blocked ? Math.Max(Balance.MinDamage, damage - player.GetBlockValue()) : damage;
+                    if (evaded || parried) finalDmg = 0;
+
+                    player.Health -= finalDmg;
                     player.LastDamagedTime = DateTime.UtcNow;
                     var client = _svc.World.FindClientByPlayer(player);
                     if (client == null) continue;
 
-                    var hitMsg = GameMessage.Damage("player", null, player.X, player.Y, damage, false, player.Name);
-                    await _svc.Hub.SendToClient(client, hitMsg);
-                    await _svc.Hub.SendDamageNearbyAsync(player.X, player.Y, hitMsg, player);
+                    if (evaded)
+                    {
+                        await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {monster.Name}.");
+                    }
+                    else if (parried)
+                    {
+                        await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы парировали атаку {monster.Name}!");
+                    }
+                    else
+                    {
+                        var hitMsg = GameMessage.Damage("player", null, player.X, player.Y, finalDmg, false, player.Name);
+                        await _svc.Hub.SendToClient(client, hitMsg);
+                        await _svc.Hub.SendDamageNearbyAsync(player.X, player.Y, hitMsg, player);
+
+                        if (blocked)
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {finalDmg} урона (блок!). ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
+                        else
+                            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {finalDmg} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
+                    }
 
                     await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
-                    await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {damage} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
-
                     await _svc.Party.SendUpdateForAsync(player);
 
                     if (player.Health <= 0)
@@ -1122,22 +1203,39 @@ public class CombatService
         bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
         if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
 
-        double evadeRoll = Random.Shared.NextDouble() * 100;
-        bool isEvaded = evadeRoll < target.GetEvadeChance();
+        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
+        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
 
-        int finalDmg = isEvaded ? 0 : Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
+        int finalDmg = 0;
+        if (!isEvaded && !isParried)
+        {
+            finalDmg = Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
+            if (isBlocked)
+                finalDmg = Math.Max(Balance.MinDamage, finalDmg - target.GetBlockValue());
+        }
 
-        if (!isEvaded)
+        if (isEvaded)
+        {
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от вашей атаки.");
+        }
+        else if (isParried)
+        {
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал вашу атаку!");
+        }
+        else
         {
             target.Health -= finalDmg;
             target.LastDamagedTime = DateTime.UtcNow;
 
-            // Уведомление атакующего
             string critText = isCrit ? " (КРИТ!)" : "";
-            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
-                $"Вы нанесли {finalDmg} урона{critText} {target.Name}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+            if (isBlocked)
+                await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                    $"Вы нанесли {finalDmg} урона{critText} {target.Name} (блок). ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+            else
+                await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                    $"Вы нанесли {finalDmg} урона{critText} {target.Name}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
 
-            // Урон目标
             var targetClient = _svc.World.FindClientByPlayer(target);
             if (targetClient != null)
             {
@@ -1152,10 +1250,6 @@ public class CombatService
                     $"{pl.Name} нанёс вам {finalDmg} урона{critText}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
                 await _svc.Hub.SendStatusAsync(targetClient, target);
             }
-        }
-        else
-        {
-            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от вашей атаки.");
         }
 
         // Обновление combat state

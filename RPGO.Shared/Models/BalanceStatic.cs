@@ -14,6 +14,9 @@ public static class BalanceStatic
     public const double CritChancePerCunning = 1.0;
     public const double CritDamagePerStrength = 0.05;
     public const double EvadeChancePerCunning = 1.0;
+    public const double BlockChancePerEndurance = 0.5;
+    public const double ParryChancePerAgility = 0.5;
+    public const double ShieldBlockValueMultiplier = 1.5;
 
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
