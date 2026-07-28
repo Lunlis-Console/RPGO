@@ -190,6 +190,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendSkills(ClientConnection connection)
     {
+        var player = connection.Player;
         var skills = DatabaseManager.LoadSkills();
         await SendToClient(connection, new GameMessage
         {
@@ -198,9 +199,20 @@ public sealed class GameServer : INetworkHub
             {
                 Skills = skills.Select(s => new
                 {
-                    s.Id, s.Name, s.Description, s.Type,
-                    s.MpCost, s.CooldownMs, s.DamageMultiplier, s.MinLevel
-                }).ToList()
+                    s.Id,
+                    s.Name,
+                    s.Description,
+                    s.Type,
+                    s.MpCost,
+                    s.CooldownMs,
+                    s.DamageMultiplier,
+                    s.MinLevel,
+                    s.SkillPointCost,
+                    s.ParentId,
+                    s.Tier
+                }).ToList(),
+                LearnedSkills = player?.LearnedSkills ?? new(),
+                SkillPoints = player?.SkillPoints ?? 0
             }
         });
     }
@@ -248,10 +260,10 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                BaseAttack = player.GetBaseDamage(),
-                BaseDefense = player.GetBaseDefense(),
-                TotalAttack = GetBuffedPhysAttack(player),
-                TotalDefense = player.GetTotalDefense(),
+                PhysAttack = GetBuffedPhysAttack(player),
+                MagAttack = GetBuffedMagAttack(player),
+                Defense = player.GetDefense(),
+                Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
                 CritDamage = Math.Round(player.GetCritDamage(), 2),
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
@@ -268,7 +280,6 @@ public sealed class GameServer : INetworkHub
                 player.Wisdom,
                 player.AttributePoints,
                 player.SkillPoints,
-                player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
                 AttackIntervalMs = GetAttackIntervalMs(player),
@@ -340,7 +351,6 @@ public sealed class GameServer : INetworkHub
                 player.Wisdom,
                 player.AttributePoints,
                 player.SkillPoints,
-                player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
                 AttackIntervalMs = GetAttackIntervalMs(player),

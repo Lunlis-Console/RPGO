@@ -310,7 +310,6 @@ public class StatusWindow : GameWindow
         if (b == null) return;
 
         cy += 4;
-        cy = DrawSection(sb, "ХАРАКТЕРИСТИКИ", cx, cy, cw);
 
         DrawBreakdownRow(sb, ref cy, cx, cw, "Физ.Атака", b.PhysAttack);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Маг.Атака", b.MagAttack);

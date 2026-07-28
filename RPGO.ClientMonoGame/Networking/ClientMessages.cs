@@ -55,13 +55,11 @@ public sealed class StatusData
     public int Wisdom { get; set; }
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
-    public int Speed { get; set; }
     public int MoveIntervalMs { get; set; }
     public double AttackSpeed { get; set; }
     public int AttackIntervalMs { get; set; }
     public string WeaponDamageType { get; set; } = "";
     public double WeaponSpeedModifier { get; set; } = 1.0;
-    public bool IsDualWielding { get; set; }
     public BreakdownData? Breakdown { get; set; }
     public List<DebuffInfo>? ActiveDebuffs { get; set; }
 }

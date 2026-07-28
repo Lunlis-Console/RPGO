@@ -103,6 +103,10 @@ public class KillService
         soloRecipient.Experience += monster.XpReward;
         if (soloRecipient.TryLevelUp()) Log.Info($"{soloRecipient.Name} повысил уровень до {soloRecipient.Level}!");
 
+        var soloClient = _world.FindClientByPlayer(soloRecipient);
+        if (soloClient != null)
+            await _svc.Hub.SendStatusAsync(soloClient, soloRecipient);
+
         var soloLoot = _svc.Loot.RollLoot(monster.TemplateId);
         var soloPlayerLoot = new Dictionary<Guid, CorpsePlayerLoot>
         {
@@ -118,7 +122,6 @@ public class KillService
         _svc.Corpses.CreateCorpse(monster, new List<Item>(), soloPlayerLoot);
         _svc.Monsters.RemoveMonster(monster);
 
-        var soloClient = _world.FindClientByPlayer(soloRecipient);
         if (soloClient != null)
         {
             int totalItems = soloLoot.Count;
@@ -151,6 +154,10 @@ public class KillService
             contributor.Experience += xpReward;
             if (contributor.TryLevelUp()) Log.Info($"{contributor.Name} повысил уровень до {contributor.Level}!");
 
+            var contribClient = _world.FindClientByPlayer(contributor);
+            if (contribClient != null)
+                await _svc.Hub.SendStatusAsync(contribClient, contributor);
+
             var contributorLoot = _svc.Loot.RollLoot(monster.TemplateId);
             playerLootDict[contributor.Id] = new CorpsePlayerLoot
             {
@@ -160,7 +167,6 @@ public class KillService
                 DamagePercent = (int)(dmgShare * 100)
             };
 
-            var contribClient = _world.FindClientByPlayer(contributor);
             if (contribClient != null)
             {
                 if (xpReward > 0)
