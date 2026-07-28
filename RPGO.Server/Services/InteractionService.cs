@@ -88,8 +88,8 @@ public class InteractionService
                             b.Id, b.Name, b.Type, b.WeaponSubtype,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
-                            b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
-                            IsBuyback = true
+                        b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
+                        b.Quantity, IsBuyback = true
                         }).ToList(),
                         PlayerGold = player.Gold
                     }

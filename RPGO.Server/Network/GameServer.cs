@@ -523,6 +523,7 @@ public sealed class GameServer : INetworkHub
                 Base = player.BaseParryChance,
                 AttrBonus = (player.GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility,
                 EquipBonus = player.Equipment.GetBonusParryChance(),
+                SkillBonus = player.GetReflexesParryBonus(),
                 Total = Math.Round(player.GetParryChance(), 2)
             },
             Effective = new EffectiveAttrs

@@ -40,6 +40,10 @@ public class CombatState
     public Guid? PendingSkillTargetId { get; set; }
     public string? PendingSkillId { get; set; }
 
+    // «ЭТО ДУЭЛЬ!»: наказание за смену таргета целью «армировано»,
+    // только если цель сама атаковала игрока на момент первого удара.
+    public bool DuelPunishArmed { get; set; }
+
     public bool HasTarget => TargetMonsterId != null || TargetPlayerId != null;
     public bool IsPvPTarget => TargetPlayerId != null;
 
@@ -73,6 +77,7 @@ public class CombatState
         InCombat = false;
         PendingSkillHitsRemaining = 0;
         PendingSkillId = null;
+        DuelPunishArmed = false;
     }
 }
 

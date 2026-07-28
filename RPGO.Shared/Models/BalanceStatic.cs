@@ -18,6 +18,9 @@ public static class BalanceStatic
     public const double ParryChancePerAgility = 0.5;
     public const double ShieldBlockValueMultiplier = 1.5;
 
+    // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья
+    public const double BerserkDamagePer5Percent = 0.02;
+
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;

@@ -6,6 +6,7 @@ public class PlayerData
     public int Y { get; set; } = -1;
     public int Health { get; set; } = 100;
     public int MaxHealth { get; set; } = 100;
+    public int Mana { get; set; } = 100;
     public int Level { get; set; } = 1;
     public int Experience { get; set; }
     public int Gold { get; set; }
@@ -56,6 +57,7 @@ public class Item
     public string Description { get; set; } = "";
     public int Stock { get; set; } = 1;
     public int MaxStack { get; set; } = 10;
+    public bool IsBuyback { get; set; }
 
     // Бонусы к первичным атрибутам
     public int BonusStrength { get; set; }

@@ -240,6 +240,21 @@ public static class Balance
     // Интервал между ударами комбо-навыков (мс)
     public const int SlashHitIntervalMs = 500;
 
+    // ===== ЭТО ДУЭЛЬ! (SK0009) =====
+    public const int DuelHitCount = 6;                 // всего ударов в серии
+    public const double DuelFirstHitMult = 1.8;        // первый удар: +180% от базы
+    public const double DuelPerHitBonus = 0.15;        // каждый следующий удар: +15% к урону
+    public const double DuelPunishBaseMult = 7.0;      // наказание: +700% от базы
+    public const double DuelPunishPerMissMult = 0.35;  // +35% за каждый ненанесённый удар
+    public const int DuelStunMs = 3000;                // оглушение цели при наказании
+    public const int DuelPunishHitCount = DuelHitCount;
+
+    // ===== ПАССИВНЫЕ НАВЫКИ ПУТИ МЕЧА =====
+    // Кровопускание (SK0010): вампиризм от урона мечом
+    public const double LifestealFraction = 0.10;
+    // Берсерк (SK0011): +2% урона за каждые 5% потерянного HP
+    public const double BerserkDamagePer5Percent = 0.02;
+
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;
     public const int BowAttackRange = 5;

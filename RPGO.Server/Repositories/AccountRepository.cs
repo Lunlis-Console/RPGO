@@ -142,6 +142,7 @@ internal static class AccountRepository
         lock (Db.Lock)
         {
             using var connection = Db.Open();
+            using var txn = connection.BeginTransaction();
 
             var cmd = connection.CreateCommand();
             cmd.CommandText = @"
@@ -150,6 +151,7 @@ internal static class AccountRepository
                     experience = $exp,
                     health = $hp,
                     max_health = $maxhp,
+                    mana = $mana,
                     gold = $gold,
                     strength = $str,
                     endurance = $end,
@@ -171,6 +173,7 @@ internal static class AccountRepository
             cmd.Parameters.AddWithValue("$exp", player.Experience);
             cmd.Parameters.AddWithValue("$hp", player.Health);
             cmd.Parameters.AddWithValue("$maxhp", player.MaxHealth);
+            cmd.Parameters.AddWithValue("$mana", player.Mana);
             cmd.Parameters.AddWithValue("$gold", player.Gold);
             cmd.Parameters.AddWithValue("$str", player.Strength);
             cmd.Parameters.AddWithValue("$end", player.Endurance);
@@ -202,6 +205,8 @@ internal static class AccountRepository
             }
 
             QuestRepository.Save(connection, player.Name, player.ActiveQuests);
+
+            txn.Commit();
         }
     }
 
@@ -288,7 +293,7 @@ internal static class AccountRepository
     {
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"
-            SELECT player_name, password_hash, level, experience, health, max_health,
+            SELECT player_name, password_hash, level, experience, health, max_health, mana,
                    gold, created_at, last_login,
                    strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, pos_x, pos_y,
                    hotbar_slots, is_admin, is_banned, ban_reason, skill_points, learned_skills, current_zone
@@ -306,35 +311,36 @@ internal static class AccountRepository
             Login = login,
             PasswordHash = reader.GetString(1),
             PlayerName = playerName,
-            CreatedAt = DateTime.Parse(reader.GetString(7)),
-            LastLogin = DateTime.Parse(reader.GetString(8)),
-            IsAdmin = !reader.IsDBNull(20) && reader.GetInt32(20) != 0,
-            IsBanned = !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
-            BanReason = reader.IsDBNull(22) ? "" : reader.GetString(22),
+            CreatedAt = DateTime.Parse(reader.GetString(8)),
+            LastLogin = DateTime.Parse(reader.GetString(9)),
+            IsAdmin = !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
+            IsBanned = !reader.IsDBNull(22) && reader.GetInt32(22) != 0,
+            BanReason = reader.IsDBNull(23) ? "" : reader.GetString(23),
             PlayerData = new PlayerData
             {
                 Level = reader.GetInt32(2),
                 Experience = reader.GetInt32(3),
                 Health = reader.GetInt32(4),
                 MaxHealth = reader.GetInt32(5),
-                Gold = reader.GetInt32(6),
-                Strength = reader.GetInt32(9),
-                Endurance = reader.GetInt32(10),
-                Agility = reader.GetInt32(11),
-                Cunning = reader.GetInt32(12),
-                Intellect = reader.GetInt32(13),
-                Wisdom = reader.GetInt32(14),
-                AttributePoints = reader.GetInt32(15),
-                Speed = reader.GetInt32(16),
-                X = reader.GetInt32(17),
-                Y = reader.GetInt32(18),
-                SkillPoints = reader.GetInt32(23),
-                LearnedSkills = ParseStringList(reader.IsDBNull(24) ? "[]" : reader.GetString(24)),
-                CurrentZoneId = reader.IsDBNull(25) ? "main" : reader.GetString(25),
+                Mana = reader.GetInt32(6),
+                Gold = reader.GetInt32(7),
+                Strength = reader.GetInt32(10),
+                Endurance = reader.GetInt32(11),
+                Agility = reader.GetInt32(12),
+                Cunning = reader.GetInt32(13),
+                Intellect = reader.GetInt32(14),
+                Wisdom = reader.GetInt32(15),
+                AttributePoints = reader.GetInt32(16),
+                Speed = reader.GetInt32(17),
+                X = reader.GetInt32(18),
+                Y = reader.GetInt32(19),
+                SkillPoints = reader.GetInt32(24),
+                LearnedSkills = ParseStringList(reader.IsDBNull(25) ? "[]" : reader.GetString(25)),
+                CurrentZoneId = reader.IsDBNull(26) ? "main" : reader.GetString(26),
                 Inventory = InventoryRepository.GetForPlayer(playerName, equipIds),
                 Equipment = InventoryRepository.LoadEquipment(connection, playerName),
                 ActiveQuests = QuestRepository.Load(connection, playerName),
-                HotbarSlots = LoadHotbar(reader.GetString(19))
+                HotbarSlots = LoadHotbar(reader.GetString(20))
             }
         };
 

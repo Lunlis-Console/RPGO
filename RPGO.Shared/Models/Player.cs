@@ -93,7 +93,15 @@ public class Player : ICombatant
 
     public double GetParryChance()
         => BaseParryChance + (GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility
-           + Equipment.GetBonusParryChance();
+           + Equipment.GetBonusParryChance()
+           + GetReflexesParryBonus();
+
+    // Пассивный навык «Рефлексы» (SK0008): +10% шанс парирования при двух одноручных оружиях.
+    public double GetReflexesParryBonus()
+    {
+        if (!LearnedSkills.Contains("SK0008")) return 0;
+        return Equipment.IsDualWielding() ? 10.0 : 0.0;
+    }
 
     public int GetBlockValue()
         => (int)(Equipment.GetShieldBonusDefense() * BalanceStatic.ShieldBlockValueMultiplier);
@@ -123,7 +131,17 @@ public class Player : ICombatant
     public int GetMaxAttackDamage() => GetMaxAttackDamage(1);
 
     public int GetTotalAttack(int dist)
-        => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
+        => (int)(((UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage()) * GetBerserkMultiplier());
+
+    // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья.
+    public double GetBerserkMultiplier()
+    {
+        if (!LearnedSkills.Contains("SK0011")) return 1.0;
+        int maxHp = MaxHealth + Equipment.GetBonusMaxHealth();
+        if (maxHp <= 0) return 1.0;
+        double percentMissing = (maxHp - Health) / (double)maxHp * 100.0;
+        return 1.0 + BalanceStatic.BerserkDamagePer5Percent * (percentMissing / 5.0);
+    }
 
     public int RollAttackDamage(int dist)
         => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();

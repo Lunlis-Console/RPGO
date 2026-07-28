@@ -31,19 +31,44 @@ public class SellHandler : BaseHandler
             return;
         }
 
-        int available = first.Quantity;
+        // Считаем доступное количество по всем подходящим записям инвентаря
+        // (стакаемые предметы могут быть в нескольких строках, если у них нет TemplateId
+        //  или если количество превышает MaxStack).
+        string? tid = null;
+        bool hasTemplate = !string.IsNullOrEmpty(first.TemplateId);
+        if (hasTemplate)
+            tid = first.TemplateId!;
+
+        int available = player.Inventory
+            .Where(i => hasTemplate ? i.TemplateId == tid : (i.Name == first.Name && i.Type == first.Type))
+            .Sum(i => i.Quantity);
+
         int toSell = Math.Min(qty, available);
         if (toSell <= 0) return;
 
         int sellPrice = Balance.SellPrice(first.Value);
-        int totalGain = 0;
-        for (int i = 0; i < toSell; i++)
-        {
-            player.Gold += sellPrice;
-            totalGain += sellPrice;
-        }
+        int totalGain = toSell * sellPrice;
+        player.Gold += totalGain;
 
-        InventoryHelper.RemoveFromRecord(player, sellItemId, toSell);
+        // Списываем проданное количество по всем подходящим записям
+        int remaining = toSell;
+        foreach (var item in player.Inventory.ToList())
+        {
+            if (remaining <= 0) break;
+            bool matches = hasTemplate ? item.TemplateId == tid
+                : (item.Name == first.Name && item.Type == first.Type);
+            if (!matches) continue;
+            if (item.Quantity <= remaining)
+            {
+                remaining -= item.Quantity;
+                player.Inventory.Remove(item);
+            }
+            else
+            {
+                item.Quantity -= remaining;
+                remaining = 0;
+            }
+        }
 
         var buybackCopy = first.Clone();
         buybackCopy.Id = Guid.NewGuid().ToString();
@@ -67,7 +92,7 @@ public class SellHandler : BaseHandler
                     Value = Balance.BuybackPrice(b.Value),
                     OriginalValue = b.Value,
                     b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
-                    IsBuyback = true
+                    b.Quantity, IsBuyback = true
                 }).ToList()
             }
         });

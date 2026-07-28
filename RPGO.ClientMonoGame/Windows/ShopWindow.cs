@@ -12,15 +12,19 @@ namespace RPGGame.ClientMonoGame.Windows;
 public class ShopWindow : GameWindow
 {
     private List<Item> _items = new();
+    private List<Item> _buybackItems = new();
     private string _merchantName = "";
     private int _playerGold;
     private int _discount;
+    private int _activeTab;
+    private Rectangle _tabShopRect;
+    private Rectangle _tabBuybackRect;
 
     private int _scrollOffset;
     private const int GridCols = 8;
     private const int GridRows = 7;
     private const int ScrollbarWidth = 10;
-    private const int HeaderHeight = 56;
+    private const int HeaderHeight = 84;
     private const int CellGap = 4;
 
     private int _hoverItem = -1;
@@ -55,10 +59,17 @@ public class ShopWindow : GameWindow
 
     public void UpdateData(ShopData data)
     {
-        _merchantName = data.MerchantName ?? "Торговец";
-        _items = data.Items ?? new List<Item>();
+        bool isFull = data.Items is { Count: > 0 };
+        if (isFull)
+        {
+            _merchantName = data.MerchantName ?? "Торговец";
+            _items = data.Items;
+            _discount = data.Discount;
+        }
+        if (data.Buyback is { Count: >= 0 })
+            _buybackItems = data.Buyback;
         _playerGold = data.PlayerGold;
-        _discount = data.Discount;
+        if (_activeTab > 1) _activeTab = 0;
         _scrollOffset = 0;
         Visible = true;
     }
@@ -73,6 +84,8 @@ public class ShopWindow : GameWindow
 
     public int DiscountedPrice(Item item) => item.Value - (item.Value * _discount / 100);
 
+    private List<Item> ActiveItems => _activeTab == 1 ? _buybackItems : _items;
+
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
         if (!Visible) return;
@@ -83,7 +96,7 @@ public class ShopWindow : GameWindow
         int gridW = ContentW - 16 - ScrollbarWidth - 4;
         int cell = (gridW - (GridCols - 1) * CellGap) / GridCols;
         int listH = GridRows * cell + (GridRows - 1) * CellGap;
-        int maxScroll = Math.Max(0, (_items.Count + GridCols - 1) / GridCols - GridRows);
+        int maxScroll = Math.Max(0, (ActiveItems.Count + GridCols - 1) / GridCols - GridRows);
 
         // Скролл колесом в области сетки
         if (mouse.X >= gridX && mouse.X <= gridX + gridW && mouse.Y >= gridY && mouse.Y <= gridY + listH)
@@ -104,7 +117,7 @@ public class ShopWindow : GameWindow
             {
                 int idx = (r + _scrollOffset) * GridCols + c;
                 var rect = _slotRects[c, r];
-                if (idx < _items.Count && rect.Contains(mouse.X, mouse.Y))
+                if (idx < ActiveItems.Count && rect.Contains(mouse.X, mouse.Y))
                 {
                     _hoverItem = idx;
                     if (pressed)
@@ -113,7 +126,7 @@ public class ShopWindow : GameWindow
                         _dragStart = new Point(mouse.X, mouse.Y);
                         _dragOffset = new Point(mouse.X - rect.X, mouse.Y - rect.Y);
                         _dragPos = new Point(mouse.X, mouse.Y);
-                        DragStateChanged?.Invoke(_items[idx]);
+                        DragStateChanged?.Invoke(ActiveItems[idx]);
                     }
                 }
             }
@@ -127,17 +140,25 @@ public class ShopWindow : GameWindow
             int idx = _dragIndex;
             _dragIndex = -1;
             DragStateChanged?.Invoke(null);
-            if (idx < _items.Count)
-                DropOnInventory?.Invoke(new Point(mouse.X, mouse.Y), _items[idx]);
+            if (idx < ActiveItems.Count)
+                DropOnInventory?.Invoke(new Point(mouse.X, mouse.Y), ActiveItems[idx]);
         }
 
         // ПКМ — покупка сразу; ЛКМ — только двойной клик (одиночный ЛКМ запускает drag)
-        if (_hoverItem >= 0 && _hoverItem < _items.Count)
+        if (_hoverItem >= 0 && _hoverItem < ActiveItems.Count)
         {
             if (mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released)
-                RequestBuy(_items[_hoverItem]);
+                RequestBuy(ActiveItems[_hoverItem]);
             else if (pressed)
-                HandleBuyClick(_items[_hoverItem]);
+                HandleBuyClick(ActiveItems[_hoverItem]);
+        }
+
+        // Вкладки
+        TabLayout();
+        if (pressed)
+        {
+            if (_tabShopRect.Contains(mouse.X, mouse.Y)) { _activeTab = 0; _scrollOffset = 0; }
+            else if (_tabBuybackRect.Contains(mouse.X, mouse.Y)) { _activeTab = 1; _scrollOffset = 0; }
         }
 
         var sellAllRect = GetSellAllRect();
@@ -156,9 +177,16 @@ public class ShopWindow : GameWindow
         return new Rectangle(ContentX + 12, Y + Height - 38, 200, 22);
     }
 
+    private void TabLayout()
+    {
+        int w = (ContentW - 32) / 2;
+        _tabShopRect = new Rectangle(ContentX + 8, ContentY + 58, w, 24);
+        _tabBuybackRect = new Rectangle(ContentX + 8 + w + 8, ContentY + 58, w, 24);
+    }
+
     private void HandleBuyClick(Item item)
     {
-        int idx = _items.IndexOf(item);
+        int idx = ActiveItems.IndexOf(item);
         var now = DateTime.Now.TimeOfDay;
         bool isDouble = idx == _lastClickIdx && (_lastClickTime - now).TotalMilliseconds is > -500 and < 500;
         _lastClickIdx = idx;
@@ -173,10 +201,11 @@ public class ShopWindow : GameWindow
     private void RequestBuy(Item item)
     {
         int price = _discount > 0 ? DiscountedPrice(item) : item.Value;
-        int stock = Math.Max(1, item.Stock);
+        int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
         int maxAffordable = price > 0 ? _playerGold / price : stock;
         int max = Math.Min(stock, Math.Max(1, maxAffordable));
-        if (stock > 1 || item.MaxStack > 1)
+        int effectiveStack = item.IsBuyback ? Math.Max(1, item.Quantity) : item.MaxStack;
+        if (stock > 1 || effectiveStack > 1)
             PendingBuy?.Invoke(item, max);
         else
             BuyItem?.Invoke(item.Id ?? "", 1);
@@ -208,7 +237,20 @@ public class ShopWindow : GameWindow
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(gridX - 2, gridY - 2, gridW + 4, listH + 4), new Color(160, 130, 80));
 
-        int maxScroll = Math.Max(0, (_items.Count + GridCols - 1) / GridCols - GridRows);
+        int maxScroll = Math.Max(0, (ActiveItems.Count + GridCols - 1) / GridCols - GridRows);
+
+        // Вкладки
+        TabLayout();
+        Color tabShopBg = _activeTab == 0 ? new Color(100, 80, 45) : new Color(65, 55, 35);
+        Color tabBuybackBg = _activeTab == 1 ? new Color(100, 80, 45) : new Color(65, 55, 35);
+        sb.Draw(SpriteCache.Pixel, _tabShopRect, tabShopBg);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(_tabShopRect.X, _tabShopRect.Y + _tabShopRect.Height - 2, _tabShopRect.Width, 2),
+            _activeTab == 0 ? new Color(180, 150, 90) : new Color(80, 65, 40));
+        DrawText(sb, "Товары", _tabShopRect.X + 8, _tabShopRect.Y + 6, _activeTab == 0 ? Color.White : Color.Gray);
+        sb.Draw(SpriteCache.Pixel, _tabBuybackRect, tabBuybackBg);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(_tabBuybackRect.X, _tabBuybackRect.Y + _tabBuybackRect.Height - 2, _tabBuybackRect.Width, 2),
+            _activeTab == 1 ? new Color(180, 150, 90) : new Color(80, 65, 40));
+        DrawText(sb, $"Выкуп ({_buybackItems.Count})", _tabBuybackRect.X + 8, _tabBuybackRect.Y + 6, _activeTab == 1 ? Color.White : Color.Gray);
 
         for (int r = 0; r < GridRows; r++)
         {
@@ -220,7 +262,7 @@ public class ShopWindow : GameWindow
                 _slotRects[c, r] = rect;
 
                 int idx = (r + _scrollOffset) * GridCols + c;
-                bool filled = idx < _items.Count;
+                bool filled = idx < ActiveItems.Count;
                 bool hover = filled && idx == _hoverItem && _dragIndex < 0;
 
                 sb.Draw(SpriteCache.Pixel, rect, hover ? new Color(60, 55, 75) : new Color(45, 40, 55));
@@ -228,11 +270,11 @@ public class ShopWindow : GameWindow
 
                 if (filled)
                 {
-                    var item = _items[idx];
+                    var item = ActiveItems[idx];
                     var spr = SpriteCache.ForItem(item);
                     if (spr != null)
                         sb.Draw(spr, new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12), Color.White);
-                    int stock = Math.Max(1, item.Stock);
+                    int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
                     if (stock > 1)
                         DrawText(sb, stock.ToString(), rect.X + rect.Width - 16, rect.Y + rect.Height - 16, new Color(230, 230, 120));
                     // Цена мелко внизу
@@ -248,14 +290,14 @@ public class ShopWindow : GameWindow
             }
         }
 
-        if (_items.Count == 0)
-            DrawText(sb, "Нет товаров", gridX + gridW / 2 - 40, gridY + listH / 2 - 10, new Color(150, 140, 130));
+        if (ActiveItems.Count == 0)
+            DrawText(sb, _activeTab == 1 ? "Нет предметов для выкупа" : "Нет товаров", gridX + gridW / 2 - 70, gridY + listH / 2 - 10, new Color(150, 140, 130));
 
         // Скроллбар
         sb.Draw(SpriteCache.Pixel, new Rectangle(ContentX + ContentW - ScrollbarWidth - 4, gridY, ScrollbarWidth, listH), new Color(50, 45, 60));
         if (maxScroll > 0)
         {
-            float ratio = (float)GridRows / ((_items.Count + GridCols - 1) / GridCols);
+            float ratio = (float)GridRows / ((ActiveItems.Count + GridCols - 1) / GridCols);
             int thumbH = Math.Max(20, (int)(listH * ratio));
             int thumbY = gridY + (int)((float)_scrollOffset / maxScroll * (listH - thumbH));
             sb.Draw(SpriteCache.Pixel, new Rectangle(ContentX + ContentW - ScrollbarWidth - 4, thumbY, ScrollbarWidth, thumbH), new Color(130, 110, 80));
@@ -266,15 +308,15 @@ public class ShopWindow : GameWindow
         var hintSize = hf != null ? hf.MeasureString(hint) : Vector2.Zero;
         DrawText(sb, hint, ContentX + (ContentW - (int)hintSize.X) / 2, Y + Height - 66, new Color(150, 140, 130));
 
-        if (_hoverItem >= 0 && _hoverItem < _items.Count && _dragIndex < 0)
-            DrawTooltip(sb, _items[_hoverItem], mouse);
+        if (_hoverItem >= 0 && _hoverItem < ActiveItems.Count && _dragIndex < 0)
+            DrawTooltip(sb, ActiveItems[_hoverItem], mouse);
 
         // Перетаскиваемый предмет рисуется глобально поверх всех окон (GameScreen).
     }
 
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)
     {
-        int stock = Math.Max(1, item.Stock);
+        int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
         var lines = ItemTooltip.BuildLines(item, overrideValue: DiscountedPrice(item), stockOverride: stock);
         var g = GameMain.Instance;
         int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;

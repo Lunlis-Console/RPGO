@@ -18,7 +18,9 @@ public class MonsterManager
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
     {
         double dmgBonus = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
-        return baseAttack * (1.0 + dmgBonus);
+        double mult = 1.0 + dmgBonus;
+        if (attacker is Player p) mult *= p.GetBerserkMultiplier();
+        return baseAttack * mult;
     }
 
     public double GetEffectiveAttack(ICombatant attacker)

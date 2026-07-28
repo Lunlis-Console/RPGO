@@ -30,12 +30,15 @@ public class BuybackHandler : BaseHandler
             return;
         }
 
+        // Группируем все записи выкупа того же типа
         var matches = player.BuybackItems.Where(i =>
             i.Name == first.Name && i.Type == first.Type &&
             i.BonusPhysAttack == first.BonusPhysAttack && i.BonusDefense == first.BonusDefense &&
             i.MaxHealthBonus == first.MaxHealthBonus && i.HealAmount == first.HealAmount && i.RestoreMana == first.RestoreMana &&
             i.Value == first.Value && i.Description == first.Description).ToList();
-        int toBuy = Math.Min(qty, matches.Count);
+
+        int totalAvailable = matches.Sum(i => i.Quantity);
+        int toBuy = Math.Min(qty, totalAvailable);
         int price = Balance.BuybackPrice(first.Value);
         int totalCost = price * toBuy;
 
@@ -46,11 +49,24 @@ public class BuybackHandler : BaseHandler
         }
 
         player.Gold -= totalCost;
-        for (int i = 0; i < toBuy; i++)
+
+        int remaining = toBuy;
+        foreach (var m in matches)
         {
-            player.BuybackItems.Remove(matches[i]);
-            InventoryHelper.AddItem(player, matches[i]);
+            if (remaining <= 0) break;
+            int take = Math.Min(m.Quantity, remaining);
+            var clone = m.Clone();
+            clone.Id = Guid.NewGuid().ToString();
+            clone.Quantity = take;
+            InventoryHelper.AddItem(player, clone);
+
+            if (m.Quantity <= take)
+                player.BuybackItems.Remove(m);
+            else
+                m.Quantity -= take;
+            remaining -= take;
         }
+
         Log.Info($"{player.Name} выкупил {first.Name} x{toBuy} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {
@@ -66,7 +82,7 @@ public class BuybackHandler : BaseHandler
                 Value = Balance.BuybackPrice(b.Value),
                 OriginalValue = b.Value,
                 b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
-                IsBuyback = true
+                b.Quantity, IsBuyback = true
             }).ToList() }
         });
         await SendInventoryAndStatus(connection, player);

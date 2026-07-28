@@ -1,3 +1,4 @@
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
@@ -25,6 +26,7 @@ public class GameServerHost
         Task.Run(RunDebuffTickLoop);
         Task.Run(RunCorpseCleanupLoop);
         Task.Run(() => _svc.Projectiles.RunTick());
+        Task.Run(RunSessionCleanupLoop);
     }
 
     private async Task RunMonsterWanderLoop()
@@ -153,6 +155,19 @@ public class GameServerHost
                 await _svc.Hub.BroadcastMapAsync();
             }
             catch (Exception ex) { Log.Error("Ошибка цикла очистки трупов", ex); }
+        }
+    }
+
+    private static async Task RunSessionCleanupLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(60_000);
+                SessionManager.Cleanup();
+            }
+            catch (Exception ex) { Log.Error("Ошибка цикла очистки сессий", ex); }
         }
     }
 }

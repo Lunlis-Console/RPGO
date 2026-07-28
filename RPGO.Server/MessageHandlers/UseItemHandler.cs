@@ -30,7 +30,8 @@ public class UseItemHandler : BaseHandler
 
         if (item.Type == "consumable" && item.HealAmount > 0)
         {
-            int healed = Math.Min(item.HealAmount, player.MaxHealth - player.Health);
+            int effectiveMax = player.MaxHealth + player.Equipment.GetBonusMaxHealth();
+            int healed = Math.Min(item.HealAmount, effectiveMax - player.Health);
             player.Health += healed;
             InventoryHelper.RemoveFromRecord(player, useItemId, 1);
             Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {healed} HP");
@@ -44,7 +45,7 @@ public class UseItemHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {healed} HP. ({player.Health}/{player.MaxHealth})" }
+                Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {healed} HP. ({player.Health}/{effectiveMax})" }
             });
             await SendInventoryAndStatus(connection, player);
         }

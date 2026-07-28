@@ -93,9 +93,16 @@ public class CombatService
                         var client = _svc.World.FindClientByPlayer(pl);
                         if (client == null) continue;
 
-                        // Комбо-навык: отложенный второй удар
+                        // Комбо-навык: отложенные удары
                         if (pl.Combat.PendingSkillHitsRemaining > 0)
                         {
+                            // «ЭТО ДУЭЛЬ!»: цель (монстр) сменила таргет с игрока — наказание
+                            if (pl.Combat.PendingSkillId == "SK0009" && monster.AggroTarget != pl)
+                            {
+                                await ExecuteDuelPunish(pl, monster, client);
+                                changed = true;
+                                continue;
+                            }
                             if (pl.Combat.PendingSkillTargetId != monster.Id)
                             {
                                 pl.Combat.PendingSkillHitsRemaining = 0;
@@ -198,6 +205,9 @@ public class CombatService
         var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded, isParried, isBlocked) =
             _svc.Monsters.CalculateCombat(pl, monster, queuedSkill == null && weaponRange <= 1, weaponRange <= 1);
 
+        if (queuedSkill == null)
+            await TryLifesteal(pl, dmgToMonster, weaponRange <= 1, client);
+
         if (!isEvaded && weaponRange <= 1 && _svc.Debuffs.HasDebuff(pl, DebuffType.CleaveReady))
         {
             _svc.Debuffs.ClearDebuffs(pl);
@@ -270,6 +280,7 @@ public class CombatService
                     if (blocked)
                         hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
                     monster.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, true, client);
                     monster.LastDamagedTime = DateTime.UtcNow;
                     monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
                 }
@@ -360,6 +371,7 @@ public class CombatService
                     if (blocked)
                         hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
                     monster.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, true, client);
                     monster.LastDamagedTime = DateTime.UtcNow;
                     monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
                 }
@@ -411,6 +423,97 @@ public class CombatService
 
                 // Ставим отложенные удары 2 и 3
                 pl.Combat.PendingSkillHitsRemaining = 2;
+                pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+                pl.Combat.PendingSkillTargetId = monster.Id;
+                pl.Combat.PendingSkillId = queuedSkill.Id;
+                return;
+            }
+            else if (queuedSkill.Id == "SK0009")
+            {
+                pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
+                pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
+                });
+
+                // Первый удар — правая рука
+                await _svc.Hub.SendToAllAsync(new GameMessage
+                {
+                    Type = "player_attack",
+                    Data = new { PlayerName = pl.Name, Hand = "main" }
+                });
+
+                var rng = new Random();
+                double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+                double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+                bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+                bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
+                bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
+                int hitDmg = 0;
+                bool hitCrit = false;
+
+                if (!evaded && !parried)
+                {
+                    hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+                    int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+                    hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * queuedSkill.DamageMultiplier);
+                    if (hitCrit)
+                        hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+                    hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+                    if (blocked)
+                        hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+                    monster.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, true, client);
+                    monster.LastDamagedTime = DateTime.UtcNow;
+                    monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+                }
+
+                if (evaded)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} уклонился от первого удара «{queuedSkill.Name}».");
+                }
+                else if (parried)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} парировал первый удар «{queuedSkill.Name}»!");
+                }
+                else
+                {
+                    string critText = hitCrit ? " (КРИТ!)" : "";
+                    string blockText = blocked ? " (блок)" : "";
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText}{blockText} {monster.Name}.");
+                    var dmgMsg = new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = hitCrit, Hand = "main" }
+                    };
+                    await _svc.Hub.SendToClient(client, dmgMsg);
+                    await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+                }
+
+                pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+                if (monster.Health <= 0)
+                {
+                    var killDmgMsg = !evaded ? new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = hitCrit, Hand = "main" }
+                    } : null;
+                    await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
+                    return;
+                }
+
+                await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+
+                // Ставим отложенные удары 2..6
+                pl.Combat.PendingSkillHitsRemaining = Balance.DuelHitCount - 1;
                 pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
                 pl.Combat.PendingSkillTargetId = monster.Id;
                 pl.Combat.PendingSkillId = queuedSkill.Id;
@@ -561,7 +664,8 @@ public class CombatService
 
         string skillId = pl.Combat.PendingSkillId ?? "";
         bool isHolyTrinity = skillId == "SK0007";
-        string hitHand = isHolyTrinity ? "main" : "off";
+        bool isDuel = skillId == "SK0009";
+        string hitHand = (isHolyTrinity || isDuel) ? "main" : "off";
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
@@ -586,6 +690,12 @@ public class CombatService
                 effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
                 dmgMult = 2.0;
             }
+            else if (isDuel)
+            {
+                int hitNumber = Balance.DuelHitCount - pl.Combat.PendingSkillHitsRemaining;
+                effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+                dmgMult = Balance.DuelFirstHitMult + (hitNumber - 1) * Balance.DuelPerHitBonus;
+            }
             else
             {
                 effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage());
@@ -598,7 +708,7 @@ public class CombatService
             if (hitCrit)
                 hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
 
-            if (!isHolyTrinity)
+            if (!isHolyTrinity && !isDuel)
             {
                 double offHandFraction = pl.LearnedSkills.Contains("SK0003")
                     ? 0.75
@@ -610,11 +720,12 @@ public class CombatService
             if (blocked)
                 hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
             monster.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
             monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
         }
 
-        string skillName = isHolyTrinity ? "Святая троица" : "Разрез";
+        string skillName = isHolyTrinity ? "Святая троица" : isDuel ? "ЭТО ДУЭЛЬ!" : "Разрез";
         if (evaded)
         {
             await ChatTo(client, ChatChannel.Combat, "Бой",
@@ -683,6 +794,420 @@ public class CombatService
             Type = "combat_state",
             Data = new { InCombat = true, TargetId = monster.Id.ToString(), TargetName = monster.Name, TargetHp = monster.Health, TargetMaxHp = monster.MaxHealth }
         });
+    }
+
+    // «ЭТО ДУЭЛЬ!»: наказание при смене таргета монстром (PvE)
+    private async Task ExecuteDuelPunish(Player pl, Monster monster, ClientConnection client)
+    {
+        int remainingHits = pl.Combat.PendingSkillHitsRemaining;
+        pl.Combat.PendingSkillHitsRemaining = 0;
+        pl.Combat.PendingSkillId = null;
+        pl.Combat.PendingSkillTargetId = null;
+
+        if (monster.Health <= 0) return;
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "main" }
+        });
+
+        var rng = new Random();
+        double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+        double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+        bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
+        bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
+        int hitDmg = 0;
+
+        if (!evaded && !parried)
+        {
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+            double mult = Balance.DuelPunishBaseMult + remainingHits * Balance.DuelPunishPerMissMult;
+            hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * mult);
+            hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+            if (blocked)
+                hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            monster.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, true, client);
+            monster.LastDamagedTime = DateTime.UtcNow;
+            monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+        }
+
+        if (evaded)
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"{monster.Name} уклонился от наказания «{pl.Name}»!");
+        else if (parried)
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"{monster.Name} парировал наказание «{pl.Name}»!");
+        else
+        {
+            string blockText = blocked ? " (блок)" : "";
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"«ЭТО ДУЭЛЬ!» — наказание за смену таргета: {hitDmg} урона{blockText} {monster.Name}!");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = false, Hand = "main" }
+            };
+            await _svc.Hub.SendToClient(client, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+        }
+
+        // Оглушение с 100% шансом
+        if (!evaded && !parried)
+        {
+            var stun = ActiveDebuff.Create(DebuffType.Stun, 0,
+                Balance.DuelStunMs, "skill", "Оглушение (Дуэль)",
+                $"Оглушение на {Balance.DuelStunMs / 1000} сек. — наказание за смену таргета.");
+            _svc.Debuffs.ApplyDebuff(monster, stun);
+        }
+
+        if (monster.Health <= 0)
+        {
+            var killDmgMsg = !evaded ? new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = false, Hand = "main" }
+            } : null;
+            await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
+            return;
+        }
+
+        await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+    }
+
+    private async Task HandlePvPDeath(Player killer, Player victim, ClientConnection? killerClient)
+    {
+        victim.Combat.Cancel();
+        victim.Interaction.Clear();
+        victim.Movement.Stop();
+        victim.IsDead = true;
+        victim.DeathTime = DateTime.UtcNow;
+
+        int lostGold = Balance.ComputeDeathGoldLoss(victim.Gold);
+        victim.Gold -= lostGold;
+
+        var victimClient = _svc.World.FindClientByPlayer(victim);
+        if (victimClient != null)
+        {
+            await _svc.Hub.SendToClient(victimClient, GameMessage.ResetCombat());
+            await _svc.Hub.SendToClient(victimClient, GameMessage.PlayerDeath(lostGold));
+            await ChatTo(victimClient, ChatChannel.System, "Система",
+                $"Вы погибли в PvP от {killer.Name}! Возрождение через 5 сек...");
+        }
+
+        Log.Info($"{killer.Name} убил {victim.Name} в PvP!");
+        if (killerClient != null)
+            await ChatTo(killerClient, ChatChannel.System, "Система", $"Вы победили {victim.Name} в PvP!");
+    }
+
+    // «Кровопускание» (SK0010): лечение части урона, нанесённого мечом (ближний бой, не кастер/лук).
+    private async Task TryLifesteal(Player pl, int dealt, bool isMelee, ClientConnection? client)
+    {
+        if (dealt <= 0) return;
+        if (!pl.LearnedSkills.Contains("SK0010")) return;
+        if (!isMelee || !IsWieldingMelee(pl)) return;
+
+        int heal = (int)(dealt * Balance.LifestealFraction);
+        if (heal <= 0) return;
+        int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
+        if (pl.Health >= maxHp) return;
+
+        pl.Health = Math.Min(maxHp, pl.Health + heal);
+        if (client != null)
+        {
+            await _svc.Hub.SendStatusAsync(client, pl);
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"«Кровопускание»: +{heal} HP.");
+        }
+    }
+
+    private static bool IsWieldingMelee(Player pl)
+    {
+        var w = pl.Equipment.GetEffectiveMainHandWeapon() ?? pl.Equipment.GetOffHandWeapon();
+        if (w == null) return false;
+        string sub = w.WeaponSubtype ?? "";
+        return sub != "staff" && sub != "bow" && sub != "grimoire" && sub != "sphere";
+    }
+
+    // «ЭТО ДУЭЛЬ!»: первый удар по PvP-цели
+    private async Task ExecutePvPFirstHit(Player pl, Player target, ClientConnection atkClient, Skill skill, int weaponRange)
+    {
+        int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
+        pl.Mana = Math.Max(0, pl.Mana - skill.MpCost);
+        pl.LastSkillUse[skill.Id] = DateTime.UtcNow;
+        pl.QueuedSkillIds.RemoveAt(0);
+        await MessageHandlers.UseSkillHandler.SendSkillQueue(atkClient, pl);
+        await _svc.Hub.SendToClient(atkClient, new GameMessage
+        {
+            Type = "skill_cooldown",
+            Data = new { SkillId = skill.Id, RemainingMs = skill.CooldownMs, TotalMs = skill.CooldownMs }
+        });
+
+        pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "main" }
+        });
+
+        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
+        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+
+        int hitDmg = 0;
+        bool hitCrit = false;
+        string critText = "";
+        if (!isEvaded && !isParried)
+        {
+            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * skill.DamageMultiplier);
+            hitCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+            if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
+            if (isBlocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            target.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, dist <= 1, atkClient);
+            target.LastDamagedTime = DateTime.UtcNow;
+        }
+
+        if (isEvaded)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от первого удара «{skill.Name}».");
+        else if (isParried)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал первый удар «{skill.Name}»!");
+        else
+        {
+            critText = hitCrit ? " (КРИТ!)" : "";
+            string blockText = isBlocked ? " (блок)" : "";
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"«{skill.Name}» — первый удар: {hitDmg} урона{critText}{blockText} {target.Name}.");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
+            };
+            await _svc.Hub.SendToClient(atkClient, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
+        }
+
+        var targetClient = _svc.World.FindClientByPlayer(target);
+        if (targetClient != null)
+        {
+            var hitMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
+            };
+            await _svc.Hub.SendToClient(targetClient, hitMsg);
+            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                $"{pl.Name} применил «{skill.Name}»: {hitDmg} урона{critText} вам.");
+            await _svc.Hub.SendStatusAsync(targetClient, target);
+        }
+
+        if (target.Health <= 0)
+        {
+            await HandlePvPDeath(pl, target, atkClient);
+            return;
+        }
+
+        // «ЭТО ДУЭЛЬ!»: наказание «армируется» только если цель САМА атаковала игрока.
+        // Игроки сами решают, кого атаковать — принудительно таргет не ставим.
+        pl.Combat.DuelPunishArmed = target.Combat.TargetPlayerId == pl.Id;
+
+        await _svc.Hub.SendStatusAsync(atkClient, pl);
+        if (targetClient != null)
+            await _svc.Hub.SendToClient(targetClient, new GameMessage
+            {
+                Type = "combat_state",
+                Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
+            });
+
+        // Отложенные удары 2..6
+        pl.Combat.PendingSkillHitsRemaining = Balance.DuelHitCount - 1;
+        pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+        pl.Combat.PendingSkillTargetId = target.Id;
+        pl.Combat.PendingSkillId = skill.Id;
+    }
+
+    // «ЭТО ДУЭЛЬ!»: продолжение серии по PvP-цели
+    private async Task ExecuteComboHitPvP(Player pl, Player target, ClientConnection atkClient)
+    {
+        pl.Combat.PendingSkillHitsRemaining--;
+        bool moreHits = pl.Combat.PendingSkillHitsRemaining > 0;
+        if (!moreHits) pl.Combat.PendingSkillTargetId = null;
+
+        if (target.Health <= 0) return;
+
+        int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
+        int hitNumber = Balance.DuelHitCount - pl.Combat.PendingSkillHitsRemaining;
+        double mult = Balance.DuelFirstHitMult + (hitNumber - 1) * Balance.DuelPerHitBonus;
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "main" }
+        });
+
+        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
+        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+
+        int hitDmg = 0;
+        bool hitCrit = false;
+        string critText = "";
+        if (!isEvaded && !isParried)
+        {
+            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * mult);
+            hitCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+            if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
+            if (isBlocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            target.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, dist <= 1, atkClient);
+            target.LastDamagedTime = DateTime.UtcNow;
+        }
+
+        if (isEvaded)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от удара «ЭТО ДУЭЛЬ!».");
+        else if (isParried)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал удар «ЭТО ДУЭЛЬ!»!");
+        else
+        {
+            critText = hitCrit ? " (КРИТ!)" : "";
+            string blockText = isBlocked ? " (блок)" : "";
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"«ЭТО ДУЭЛЬ!»: {hitDmg} урона{critText}{blockText} {target.Name}.");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
+            };
+            await _svc.Hub.SendToClient(atkClient, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
+        }
+
+        var targetClient = _svc.World.FindClientByPlayer(target);
+        if (targetClient != null)
+        {
+            var hitMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
+            };
+            await _svc.Hub.SendToClient(targetClient, hitMsg);
+            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                $"{pl.Name} нанёс вам {hitDmg} урона{critText} «ЭТО ДУЭЛЬ!».");
+            await _svc.Hub.SendStatusAsync(targetClient, target);
+        }
+
+        pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+        if (target.Health <= 0)
+        {
+            await HandlePvPDeath(pl, target, atkClient);
+            return;
+        }
+
+        if (moreHits) pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+
+        await _svc.Hub.SendStatusAsync(atkClient, pl);
+        if (targetClient != null)
+            await _svc.Hub.SendToClient(targetClient, new GameMessage
+            {
+                Type = "combat_state",
+                Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
+            });
+    }
+
+    // «ЭТО ДУЭЛЬ!»: наказание при смене таргета PvP-целью
+    private async Task ExecuteDuelPunishPvP(Player pl, Player target, ClientConnection atkClient)
+    {
+        int remainingHits = pl.Combat.PendingSkillHitsRemaining;
+        pl.Combat.PendingSkillHitsRemaining = 0;
+        pl.Combat.PendingSkillId = null;
+        pl.Combat.PendingSkillTargetId = null;
+        pl.Combat.DuelPunishArmed = false;
+
+        if (target.Health <= 0) return;
+
+        int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "main" }
+        });
+
+        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
+        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+
+        int hitDmg = 0;
+        if (!isEvaded && !isParried)
+        {
+            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            double mult = Balance.DuelPunishBaseMult + remainingHits * Balance.DuelPunishPerMissMult;
+            hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * mult);
+            if (isBlocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            target.Health -= hitDmg;
+                    await TryLifesteal(pl, hitDmg, dist <= 1, atkClient);
+            target.LastDamagedTime = DateTime.UtcNow;
+        }
+
+        if (isEvaded)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от наказания «ЭТО ДУЭЛЬ!»!");
+        else if (isParried)
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал наказание «ЭТО ДУЭЛЬ!»!");
+        else
+        {
+            string blockText = isBlocked ? " (блок)" : "";
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"«ЭТО ДУЭЛЬ!» — наказание за смену таргета: {hitDmg} урона{blockText} {target.Name}!");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false }
+            };
+            await _svc.Hub.SendToClient(atkClient, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
+        }
+
+        var targetClient = _svc.World.FindClientByPlayer(target);
+        if (targetClient != null)
+        {
+            var hitMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false }
+            };
+            await _svc.Hub.SendToClient(targetClient, hitMsg);
+            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                $"{pl.Name} наказал вас сменой таргета «ЭТО ДУЭЛЬ!»: {hitDmg} урона.");
+            await _svc.Hub.SendStatusAsync(targetClient, target);
+        }
+
+        // Оглушение с 100% шансом
+        if (!isEvaded && !isParried)
+        {
+            var stun = ActiveDebuff.Create(DebuffType.Stun, 0,
+                Balance.DuelStunMs, "skill", "Оглушение (Дуэль)",
+                $"Оглушение на {Balance.DuelStunMs / 1000} сек. — наказание за смену таргета.");
+            _svc.Debuffs.ApplyDebuff(target, stun);
+        }
+
+        if (target.Health <= 0)
+        {
+            await HandlePvPDeath(pl, target, atkClient);
+            return;
+        }
+
+        await _svc.Hub.SendStatusAsync(atkClient, pl);
+        if (targetClient != null)
+            await _svc.Hub.SendToClient(targetClient, new GameMessage
+            {
+                Type = "combat_state",
+                Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
+            });
     }
 
     private async Task ApplyHolyTrinityDebuff(Player pl, Monster monster, ClientConnection client, Random rng)
@@ -783,6 +1308,8 @@ public class CombatService
 
         if (meleeDmg <= 0) return;
 
+        await TryLifesteal(pl, meleeDmg, true, client);
+
         offMonster.Health -= meleeDmg;
         offMonster.LastDamagedTime = DateTime.UtcNow;
         offMonster.DamageTracker[pl.Id] = offMonster.DamageTracker.GetValueOrDefault(pl.Id) + meleeDmg;
@@ -833,6 +1360,7 @@ public class CombatService
     public bool ChaseTarget(Player pl, Monster monster)
     {
         if (_svc.Debuffs.HasDebuff(pl, DebuffType.Stun)) return false;
+        if (_svc.Debuffs.HasDebuff(pl, DebuffType.Root)) return false;
         int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
         bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
         if (!canMove) return false;
@@ -1172,6 +1700,38 @@ public class CombatService
         var atkClient = _svc.World.FindClientByPlayer(pl);
         if (atkClient == null) return false;
 
+        // «ЭТО ДУЭЛЬ!»: комбо / наказание в PvP
+        if (pl.Combat.PendingSkillHitsRemaining > 0)
+        {
+            if (pl.Combat.PendingSkillId == "SK0009" && pl.Combat.DuelPunishArmed && target.Combat.TargetPlayerId != pl.Id)
+            {
+                await ExecuteDuelPunishPvP(pl, target, atkClient);
+                return true;
+            }
+            if (pl.Combat.PendingSkillTargetId != target.Id)
+            {
+                pl.Combat.PendingSkillHitsRemaining = 0;
+                pl.Combat.PendingSkillId = null;
+            }
+            else
+            {
+                double elapsed = (DateTime.UtcNow - pl.Combat.PendingSkillLastHitTime).TotalMilliseconds;
+                if (elapsed >= Balance.SlashHitIntervalMs)
+                    await ExecuteComboHitPvP(pl, target, atkClient);
+                else
+                    await _svc.Hub.SendStatusAsync(atkClient, pl);
+                return true;
+            }
+        }
+
+        await ProcessInstantBuffs(pl, atkClient);
+        var queuedSkill = await ProcessSkillQueue(pl, atkClient);
+        if (queuedSkill != null && queuedSkill.Id == "SK0009")
+        {
+            await ExecutePvPFirstHit(pl, target, atkClient, queuedSkill, weaponRange);
+            return true;
+        }
+
         int attackIntervalMs = Balance.AttackIntervalMs(
             Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
         double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
@@ -1226,6 +1786,7 @@ public class CombatService
         else
         {
             target.Health -= finalDmg;
+                    await TryLifesteal(pl, finalDmg, dist <= 1, atkClient);
             target.LastDamagedTime = DateTime.UtcNow;
 
             string critText = isCrit ? " (КРИТ!)" : "";
@@ -1274,26 +1835,7 @@ public class CombatService
         // Смерть PvP цели — без штрафа, просто респаун
         if (target.Health <= 0)
         {
-            target.Combat.Cancel();
-            target.Interaction.Clear();
-            target.Movement.Stop();
-            target.IsDead = true;
-            target.DeathTime = DateTime.UtcNow;
-
-            var targetClient = _svc.World.FindClientByPlayer(target);
-            if (targetClient != null)
-            {
-                await _svc.Hub.SendToClient(targetClient, GameMessage.ResetCombat());
-                await _svc.Hub.SendToClient(targetClient, GameMessage.PlayerDeath(0));
-                await ChatTo(targetClient, ChatChannel.System, "Система",
-                    $"Вы погибли в PvP от {pl.Name}! Возрождение через 5 сек...");
-            }
-
-            Log.Info($"{pl.Name} убил {target.Name} в PvP!");
-
-            var atkConn = _svc.World.FindClientByPlayer(pl);
-            if (atkConn != null)
-                await ChatTo(atkConn, ChatChannel.System, "Система", $"Вы победили {target.Name} в PvP!");
+            await HandlePvPDeath(pl, target, atkClient);
         }
 
         return true;

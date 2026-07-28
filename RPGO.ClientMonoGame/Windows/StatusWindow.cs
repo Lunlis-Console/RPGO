@@ -375,17 +375,19 @@ public class StatusWindow : GameWindow
     {
         if (p == null) return;
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, RowH), RowBg);
-        DrawText(sb, name, cx + 6, cy + 3, DimColor);
-        DrawText(sb, $"база {p.Base}", cx + 120, cy + 3, DimColor);
+        DrawText(sb, name, cx + 10, cy + 3, DimColor);
+        DrawText(sb, $"баз {p.Base}", cx + 100, cy + 3, DimColor);
         if (p.WeaponDamageMax > 0)
         {
             string wDmg = p.WeaponDamageMin == p.WeaponDamageMax
-                ? $"оруж {p.WeaponDamageMax}"
-                : $"оруж {p.WeaponDamageMin}-{p.WeaponDamageMax}";
-            DrawText(sb, wDmg, cx + 180, cy + 3, DimColor);
+                ? $"орж {p.WeaponDamageMax}"
+                : $"орж {p.WeaponDamageMin}-{p.WeaponDamageMax}";
+            DrawText(sb, wDmg, cx + 170, cy + 3, DimColor);
         }
-        DrawText(sb, $"атриб {p.AttrBonus} + экип {p.EquipBonus}", cx + 260, cy + 3, DimColor);
-        DrawText(sb, $"= {p.Total}", cx + cw - 70, cy + 3, StatColor);
+        string parts = $"атр {p.AttrBonus} + экп {p.EquipBonus}";
+        if (p.SkillBonus > 0) parts += $" + нв {p.SkillBonus}";
+        DrawText(sb, parts, cx + 230, cy + 3, DimColor);
+        DrawText(sb, $"= {p.Total}", cx + cw - 52, cy + 3, StatColor);
         cy += RowH;
     }
 

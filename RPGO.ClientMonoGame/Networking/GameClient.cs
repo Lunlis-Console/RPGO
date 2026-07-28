@@ -275,6 +275,7 @@ public sealed class GameClient
                     break;
 
                 case "shop_response":
+                case "shop_update":
                     var shop = message.Deserialize<ShopData>();
                     if (shop != null)
                         Ui(() => ShopUpdated?.Invoke(shop));

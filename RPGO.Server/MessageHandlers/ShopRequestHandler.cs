@@ -36,7 +36,7 @@ public class ShopRequestHandler : BaseHandler
                     Value = Balance.BuybackPrice(i.Value),
                     OriginalValue = i.Value,
                     i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
-                    IsBuyback = true
+                    i.Quantity, IsBuyback = true
                 }).ToList(),
                 PlayerGold = player.Gold
             }

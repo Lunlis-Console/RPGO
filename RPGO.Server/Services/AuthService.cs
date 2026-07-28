@@ -123,11 +123,12 @@ public class AuthService
                             HotbarSlots = account.PlayerData.HotbarSlots,
                             SkillPoints = account.PlayerData.SkillPoints,
                             LearnedSkills = account.PlayerData.LearnedSkills,
+                            Mana = account.PlayerData.Mana,
                             MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
                             IsAdmin = account.IsAdmin,
                             CurrentZoneId = account.PlayerData.CurrentZoneId
                         };
-                        player.Mana = player.MaxMana;
+                        // Mana loaded from saved data (not refilled on login)
 
                         if (player.Name.Equals("test", StringComparison.OrdinalIgnoreCase)
                             || player.Name.Equals("тест", StringComparison.OrdinalIgnoreCase))
