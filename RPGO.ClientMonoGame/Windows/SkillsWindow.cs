@@ -16,9 +16,10 @@ public class SkillsWindow : GameWindow
     private NodeLayout? _hoverNode;
 
     private const int HeaderH = 24;
-    private const int NodeW = 150;
-    private const int NodeH = 56;
-    private const int NodeGapY = 26;
+    private const int PathTitleH = 22;
+    private const int NodeW = 48;
+    private const int NodeH = 48;
+    private const int NodeGapY = 12;
     private const int ColGapX = 16;
     private const int BranchHeaderH = 22;
 
@@ -145,7 +146,7 @@ public class SkillsWindow : GameWindow
         var byId = new Dictionary<string, NodeLayout>();
 
         int startX = ContentX;
-        int startY = ContentY + HeaderH;
+        int startY = ContentY + HeaderH + PathTitleH;
 
         int colX = startX;
         foreach (var branch in _branches)
@@ -210,6 +211,9 @@ public class SkillsWindow : GameWindow
         string ptsText = $"Очки навыков: {_skillPoints}";
         DrawText(sb, ptsText, cx + cw - (int)font.MeasureString(ptsText).X - 4, cy, _skillPoints > 0 ? new Color(255, 215, 0) : new Color(120, 120, 130));
 
+        string pathTitle = "Путь меча";
+        DrawText(sb, pathTitle, cx + cw / 2 - (int)(font.MeasureString(pathTitle).X / 2), cy + HeaderH + 2, new Color(220, 200, 130));
+
         if (_skills.Count == 0)
         {
             DrawText(sb, "Нет навыков.", cx + cw / 2 - (int)(font.MeasureString("Нет навыков.").X / 2),
@@ -242,7 +246,7 @@ public class SkillsWindow : GameWindow
             int colW = NodeW;
             var hs = font.MeasureString(branch.Name);
             colW = Math.Max(NodeW, (int)hs.X + 16);
-            DrawText(sb, branch.Name, colX, cy + HeaderH, new Color(180, 180, 200));
+            DrawText(sb, branch.Name, colX, cy + HeaderH + PathTitleH, new Color(180, 180, 200));
             colX += colW + ColGapX;
         }
 
@@ -269,27 +273,12 @@ public class SkillsWindow : GameWindow
             var spr = !string.IsNullOrEmpty(skill.IconName) ? SpriteCache.Get(skill.IconName)
                       : SpriteCache.ForItemType(skill.Type);
             if (spr != null)
-                sb.Draw(spr, new Rectangle(n.Rect.X + 6, n.Rect.Y + 8, 28, 28), Color.White);
-
-            Color nameColor = !n.Available ? new Color(110, 110, 120)
-                            : skill.Learned ? new Color(130, 220, 150) : new Color(220, 200, 120);
-            DrawText(sb, skill.Name, n.Rect.X + 40, n.Rect.Y + 6, nameColor);
-
-            DrawText(sb, $"Тир {skill.Tier}", n.Rect.X + 40, n.Rect.Y + 24, new Color(160, 160, 175));
-            if (skill.Learned)
             {
-                DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  Изучено", n.Rect.X + 6, n.Rect.Y + 40,
-                    n.Available ? new Color(100, 180, 120) : new Color(90, 110, 95));
+                int iconSize = 36;
+                int iconX = n.Rect.X + (n.Rect.Width - iconSize) / 2;
+                int iconY = n.Rect.Y + (n.Rect.Height - iconSize) / 2;
+                sb.Draw(spr, new Rectangle(iconX, iconY, iconSize, iconSize), Color.White);
             }
-            else
-            {
-                string learnHint = n.Available && _skillPoints >= skill.SkillPointCost ? "  [ЛКМ: изучить]" : "";
-                DrawText(sb, $"МП {skill.MpCost}  КД {skill.CooldownMs/1000.0:F1}с  ОЧ.нав {skill.SkillPointCost}{learnHint}", n.Rect.X + 6, n.Rect.Y + 40,
-                    n.Available ? new Color(200, 180, 100) : new Color(90, 110, 95));
-            }
-
-            if (!n.Available)
-                DrawText(sb, $"нужен ур. {skill.MinLevel}", n.Rect.X + 40, n.Rect.Y + 24 + 14, new Color(200, 120, 120));
         }
 
         // Tooltip при наведении

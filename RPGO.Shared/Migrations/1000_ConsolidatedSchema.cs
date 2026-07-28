@@ -697,8 +697,8 @@ public class ConsolidatedSchema : ForwardOnlyMigration
 
     private void SeedSkills()
     {
-        Insert.IntoTable("skills").Row(new { id = "SK0001", name = "Крепкая рука", description = "Увеличивает урон ближней атаки на 15%. 100% шанс прока оружия.", type = "active", mp_cost = 0, cooldown_ms = 5000, damage_multiplier = 1.15, min_level = 1, skill_point_cost = 1, parent_id = (string?)null, tier = 1 });
-        Insert.IntoTable("skills").Row(new { id = "SK0002", name = "Поток ударов", description = "Накладывает бафф Проворность (+30% к скорости атаки) на 10 секунд.", type = "active", mp_cost = 10, cooldown_ms = 20000, damage_multiplier = 1.0, min_level = 1, skill_point_cost = 1, parent_id = "SK0001", tier = 2 });
+        Insert.IntoTable("skills").Row(new { id = "SK0001", name = "Крепкая рука", description = "Увеличивает урон ближней атаки на 15%. 100% шанс прока оружия.", type = "Активные", mp_cost = 0, cooldown_ms = 5000, damage_multiplier = 1.15, min_level = 1, skill_point_cost = 1, parent_id = (string?)null, tier = 1 });
+        Insert.IntoTable("skills").Row(new { id = "SK0002", name = "Поток ударов", description = "Накладывает бафф Проворность (+30% к скорости атаки) на 10 секунд.", type = "Активные", mp_cost = 10, cooldown_ms = 20000, damage_multiplier = 1.0, min_level = 1, skill_point_cost = 1, parent_id = "SK0001", tier = 2 });
     }
 
     private void SeedEquipmentSlots()
