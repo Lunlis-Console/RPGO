@@ -30,7 +30,9 @@ public static class AdminCommands
             case "/ban":
                 return await HandleBan(player, args, world, hub);
             case "/unban":
-                return await HandleUnban(player, args, hub);
+                return await HandleUnban(connection, player, args, hub);
+            case "/level":
+                return await HandleLevel(connection, player, args, hub);
             default:
                 return false;
         }
@@ -193,7 +195,7 @@ public static class AdminCommands
         return true;
     }
 
-    private static async Task<bool> HandleUnban(Player player, string[] args, INetworkHub hub)
+    private static async Task<bool> HandleUnban(ClientConnection connection, Player player, string[] args, INetworkHub hub)
     {
         if (args.Length < 2)
         {
@@ -211,6 +213,32 @@ public static class AdminCommands
 
         DatabaseManager.SetBanned(login, false, "");
         await SystemToSelf(player, hub, $"Игрок {targetName} разблокирован.");
+        return true;
+    }
+
+    private static async Task<bool> HandleLevel(ClientConnection connection, Player player, string[] args, INetworkHub hub)
+    {
+        if (args.Length < 2 || !int.TryParse(args[1], out int targetLevel) || targetLevel < 1)
+        {
+            await SystemToSelf(player, hub, "Использование: /level <уровень>");
+            return true;
+        }
+
+        targetLevel = Math.Min(targetLevel, BalanceStatic.MaxLevel);
+
+        int oldLevel = player.Level;
+        player.Level = targetLevel;
+        player.MaxHealth = 100 + (targetLevel - 1) * BalanceStatic.MaxHealthPerLevel;
+        player.Health = player.MaxHealth;
+        player.AttributePoints = (targetLevel - 1) * BalanceStatic.AttributePointsPerLevel;
+        player.SkillPoints = targetLevel / 2;
+        player.Experience = 0;
+
+        DatabaseManager.SavePlayerProgress(player);
+
+        string diff = targetLevel > oldLevel ? $"+{targetLevel - oldLevel}" : $"{targetLevel - oldLevel}";
+        await SystemToSelf(player, hub, $"Уровень изменён: {oldLevel} → {targetLevel} ({diff}). HP/Очк. навыков/атрибутов обновлены.");
+        await hub.SendInventoryAndStatus(connection, player);
         return true;
     }
 

@@ -34,6 +34,12 @@ public class CombatState
     public DateTime LastAttackTime { get; set; } = DateTime.MinValue;
     public DateTime OffHandLastAttackTime { get; set; } = DateTime.MinValue;
 
+    // Комбо-навыки: отложенные удары
+    public int PendingSkillHitsRemaining { get; set; }
+    public DateTime PendingSkillLastHitTime { get; set; } = DateTime.MinValue;
+    public Guid? PendingSkillTargetId { get; set; }
+    public string? PendingSkillId { get; set; }
+
     public bool HasTarget => TargetMonsterId != null || TargetPlayerId != null;
     public bool IsPvPTarget => TargetPlayerId != null;
 
@@ -44,6 +50,8 @@ public class CombatState
         InCombat = true;
         movement.Stop();
         OffHandLastAttackTime = DateTime.MinValue;
+        PendingSkillHitsRemaining = 0;
+        PendingSkillId = null;
     }
 
     public void EnterPlayer(Guid playerId, MovementState movement)
@@ -63,6 +71,8 @@ public class CombatState
         TargetMonsterId = null;
         TargetPlayerId = null;
         InCombat = false;
+        PendingSkillHitsRemaining = 0;
+        PendingSkillId = null;
     }
 }
 

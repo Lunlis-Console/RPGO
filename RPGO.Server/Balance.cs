@@ -91,7 +91,7 @@ public static class Balance
 
     // ===== МАНА (MP) =====
     public const int ManaPerWisdom = 5;
-    public const int ManaBase = 20;
+    public const int ManaBase = 100;
     public const int ManaRegenOutOfCombat = 2;
     public const int ManaRegenOutOfCombatTickMs = 2000;
     public const double ManaRegenInCombatFraction = 0.01;
@@ -220,8 +220,22 @@ public static class Balance
     public const double AttackSpeedBonusValue = 0.30;
     public const int AttackSpeedBonusDurationMs = 10000;
 
+    // ===== ОГЛУШЕНИЕ =====
+    public const int StunDurationMs = 3000;
+    public const int StunChanceOnHit = 50;
+
+    // ===== ОБЕДВИЖЕН =====
+    public const int RootDurationMs = 3000;
+
+    // ===== СВЯТАЯ ТРОИЦА =====
+    public const int HolyTrinityDebuffChance = 15;
+    public const int HolyTrinityHitCount = 3;
+
     // Урон по area-of-effect (меч)
     public const double CleaveDamageFraction = 0.5;
+
+    // Интервал между ударами комбо-навыков (мс)
+    public const int SlashHitIntervalMs = 500;
 
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;

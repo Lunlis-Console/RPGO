@@ -492,6 +492,8 @@ public class GameScreen : IScreen
         _skillsWindow.SkillDragEnded += () => _input.HandleSkillDragEnd(GameMain.Instance!);
         _skillsWindow.LearnSkill += skillId =>
             _ = client.SendAsync("allocate_skill", new { SkillId = skillId });
+        _skillsWindow.ResetSkills += () =>
+            _ = client.SendAsync("reset_skills", new { });
 
         // Loot
         _lootWindow.TakeLoot += (corpseId, takeAll, ids, takeGold) =>

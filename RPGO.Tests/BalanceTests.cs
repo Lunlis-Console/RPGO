@@ -79,12 +79,12 @@ public class BalanceTests
     }
 
     [Fact]
-    public void MaxMana_Will1_Returns20()
-        => Assert.Equal(20, Balance.MaxMana(1));
+    public void MaxMana_Will1_Returns100()
+        => Assert.Equal(100, Balance.MaxMana(1));
 
     [Fact]
-    public void MaxMana_Will5_Returns40()
-        => Assert.Equal(40, Balance.MaxMana(5));
+    public void MaxMana_Will5_Returns120()
+        => Assert.Equal(120, Balance.MaxMana(5));
 
     [Fact]
     public void MonsterTierByDistance_ReturnsCorrectTier()

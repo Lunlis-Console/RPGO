@@ -36,6 +36,7 @@ public class CombatService
                 foreach (var pl in _svc.World.GetPlayersSnapshot())
                 {
                     if (pl.IsDead || !pl.Combat.HasTarget) continue;
+                    if (_svc.Debuffs.HasDebuff(pl, DebuffType.Stun)) continue;
 
                     // PvP target
                     if (pl.Combat.IsPvPTarget)
@@ -92,17 +93,40 @@ public class CombatService
                         var client = _svc.World.FindClientByPlayer(pl);
                         if (client == null) continue;
 
+                        // Комбо-навык: отложенный второй удар
+                        if (pl.Combat.PendingSkillHitsRemaining > 0)
+                        {
+                            if (pl.Combat.PendingSkillTargetId != monster.Id)
+                            {
+                                pl.Combat.PendingSkillHitsRemaining = 0;
+                                pl.Combat.PendingSkillId = null;
+                            }
+                            else
+                            {
+                                double elapsed = (DateTime.UtcNow - pl.Combat.PendingSkillLastHitTime).TotalMilliseconds;
+                                if (elapsed >= Balance.SlashHitIntervalMs)
+                                {
+                                    await ExecuteComboHit(pl, monster, client);
+                                    changed = true;
+                                }
+                                await _svc.Hub.SendStatusAsync(client, pl);
+                                changed = true;
+                                continue;
+                            }
+                        }
+
                         // Бафф-навыки применяются сразу, не дожидаясь атаки
                         await ProcessInstantBuffs(pl, client);
 
+                        var queuedSkill = await ProcessSkillQueue(pl, client);
+                        bool hasAttackSkill = queuedSkill != null && !InstantBuffSkills.Contains(queuedSkill.Id);
+
                         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
 
-                        if (!mainAttackReady && !offHandReady) continue;
-
-                        var queuedSkill = await ProcessSkillQueue(pl, client);
+                        if (!mainAttackReady && !offHandReady && !hasAttackSkill) continue;
 
                         bool mainFired = false;
-                        if (mainAttackReady)
+                        if (mainAttackReady || hasAttackSkill)
                         {
                             mainFired = true;
                             await ExecuteMainHandAttack(pl, monster, client, queuedSkill, weaponRange);
@@ -207,22 +231,202 @@ public class CombatService
                 });
                 await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Проворность на 10 сек.");
             }
+            else if (queuedSkill.Id == "SK0004")
+            {
+                pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
+                pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
+                });
+
+                // Первый удар — правая рука
+                await _svc.Hub.SendToAllAsync(new GameMessage
+                {
+                    Type = "player_attack",
+                    Data = new { PlayerName = pl.Name, Hand = "main" }
+                });
+
+                var rng = new Random();
+                double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+                double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+                bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+                int hitDmg = 0;
+                bool hitCrit = false;
+
+                if (!evaded)
+                {
+                    hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+                    int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+                    hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * queuedSkill.DamageMultiplier);
+                    if (hitCrit)
+                        hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+                    hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+                    monster.Health -= hitDmg;
+                    monster.LastDamagedTime = DateTime.UtcNow;
+                    monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+                }
+
+                if (evaded)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} уклонился от первого удара «{queuedSkill.Name}».");
+                }
+                else
+                {
+                    string critText = hitCrit ? " (КРИТ!)" : "";
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText} {monster.Name}.");
+                    var dmgMsg = new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = hitCrit, Hand = "main" }
+                    };
+                    await _svc.Hub.SendToClient(client, dmgMsg);
+                    await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+                }
+
+                pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+                if (monster.Health <= 0)
+                {
+                    var killDmgMsg = !evaded ? new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = hitCrit, Hand = "main" }
+                    } : null;
+                    await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
+                    return;
+                }
+
+                await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+
+                // Ставим отложенный второй удар
+                pl.Combat.PendingSkillHitsRemaining = 1;
+                pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+                pl.Combat.PendingSkillTargetId = monster.Id;
+                pl.Combat.PendingSkillId = queuedSkill.Id;
+                return;
+            }
+            else if (queuedSkill.Id == "SK0007")
+            {
+                pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
+                pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
+                });
+
+                // Первый удар — правая рука
+                await _svc.Hub.SendToAllAsync(new GameMessage
+                {
+                    Type = "player_attack",
+                    Data = new { PlayerName = pl.Name, Hand = "main" }
+                });
+
+                var rng = new Random();
+                double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+                double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+                bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+                int hitDmg = 0;
+                bool hitCrit = false;
+
+                if (!evaded)
+                {
+                    hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+                    int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+                    hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * queuedSkill.DamageMultiplier);
+                    if (hitCrit)
+                        hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+                    hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+                    monster.Health -= hitDmg;
+                    monster.LastDamagedTime = DateTime.UtcNow;
+                    monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+                }
+
+                if (evaded)
+                {
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"{monster.Name} уклонился от первого удара «{queuedSkill.Name}».");
+                }
+                else
+                {
+                    string critText = hitCrit ? " (КРИТ!)" : "";
+                    await ChatTo(client, ChatChannel.Combat, "Бой",
+                        $"«{queuedSkill.Name}» — первый удар: {hitDmg} урона{critText} {monster.Name}.");
+                    var dmgMsg = new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = hitCrit, Hand = "main" }
+                    };
+                    await _svc.Hub.SendToClient(client, dmgMsg);
+                    await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+
+                    if (rng.Next(Balance.ChanceRollMax) < Balance.HolyTrinityDebuffChance)
+                    {
+                        await ApplyHolyTrinityDebuff(pl, monster, client, rng);
+                    }
+                }
+
+                pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+                if (monster.Health <= 0)
+                {
+                    var killDmgMsg = !evaded ? new GameMessage
+                    {
+                        Type = "damage",
+                        Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = hitCrit, Hand = "main" }
+                    } : null;
+                    await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
+                    return;
+                }
+
+                await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+
+                // Ставим отложенные удары 2 и 3
+                pl.Combat.PendingSkillHitsRemaining = 2;
+                pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+                pl.Combat.PendingSkillTargetId = monster.Id;
+                pl.Combat.PendingSkillId = queuedSkill.Id;
+                return;
+            }
             else
             {
-            int baseDamage = (int)Math.Max(Balance.MinDamage,
-                _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - _svc.Monsters.GetEffectiveDefense(monster));
-            int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
-            dmgToMonster = _svc.Monsters.ApplyDmgReduction(pl, skillDamage);
-            pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
-            pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
-            pl.QueuedSkillIds.RemoveAt(0);
-            await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
-            await _svc.Hub.SendToClient(client, new GameMessage
+                int baseDamage = (int)Math.Max(Balance.MinDamage,
+                    _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - _svc.Monsters.GetEffectiveDefense(monster));
+                int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier);
+                dmgToMonster = _svc.Monsters.ApplyDmgReduction(pl, skillDamage);
+                pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
+                pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
+                pl.QueuedSkillIds.RemoveAt(0);
+                await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "skill_cooldown",
+                    Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
+                });
+                await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
+            }
+        }
+
+        if (queuedSkill?.Id == "SK0001" && dmgToMonster > 0)
+        {
+            var rngStun = new Random();
+            if (rngStun.Next(Balance.ChanceRollMax) < Balance.StunChanceOnHit)
             {
-                Type = "skill_cooldown",
-                Data = new { SkillId = queuedSkill.Id, RemainingMs = queuedSkill.CooldownMs, TotalMs = queuedSkill.CooldownMs }
-            });
-            await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{queuedSkill.Name}»! Урон x{queuedSkill.DamageMultiplier}.");
+                var stun = ActiveDebuff.Create(DebuffType.Stun, 0,
+                    Balance.StunDurationMs, "skill", "Оглушение",
+                    $"Оглушение на {Balance.StunDurationMs / 1000} сек.");
+                _svc.Debuffs.ApplyDebuff(monster, stun);
+                await ChatTo(client, ChatChannel.Combat, "Бой",
+                    $"«Крепкая рука» оглушил {monster.Name} на {Balance.StunDurationMs / 1000} сек.!");
+                await SendTargetDebuffUpdateAsync(monster);
             }
         }
 
@@ -318,6 +522,148 @@ public class CombatService
             pl.Combat.OffHandLastAttackTime = DateTime.MinValue;
             await HandlePlayerDeath(pl, client);
         }
+    }
+
+    // ──────────────── Комбо-удар (продолжение навыка) ────────────────
+
+    private async Task ExecuteComboHit(Player pl, Monster monster, ClientConnection client)
+    {
+        pl.Combat.PendingSkillHitsRemaining--;
+        bool moreHits = pl.Combat.PendingSkillHitsRemaining > 0;
+        if (!moreHits)
+            pl.Combat.PendingSkillTargetId = null;
+
+        if (monster.Health <= 0) return;
+
+        string skillId = pl.Combat.PendingSkillId ?? "";
+        bool isHolyTrinity = skillId == "SK0007";
+        string hitHand = isHolyTrinity ? "main" : "off";
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = hitHand }
+        });
+
+        var rng = new Random();
+        double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+        int hitDmg = 0;
+        bool hitCrit = false;
+
+        if (!evaded)
+        {
+            double effAttack;
+            double dmgMult;
+            if (isHolyTrinity)
+            {
+                effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
+                dmgMult = 2.0;
+            }
+            else
+            {
+                effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage());
+                dmgMult = 1.5;
+            }
+
+            hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+            hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
+            if (hitCrit)
+                hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+
+            if (!isHolyTrinity)
+            {
+                double offHandFraction = pl.LearnedSkills.Contains("SK0003")
+                    ? 0.75
+                    : Equipment.OffHandDamageFraction;
+                hitDmg = Math.Max(Balance.MinDamage, (int)(hitDmg * offHandFraction));
+            }
+
+            hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
+            monster.Health -= hitDmg;
+            monster.LastDamagedTime = DateTime.UtcNow;
+            monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+        }
+
+        string skillName = isHolyTrinity ? "Святая троица" : "Разрез";
+        if (evaded)
+        {
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"{monster.Name} уклонился от удара «{skillName}».");
+        }
+        else
+        {
+            string critText = hitCrit ? " (КРИТ!)" : "";
+            string handLabel = isHolyTrinity ? "" : " — левая рука";
+            await ChatTo(client, ChatChannel.Combat, "Бой",
+                $"«{skillName}»{handLabel}: {hitDmg} урона{critText} {monster.Name}.");
+            var dmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = hitCrit, Hand = hitHand }
+            };
+            await _svc.Hub.SendToClient(client, dmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+
+            if (isHolyTrinity && rng.Next(Balance.ChanceRollMax) < Balance.HolyTrinityDebuffChance)
+            {
+                await ApplyHolyTrinityDebuff(pl, monster, client, rng);
+            }
+        }
+
+        pl.Combat.LastAttackTime = DateTime.UtcNow;
+
+        if (monster.Health <= 0)
+        {
+            var killDmgMsg = !evaded ? new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = hitCrit, Hand = hitHand }
+            } : null;
+            await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
+            return;
+        }
+
+        if (moreHits)
+        {
+            pl.Combat.PendingSkillLastHitTime = DateTime.UtcNow;
+        }
+
+        await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+        await _svc.Hub.SendToClient(client, new GameMessage
+        {
+            Type = "combat_state",
+            Data = new { InCombat = true, TargetId = monster.Id.ToString(), TargetName = monster.Name, TargetHp = monster.Health, TargetMaxHp = monster.MaxHealth }
+        });
+    }
+
+    private async Task ApplyHolyTrinityDebuff(Player pl, Monster monster, ClientConnection client, Random rng)
+    {
+        int roll = rng.Next(3);
+        ActiveDebuff debuff;
+        switch (roll)
+        {
+            case 0:
+                debuff = ActiveDebuff.Create(DebuffType.Root, 0,
+                    Balance.RootDurationMs, "skill", "Обездвижен",
+                    $"Обездвиживает на {Balance.RootDurationMs / 1000} сек.");
+                break;
+            case 1:
+                debuff = ActiveDebuff.Create(DebuffType.DamageReduction, Balance.MaceDamageReductionValue,
+                    Balance.MaceDisarmDurationMs, "skill", "Обезоружен",
+                    $"Снижает урон цели на {(int)(Balance.MaceDamageReductionValue * 100)}%");
+                break;
+            default:
+                debuff = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.HammerAccuracyReductionValue,
+                    Balance.HammerStunDurationMs, "skill", "Контузия",
+                    $"Снижает точность цели на {(int)(Balance.HammerAccuracyReductionValue * 100)}%");
+                break;
+        }
+        _svc.Debuffs.ApplyDebuff(monster, debuff);
+        await ChatTo(client, ChatChannel.Combat, "Бой",
+            $"«Святая троица» наложила «{debuff.DisplayName}» на {monster.Name}!");
+        await SendTargetDebuffUpdateAsync(monster);
     }
 
     public async Task ExecuteOffHandAttack(Player pl, ClientConnection client)
@@ -427,6 +773,7 @@ public class CombatService
 
     public bool ChaseTarget(Player pl, Monster monster)
     {
+        if (_svc.Debuffs.HasDebuff(pl, DebuffType.Stun)) return false;
         int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
         bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
         if (!canMove) return false;

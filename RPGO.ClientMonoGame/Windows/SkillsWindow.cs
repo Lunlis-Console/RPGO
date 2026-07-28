@@ -34,6 +34,7 @@ public class SkillsWindow : GameWindow
 
     public Action<string>? UseSkill { get; set; }
     public Action<string>? LearnSkill { get; set; }
+    public Action? ResetSkills { get; set; }
     public Action<ClientSkillInfo?>? SkillDragStateChanged { get; set; }
     public Action? SkillDragEnded { get; set; }
 
@@ -97,6 +98,23 @@ public class SkillsWindow : GameWindow
         bool pressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
         bool released = mouse.LeftButton == ButtonState.Released && _prevMouse.LeftButton == ButtonState.Pressed;
         var (nodes, _) = Layout(mouse);
+
+        // Кнопка «Сброс навыков»
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font != null && pressed)
+        {
+            string resetText = "Сброс навыков";
+            var resetSz = font.MeasureString(resetText);
+            int btnW = (int)resetSz.X + 16;
+            int btnH = 22;
+            int btnX = ContentX + ContentW - btnW;
+            int btnY = ContentY + ContentH - btnH;
+            var resetRect = new Rectangle(btnX, btnY, btnW, btnH);
+            if (resetRect.Contains(mouse.X, mouse.Y))
+            {
+                ResetSkills?.Invoke();
+            }
+        }
 
         if (pressed)
         {
@@ -284,6 +302,22 @@ public class SkillsWindow : GameWindow
         // Tooltip при наведении
         if (_hoverNode != null)
             DrawTooltip(sb, _hoverNode.Skill, mouse);
+
+        // Кнопка «Сброс навыков»
+        {
+            string resetText = "Сброс навыков";
+            var resetSz = font.MeasureString(resetText);
+            int btnW = (int)resetSz.X + 16;
+            int btnH = 22;
+            int btnX = cx + cw - btnW;
+            int btnY = cy + ch - btnH;
+            var resetRect = new Rectangle(btnX, btnY, btnW, btnH);
+            bool resetHover = resetRect.Contains(mouse.X, mouse.Y);
+            Color resetBg = resetHover ? new Color(120, 50, 50) : new Color(80, 35, 35);
+            sb.Draw(SpriteCache.Pixel, resetRect, resetBg);
+            DrawRect(sb, resetRect, new Color(160, 70, 70), 1);
+            DrawText(sb, resetText, btnX + 8, btnY + 3, new Color(220, 160, 160));
+        }
     }
 
     private void DrawTooltip(SpriteBatch sb, ClientSkillInfo skill, MouseState mouse)
@@ -291,26 +325,67 @@ public class SkillsWindow : GameWindow
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
+        bool isPassive = skill.Type == "Пассивные";
+
         var lines = new List<string>
         {
             skill.Name,
-            $"Тир {skill.Tier}  |  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type)}",
-            $"МП: {skill.MpCost}   КД: {skill.CooldownMs}мс   x{skill.DamageMultiplier:F1}   ОЧ.нав: {skill.SkillPointCost}",
-            $"Мин. уровень: {skill.MinLevel}",
-            skill.Learned ? "Изучено" : $"Для изучения: ЛКМ ({skill.SkillPointCost} оч. навыков)"
+            $"Тир {skill.Tier}  |  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type)}"
         };
+
+        if (!isPassive)
+            lines.Add($"МП: {skill.MpCost}   КД: {skill.CooldownMs}мс   x{skill.DamageMultiplier:F1}   ОЧ.нав: {skill.SkillPointCost}");
+        else
+            lines.Add($"ОЧ.навыков: {skill.SkillPointCost}");
+
+        lines.Add($"Мин. уровень: {skill.MinLevel}");
+
+        lines.Add(skill.Learned ? "Изучено" : $"Для изучения: ЛКМ ({skill.SkillPointCost} оч. навыков)");
+
         if (!string.IsNullOrEmpty(skill.Description))
             lines.Add(skill.Description);
         if (!string.IsNullOrEmpty(skill.ParentId))
             lines.Add("Требует родительский навык");
 
+        int maxW = 260;
         int pad = 8;
-        float tw = 0;
-        foreach (var l in lines) tw = Math.Max(tw, font.MeasureString(l).X);
-        int th = lines.Count * 18 + pad * 2;
+        int lineH = 18;
+
+        var wrapped = new List<(string text, Color color)>();
+        for (int i = 0; i < lines.Count; i++)
+        {
+            Color color = i == 0 ? new Color(230, 220, 140) : Color.White;
+            string text = lines[i];
+            if (font.MeasureString(text).X <= maxW - pad * 2)
+            {
+                wrapped.Add((text, color));
+            }
+            else
+            {
+                var words = text.Split(' ');
+                string current = "";
+                foreach (var w in words)
+                {
+                    string test = string.IsNullOrEmpty(current) ? w : current + " " + w;
+                    if (font.MeasureString(test).X > maxW - pad * 2 && !string.IsNullOrEmpty(current))
+                    {
+                        wrapped.Add((current, color));
+                        current = w;
+                    }
+                    else
+                    {
+                        current = test;
+                    }
+                }
+                if (!string.IsNullOrEmpty(current))
+                    wrapped.Add((current, color));
+            }
+        }
+
+        int ww = maxW;
+        int th = wrapped.Count * lineH + pad * 2;
         int tx = mouse.X + 16;
         int ty = mouse.Y + 16;
-        int ww = (int)tw + pad * 2;
         var g = GameMain.Instance?.Graphics;
         if (g != null)
         {
@@ -320,10 +395,9 @@ public class SkillsWindow : GameWindow
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, th), new Color(20, 22, 30, 235));
         sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(90, 150, 220));
-        for (int i = 0; i < lines.Count; i++)
+        for (int i = 0; i < wrapped.Count; i++)
         {
-            var color = i == 0 ? new Color(230, 220, 140) : Color.White;
-            sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
+            sb.DrawString(font, wrapped[i].text, new Vector2(tx + pad, ty + pad + i * lineH), wrapped[i].color);
         }
     }
 

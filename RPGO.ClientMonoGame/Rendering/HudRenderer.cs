@@ -318,11 +318,12 @@ public class HudRenderer
             lines.Add((skill.Name, new Color(255, 215, 0)));
             if (!string.IsNullOrEmpty(skill.Description))
                 lines.Add((skill.Description, new Color(180, 180, 200)));
-            if (skill.MpCost > 0)
+            bool isPassive = skill.Type == "Пассивные";
+            if (!isPassive && skill.MpCost > 0)
                 lines.Add(($"MP: {skill.MpCost}", new Color(120, 160, 255)));
-            if (skill.CooldownMs > 0)
+            if (!isPassive && skill.CooldownMs > 0)
                 lines.Add(($"Кулдаун: {skill.CooldownMs / 1000}с", new Color(200, 180, 120)));
-            if (skill.DamageMultiplier > 1)
+            if (!isPassive && skill.DamageMultiplier > 1)
                 lines.Add(($"x{skill.DamageMultiplier:F1} урон", new Color(220, 120, 120)));
             lines.Add(($"Очки навыков: {skill.SkillPointCost}", new Color(170, 170, 180)));
         }
@@ -370,13 +371,39 @@ public class HudRenderer
         int pad = 8;
         int lineGap = 3;
         float lineH = fontSmall.MeasureString("X").Y;
-        int tipW = 0;
-        foreach (var (text, _) in lines)
+        int maxW = 260;
+
+        var wrapped = new List<(string Text, Color Color)>();
+        foreach (var (text, color) in lines)
         {
-            int tw = (int)fontSmall.MeasureString(text).X + pad * 2;
-            if (tw > tipW) tipW = tw;
+            if (fontSmall.MeasureString(text).X <= maxW - pad * 2)
+            {
+                wrapped.Add((text, color));
+            }
+            else
+            {
+                var words = text.Split(' ');
+                string current = "";
+                foreach (var w in words)
+                {
+                    string test = string.IsNullOrEmpty(current) ? w : current + " " + w;
+                    if (fontSmall.MeasureString(test).X > maxW - pad * 2 && !string.IsNullOrEmpty(current))
+                    {
+                        wrapped.Add((current, color));
+                        current = w;
+                    }
+                    else
+                    {
+                        current = test;
+                    }
+                }
+                if (!string.IsNullOrEmpty(current))
+                    wrapped.Add((current, color));
+            }
         }
-        int tipH = (int)(lineH * lines.Count + lineGap * (lines.Count - 1) + pad * 2);
+
+        int tipW = maxW;
+        int tipH = (int)(lineH * wrapped.Count + lineGap * (wrapped.Count - 1) + pad * 2);
 
         var ms = Mouse.GetState();
         var vp = sb.GraphicsDevice.Viewport;
@@ -393,7 +420,7 @@ public class HudRenderer
 
         float cx = tipX + pad;
         float cy = tipY + pad;
-        foreach (var (text, color) in lines)
+        foreach (var (text, color) in wrapped)
         {
             sb.DrawString(fontSmall, text, new Vector2(cx, cy), color);
             cy += lineH + lineGap;
@@ -544,6 +571,8 @@ public class HudRenderer
             "CleaveReady" => new Color(180, 160, 40),
             "AttackSpeedBonus" => new Color(60, 160, 80),
             "DualWieldBonus" => new Color(200, 140, 60),
+            "Stun" => new Color(255, 200, 40),
+            "Root" => new Color(100, 180, 100),
             _ => new Color(80, 80, 100)
         };
         sb.Draw(SpriteCache.Pixel, rect, bg);

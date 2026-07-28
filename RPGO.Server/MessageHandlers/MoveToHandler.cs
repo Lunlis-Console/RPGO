@@ -14,6 +14,8 @@ public class MoveToHandler : BaseHandler
     {
         if (player == null) return;
         if (player.IsDead) return;
+        if (Program.Services.Debuffs.HasDebuff(player, DebuffType.Stun)) return;
+        if (Program.Services.Debuffs.HasDebuff(player, DebuffType.Root)) return;
 
         if (Program.Services.Trade.IsInTrade(player))
         {

@@ -14,6 +14,15 @@ public class UseSkillHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
+        if (Program.Services.Debuffs.HasDebuff(player, DebuffType.Stun))
+        {
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Бой", Text = "Вы оглушены и не можете применять навыки!" }
+            });
+            return;
+        }
         if (message.Data is not JsonElement el) return;
 
         string? skillId = el.TryGetProperty("SkillId", out var sid) ? sid.GetString() : null;

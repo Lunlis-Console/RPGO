@@ -121,6 +121,8 @@ public class AuthService
                             Equipment = account.PlayerData.Equipment,
                             ActiveQuests = account.PlayerData.ActiveQuests,
                             HotbarSlots = account.PlayerData.HotbarSlots,
+                            SkillPoints = account.PlayerData.SkillPoints,
+                            LearnedSkills = account.PlayerData.LearnedSkills,
                             MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
                             IsAdmin = account.IsAdmin,
                             CurrentZoneId = account.PlayerData.CurrentZoneId

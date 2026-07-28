@@ -176,6 +176,8 @@ public class MonsterManager
         foreach (var m in monsters)
         {
             if (m.IsMannequin) continue;
+            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Stun)) continue;
+            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Root)) continue;
 
             // === LEASH: моб возвращается на спавн ===
             if (m.ReturningToSpawn)
@@ -424,12 +426,21 @@ public class MonsterManager
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
         double accuracyReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
-        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100);
+        double passiveAccuracyBonus = 0;
+        double passiveCritBonus = 0;
+        if (attacker is Player plPassive && plPassive.LearnedSkills.Contains("SK0006")
+            && Program.Services.Debuffs.HasDebuff(defender, DebuffType.Stun))
+        {
+            passiveAccuracyBonus = 10;
+            passiveCritBonus = 10;
+        }
+
+        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus);
         int attackerDamage = 0;
         bool isCrit = false;
         if (!defenderEvaded)
         {
-            isCrit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            isCrit = rng.Next(Balance.ChanceRollMax) < (attacker.GetCritChance() + passiveCritBonus);
             int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
             attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
             attackerDamage = ApplyDmgReduction(attacker, attackerDamage);

@@ -13,8 +13,8 @@ public class Player : ICombatant
     public int Gold { get; set; }
 
     // Мана (MP)
-    public int Mana { get; set; } = 20;
-    public int MaxMana { get; set; } = 20;
+    public int Mana { get; set; } = 100;
+    public int MaxMana { get; set; } = 100;
 
     // Кулдауны навыков: skillId -> время последнего применения (UTC)
     public Dictionary<string, DateTime> LastSkillUse { get; set; } = new();
