@@ -105,8 +105,55 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
             }
         };
-        client.PlayerAttackPerformed += (hand) => _mapRenderer.TriggerAttack(hand);
-        client.RemotePlayerAttack += (playerName, hand) => _mapRenderer.TriggerRemoteAttack(playerName, hand);
+        client.PlayerAttackPerformed += (hand, skillId) =>
+        {
+            _mapRenderer.TriggerAttack(hand);
+            if (skillId != null)
+            {
+                float mx, my;
+                if (SkillEffectManager.IsOnPlayer(skillId))
+                {
+                    mx = _mapRenderer.GetPlayerX();
+                    my = _mapRenderer.GetPlayerY();
+                }
+                else
+                {
+                    var sel = _mapRenderer.GetSelectedMapPos();
+                    if (sel.HasValue) { mx = sel.Value.X; my = sel.Value.Y; }
+                    else { mx = _mapRenderer.GetPlayerX(); my = _mapRenderer.GetPlayerY(); }
+                }
+                SkillEffectManager.Spawn(skillId, mx, my);
+            }
+        };
+        client.RemotePlayerAttack += (playerName, hand, skillId, targetX, targetY, buffDurationMs) =>
+        {
+            _mapRenderer.TriggerRemoteAttack(playerName, hand);
+            if (skillId != null)
+            {
+                if (SkillEffectManager.IsOnPlayer(skillId))
+                {
+                    var pos = _mapRenderer.GetRemotePlayerPos(playerName);
+                    if (pos.HasValue)
+                    {
+                        if (buffDurationMs.HasValue && buffDurationMs.Value > 0)
+                            SkillEffectManager.SpawnLooping(skillId, pos.Value.X, pos.Value.Y,
+                                sourcePlayer: playerName, durationMs: buffDurationMs.Value, forceMap: true);
+                        else
+                            SkillEffectManager.Spawn(skillId, pos.Value.X, pos.Value.Y, forceMap: true);
+                    }
+                }
+                else if (targetX.HasValue && targetY.HasValue)
+                {
+                    SkillEffectManager.Spawn(skillId, targetX.Value, targetY.Value);
+                }
+                else
+                {
+                    var pos = _mapRenderer.GetRemotePlayerPos(playerName);
+                    if (pos.HasValue)
+                        SkillEffectManager.Spawn(skillId, pos.Value.X, pos.Value.Y, forceMap: true);
+                }
+            }
+        };
         client.RemotePlayerFacing += (playerName, facing) => _mapRenderer.UpdateRemotePlayerFacing(playerName, facing);
         _mapRenderer.OnFacingChanged = facing => _ = client.SendAsync("player_facing", new { Facing = facing });
         client.TargetDebuffsUpdated += debuffs =>
@@ -192,6 +239,12 @@ public class GameScreen : IScreen
                 _input.LastXp = status.Experience;
                 _input.LastLevel = status.Level;
             }
+
+            bool hasBuff = status.ActiveDebuffs?.Any(d => d.Type == "AttackSpeedBonus") ?? false;
+            if (hasBuff && !SkillEffectManager.HasLooping("SK0002"))
+                SkillEffectManager.SpawnLooping("SK0002", _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
+            else if (!hasBuff)
+                SkillEffectManager.StopLooping("SK0002");
         };
         client.SkillsUpdated += skills =>
         {
@@ -477,6 +530,7 @@ public class GameScreen : IScreen
             {
                 _input.PendingSkillId = null;
                 _input.PendingSlot = -1;
+                _input.PendingSent = false;
                 _ = GameMain.Instance!.Client.SendAsync("cancel_skill", new { });
                 return;
             }
@@ -487,6 +541,7 @@ public class GameScreen : IScreen
                     slot = i;
             _input.PendingSkillId = id;
             _input.PendingSlot = slot;
+            _input.PendingSent = false;
         };
         _skillsWindow.SkillDragStateChanged += skill => _input.DragOverlaySkill = skill;
         _skillsWindow.SkillDragEnded += () => _input.HandleSkillDragEnd(GameMain.Instance!);
@@ -686,6 +741,8 @@ public class GameScreen : IScreen
         var client = GameMain.Instance!.Client;
         var game = GameMain.Instance!;
 
+        SkillEffectManager.Update(dtMs: (float)gameTime.ElapsedGameTime.TotalMilliseconds);
+
         _input.HandleHotbarDrop(mouse, game);
         bool mouseOverAnyWindowBefore = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
         _windows.Update(gameTime, keyboard, mouse);
@@ -801,6 +858,7 @@ public class GameScreen : IScreen
 
         _hudDraw.DrawTopBar(spriteBatch, w, h, GameMain.Instance!);
         _mapRenderer.Draw(spriteBatch, 0, topH, w, h - topH);
+        _mapRenderer.DrawSkillEffects(spriteBatch, 0, topH, w, h - topH);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
         _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
         float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + 60 + 4, w - 16);

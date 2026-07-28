@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Data;
 using RPGGame.ClientMonoGame.Networking;
+using System.Text.RegularExpressions;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.ClientMonoGame.Rendering;
@@ -316,15 +317,40 @@ public class HudRenderer
             if (skill == null) return;
 
             lines.Add((skill.Name, new Color(255, 215, 0)));
+
+            // Ранг
+            if (skill.Learned && skill.Rank > 1)
+                lines.Add(($"Ранг {skill.Rank}/{skill.MaxRank}", new Color(200, 180, 100)));
+
+            // Описание с ранговой корректировкой
             if (!string.IsNullOrEmpty(skill.Description))
-                lines.Add((skill.Description, new Color(180, 180, 200)));
+            {
+                string desc = skill.Description;
+                if (skill.Learned && skill.Rank > 1)
+                {
+                    double mult = skill.Type == "Пассивные"
+                        ? 1.0 + (skill.Rank - 1) * 0.33
+                        : 1.0 + (skill.Rank - 1) * 0.12;
+                    desc = RankAdjustDesc(desc, mult);
+                }
+                lines.Add((desc, new Color(180, 180, 200)));
+            }
+
             bool isPassive = skill.Type == "Пассивные";
             if (!isPassive && skill.MpCost > 0)
                 lines.Add(($"MP: {skill.MpCost}", new Color(120, 160, 255)));
             if (!isPassive && skill.CooldownMs > 0)
-                lines.Add(($"Кулдаун: {skill.CooldownMs / 1000}с", new Color(200, 180, 120)));
+            {
+                int cd = skill.CooldownMs;
+                if (skill.Learned) cd = (int)(cd * (1.0 - (skill.Rank - 1) * 0.08));
+                lines.Add(($"Кулдаун: {cd / 1000}с", new Color(200, 180, 120)));
+            }
             if (!isPassive && skill.DamageMultiplier > 1)
-                lines.Add(($"x{skill.DamageMultiplier:F1} урон", new Color(220, 120, 120)));
+            {
+                double dmg = skill.DamageMultiplier;
+                if (skill.Learned) dmg *= 1.0 + (skill.Rank - 1) * 0.12;
+                lines.Add(($"x{dmg:F2} урон", new Color(220, 120, 120)));
+            }
             lines.Add(($"Очки навыков: {skill.SkillPointCost}", new Color(170, 170, 180)));
         }
         else if (slotValue.StartsWith("item:"))
@@ -651,5 +677,18 @@ public class HudRenderer
         int x = (int)((screenW - sz.X) / 2);
         int y = 42;
         sb.DrawString(font, label, new Vector2(x, y), color);
+    }
+
+    private static string RankAdjustDesc(string desc, double mult)
+    {
+        if (Math.Abs(mult - 1.0) < 0.001) return desc;
+        return Regex.Replace(desc, @"(\d+(?:[.,]\d+)?)\s*%", m =>
+        {
+            if (double.TryParse(m.Groups[1].Value.Replace(',', '.'),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+                return $"{val * mult:F0}%";
+            return m.Value;
+        });
     }
 }

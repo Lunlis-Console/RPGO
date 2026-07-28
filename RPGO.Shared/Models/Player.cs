@@ -36,6 +36,7 @@ public class Player : ICombatant
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
     public List<string> LearnedSkills { get; set; } = new();
+    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId → ранг прокачки
 
     // Базовые боевые параметры (редактируются позже бонусами экипировки/умений)
     public double BaseCritChance { get; set; } = 1.0;   // %
@@ -100,7 +101,7 @@ public class Player : ICombatant
     public double GetReflexesParryBonus()
     {
         if (!LearnedSkills.Contains("SK0008")) return 0;
-        return Equipment.IsDualWielding() ? 10.0 : 0.0;
+        return Equipment.IsDualWielding() ? 10.0 * GetPassiveRankMult("SK0008") : 0.0;
     }
 
     public int GetBlockValue()
@@ -140,8 +141,21 @@ public class Player : ICombatant
         int maxHp = MaxHealth + Equipment.GetBonusMaxHealth();
         if (maxHp <= 0) return 1.0;
         double percentMissing = (maxHp - Health) / (double)maxHp * 100.0;
-        return 1.0 + BalanceStatic.BerserkDamagePer5Percent * (percentMissing / 5.0);
+        return 1.0 + BalanceStatic.BerserkDamagePer5Percent * GetPassiveRankMult("SK0011") * (percentMissing / 5.0);
     }
+
+    // ───── Ранги навыков ─────
+
+    public int GetSkillRank(string skillId) => SkillRanks.TryGetValue(skillId, out int r) ? r : 1;
+
+    /// <summary>Множитель урона активного навыка от ранга (+12% за ранг выше 1-го).</summary>
+    public double GetSkillRankDmgMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.12;
+
+    /// <summary>Множитель кулдауна от ранга (–8% за ранг).</summary>
+    public double GetSkillRankCdMult(string skillId) => 1.0 - (GetSkillRank(skillId) - 1) * 0.08;
+
+    /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
+    public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;
 
     public int RollAttackDamage(int dist)
         => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();

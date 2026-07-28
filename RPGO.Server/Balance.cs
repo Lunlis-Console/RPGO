@@ -242,6 +242,7 @@ public static class Balance
 
     // ===== ЭТО ДУЭЛЬ! (SK0009) =====
     public const int DuelHitCount = 6;                 // всего ударов в серии
+    public const int DuelHitIntervalMs = 250;           // интервал между комбо-ударами (быстрее базового)
     public const double DuelFirstHitMult = 1.8;        // первый удар: +180% от базы
     public const double DuelPerHitBonus = 0.15;        // каждый следующий удар: +15% к урону
     public const double DuelPunishBaseMult = 7.0;      // наказание: +700% от базы

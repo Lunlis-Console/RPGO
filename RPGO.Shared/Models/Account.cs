@@ -19,6 +19,7 @@ public class PlayerData
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
     public List<string> LearnedSkills { get; set; } = new();
+    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId → ранг (1=изучен)
     public int Speed { get; set; } = 1;
     public List<Item> Inventory { get; set; } = new();
     public Equipment Equipment { get; set; } = new();

@@ -259,7 +259,43 @@ private sealed class RemotePlayerState
         }
     }
 
-    public void RemoveRemotePlayer(string name) { _remotePlayers.Remove(name); _remoteMoving.Remove(name); }
+    public void DrawSkillEffects(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
+    {
+        // Координаты сетки уже посчитаны в Draw() — используем те же _gridOX/_viewStart/_cell*
+        SkillEffectManager.Draw(sb, _gridOX, _gridOY, _viewStartX, _viewStartY, _cellW, _cellH);
+
+        // OnPlayer VFX поверх локального персонажа
+        var me = _currentMap?.Players.FirstOrDefault(p => p.Name == _playerName);
+        if (me != null)
+        {
+            float vx = me.X, vy = me.Y;
+            lock (_stateLock)
+            {
+                if (_visPos.TryGetValue($"player:{_playerName}", out var v))
+                { vx = v.X; vy = v.Y; }
+            }
+            float sx = _gridOX + (vx - _viewStartX) * _cellW + _cellW / 2f;
+            float sy = _gridOY + (vy - _viewStartY) * _cellH + _cellH / 2f;
+            SkillEffectManager.DrawOnPlayer(sb, sx, sy, _cellW, _cellH);
+        }
+    }
+
+    public Point? GetRemotePlayerPos(string name)
+    {
+        lock (_stateLock)
+        {
+            if (_currentMap == null) return null;
+            var p = _currentMap.Players.FirstOrDefault(pp => pp.Name == name);
+            if (p == null) return null;
+            return new Point(p.X, p.Y);
+        }
+    }
+
+    public Point? GetSelectedMapPos()
+    {
+        if (_selectedEntityType == null || _selectedEntityType == "move") return null;
+        return new Point(_selectedEntityX, _selectedEntityY);
+    }
 
     public void UpdateRemotePlayerFacing(string name, string facing)
     {

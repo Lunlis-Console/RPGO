@@ -228,6 +228,8 @@ public sealed class ClientSkillInfo
     public string? ParentId { get; set; }
     public int Tier { get; set; } = 1;
     public string? IconName { get; set; }
+    public int MaxRank { get; set; } = 3;
+    public int Rank { get; set; } = 1;
     public bool Learned { get; set; }
 }
 

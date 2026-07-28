@@ -29,9 +29,12 @@ public class SkillsRequestHandler : BaseHandler
                     s.MinLevel,
                     s.SkillPointCost,
                     s.ParentId,
-                    s.Tier
+                    s.Tier,
+                    s.IconName,
+                    s.MaxRank
                 }).ToList(),
                 LearnedSkills = player?.LearnedSkills ?? new(),
+                SkillRanks = player?.SkillRanks ?? new(),
                 SkillPoints = player?.SkillPoints ?? 0
             }
         });

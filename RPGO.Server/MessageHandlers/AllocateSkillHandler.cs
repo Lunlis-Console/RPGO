@@ -17,12 +17,6 @@ public class AllocateSkillHandler : BaseHandler
         string? skillId = el.TryGetProperty("SkillId", out var idProp) ? idProp.GetString() : null;
         if (skillId == null) return;
 
-        if (player.LearnedSkills.Contains(skillId))
-        {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Этот навык уже изучен!");
-            return;
-        }
-
         var allSkills = DatabaseManager.LoadSkills();
         var skill = allSkills.FirstOrDefault(s => s.Id == skillId);
         if (skill == null)
@@ -31,18 +25,33 @@ public class AllocateSkillHandler : BaseHandler
             return;
         }
 
-        if (player.Level < skill.MinLevel)
-        {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"Требуется уровень {skill.MinLevel}!");
-            return;
-        }
+        bool alreadyLearned = player.LearnedSkills.Contains(skillId);
+        int currentRank = player.GetSkillRank(skillId);
 
-        if (!string.IsNullOrEmpty(skill.ParentId) && !player.LearnedSkills.Contains(skill.ParentId))
+        // Апгрейд (уже изучен + есть куда расти)
+        if (alreadyLearned)
         {
-            var parent = allSkills.FirstOrDefault(s => s.Id == skill.ParentId);
-            string parentName = parent?.Name ?? skill.ParentId;
-            await SendError(connection, ErrorCodes.InvalidRequest, $"Сначала изучите «{parentName}»!");
-            return;
+            if (currentRank >= skill.MaxRank)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Навык «{skill.Name}» уже максимального ранга ({skill.MaxRank})!");
+                return;
+            }
+        }
+        else
+        {
+            // Проверка условий изучения
+            if (player.Level < skill.MinLevel)
+            {
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Требуется уровень {skill.MinLevel}!");
+                return;
+            }
+            if (!string.IsNullOrEmpty(skill.ParentId) && !player.LearnedSkills.Contains(skill.ParentId))
+            {
+                var parent = allSkills.FirstOrDefault(s => s.Id == skill.ParentId);
+                string parentName = parent?.Name ?? skill.ParentId;
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Сначала изучите «{parentName}»!");
+                return;
+            }
         }
 
         if (player.SkillPoints < skill.SkillPointCost)
@@ -52,15 +61,19 @@ public class AllocateSkillHandler : BaseHandler
         }
 
         player.SkillPoints -= skill.SkillPointCost;
-        player.LearnedSkills.Add(skillId);
+        int newRank = alreadyLearned ? currentRank + 1 : 1;
 
-        Log.Info($"{player.Name} изучил навык «{skill.Name}» ({skillId}). Очков: {player.SkillPoints}");
+        if (!alreadyLearned)
+            player.LearnedSkills.Add(skillId);
+        player.SkillRanks[skillId] = newRank;
+
+        Log.Info($"{player.Name} улучшил «{skill.Name}» до ранга {newRank}/{skill.MaxRank}. Очков: {player.SkillPoints}");
         DatabaseManager.SavePlayerProgress(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Изучен навык «{skill.Name}»! Осталось очков навыков: {player.SkillPoints}" }
+            Data = new { Name = "Система", Text = $"«{skill.Name}» — ранг {newRank}/{skill.MaxRank}! Осталось очков: {player.SkillPoints}" }
         });
         await SendInventoryAndStatus(connection, player);
         await Hub.SendSkills(connection);

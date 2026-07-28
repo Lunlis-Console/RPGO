@@ -162,6 +162,7 @@ internal static class AccountRepository
                     attribute_points = $ap,
                     skill_points = $sp,
                     learned_skills = $ls,
+                    skill_ranks = $sr,
                     speed = $spd,
                     pos_x = $posx,
                     pos_y = $posy,
@@ -184,6 +185,7 @@ internal static class AccountRepository
             cmd.Parameters.AddWithValue("$ap", player.AttributePoints);
             cmd.Parameters.AddWithValue("$sp", player.SkillPoints);
             cmd.Parameters.AddWithValue("$ls", System.Text.Json.JsonSerializer.Serialize(player.LearnedSkills));
+            cmd.Parameters.AddWithValue("$sr", System.Text.Json.JsonSerializer.Serialize(player.SkillRanks));
             cmd.Parameters.AddWithValue("$spd", player.Speed);
             cmd.Parameters.AddWithValue("$posx", player.X);
             cmd.Parameters.AddWithValue("$posy", player.Y);
@@ -296,7 +298,7 @@ internal static class AccountRepository
             SELECT player_name, password_hash, level, experience, health, max_health, mana,
                    gold, created_at, last_login,
                    strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, pos_x, pos_y,
-                   hotbar_slots, is_admin, is_banned, ban_reason, skill_points, learned_skills, current_zone
+                   hotbar_slots, is_admin, is_banned, ban_reason, skill_points, learned_skills, skill_ranks, current_zone
             FROM accounts WHERE login = $login";
         cmd.Parameters.AddWithValue("$login", login);
 
@@ -336,7 +338,8 @@ internal static class AccountRepository
                 Y = reader.GetInt32(19),
                 SkillPoints = reader.GetInt32(24),
                 LearnedSkills = ParseStringList(reader.IsDBNull(25) ? "[]" : reader.GetString(25)),
-                CurrentZoneId = reader.IsDBNull(26) ? "main" : reader.GetString(26),
+                SkillRanks = ParseSkillRanks(reader.IsDBNull(26) ? "{}" : reader.GetString(26)),
+                CurrentZoneId = reader.IsDBNull(27) ? "main" : reader.GetString(27),
                 Inventory = InventoryRepository.GetForPlayer(playerName, equipIds),
                 Equipment = InventoryRepository.LoadEquipment(connection, playerName),
                 ActiveQuests = QuestRepository.Load(connection, playerName),
@@ -365,6 +368,13 @@ internal static class AccountRepository
     {
         if (string.IsNullOrWhiteSpace(json)) return new();
         try { return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json) ?? new(); }
+        catch { return new(); }
+    }
+
+    private static Dictionary<string, int> ParseSkillRanks(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new();
+        try { return System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, int>>(json) ?? new(); }
         catch { return new(); }
     }
 }

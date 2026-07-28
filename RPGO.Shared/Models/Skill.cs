@@ -16,4 +16,7 @@ public class Skill
     public int SkillPointCost { get; set; } = 1;      // стоимость в очках навыков
     public string? ParentId { get; set; }              // ID родительского навыка (дерево)
     public int Tier { get; set; } = 1;                 // тир в дереве навыков
+    public int CastTimeMs { get; set; }                 // время каста перед ударом (0 = мгновенный)
+    public string? IconName { get; set; }               // ключ спрайта в SpriteCache
+    public int MaxRank { get; set; } = 3;               // макс. ранг прокачки (1=изучен)
 }

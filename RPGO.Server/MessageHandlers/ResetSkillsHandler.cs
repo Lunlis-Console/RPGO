@@ -21,6 +21,7 @@ public class ResetSkillsHandler : BaseHandler
         }
 
         player.LearnedSkills.Clear();
+        player.SkillRanks.Clear();
         player.SkillPoints = player.Level / 2;
 
         Log.Info($"{player.Name} сбросил навыки. Возвращено {player.SkillPoints} очков.");

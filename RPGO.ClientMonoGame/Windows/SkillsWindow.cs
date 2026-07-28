@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Rendering;
 using RPGGame.ClientMonoGame.Networking;
+using System.Text.RegularExpressions;
 
 namespace RPGGame.ClientMonoGame.Windows;
 
@@ -82,22 +83,26 @@ public class SkillsWindow : GameWindow
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
-        if (!Visible)
-        {
-            if (_dragNode != null)
-            {
-                _dragNode = null;
-                SkillDragStateChanged?.Invoke(null!);
-                SkillDragEnded?.Invoke();
-            }
-            _prevMouse = mouse;
-            _prevKey = keyboard;
-            return;
-        }
+        if (!Visible) return;
 
         bool pressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
         bool released = mouse.LeftButton == ButtonState.Released && _prevMouse.LeftButton == ButtonState.Pressed;
+        bool rightClicked = mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released;
         var (nodes, _) = Layout(mouse);
+
+        // ПКМ — изучить / улучшить навык
+        if (rightClicked)
+        {
+            foreach (var n in nodes)
+            {
+                if (n.Rect.Contains(mouse.X, mouse.Y) && n.Available)
+                {
+                    if (!n.Skill.Learned || n.Skill.Rank < n.Skill.MaxRank)
+                        LearnSkill?.Invoke(n.Skill.Id);
+                    break;
+                }
+            }
+        }
 
         // Кнопка «Сброс навыков»
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
@@ -297,6 +302,14 @@ public class SkillsWindow : GameWindow
                 int iconY = n.Rect.Y + (n.Rect.Height - iconSize) / 2;
                 sb.Draw(spr, new Rectangle(iconX, iconY, iconSize, iconSize), Color.White);
             }
+
+            // Ранг навыка (I, II, III)
+            if (skill.Learned && skill.MaxRank > 1 && skill.Rank > 0)
+            {
+                string rankStr = skill.Rank switch { 1 => "I", 2 => "II", 3 => "III", _ => $"{skill.Rank}" };
+                DrawText(sb, rankStr, n.Rect.X + n.Rect.Width - 16, n.Rect.Y + 2,
+                    skill.Rank >= skill.MaxRank ? new Color(255, 215, 0) : new Color(200, 200, 200));
+            }
         }
 
         // Tooltip при наведении
@@ -330,22 +343,56 @@ public class SkillsWindow : GameWindow
         var lines = new List<string>
         {
             skill.Name,
-            $"Тир {skill.Tier}  |  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type)}"
+            $"Тир {skill.Tier}  •  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type.ToLowerInvariant())}"
         };
 
+        // Ранг (только если изучен)
+        if (skill.Learned)
+            lines.Add($"Ранг {skill.Rank}/{skill.MaxRank}");
+
+        // Статы активного навыка
         if (!isPassive)
-            lines.Add($"МП: {skill.MpCost}   КД: {skill.CooldownMs}мс   x{skill.DamageMultiplier:F1}   ОЧ.нав: {skill.SkillPointCost}");
-        else
-            lines.Add($"ОЧ.навыков: {skill.SkillPointCost}");
+        {
+            double curDmg = skill.DamageMultiplier * (1.0 + (skill.Rank - 1) * 0.12);
+            int curCd = (int)(skill.CooldownMs * (1.0 - (skill.Rank - 1) * 0.08)) / 1000;
+            lines.Add($"МП {skill.MpCost}  •  КД {curCd}с  •  Урон x{curDmg:F2}");
+        }
 
-        lines.Add($"Мин. уровень: {skill.MinLevel}");
+        lines.Add($"Мин. уровень {skill.MinLevel}");
 
-        lines.Add(skill.Learned ? "Изучено" : $"Для изучения: ЛКМ ({skill.SkillPointCost} оч. навыков)");
-
+        // Описание (с ранговой корректировкой чисел)
         if (!string.IsNullOrEmpty(skill.Description))
-            lines.Add(skill.Description);
+        {
+            string desc = skill.Description;
+            if (skill.Learned && skill.Rank > 1)
+            {
+                double mult = isPassive
+                    ? 1.0 + (skill.Rank - 1) * 0.33
+                    : 1.0 + (skill.Rank - 1) * 0.12;
+                desc = RankAdjustDescription(desc, mult);
+            }
+            lines.Add(desc);
+        }
+
         if (!string.IsNullOrEmpty(skill.ParentId))
             lines.Add("Требует родительский навык");
+
+        // Статус: неизучен / можно улучшить / максимум
+        if (!skill.Learned)
+            lines.Add($"ПКМ — изучить ({skill.SkillPointCost} оч.)");
+        else if (skill.Rank < skill.MaxRank)
+        {
+            string hint = $"ПКМ — улучшить ({skill.SkillPointCost} оч.)";
+            if (!isPassive)
+            {
+                double nextDmg = skill.DamageMultiplier * (1.0 + skill.Rank * 0.12);
+                int nextCd = (int)(skill.CooldownMs * (1.0 - skill.Rank * 0.08)) / 1000;
+                hint += $"  →  x{nextDmg:F2}  КД {nextCd}с";
+            }
+            lines.Add(hint);
+        }
+        else
+            lines.Add("Максимальный ранг");
 
         int maxW = 260;
         int pad = 8;
@@ -354,7 +401,7 @@ public class SkillsWindow : GameWindow
         var wrapped = new List<(string text, Color color)>();
         for (int i = 0; i < lines.Count; i++)
         {
-            Color color = i == 0 ? new Color(230, 220, 140) : Color.White;
+            Color color = i == 0 || i == lines.Count - 1 ? new Color(230, 220, 140) : Color.White;
             string text = lines[i];
             if (font.MeasureString(text).X <= maxW - pad * 2)
             {
@@ -399,6 +446,20 @@ public class SkillsWindow : GameWindow
         {
             sb.DrawString(font, wrapped[i].text, new Vector2(tx + pad, ty + pad + i * lineH), wrapped[i].color);
         }
+    }
+
+    // Заменяет все числа с % в описании, умножая на ранговый коэффициент.
+    private static string RankAdjustDescription(string desc, double mult)
+    {
+        if (Math.Abs(mult - 1.0) < 0.001) return desc;
+        return Regex.Replace(desc, @"(\d+(?:[.,]\d+)?)\s*%", m =>
+        {
+            if (double.TryParse(m.Groups[1].Value.Replace(',', '.'),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+                return $"{val * mult:F0}%";
+            return m.Value;
+        });
     }
 
     private static void DrawRect(SpriteBatch sb, Rectangle rect, Color color, int thickness = 1)

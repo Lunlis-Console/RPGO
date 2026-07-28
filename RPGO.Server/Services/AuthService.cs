@@ -123,6 +123,7 @@ public class AuthService
                             HotbarSlots = account.PlayerData.HotbarSlots,
                             SkillPoints = account.PlayerData.SkillPoints,
                             LearnedSkills = account.PlayerData.LearnedSkills,
+                            SkillRanks = account.PlayerData.SkillRanks,
                             Mana = account.PlayerData.Mana,
                             MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
                             IsAdmin = account.IsAdmin,

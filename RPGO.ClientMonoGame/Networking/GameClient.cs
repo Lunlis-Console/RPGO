@@ -88,8 +88,8 @@ public sealed class GameClient
     public event Action<string, double, double>? ProjectileHit;
 
     // Атака
-    public event Action<string>? PlayerAttackPerformed;
-    public event Action<string, string>? RemotePlayerAttack; // (playerName, hand)
+    public event Action<string, string?>? PlayerAttackPerformed; // (hand, skillId)
+    public event Action<string, string, string?, int?, int?, int?>? RemotePlayerAttack; // (playerName, hand, skillId, targetX, targetY, buffDurationMs)
     public event Action<string, string>? RemotePlayerFacing; // (playerName, facing)
 
     // Окна
@@ -353,12 +353,11 @@ public sealed class GameClient
                     {
                         int amount = dmgEl.TryGetProperty("Amount", out var am) ? am.GetInt32() : 0;
                         bool isCrit = dmgEl.TryGetProperty("IsCrit", out var ic) && ic.GetBoolean();
+                        bool isSkill = dmgEl.TryGetProperty("IsSkill", out var skillEl) && skillEl.GetBoolean();
                         int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
                         int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
                         string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
 
-                        // Цветовое различие: урон по монстру — зелёный, по игроку — красный,
-                        // крит по монстру — ярко-зелёный, крит по игроку — жёлтый, промах — серый.
                         uint color;
                         string text;
                         bool crit = isCrit;
@@ -367,6 +366,16 @@ public sealed class GameClient
                             color = 0xFFAAAAAAu;   // серый
                             text = "Промах";
                             crit = false;
+                        }
+                        else if (isSkill && crit)
+                        {
+                            color = 0xFFFF6600u;   // оранжевый (крит навыка)
+                            text = "-" + amount + "!";
+                        }
+                        else if (isSkill)
+                        {
+                            color = 0xFFFFDD44u;   // жёлтый (навык)
+                            text = "-" + amount;
                         }
                         else if (crit && target == "player")
                         {
@@ -533,7 +542,8 @@ public sealed class GameClient
                                     SkillPointCost = e.TryGetProperty("SkillPointCost", out var sp) ? sp.GetInt32() : 1,
                                     ParentId = e.TryGetProperty("ParentId", out var pa) && pa.ValueKind != JsonValueKind.Null ? pa.GetString() : null,
                                     Tier = e.TryGetProperty("Tier", out var ti) ? ti.GetInt32() : 1,
-                                    IconName = e.TryGetProperty("IconName", out var ic) && ic.ValueKind != JsonValueKind.Null ? ic.GetString() : null
+                                    IconName = e.TryGetProperty("IconName", out var ic) && ic.ValueKind != JsonValueKind.Null ? ic.GetString() : null,
+                                    MaxRank = e.TryGetProperty("MaxRank", out var mr) ? mr.GetInt32() : 3
                                 });
                             }
                         }
@@ -544,11 +554,20 @@ public sealed class GameClient
                                 if (e.ValueKind == JsonValueKind.String && e.GetString() is string sid)
                                     learned.Add(sid);
                         }
+                        var ranks = new Dictionary<string, int>();
+                        if (sk.TryGetProperty("SkillRanks", out var sr) && sr.ValueKind == JsonValueKind.Object)
+                        {
+                            foreach (var p in sr.EnumerateObject())
+                                if (p.Value.TryGetInt32(out int r)) ranks[p.Name] = r;
+                        }
                         int skillPts = sk.TryGetProperty("SkillPoints", out var spt) ? spt.GetInt32() : 0;
                         Ui(() =>
                         {
                             foreach (var s in list)
+                            {
                                 s.Learned = learned.Contains(s.Id);
+                                s.Rank = ranks.TryGetValue(s.Id, out int r) ? r : 1;
+                            }
                             _skillPoints = skillPts;
                             SkillsUpdated?.Invoke(list);
                         });
@@ -651,10 +670,14 @@ public sealed class GameClient
                     {
                         string hand = paEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
                         string playerName = paEl.TryGetProperty("PlayerName", out var pn) ? (pn.GetString() ?? "") : "";
+                        string? skillId = paEl.TryGetProperty("SkillId", out var skid) && skid.ValueKind != JsonValueKind.Null ? skid.GetString() : null;
+                        int? targetX = paEl.TryGetProperty("TargetX", out var tx) ? tx.GetInt32() : null;
+                        int? targetY = paEl.TryGetProperty("TargetY", out var ty) ? ty.GetInt32() : null;
+                        int? buffDurationMs = paEl.TryGetProperty("BuffDurationMs", out var bd) ? bd.GetInt32() : null;
                         if (!string.IsNullOrEmpty(playerName) && playerName != PlayerName)
-                            Ui(() => RemotePlayerAttack?.Invoke(playerName, hand));
+                            Ui(() => RemotePlayerAttack?.Invoke(playerName, hand, skillId, targetX, targetY, buffDurationMs));
                         else
-                            Ui(() => PlayerAttackPerformed?.Invoke(hand));
+                            Ui(() => PlayerAttackPerformed?.Invoke(hand, skillId));
                     }
                     break;
 

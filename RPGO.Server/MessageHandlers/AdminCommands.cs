@@ -32,7 +32,7 @@ public static class AdminCommands
             case "/unban":
                 return await HandleUnban(connection, player, args, hub);
             case "/level":
-                return await HandleLevel(connection, player, args, hub);
+                return await HandleLevel(connection, player, args, world, hub);
             default:
                 return false;
         }
@@ -216,29 +216,61 @@ public static class AdminCommands
         return true;
     }
 
-    private static async Task<bool> HandleLevel(ClientConnection connection, Player player, string[] args, INetworkHub hub)
+    private static async Task<bool> HandleLevel(ClientConnection connection, Player player, string[] args, GameWorld world, INetworkHub hub)
     {
         if (args.Length < 2 || !int.TryParse(args[1], out int targetLevel) || targetLevel < 1)
         {
-            await SystemToSelf(player, hub, "Использование: /level <уровень>");
+            await SystemToSelf(player, hub, "Использование: /level <уровень> [имя_игрока]");
             return true;
         }
 
         targetLevel = Math.Min(targetLevel, BalanceStatic.MaxLevel);
 
-        int oldLevel = player.Level;
-        player.Level = targetLevel;
-        player.MaxHealth = 100 + (targetLevel - 1) * BalanceStatic.MaxHealthPerLevel;
-        player.Health = player.MaxHealth;
-        player.AttributePoints = (targetLevel - 1) * BalanceStatic.AttributePointsPerLevel;
-        player.SkillPoints = targetLevel / 2;
-        player.Experience = 0;
+        Player target;
+        ClientConnection? targetConn;
 
-        DatabaseManager.SavePlayerProgress(player);
+        if (args.Length >= 3)
+        {
+            string targetName = args[2];
+            if (!world.TryGetPlayerByName(targetName, out var found) || found == null)
+            {
+                await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+                return true;
+            }
+            target = found;
+            targetConn = world.FindClientByPlayer(target);
+        }
+        else
+        {
+            target = player;
+            targetConn = connection;
+        }
+
+        int oldLevel = target.Level;
+        target.Level = targetLevel;
+        target.MaxHealth = 100 + (targetLevel - 1) * BalanceStatic.MaxHealthPerLevel;
+        target.Health = target.MaxHealth;
+        target.AttributePoints = (targetLevel - 1) * BalanceStatic.AttributePointsPerLevel;
+        target.SkillPoints = targetLevel / 2;
+        target.Experience = 0;
+
+        DatabaseManager.SavePlayerProgress(target);
 
         string diff = targetLevel > oldLevel ? $"+{targetLevel - oldLevel}" : $"{targetLevel - oldLevel}";
-        await SystemToSelf(player, hub, $"Уровень изменён: {oldLevel} → {targetLevel} ({diff}). HP/Очк. навыков/атрибутов обновлены.");
-        await hub.SendInventoryAndStatus(connection, player);
+        string who = target == player ? "" : $" для {target.Name}";
+        await SystemToSelf(player, hub, $"Уровень изменён{who}: {oldLevel} → {targetLevel} ({diff}). HP/Очк. навыков/атрибутов обновлены.");
+
+        if (target == player)
+        {
+            await hub.SendInventoryAndStatus(connection, player);
+        }
+        else
+        {
+            if (targetConn != null)
+                await hub.SendInventoryAndStatus(targetConn, target);
+            await hub.SendInventoryAndStatus(connection, player);
+        }
+
         return true;
     }
 

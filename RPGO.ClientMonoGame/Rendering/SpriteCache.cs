@@ -104,6 +104,16 @@ public static class SpriteCache
         foreach (var sub in iconSubtypes)
             LoadTexture($"icon_{sub.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 
+        // Иконки навыков (из Skill_Icons)
+        var skillIcons = new[] { "StrongHand", "BarrageOfBlows", "Cutting", "HolyTrinity", "Duel", "Ambidexter", "WarriorsConcentration", "Reflexes", "Bloodletting", "Berserk" };
+        foreach (var si in skillIcons)
+            LoadTexture($"icon_skill_{si.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Skill_Icons.Icon_{si}.png");
+
+        // Анимации навыков
+        var skillAnims = new[] { "StrongHand", "BarrageOfBlows", "Cutting", "HolyTrinity", "Duel" };
+        foreach (var sa in skillAnims)
+            LoadTexture($"skill_anim_{sa.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.{sa}-Sheet.png");
+
         Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
     }
 

@@ -41,7 +41,7 @@ public class UseSkillHandler : BaseHandler
             {
                 // Мгновенный бафф — применяем сразу без боя
                 if (player.LastSkillUse.TryGetValue(skill.Id, out var last)
-                    && (DateTime.UtcNow - last).TotalMilliseconds < skill.CooldownMs)
+                    && (DateTime.UtcNow - last).TotalMilliseconds < skill.CooldownMs * player.GetSkillRankCdMult(skill.Id))
                 {
                     await SendToClient(connection, new GameMessage
                     {
@@ -70,6 +70,12 @@ public class UseSkillHandler : BaseHandler
                         Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
                         $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
                     Program.Services.Debuffs.ApplyDebuff(player, buff);
+
+                    await Program.Services.Hub.SendToAllAsync(new GameMessage
+                    {
+                        Type = "player_attack",
+                        Data = new { PlayerName = player.Name, Hand = "main", SkillId = "SK0002", BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
+                    });
                 }
 
                 await SendToClient(connection, new GameMessage
@@ -77,10 +83,11 @@ public class UseSkillHandler : BaseHandler
                     Type = "chat",
                     Data = new { Name = "Бой", Text = $"Применён навык «{skill.Name}»!" }
                 });
+                int effectiveCd = (int)(skill.CooldownMs * player.GetSkillRankCdMult(skill.Id));
                 await SendToClient(connection, new GameMessage
                 {
                     Type = "skill_cooldown",
-                    Data = new { SkillId = skill.Id, RemainingMs = skill.CooldownMs, TotalMs = skill.CooldownMs }
+                    Data = new { SkillId = skill.Id, RemainingMs = effectiveCd, TotalMs = effectiveCd }
                 });
                 await Program.Services.Hub.SendStatusAsync(connection, player);
                 return;

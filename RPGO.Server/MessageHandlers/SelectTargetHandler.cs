@@ -35,9 +35,10 @@ public class SelectTargetHandler : BaseHandler
             return;
         }
 
+        bool wasInCombat = player.Combat.InCombat;
         player.Combat.Enter(target.Id, player.Movement);
-        // Очередь сбрасывается при смене цели; прекаст (если был) применится первым ударом.
-        player.QueuedSkillIds.Clear();
+        // При переключении цели в бою — сброс очереди. Прекаст при первом входе сохраняется.
+        if (wasInCombat) player.QueuedSkillIds.Clear();
         Log.Debug($"{player.Name} выбрал цель: {target.Name} ({target.X},{target.Y})");
         await SendToClient(connection, new GameMessage
         {
