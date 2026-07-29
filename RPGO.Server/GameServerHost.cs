@@ -20,6 +20,7 @@ public class GameServerHost
         Task.Run(() => _svc.Combat.RunCombatLoop());
         Task.Run(() => _svc.Combat.RunMonsterAttackLoop());
         Task.Run(() => _svc.Combat.RunDeathTimerLoop());
+        Task.Run(() => _svc.Combat.RunHazardTickLoop());
         Task.Run(() => _svc.Interactions.RunMovePathLoop());
         Task.Run(RunMonsterWanderLoop);
         Task.Run(RunRegenLoop);

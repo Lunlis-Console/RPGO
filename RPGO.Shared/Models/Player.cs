@@ -157,6 +157,60 @@ public class Player : ICombatant
     /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
     public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;
 
+    public bool IsWieldingBow()
+        => Equipment.IsBowEquipped();
+
+    public int GetEffectiveAttackRange()
+        => Equipment.GetWeaponAttackRange() + GetBowRangeBonus();
+
+    /// <summary>«Вам подарочек» (SK0017): шанс доп. стрелы.</summary>
+    public double GetExtraArrowChance()
+    {
+        if (!LearnedSkills.Contains("SK0017") || !IsWieldingBow()) return 0;
+        return BalanceStatic.ExtraArrowChance * GetPassiveRankMult("SK0017");
+    }
+
+    /// <summary>«Белке в глаз» (SK0018): бонус точности (вычитается из уклона цели).</summary>
+    public double GetBowAccuracyBonus()
+    {
+        if (!LearnedSkills.Contains("SK0018") || !IsWieldingBow()) return 0;
+        return BalanceStatic.BowAccuracyBonus * GetPassiveRankMult("SK0018");
+    }
+
+    /// <summary>«Руками не трогать» (SK0019): +уклон против ближнего боя.</summary>
+    public double GetMeleeEvadeBonus()
+    {
+        if (!LearnedSkills.Contains("SK0019")) return 0;
+        return BalanceStatic.MeleeEvadeBonus * GetPassiveRankMult("SK0019");
+    }
+
+    /// <summary>«Дальний прицел» (SK0020): бонус дальности лука.</summary>
+    public int GetBowRangeBonus()
+        => LearnedSkills.Contains("SK0020") && IsWieldingBow() ? BalanceStatic.BowRangeBonus : 0;
+
+    /// <summary>«Дальний прицел»: пробитие брони чем ближе цель (дист ≤ 2).</summary>
+    public double GetCloseRangeArmorPen(int dist)
+    {
+        if (!LearnedSkills.Contains("SK0020") || !IsWieldingBow()) return 0;
+        if (dist > BalanceStatic.CloseRangeArmorPenDist) return 0;
+        double t = 1.0 - (dist - 1) / (double)BalanceStatic.CloseRangeArmorPenDist;
+        if (dist <= 1) t = 1.0;
+        return BalanceStatic.CloseRangeArmorPenMax * GetPassiveRankMult("SK0020") * Math.Clamp(t, 0, 1);
+    }
+
+    /// <summary>«Охотничий инстинкт» (SK0021): бонус крита по ослабленным целям.</summary>
+    public double GetHunterInstinctCritBonus(ICombatant target)
+    {
+        if (!LearnedSkills.Contains("SK0021") || !IsWieldingBow()) return 0;
+        bool marked = target switch
+        {
+            Player p => p.ActiveDebuffs.Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
+            Monster m => m.ActiveDebuffs.Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
+            _ => false
+        };
+        return marked ? BalanceStatic.HunterInstinctCritBonus * GetPassiveRankMult("SK0021") : 0;
+    }
+
     public int RollAttackDamage(int dist)
         => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.RollWeaponDamage();
 

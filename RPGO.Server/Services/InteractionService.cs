@@ -269,7 +269,8 @@ public class InteractionService
                         }
                         continue;
                     }
-                    int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
+                    double slow = 1.0 + pl.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+                    int moveIntervalMs = (int)(Balance.MoveIntervalMs(pl.Speed) * Math.Max(1.0, slow));
                     if ((DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs) continue;
 
                     var next = pl.Movement.Path[0];

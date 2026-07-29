@@ -86,6 +86,9 @@ public sealed class GameWorld
     private readonly object _monsterAttackLock = new();
     private List<MonsterTemplate> _monsterTemplates = new();
 
+    private readonly List<GroundHazard> _hazards = new();
+    private readonly object _hazardLock = new();
+
     public GameWorld(int width = 100, int height = 100)
     {
         Map = new GameMap(width, height);
@@ -303,6 +306,29 @@ public sealed class GameWorld
     public Collectible? FindCollectibleAt(int x, int y)
     {
         lock (_collectibleLock) return _collectibles.FirstOrDefault(c => c.X == x && c.Y == y);
+    }
+
+    // --- Ловушки / зоны ──
+    public void AddHazard(GroundHazard hazard)
+    {
+        lock (_hazardLock) _hazards.Add(hazard);
+    }
+
+    public List<GroundHazard> GetHazardsSnapshot()
+    {
+        lock (_hazardLock) return new List<GroundHazard>(_hazards);
+    }
+
+    public List<GroundHazard> GetHazardsAt(int x, int y, string zoneId)
+    {
+        lock (_hazardLock)
+            return _hazards.Where(h => h.X == x && h.Y == y && h.ZoneId == zoneId && h.ExpiresAt > DateTime.UtcNow).ToList();
+    }
+
+    public void RemoveExpiredHazards()
+    {
+        var now = DateTime.UtcNow;
+        lock (_hazardLock) _hazards.RemoveAll(h => h.ExpiresAt <= now);
     }
 
     public Player? FindPlayerAt(int x, int y)

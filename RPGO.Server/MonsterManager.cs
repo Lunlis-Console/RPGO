@@ -184,10 +184,13 @@ public class MonsterManager
             if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Stun)) continue;
             if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Root)) continue;
 
+            double slow = 1.0 + m.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+            int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
+
             // === LEASH: моб возвращается на спавн ===
             if (m.ReturningToSpawn)
             {
-                if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
+                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
 
                 int distToSpawn = Math.Abs(m.X - m.SpawnX) + Math.Abs(m.Y - m.SpawnY);
                 if (distToSpawn <= 1)
@@ -265,7 +268,7 @@ public class MonsterManager
                 int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
                 if (dist <= 1)
                 {
-                    if ((now - m.LastMoveTime).TotalMilliseconds >= m.MoveIntervalMs)
+                    if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
                     {
                         m.LastMoveTime = now;
                         m.StuckTicks = 0;
@@ -290,7 +293,7 @@ public class MonsterManager
                 else if (stepY != 0)
                     my = stepY;
 
-                if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
+                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
 
                 bool moved = false;
                 if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
@@ -433,14 +436,26 @@ public class MonsterManager
 
         double passiveAccuracyBonus = 0;
         double passiveCritBonus = 0;
-        if (attacker is Player plPassive && plPassive.LearnedSkills.Contains("SK0006")
-            && Program.Services.Debuffs.HasDebuff(defender, DebuffType.Stun))
+        double armorPenExtra = 0;
+        if (attacker is Player plPassive)
         {
-            passiveAccuracyBonus = 10;
-            passiveCritBonus = 10;
+            if (plPassive.LearnedSkills.Contains("SK0006")
+                && Program.Services.Debuffs.HasDebuff(defender, DebuffType.Stun))
+            {
+                passiveAccuracyBonus = 10;
+                passiveCritBonus = 10;
+            }
+            passiveAccuracyBonus += plPassive.GetBowAccuracyBonus();
+            passiveCritBonus += plPassive.GetHunterInstinctCritBonus(defender);
+            // Для CalculateCombat дистанция неизвестна — берём 1 (макс. пробитие в упор)
+            armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
         }
 
-        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < (defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus);
+        double evadeChance = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
+        if (isMelee && defender is Player plDef)
+            evadeChance += plDef.GetMeleeEvadeBonus();
+
+        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
         if (defenderEvaded)
             return (0, 0, false, false, true, false, false);
 
@@ -451,7 +466,8 @@ public class MonsterManager
         bool defenderBlocked = rng.Next(Balance.ChanceRollMax) < defender.GetBlockChance();
         int attackerDamage = 0;
         bool isCrit = rng.Next(Balance.ChanceRollMax) < (attacker.GetCritChance() + passiveCritBonus);
-        int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - effectiveDefenderDefense));
+        double def = effectiveDefenderDefense * (1.0 - Math.Min(armorPenExtra, 1.0));
+        int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - def));
         attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
         attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
 

@@ -10,7 +10,10 @@ public enum DebuffType
     AttackSpeedBonus,
     DualWieldBonus,
     Stun,
-    Root
+    Root,
+    Slow,
+    Dot,
+    SuppressingFire
 }
 
 public class ActiveDebuff

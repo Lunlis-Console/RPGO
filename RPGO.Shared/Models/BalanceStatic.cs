@@ -21,6 +21,16 @@ public static class BalanceStatic
     // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья
     public const double BerserkDamagePer5Percent = 0.02;
 
+    // Путь лука (пассивы, доступны из Shared)
+    public const double ExtraArrowChance = 7.0;
+    public const double BowAccuracyBonus = 15.0;
+    public const double MeleeEvadeBonus = 15.0;
+    public const int BowRangeBonus = 1;
+    public const double CloseRangeArmorPenMax = 0.25;
+    public const int CloseRangeArmorPenDist = 2;
+    public const double HunterInstinctCritBonus = 20.0;
+    public const double VulnerableArmorIgnore = 0.30;
+
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;

@@ -18,6 +18,16 @@ internal static class SkillRepository
         ["SK0008"] = "icon_skill_reflexes",
         ["SK0010"] = "icon_skill_bloodletting",
         ["SK0011"] = "icon_skill_berserk",
+        ["SK0012"] = "icon_skill_aimedshot",
+        ["SK0013"] = "icon_skill_achilles",
+        ["SK0014"] = "icon_skill_retreat",
+        ["SK0015"] = "icon_skill_suppressingfire",
+        ["SK0016"] = "icon_skill_venividivici",
+        ["SK0017"] = "icon_skill_giftarrow",
+        ["SK0018"] = "icon_skill_bullseye",
+        ["SK0019"] = "icon_skill_handsoff",
+        ["SK0020"] = "icon_skill_longshot",
+        ["SK0021"] = "icon_skill_hunterinstinct",
     };
 
     internal static List<Skill> LoadAll()

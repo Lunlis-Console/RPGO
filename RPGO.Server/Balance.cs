@@ -256,6 +256,25 @@ public static class Balance
     // Берсерк (SK0011): +2% урона за каждые 5% потерянного HP
     public const double BerserkDamagePer5Percent = 0.02;
 
+    // ===== ПУТЬ ЛУКА =====
+    public const int AchillesRootMs = 3000;
+    public const int TrapDurationMs = 4000;
+    public const int RetreatTiles = 3;
+    public const double SmokeAccuracyReduction = 0.40;
+    public const double AcidDotFractionPerSec = 0.20;
+    public const double AcidSlowValue = 0.10;
+    public const int SuppressingFireDurationMs = 10000;
+    public const double SuppressingFireDmgMult = 0.60;
+    public const double SuppressingFireSpeedPenalty = -0.12;
+    public const double VulnerableArmorIgnore = 0.30;
+    public const double ExtraArrowChance = 7.0;
+    public const double BowAccuracyBonus = 15.0;
+    public const double MeleeEvadeBonus = 15.0;
+    public const int BowRangeBonus = 1;
+    public const double CloseRangeArmorPenMax = 0.25;
+    public const int CloseRangeArmorPenDist = 2;
+    public const double HunterInstinctCritBonus = 20.0;
+
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;
     public const int BowAttackRange = 5;

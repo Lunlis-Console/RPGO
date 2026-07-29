@@ -117,6 +117,12 @@ public class Equipment
         return 1;
     }
 
+    public bool IsBowEquipped()
+    {
+        var w = GetEffectiveMainHandWeapon();
+        return w != null && (w.WeaponSubtype ?? "").Equals("bow", StringComparison.OrdinalIgnoreCase);
+    }
+
     public bool IsDualWielding()
     {
         var leftHand = _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null;

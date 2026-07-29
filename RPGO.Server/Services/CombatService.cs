@@ -17,6 +17,7 @@ public class CombatService
     internal KillService KillService => _svc.KillService;
     internal DebuffManager Debuffs => _svc.Debuffs;
     internal GameWorld World => _svc.World;
+    internal INetworkHub Hub => _svc.Hub;
 
     public CombatService(GameServices svc)
     {
@@ -103,7 +104,7 @@ public class CombatService
                     }
 
                     int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
-                    int weaponRange = pl.Equipment.GetWeaponAttackRange();
+                    int weaponRange = pl.GetEffectiveAttackRange();
                     var offHandWeapon = pl.Equipment.GetOffHandWeapon();
                     int offHandRange = offHandWeapon?.AttackRange ?? 0;
                     bool offHandCanShoot = offHandRange > 1 && dist <= offHandRange;
@@ -362,11 +363,19 @@ public class CombatService
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit, attackHand);
             await _svc.Projectiles.BroadcastSpawn(proj);
 
-            // Broadcast map to sync facing
+            // «Вам подарочек» — вторая стрела
+            if (subtype == "bow" && dmgToMonster > 0)
+                await TryExtraArrow(pl, monster, client, attackHand);
+
+            // «Подавляющий огонь» — конус
+            if (_svc.Debuffs.HasDebuff(pl, DebuffType.SuppressingFire) && subtype == "bow")
+                await ApplySuppressingFireCone(pl, monster, client);
+
             await _svc.Hub.BroadcastMapAsync();
-            
             return;
         }
+
+        // Ближний бой: подавляющий огонь не применяется (только лук)
 
         if (monsterDead && monster.IsMannequin)
         {
@@ -1235,7 +1244,9 @@ public class CombatService
                     if (player.IsDead) continue;
 
                     var rng = new Random();
-                    bool evaded = rng.Next(Balance.ChanceRollMax) < player.GetEvadeChance();
+                    // Монстры бьют в melee (dist≤1) — учитываем «Руками не трогать»
+                    double evadeChance = player.GetEvadeChance() + player.GetMeleeEvadeBonus();
+                    bool evaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
                     bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < player.GetParryChance();
                     bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < player.GetBlockChance();
                     int finalDmg = blocked ? Math.Max(Balance.MinDamage, damage - player.GetBlockValue()) : damage;
@@ -1361,7 +1372,7 @@ public class CombatService
         }
 
         int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
-        int weaponRange = pl.Equipment.GetWeaponAttackRange();
+        int weaponRange = pl.GetEffectiveAttackRange();
 
         if (dist > weaponRange)
         {
@@ -1589,4 +1600,174 @@ public class CombatService
     }
 
     public static bool WeaponAffectsTarget(string subtype) => subtype is "dagger" or "spear" or "mace" or "hammer" or "greathammer";
+
+    // «Вам подарочек» (SK0017)
+    private async Task TryExtraArrow(Player pl, Monster primary, ClientConnection client, string hand)
+    {
+        double chance = pl.GetExtraArrowChance();
+        if (chance <= 0) return;
+        if (new Random().Next(Balance.ChanceRollMax) >= chance) return;
+
+        var (extraDmg, _, _, extraCrit, extraEvaded, _, _) =
+            _svc.Monsters.CalculateCombat(pl, primary, true, isMelee: false);
+        if (extraEvaded)
+        {
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{primary.Name} уклонился от доп. стрелы.");
+            return;
+        }
+        if (extraDmg <= 0) return;
+        string visualType = "arrow";
+        var proj = _svc.Projectiles.Spawn(pl, primary, visualType, extraDmg, extraCrit, hand);
+        await _svc.Projectiles.BroadcastSpawn(proj);
+        await ChatTo(client, ChatChannel.Combat, "Бой", $"«Вам подарочек»: +{extraDmg} урона{(extraCrit ? " (КРИТ!)" : "")}!");
+        if (primary.Health <= 0 && !primary.IsMannequin)
+            await _svc.KillService.ResolveMonsterKill(pl, primary, extraDmg, true, null);
+    }
+
+    // «Подавляющий огонь» (SK0015) — AoE-конус
+    private async Task ApplySuppressingFireCone(Player pl, Monster primary, ClientConnection client)
+    {
+        double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult("SK0015");
+        int range = pl.GetEffectiveAttackRange();
+        foreach (var m in _svc.World.GetMonstersSnapshot())
+        {
+            if (m.Id == primary.Id || m.Health <= 0 || m.ZoneId != pl.CurrentZoneId) continue;
+            int mdx = m.X - pl.X, mdy = m.Y - pl.Y;
+            int dist = Math.Abs(mdx) + Math.Abs(mdy);
+            if (dist < 1 || dist > range) continue;
+            if (!InFacingCone(pl.Facing, mdx, mdy)) continue;
+
+            double effAtk = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage(dist));
+            double effDef = _svc.Monsters.GetEffectiveDefense(m) * (1.0 - pl.GetCloseRangeArmorPen(dist));
+            int dmg = Math.Max(Balance.MinDamage, (int)((effAtk - effDef) * mult));
+            m.Health -= dmg;
+            m.LastDamagedTime = DateTime.UtcNow;
+            m.DamageTracker[pl.Id] = m.DamageTracker.GetValueOrDefault(pl.Id) + dmg;
+            await SendDmgToMonster(client, m, dmg, false, "main", pl, isSkill: true);
+            if (m.Health <= 0 && !m.IsMannequin)
+                await _svc.KillService.ResolveMonsterKill(pl, m, dmg, true, null);
+        }
+    }
+
+    private static bool InFacingCone(string facing, int dx, int dy) => facing switch
+    {
+        "right" => dx > 0 && Math.Abs(dy) <= Math.Max(1, dx),
+        "left" => dx < 0 && Math.Abs(dy) <= Math.Max(1, -dx),
+        "down" => dy > 0 && Math.Abs(dx) <= Math.Max(1, dy),
+        "up" => dy < 0 && Math.Abs(dx) <= Math.Max(1, -dy),
+        _ => false
+    };
+
+    /// <summary>Тик ловушек и DoT.</summary>
+    public async Task RunHazardTickLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(Balance.DebuffTickMs);
+                _svc.World.RemoveExpiredHazards();
+                foreach (var h in _svc.World.GetHazardsSnapshot())
+                {
+                    // Монстры на клетке
+                    foreach (var m in _svc.World.GetMonstersSnapshot())
+                    {
+                        if (m.Health <= 0 || m.X != h.X || m.Y != h.Y || m.ZoneId != h.ZoneId) continue;
+                        await ApplyHazardToMonster(h, m);
+                    }
+                    // Игроки на клетке (кроме владельца для snare/smoke — acid бьёт всех)
+                    foreach (var p in _svc.World.GetPlayersSnapshot())
+                    {
+                        if (p.IsDead || p.X != h.X || p.Y != h.Y || p.CurrentZoneId != h.ZoneId) continue;
+                        if (p.Id == h.OwnerId) continue;
+                        ApplyHazardToPlayer(h, p);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Ошибка цикла ловушек", ex);
+            }
+        }
+    }
+
+    private async Task ApplyHazardToMonster(GroundHazard h, Monster m)
+    {
+        switch (h.Kind)
+        {
+            case HazardKind.Smoke:
+                if (!h.AffectedIds.Contains(m.Id))
+                {
+                    h.AffectedIds.Add(m.Id);
+                    var deb = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.SmokeAccuracyReduction,
+                        (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Дым", "−40% точности.");
+                    _svc.Debuffs.ApplyDebuff(m, deb);
+                }
+                break;
+            case HazardKind.Snare:
+                if (!h.AffectedIds.Contains(m.Id))
+                {
+                    h.AffectedIds.Add(m.Id);
+                    var root = ActiveDebuff.Create(DebuffType.Root, 0,
+                        (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Капкан", "Обездвижен.");
+                    _svc.Debuffs.ApplyDebuff(m, root);
+                }
+                break;
+            case HazardKind.Acid:
+                if (h.DotDamagePerTick > 0)
+                {
+                    m.Health -= h.DotDamagePerTick;
+                    m.LastDamagedTime = DateTime.UtcNow;
+                    if (!_svc.Debuffs.HasDebuff(m, DebuffType.Slow))
+                    {
+                        var slow = ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue,
+                            1500, "trap", "Кислота", "−10% скорости.");
+                        _svc.Debuffs.ApplyDebuff(m, slow);
+                    }
+                    var owner = _svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == h.OwnerId);
+                    if (owner != null)
+                    {
+                        m.DamageTracker[owner.Id] = m.DamageTracker.GetValueOrDefault(owner.Id) + h.DotDamagePerTick;
+                        var client = _svc.World.FindClientByPlayer(owner);
+                        if (client != null)
+                            await SendDmgToMonster(client, m, h.DotDamagePerTick, false, "main", owner, isSkill: true);
+                    }
+                    if (m.Health <= 0 && !m.IsMannequin && owner != null)
+                        await _svc.KillService.ResolveMonsterKill(owner, m, h.DotDamagePerTick, true, null);
+                }
+                break;
+        }
+    }
+
+    private void ApplyHazardToPlayer(GroundHazard h, Player p)
+    {
+        switch (h.Kind)
+        {
+            case HazardKind.Smoke:
+                if (!h.AffectedIds.Contains(p.Id))
+                {
+                    h.AffectedIds.Add(p.Id);
+                    _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.SmokeAccuracyReduction,
+                        (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Дым", "−40% точности."));
+                }
+                break;
+            case HazardKind.Snare:
+                if (!h.AffectedIds.Contains(p.Id))
+                {
+                    h.AffectedIds.Add(p.Id);
+                    _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Root, 0,
+                        (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Капкан", "Обездвижен."));
+                }
+                break;
+            case HazardKind.Acid:
+                if (h.DotDamagePerTick > 0)
+                {
+                    p.Health -= h.DotDamagePerTick;
+                    p.LastDamagedTime = DateTime.UtcNow;
+                    if (!_svc.Debuffs.HasDebuff(p, DebuffType.Slow))
+                        _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue, 1500, "trap", "Кислота", "−10% скорости."));
+                }
+                break;
+        }
+    }
 }
