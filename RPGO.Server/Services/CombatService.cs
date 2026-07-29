@@ -373,6 +373,12 @@ public class CombatService
             if (_svc.Debuffs.HasDebuff(pl, DebuffType.SuppressingFire) && subtype == "bow")
                 await ApplySuppressingFireCone(pl, monster, client);
 
+            string crtText = isCrit ? " (КРИТ!)" : "";
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы нанесли {dmgToMonster} урона{crtText} {monster.Name}.");
+
+            await SendDmgToMonster(client, monster, dmgToMonster, isCrit, attackHand, pl);
+            await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
+
             await _svc.Hub.BroadcastMapAsync();
             return;
         }
