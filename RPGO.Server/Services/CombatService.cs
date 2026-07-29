@@ -379,6 +379,17 @@ public class CombatService
             await SendDmgToMonster(client, monster, dmgToMonster, isCrit, attackHand, pl);
             await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
 
+            if (monsterDead)
+            {
+                var killDmgMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit, Hand = attackHand }
+                };
+                await _svc.KillService.ResolveMonsterKill(pl, monster, dmgToMonster, true, killDmgMsg);
+                return;
+            }
+
             await _svc.Hub.BroadcastMapAsync();
             return;
         }
@@ -986,14 +997,27 @@ public class CombatService
                 offMonster.DamageTracker[pl.Id] = offMonster.DamageTracker.GetValueOrDefault(pl.Id) + ohDmg;
             }
 
-            await _svc.Hub.BroadcastMapAsync();
-
             var ohDmgMsg = new GameMessage
             {
                 Type = "damage",
                 Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = ohDmg, IsCrit = ohCrit, Hand = "off" }
             };
             await _svc.Hub.SendToClient(client, ohDmgMsg);
+            await _svc.Hub.SendDamageNearbyAsync(offMonster.X, offMonster.Y, ohDmgMsg, pl);
+
+            if (offMonster.Health <= 0)
+            {
+                var ohKillDmgMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + ohDmg), IsCrit = ohCrit, Hand = "off" }
+                };
+                await _svc.KillService.ResolveMonsterKill(pl, offMonster, ohDmg, true, ohKillDmgMsg);
+                await _svc.Hub.SendStatusAsync(client, pl);
+                return;
+            }
+
+            await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(offMonster.Name, offMonster.Health, offMonster.MaxHealth));
             await _svc.Hub.SendStatusAsync(client, pl);
             return;
         }
