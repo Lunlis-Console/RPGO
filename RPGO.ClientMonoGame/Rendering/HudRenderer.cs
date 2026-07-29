@@ -681,7 +681,7 @@ public class HudRenderer
         Color color = _pvpEnabled ? new Color(220, 60, 60) : new Color(120, 180, 220);
         var sz = font.MeasureString(label);
         int x = (int)((screenW - sz.X) / 2);
-        int y = 42;
+        int y = 4;
         sb.DrawString(font, label, new Vector2(x, y), color);
 
         if (_instanceExpiresAtUtcMs.HasValue && _instanceExpiresAtUtcMs > 0)
