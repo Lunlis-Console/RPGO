@@ -10,6 +10,7 @@ public class ZoneManager
 {
     private readonly Dictionary<string, Zone> _zones = new();
     private readonly Dictionary<string, GameMap> _maps = new();
+    private readonly Dictionary<string, GameMap> _instanceMaps = new();
     private readonly List<WorldPortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
@@ -46,7 +47,12 @@ public class ZoneManager
 
     public Zone? GetZone(string id) => _zones.TryGetValue(id, out var zone) ? zone : null;
 
-    public GameMap? GetMap(string zoneId) => _maps.TryGetValue(zoneId, out var map) ? map : null;
+    public GameMap? GetMap(string zoneId)
+    {
+        if (_maps.TryGetValue(zoneId, out var map)) return map;
+        if (_instanceMaps.TryGetValue(zoneId, out var imap)) return imap;
+        return null;
+    }
 
     public bool IsPvPEnabled(string zoneId) => _zones.TryGetValue(zoneId, out var zone) && zone.PvpEnabled;
 
@@ -63,9 +69,21 @@ public class ZoneManager
     {
         if (_maps.TryGetValue(zoneId, out var map))
             return map;
+        if (_instanceMaps.TryGetValue(zoneId, out var imap))
+            return imap;
 
         var fallback = new GameMap(Balance.WorldWidth, Balance.WorldHeight);
         _maps[zoneId] = fallback;
         return fallback;
+    }
+
+    public void RegisterInstanceZone(string zoneId, GameMap map)
+    {
+        _instanceMaps[zoneId] = map;
+    }
+
+    public void UnregisterInstanceZone(string zoneId)
+    {
+        _instanceMaps.Remove(zoneId);
     }
 }

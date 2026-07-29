@@ -26,4 +26,5 @@ public interface INetworkHub
     Task SendFriendListToAsync(ClientConnection connection, Player player);
     StatsBreakdown BuildBreakdown(Player player);
     Task KickPlayer(ClientConnection connection, string reason);
+    Task SendZoneTransition(ClientConnection connection, Player player);
 }

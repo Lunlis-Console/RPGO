@@ -23,6 +23,9 @@ public sealed class GameServer : INetworkHub
             .Where(c => c.Player != null).ToList();
 
         var allMonsters = svc.Monsters.GetMonsterPositions();
+        // Добавляем монстров инстансов
+        var instanceMonsters = svc.Instances.GetAllMonstersPositions();
+        allMonsters.AddRange(instanceMonsters);
         var allCollectibles = svc.Collectibles.GetPositions();
         var allCorpses = svc.Corpses.GetCorpsePositions();
         var allNpcs = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
@@ -98,10 +101,12 @@ public sealed class GameServer : INetworkHub
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
                 Corpses = nearbyCorpses,
-                Npcs = allNpcs.Where(n =>
-                    Math.Abs(n.X - player.X) <= viewRadius &&
-                    Math.Abs(n.Y - player.Y) <= viewRadius
-                ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList(),
+                Npcs = !zoneId.StartsWith("instance:")
+                    ? allNpcs.Where(n =>
+                        Math.Abs(n.X - player.X) <= viewRadius &&
+                        Math.Abs(n.Y - player.Y) <= viewRadius
+                      ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
+                    : new List<NpcPosition>(),
                 ZoneId = zoneId,
                 ZoneName = zone?.Name ?? zoneId,
                 PvPEnabled = isPvp,
@@ -578,5 +583,22 @@ public sealed class GameServer : INetworkHub
             Data = new { Reason = reason }
         });
         _world.DisconnectPlayer(connection);
+    }
+
+    public async Task SendZoneTransition(ClientConnection connection, Player player)
+    {
+        var zone = Program.Services.Zones.GetZone(player.CurrentZoneId);
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "zone_transition",
+            Data = new
+            {
+                ZoneId = player.CurrentZoneId,
+                ZoneName = zone?.Name ?? player.CurrentZoneId,
+                X = player.X,
+                Y = player.Y,
+                PvPEnabled = zone?.PvpEnabled ?? false
+            }
+        });
     }
 }

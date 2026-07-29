@@ -362,11 +362,28 @@ public class MonsterManager
     private bool IsOccupiedByMonster(int x, int y)
         => _world.FindMonsterAt(x, y) != null;
 
-    public Monster? FindMonsterAt(int x, int y) => _world.FindMonsterAt(x, y);
+    public Monster? FindMonsterAt(int x, int y)
+    {
+        var world = _world.FindMonsterAt(x, y);
+        if (world != null) return world;
+        return Program.Services.Instances.FindMonsterAt(x, y);
+    }
 
-    public Monster? FindMonsterById(Guid id) => _world.FindMonsterById(id);
+    public Monster? FindMonsterById(Guid id)
+    {
+        var world = _world.FindMonsterById(id);
+        if (world != null) return world;
+        return Program.Services.Instances.FindMonsterById(id);
+    }
 
     public List<Monster> GetAllMonsters() => _world.GetMonstersSnapshot();
+
+    public List<Monster> GetAllMonstersIncludingInstances()
+    {
+        var result = _world.GetMonstersSnapshot();
+        result.AddRange(Program.Services.Instances.GetAllMonsters());
+        return result;
+    }
 
     public List<MonsterPosition> GetMonsterPositions()
     {

@@ -57,6 +57,17 @@ public class MoveDirectionHandler : BaseHandler
             player.Movement.LastMoveTime = DateTime.UtcNow;
             Log.Debug($"{player.Name} переместился на ({player.X}, {player.Y})");
 
+            // Проверка выхода из инстанса
+            if (player.CurrentZoneId.StartsWith("instance:"))
+            {
+                var inst = Program.Services.Instances.FindInstanceByPlayer(player);
+                if (inst != null && player.X == inst.Template.ExitX && player.Y == inst.Template.ExitY)
+                {
+                    await Program.Services.Instances.KickPlayer(player, "Вы вышли из подземелья.");
+                    return;
+                }
+            }
+
             // Проверка портала
             var portal = Program.Services.Zones.FindPortal(player.CurrentZoneId, player.X, player.Y);
             if (portal != null)

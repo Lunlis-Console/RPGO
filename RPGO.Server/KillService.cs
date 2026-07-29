@@ -58,6 +58,13 @@ public class KillService
 
         await _hub.SendToClient(client, GameMessage.ResetCombat());
 
+        // Обработка инстанс-монстров
+        if (monster.ZoneId.StartsWith("instance:"))
+        {
+            await ResolveInstanceMonsterKill(killer, monster);
+            return;
+        }
+
         var damageTracker = monster.DamageTracker;
         var partyContributors = new List<(Player Player, int Damage)>();
         bool isPartyMode = false;
@@ -86,6 +93,36 @@ public class KillService
             await ResolvePartyKill(killer, monster, partyContributors, totalDamage);
         else
             await ResolveSoloKill(killer, monster, damageTracker);
+    }
+
+    private async Task ResolveInstanceMonsterKill(Player killer, Monster monster)
+    {
+        bool isBoss = _svc.Instances.IsBossMonster(monster);
+
+        killer.Experience += monster.XpReward;
+        if (killer.TryLevelUp()) Log.Info($"{killer.Name} повысил уровень до {killer.Level}!");
+
+        var client = _world.FindClientByPlayer(killer);
+        if (client != null)
+        {
+            await _svc.Hub.SendStatusAsync(client, killer);
+            int goldReward = monster.GoldReward;
+            killer.Gold += goldReward;
+            await _svc.Hub.SendChatToAsync(client, ChatChannel.System, "Система",
+                $"Вы получили {monster.XpReward} опыта и {goldReward} золота за убийство {monster.Name}.");
+        }
+
+        _svc.Instances.RemoveMonster(monster);
+
+        if (isBoss)
+        {
+            _svc.Instances.OnBossKilled(monster.ZoneId);
+            if (client != null)
+                await _svc.Hub.SendChatToAsync(client, ChatChannel.System, "Система",
+                    "Босс повержен! Сундук разблокирован. У вас есть время забрать лут до закрытия инстанса.");
+        }
+
+        await _svc.Hub.BroadcastMapAsync();
     }
 
     private async Task ResolveSoloKill(

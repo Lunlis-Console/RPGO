@@ -1,4 +1,5 @@
-﻿using RPGGame.Server.Network;
+﻿using RPGGame.Server.Instances;
+using RPGGame.Server.Network;
 using RPGGame.Server.MessageHandlers;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
@@ -76,20 +77,27 @@ partial class Program
         party.SetHub(hub);
         world.SetDependencies(hub, player => { DatabaseManager.SavePlayerProgress(player); return true; });
 
-        // Создаём контейнер сервисов (временно без Combat/Interactions/Auth — циклическая зависимость)
+        // Создаём контейнер сервисов (временно без циклических зависимостей)
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat: null!, interactions: null!, auth: null!, zones);
+            combat: null!, interactions: null!, auth: null!, zones, instances: null!);
 
         // Создаём сервисы, зависящие от GameServices
         var combat = new CombatService(Services);
         var interactions = new InteractionService(Services);
         var auth = new AuthService(Services);
+        var instances = new InstanceManager(Services);
+        instances.LoadAll();
 
         // Пересоздаём контейнер с полным набором сервисов
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, interactions, auth, zones);
+            combat, interactions, auth, zones, instances);
+
+        // Обновляем ссылку на GameServices у сервисов, чтобы они видели Instances и другие циклические зависимости
+        interactions.SetServices(Services);
+        combat.SetServices(Services);
+        instances.SetServices(Services);
 
         // Передаём GameServices в KillService
         killService.SetGameServices(Services);
@@ -168,6 +176,9 @@ partial class Program
                 var tradeSession = Services.Trade.GetSession(player.Id);
                 if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "отключение клиента");
                 player.IsTrading = false;
+
+                // Удаляем игрока из инстанса, если он там
+                Services.Instances.RemovePlayer(player);
 
                 Services.World.RemovePlayer(player);
                 Services.World.RemoveClient(connection);

@@ -10,7 +10,7 @@ namespace RPGGame.Server;
 /// </summary>
 public class CombatService
 {
-    private readonly GameServices _svc;
+    private GameServices _svc;
 
     // Доступ к сервисам для skill-экзекуторов
     internal MonsterManager Monsters => _svc.Monsters;
@@ -23,6 +23,8 @@ public class CombatService
     {
         _svc = svc;
     }
+
+    public void SetServices(GameServices svc) => _svc = svc;
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
@@ -1629,7 +1631,7 @@ public class CombatService
     {
         double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult("SK0015");
         int range = pl.GetEffectiveAttackRange();
-        foreach (var m in _svc.World.GetMonstersSnapshot())
+        foreach (var m in _svc.Monsters.GetAllMonstersIncludingInstances())
         {
             if (m.Id == primary.Id || m.Health <= 0 || m.ZoneId != pl.CurrentZoneId) continue;
             int mdx = m.X - pl.X, mdy = m.Y - pl.Y;
@@ -1670,7 +1672,7 @@ public class CombatService
                 foreach (var h in _svc.World.GetHazardsSnapshot())
                 {
                     // Монстры на клетке
-                    foreach (var m in _svc.World.GetMonstersSnapshot())
+                    foreach (var m in _svc.Monsters.GetAllMonstersIncludingInstances())
                     {
                         if (m.Health <= 0 || m.X != h.X || m.Y != h.Y || m.ZoneId != h.ZoneId) continue;
                         await ApplyHazardToMonster(h, m);

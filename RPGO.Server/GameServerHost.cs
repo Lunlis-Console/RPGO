@@ -28,6 +28,7 @@ public class GameServerHost
         Task.Run(RunCorpseCleanupLoop);
         Task.Run(() => _svc.Projectiles.RunTick());
         Task.Run(RunSessionCleanupLoop);
+        Task.Run(RunInstanceTickLoop);
     }
 
     private async Task RunMonsterWanderLoop()
@@ -169,6 +170,19 @@ public class GameServerHost
                 SessionManager.Cleanup();
             }
             catch (Exception ex) { Log.Error("Ошибка цикла очистки сессий", ex); }
+        }
+    }
+
+    private async Task RunInstanceTickLoop()
+    {
+        while (true)
+        {
+            try
+            {
+                await Task.Delay(1000);
+                await _svc.Instances.TickAsync();
+            }
+            catch (Exception ex) { Log.Error("Ошибка цикла инстансов", ex); }
         }
     }
 }

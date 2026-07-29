@@ -11,12 +11,14 @@ namespace RPGGame.Server;
 /// </summary>
 public class InteractionService
 {
-    private readonly GameServices _svc;
+    private GameServices _svc;
 
     public InteractionService(GameServices svc)
     {
         _svc = svc;
     }
+
+    public void SetServices(GameServices svc) => _svc = svc;
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
@@ -113,9 +115,22 @@ public class InteractionService
 
             case "npc":
                 {
+                    // Проверка: может это стражник инстанса?
+                    var npcList = DatabaseManager.LoadNpcs();
+                    var portalNpc = npcList.FirstOrDefault(n => n.X == player.Interaction.X && n.Y == player.Interaction.Y && n.Type == "instance_portal");
+                    if (portalNpc != null)
+                    {
+                        var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
+                        if (portal != null)
+                        {
+                            await _svc.Instances.TryEnter(player, portal.InstanceTemplateId, client);
+                            break;
+                        }
+                    }
+
                     if (player.Dialogue.IsActive) break;
                     string? npcId = null;
-                    foreach (var n in DatabaseManager.LoadNpcs())
+                    foreach (var n in npcList)
                     {
                         if (n.X == player.Interaction.X && n.Y == player.Interaction.Y)
                         {
@@ -139,6 +154,10 @@ public class InteractionService
                         }
                     }
                 }
+                break;
+
+            case "chest":
+                await _svc.Instances.TryOpenChest(player, client);
                 break;
 
             case "collectible":
@@ -296,6 +315,19 @@ public class InteractionService
                     pl.Y = next.Y;
                     pl.Movement.LastMoveTime = DateTime.UtcNow;
                     moved = true;
+
+                    // Проверка выхода из инстанса (ExitX, ExitY)
+                    if (pl.CurrentZoneId.StartsWith("instance:"))
+                    {
+                        var inst = _svc.Instances.FindInstanceByPlayer(pl);
+                        if (inst != null && pl.X == inst.Template.ExitX && pl.Y == inst.Template.ExitY)
+                        {
+                            pl.Movement.Stop();
+                            pl.Interaction.Clear();
+                            await _svc.Instances.KickPlayer(pl, "Вы вышли из подземелья.");
+                            continue;
+                        }
+                    }
 
                     // Проверка портала при движении по пути
                     var portal = _svc.Zones.FindPortal(pl.CurrentZoneId, pl.X, pl.Y);

@@ -1,3 +1,4 @@
+using RPGGame.Server.Instances;
 using RPGGame.Server.Network;
 
 namespace RPGGame.Server;
@@ -27,6 +28,7 @@ public sealed class GameServices
     public InteractionService Interactions { get; }
     public AuthService Auth { get; }
     public ZoneManager Zones { get; }
+    public InstanceManager Instances { get; }
 
     public GameServices(
         GameWorld world,
@@ -47,7 +49,8 @@ public sealed class GameServices
         CombatService combat,
         InteractionService interactions,
         AuthService auth,
-        ZoneManager zones)
+        ZoneManager zones,
+        InstanceManager instances)
     {
         World = world;
         Hub = hub;
@@ -68,5 +71,6 @@ public sealed class GameServices
         Interactions = interactions;
         Auth = auth;
         Zones = zones;
+        Instances = instances;
     }
 }
