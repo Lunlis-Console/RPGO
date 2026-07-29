@@ -22,6 +22,9 @@ public class WorldMap
     public string ZoneName { get; set; } = "";
     public bool PvPEnabled { get; set; }
     public List<PortalPosition> Portals { get; set; } = new();
+    public PortalPosition? InstanceExitPortal { get; set; }
+    public ChestPosition? InstanceChest { get; set; }
+    public double? InstanceExpiresAtUtcMs { get; set; }
 
     // Тайл-карта
     public string? TileMapId { get; set; }
@@ -94,4 +97,11 @@ public class PortalPosition
     public int X { get; set; }
     public int Y { get; set; }
     public string TargetZone { get; set; } = "";
+}
+
+public class ChestPosition
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public bool IsLocked { get; set; }
 }

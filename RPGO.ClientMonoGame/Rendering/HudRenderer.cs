@@ -19,6 +19,7 @@ public class HudRenderer
     private List<DebuffInfo>? _targetDebuffs;
     private bool _pvpEnabled;
     private string _zoneName = "";
+    private double? _instanceExpiresAtUtcMs;
 
     // Хитбоксы иконок дебаффов для тултипа
     private readonly List<(Rectangle Rect, DebuffInfo Debuff)> _playerDebuffHits = new();
@@ -46,6 +47,11 @@ public class HudRenderer
     {
         _zoneName = zoneName;
         _pvpEnabled = pvpEnabled;
+    }
+
+    public void UpdateInstanceTimer(double? expiresAtUtcMs)
+    {
+        _instanceExpiresAtUtcMs = expiresAtUtcMs;
     }
 
     public void UpdateCombatState(bool inCombat, string? targetName, int hp, int maxHp)
@@ -677,6 +683,22 @@ public class HudRenderer
         int x = (int)((screenW - sz.X) / 2);
         int y = 42;
         sb.DrawString(font, label, new Vector2(x, y), color);
+
+        if (_instanceExpiresAtUtcMs.HasValue && _instanceExpiresAtUtcMs > 0)
+        {
+            double nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            int remainingMs = (int)(_instanceExpiresAtUtcMs.Value - nowMs);
+            if (remainingMs < 0) remainingMs = 0;
+            int totalSec = remainingMs / 1000;
+            int min = totalSec / 60;
+            int sec = totalSec % 60;
+            string timer = $"Осталось {min:D2}:{sec:D2}";
+            var tsz = font.MeasureString(timer);
+            int tx = (int)((screenW - tsz.X) / 2);
+            int ty = y + (int)sz.Y + 2;
+            Color tc = totalSec < 60 ? new Color(220, 60, 60) : new Color(255, 200, 80);
+            sb.DrawString(font, timer, new Vector2(tx, ty), tc);
+        }
     }
 
     private static string RankAdjustDesc(string desc, double mult)

@@ -84,6 +84,9 @@ public class InstanceManager
     public InstancePortal? FindPortal(string zone, int x, int y)
         => _portalLookup.TryGetValue((zone, x, y), out var p) ? p : null;
 
+    public InstancePortal? FindPortalForTemplate(string templateId)
+        => _portals.FirstOrDefault(p => p.InstanceTemplateId == templateId);
+
     public ActiveInstance? FindInstanceByPlayer(Player player)
     {
         lock (_lock)
@@ -184,46 +187,59 @@ public class InstanceManager
     private async Task TeleportInto(Player player, ActiveInstance instance, ClientConnection conn)
     {
         player.CurrentZoneId = instance.InstanceZoneId;
-        player.X = instance.Template.SpawnX;
-        player.Y = instance.Template.SpawnY;
+        player.X = instance.Template.SpawnX + instance.OffsetX;
+        player.Y = instance.Template.SpawnY + instance.OffsetY;
         player.Combat.Cancel();
         player.Movement.Stop();
 
         await _svc.Hub.SendZoneTransition(conn, player);
     }
 
-    /// <summary>Генерация карты-коридора.</summary>
+    /// <summary>Генерация карты-коридора на полной карте 100x100 с серой пустотой вокруг.</summary>
     private static GameMap GenerateCorridorMap(InstanceTemplate template)
     {
-        int w = template.CorridorWidth;
-        int h = template.CorridorLength + 3; // +3 для комнаты босса + выход
-        var map = new GameMap(w, h);
+        int mapW = Balance.WorldWidth;
+        int mapH = Balance.WorldHeight;
+        int cw = template.CorridorWidth;
+        int ch = template.CorridorLength + 3;
+        int ox = (mapW - cw) / 2;
+        int oy = (mapH - ch) / 2;
 
-        var tiles = new byte[w * h];
-        for (int y = 0; y < h; y++)
+        var map = new GameMap(mapW, mapH);
+        var tiles = new byte[mapW * mapH];
+        for (int y = 0; y < mapH; y++)
+            for (int x = 0; x < mapW; x++)
+                tiles[y * mapW + x] = (byte)TileType.Null;
+
+        for (int y = 0; y < ch; y++)
         {
-            for (int x = 0; x < w; x++)
+            for (int x = 0; x < cw; x++)
             {
-                // Стены по бокам
-                if (x == 0 || x == w - 1)
+                int mx = ox + x;
+                int my = oy + y;
+                if (x == 0 || x == cw - 1)
                 {
-                    tiles[y * w + x] = (byte)TileType.Wall;
-                    map.AddObstacle(x, y);
+                    tiles[my * mapW + mx] = (byte)TileType.Wall;
+                    map.AddObstacle(mx, my);
                 }
-                // Босс-комната (нижние 3 ряда — шире, во всю ширину)
-                else if (y >= template.CorridorLength)
-                {
-                    tiles[y * w + x] = (byte)TileType.Stone;
-                }
-                // Пол коридора
                 else
                 {
-                    tiles[y * w + x] = (byte)TileType.Stone;
+                    tiles[my * mapW + mx] = (byte)TileType.Stone;
                 }
             }
         }
         map.SetTiles(tiles);
         return map;
+    }
+
+    /// <summary>Смещение коридора на полной карте (для пересчёта координат спавнов).</summary>
+    public static (int ox, int oy) GetCorridorOffset(InstanceTemplate template)
+    {
+        int mapW = Balance.WorldWidth;
+        int mapH = Balance.WorldHeight;
+        int cw = template.CorridorWidth;
+        int ch = template.CorridorLength + 3;
+        return ((mapW - cw) / 2, (mapH - ch) / 2);
     }
 
     /// <summary>Спавн монстров из шаблона.</summary>
@@ -237,8 +253,8 @@ public class InstanceManager
         while (reader.Read())
         {
             string monId = reader.GetString(0);
-            int x = reader.GetInt32(1);
-            int y = reader.GetInt32(2);
+            int x = reader.GetInt32(1) + instance.OffsetX;
+            int y = reader.GetInt32(2) + instance.OffsetY;
             bool isBoss = reader.GetBoolean(3);
 
             var tpl = _svc.World.GetMonsterTemplates().FirstOrDefault(t => t.Id == monId);
@@ -256,6 +272,7 @@ public class InstanceManager
                 GoldReward = tpl.GoldReward * (isBoss ? 3 : 1),
                 Level = isBoss ? 15 : 5,
                 ZoneId = instance.InstanceZoneId,
+                Symbol = tpl.Symbol,
                 Strength = tpl.Strength + (isBoss ? 4 : 0),
                 Endurance = tpl.Endurance + (isBoss ? 3 : 0),
                 Agility = tpl.Agility,
@@ -267,28 +284,72 @@ public class InstanceManager
                 EvadeChance = tpl.EvadeChance,
                 SpawnX = x,
                 SpawnY = y,
+                WanderRadius = Balance.MonsterWanderRadius,
                 AggroRange = isBoss ? 10 : 5,
-                MoveIntervalMs = 1500
+                MoveIntervalMs = 1500,
+                LastMoveTime = DateTime.UtcNow.AddMilliseconds(-new Random().Next(0, 500))
             };
             instance.Monsters.Add(monster);
         }
     }
 
-    /// <summary>Тик таймеров и очистка истёкших инстансов.</summary>
+    /// <summary>Тик таймеров, ИИ монстров и очистка истёкших инстансов.</summary>
     public async Task TickAsync()
     {
         List<ActiveInstance> expired;
+        List<ActiveInstance> active;
         lock (_lock)
         {
             expired = _instances.Values.Where(i => i.IsExpired).ToList();
             foreach (var inst in expired)
                 _instances.Remove(inst.Id);
+            active = _instances.Values.ToList();
         }
 
         foreach (var inst in expired)
         {
             await KickAllPlayers(inst, "Время вышло. Инстанс закрыт.");
             Log.Info($"Инстанс {inst.Id} закрыт по таймеру");
+        }
+
+        // ИИ монстров в инстансах
+        if (active.Count > 0)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var inst in active)
+            {
+                List<Monster> monsters;
+                List<Player> players;
+                lock (_lock) { monsters = new List<Monster>(inst.Monsters); players = new List<Player>(inst.Players); }
+                if (monsters.Count == 0 || players.Count == 0) continue;
+
+                _svc.Monsters.WanderStepForInstances(monsters, players, inst.Map.Width, inst.Map.Height);
+
+                // Реген монстров
+                foreach (var m in monsters)
+                {
+                    if (m.Health >= m.MaxHealth) continue;
+                    bool outOfCombat = m.AggroTarget == null && (now - m.LastDamagedTime).TotalMilliseconds > 5000;
+                    if (outOfCombat) { m.Health = m.MaxHealth; continue; }
+                    bool inCombat = (now - m.LastDamagedTime).TotalMilliseconds < 3000;
+                    int tick = inCombat ? 2000 : 3000;
+                    if ((now - m.LastRegenTime).TotalMilliseconds >= tick)
+                    {
+                        int heal = inCombat
+                            ? Math.Max(1, (int)(m.MaxHealth * 0.05))
+                            : 5;
+                        m.Health = Math.Min(m.MaxHealth, m.Health + heal);
+                        m.LastRegenTime = now;
+                    }
+                }
+
+                // Дебаффы монстров
+                foreach (var m in monsters)
+                {
+                    if (m.ActiveDebuffs.Count > 0)
+                        _svc.Debuffs.TickDebuffs(m);
+                }
+            }
         }
     }
 
@@ -378,11 +439,13 @@ public class InstanceManager
                     result.Add(new MonsterPosition
                     {
                         Id = m.Id,
+                        TemplateId = m.TemplateId,
                         Name = m.Name,
                         X = m.X,
                         Y = m.Y,
                         Health = m.Health,
                         MaxHealth = m.MaxHealth,
+                        Symbol = m.Symbol,
                         ZoneId = m.ZoneId,
                         Level = m.Level
                     });
@@ -466,7 +529,7 @@ public class InstanceManager
             return false;
         }
 
-        if (player.X != inst.Template.ChestX || player.Y != inst.Template.ChestY)
+        if (player.X != inst.Template.ChestX + inst.OffsetX || player.Y != inst.Template.ChestY + inst.OffsetY)
         {
             await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Подойдите к сундуку.");
             return false;

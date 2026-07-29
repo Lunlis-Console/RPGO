@@ -118,6 +118,28 @@ public sealed class GameServer : INetworkHub
                 TilesetId = zoneId
             };
 
+            // Данные инстанса: выход, сундук, таймер
+            if (zoneId.StartsWith("instance:"))
+            {
+                var inst = svc.Instances.FindInstanceByZoneId(zoneId);
+                if (inst != null)
+                {
+                    mapData.InstanceExitPortal = new PortalPosition
+                    {
+                        X = inst.Template.ExitX + inst.OffsetX,
+                        Y = inst.Template.ExitY + inst.OffsetY,
+                        TargetZone = ""
+                    };
+                    mapData.InstanceChest = new ChestPosition
+                    {
+                        X = inst.Template.ChestX + inst.OffsetX,
+                        Y = inst.Template.ChestY + inst.OffsetY,
+                        IsLocked = inst.ChestLocked
+                    };
+                    mapData.InstanceExpiresAtUtcMs = new DateTimeOffset(inst.ExpiresAt).ToUnixTimeMilliseconds();
+                }
+            }
+
             await SendToClient(client, new GameMessage
             {
                 Type = "map_update",

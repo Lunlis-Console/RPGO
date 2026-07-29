@@ -785,9 +785,15 @@ private sealed class RemotePlayerState
                     int my = _viewStartY + y;
                     if (mx < 0 || my < 0 || mx >= _tileMapWidth || my >= _tileMapHeight) continue;
                     byte tileId = _tileData[my * _tileMapWidth + mx];
-                    if (tileId == 0 || tileId == 255)
+                    if (tileId == 0)
                     {
                         sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
+                        continue;
+                    }
+                    if (tileId == 255)
+                    {
+                        var voidRect = new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2);
+                        sb.Draw(SpriteCache.Pixel, voidRect, new Color(40, 40, 45));
                         continue;
                     }
                     int tCol = (tileId - 1) % tilesetCols;
@@ -802,8 +808,41 @@ private sealed class RemotePlayerState
                 }
             }
         }
+        else if (_tileData != null && _tileMapWidth > 0 && _tileMapHeight > 0
+                 && _tileMapWidth == map.Width && _tileMapHeight == map.Height
+                 && _tileData.Length == map.Width * map.Height)
+        {
+            int tilePxW = (int)Math.Ceiling(_cellW);
+            int tilePxH = (int)Math.Ceiling(_cellH);
+            for (int y = -1; y <= viewH + 1; y++)
+            {
+                float ty = _gridOY + y * _cellH;
+                if (ty > offsetY + areaH) continue;
+                for (int x = -1; x <= viewW + 1; x++)
+                {
+                    float tx = _gridOX + x * _cellW;
+                    if (tx > offsetX + areaW) continue;
+                    int mx = _viewStartX + x;
+                    int my = _viewStartY + y;
+                    if (mx < 0 || my < 0 || mx >= _tileMapWidth || my >= _tileMapHeight)
+                    {
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), new Color(40, 40, 45));
+                        continue;
+                    }
+                    byte tileId = _tileData[my * _tileMapWidth + mx];
+                    if (tileId == 255)
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), new Color(40, 40, 45));
+                    else if (grass != null)
+                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
+                    else
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.LightGreen);
+                }
+            }
+        }
         else
         {
+            int tilePxW = (int)Math.Ceiling(_cellW);
+            int tilePxH = (int)Math.Ceiling(_cellH);
             for (int y = -1; y <= viewH + 1; y++)
             {
                 float ty = _gridOY + y * _cellH;
@@ -813,9 +852,9 @@ private sealed class RemotePlayerState
                     float tx = _gridOX + x * _cellW;
                     if (tx > offsetX + areaW) continue;
                     if (grass != null)
-                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.White);
+                        sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
                     else
-                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)Math.Ceiling(_cellW) + 2, (int)Math.Ceiling(_cellH) + 2), Color.LightGreen);
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.LightGreen);
                 }
             }
         }
@@ -833,6 +872,36 @@ private sealed class RemotePlayerState
                     sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(120, 60, 200, 180));
                     sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(160, 100, 255, 200));
                 }
+            }
+        }
+
+        // Выход из инстанса (зелёный портал)
+        if (map.InstanceExitPortal != null)
+        {
+            int px = map.InstanceExitPortal.X, py = map.InstanceExitPortal.Y;
+            if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
+            {
+                float ptx = _gridOX + (px - _viewStartX) * _cellW;
+                float pty = _gridOY + (py - _viewStartY) * _cellH;
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(60, 180, 80, 180));
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(100, 220, 120, 200));
+            }
+        }
+
+        // Сундук инстанса
+        if (map.InstanceChest != null)
+        {
+            int px = map.InstanceChest.X, py = map.InstanceChest.Y;
+            if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
+            {
+                float ptx = _gridOX + (px - _viewStartX) * _cellW;
+                float pty = _gridOY + (py - _viewStartY) * _cellH;
+                Color chestColor = map.InstanceChest.IsLocked
+                    ? new Color(120, 80, 40, 200)
+                    : new Color(220, 180, 50, 200);
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), chestColor);
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8),
+                    map.InstanceChest.IsLocked ? new Color(90, 60, 30, 200) : new Color(255, 215, 80, 220));
             }
         }
 

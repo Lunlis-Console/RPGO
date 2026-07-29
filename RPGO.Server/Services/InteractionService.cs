@@ -320,7 +320,7 @@ public class InteractionService
                     if (pl.CurrentZoneId.StartsWith("instance:"))
                     {
                         var inst = _svc.Instances.FindInstanceByPlayer(pl);
-                        if (inst != null && pl.X == inst.Template.ExitX && pl.Y == inst.Template.ExitY)
+                        if (inst != null && pl.X == inst.Template.ExitX + inst.OffsetX && pl.Y == inst.Template.ExitY + inst.OffsetY)
                         {
                             pl.Movement.Stop();
                             pl.Interaction.Clear();

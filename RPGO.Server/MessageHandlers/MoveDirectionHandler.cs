@@ -61,7 +61,7 @@ public class MoveDirectionHandler : BaseHandler
             if (player.CurrentZoneId.StartsWith("instance:"))
             {
                 var inst = Program.Services.Instances.FindInstanceByPlayer(player);
-                if (inst != null && player.X == inst.Template.ExitX && player.Y == inst.Template.ExitY)
+                if (inst != null && player.X == inst.Template.ExitX + inst.OffsetX && player.Y == inst.Template.ExitY + inst.OffsetY)
                 {
                     await Program.Services.Instances.KickPlayer(player, "Вы вышли из подземелья.");
                     return;

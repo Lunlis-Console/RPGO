@@ -14,11 +14,17 @@ public class ActiveInstance
     public DateTime CreatedAt { get; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; }
 
+    public int OffsetX { get; }
+    public int OffsetY { get; }
+
     public ActiveInstance(InstanceTemplate template, GameMap map)
     {
         Template = template;
         Map = map;
         ExpiresAt = CreatedAt.AddSeconds(template.TimeLimitSeconds);
+        var (ox, oy) = InstanceManager.GetCorridorOffset(template);
+        OffsetX = ox;
+        OffsetY = oy;
     }
 
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;

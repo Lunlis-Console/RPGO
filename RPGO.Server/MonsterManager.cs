@@ -343,6 +343,121 @@ public class MonsterManager
         }
     }
 
+    /// <summary>Тик ИИ для монстров инстанса (адаптация WanderStep).</summary>
+    public void WanderStepForInstances(List<Monster> monsters, List<Player> players, int mapW, int mapH)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var m in monsters)
+        {
+            if (m.IsMannequin) continue;
+            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Stun)) continue;
+            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Root)) continue;
+
+            double slow = 1.0 + m.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+            int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
+
+            if (m.ReturningToSpawn)
+            {
+                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
+                int distToSpawn = Math.Abs(m.X - m.SpawnX) + Math.Abs(m.Y - m.SpawnY);
+                if (distToSpawn <= 1)
+                {
+                    m.X = m.SpawnX; m.Y = m.SpawnY;
+                    m.Health = m.MaxHealth;
+                    m.ReturningToSpawn = false; m.StuckTicks = 0;
+                    m.AggroTarget = null; m.DamageTracker.Clear();
+                    m.LastMoveTime = now;
+                    continue;
+                }
+                int stepX = Math.Sign(m.SpawnX - m.X);
+                int stepY = Math.Sign(m.SpawnY - m.Y);
+                int mx = stepX != 0 && stepY != 0 ? stepX : (stepX != 0 ? stepX : 0);
+                int my = stepX != 0 && stepY != 0 ? 0 : (stepY != 0 ? stepY : 0);
+                int nx = m.X + mx, ny = m.Y + my;
+                if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH && !InstanceOccupied(monsters, nx, ny))
+                { m.X = nx; m.Y = ny; }
+                m.LastMoveTime = now;
+                continue;
+            }
+
+            Player? target = null;
+            int bestDist = int.MaxValue;
+            foreach (var p in players)
+            {
+                if (p.Health <= 0 || p.CurrentZoneId != m.ZoneId) continue;
+                int d = Math.Abs(p.X - m.X) + Math.Abs(p.Y - m.Y);
+                if (d <= m.AggroRange && d < bestDist) { bestDist = d; target = p; }
+            }
+
+            if (target != null) m.AggroTarget = target;
+            else if (m.AggroTarget != null &&
+                     (m.AggroTarget.Health <= 0 ||
+                      Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y) > m.AggroRange))
+            {
+                m.AggroTarget = null; m.StuckTicks = 0;
+                if (m.X != m.SpawnX || m.Y != m.SpawnY) m.ReturningToSpawn = true;
+                continue;
+            }
+
+            if (m.AggroTarget != null && m.AggroTarget.Health > 0)
+            {
+                int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
+                if (dist <= 1)
+                {
+                    if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
+                    {
+                        m.LastMoveTime = now; m.StuckTicks = 0;
+                        int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
+                        _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
+                    }
+                    continue;
+                }
+                int stepX = Math.Sign(m.AggroTarget.X - m.X);
+                int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
+                int mx = 0, my = 0;
+                if (stepX != 0 && stepY != 0)
+                {
+                    if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y) mx = stepX;
+                    else my = stepY;
+                }
+                else if (stepX != 0) mx = stepX;
+                else if (stepY != 0) my = stepY;
+
+                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
+
+                bool moved = false;
+                if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
+                    || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
+                {
+                    int nx = m.X + mx, ny = m.Y + my;
+                    if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH
+                        && Math.Abs(nx - m.SpawnX) <= m.WanderRadius && Math.Abs(ny - m.SpawnY) <= m.WanderRadius
+                        && !InstanceOccupied(monsters, nx, ny))
+                    { m.X = nx; m.Y = ny; moved = true; }
+                }
+                if (moved) m.StuckTicks = 0;
+                else { m.StuckTicks++; if (m.StuckTicks >= Balance.MonsterLeashStuckTicks) { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; } }
+                m.LastMoveTime = now;
+                continue;
+            }
+
+            if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
+            if (_world.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
+            int dir = _world.NextRandom(0, 4);
+            int wdx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
+            int wdy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
+            int wnx = m.X + wdx, wny = m.Y + wdy;
+            if (wnx < 0 || wnx >= mapW || wny < 0 || wny >= mapH) continue;
+            if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
+            if (InstanceOccupied(monsters, wnx, wny)) continue;
+            m.X = wnx; m.Y = wny;
+            m.LastMoveTime = now;
+        }
+    }
+
+    private static bool InstanceOccupied(List<Monster> monsters, int x, int y)
+        => monsters.Any(mm => mm.X == x && mm.Y == y);
+
     private bool TryMoveTowards(Monster m, int dx, int dy)
     {
         if (dx == 0 && dy == 0) return false;

@@ -72,6 +72,7 @@ public class GameScreen : IScreen
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
             _hudRenderer.UpdateZone(map.ZoneName, map.PvPEnabled);
+            _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
             if (map.TileData != null && map.TileData.Length > 0)
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
             else
@@ -85,6 +86,8 @@ public class GameScreen : IScreen
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
             _hudRenderer.UpdateZone(zoneName, pvp);
+            if (!zoneId.StartsWith("instance:"))
+                _hudRenderer.UpdateInstanceTimer(null);
         };
         client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
