@@ -22,16 +22,19 @@ public class SkillsWindow : GameWindow
     private const int NodeH = 48;
     private const int NodeGapY = 12;
     private const int ColGapX = 16;
+    private const int SubColGapX = 20;
     private const int BranchHeaderH = 22;
 
-    // Школы/ветки (колонки дерева). Ключ — Type навыка.
-    private class Branch
+    // Путь (колонка дерева): Меч или Лук, внутри — активные и пассивные навыки.
+    private class PathGroup
     {
-        public string Name = "";
-        public List<ClientSkillInfo> Nodes = new();
+        public string PathId = "";          // "Меч" / "Лук"
+        public string PathTitle = "";       // "Путь меча" / "Путь лука"
+        public List<ClientSkillInfo> Active = new();
+        public List<ClientSkillInfo> Passive = new();
     }
 
-    private List<Branch> _branches = new();
+    private List<PathGroup> _pathGroups = new();
 
     public Action<string>? UseSkill { get; set; }
     public Action<string>? LearnSkill { get; set; }
@@ -62,23 +65,30 @@ public class SkillsWindow : GameWindow
 
     private void RebuildTree()
     {
-        _branches = new();
-        var byType = new Dictionary<string, Branch>();
+        _pathGroups = new();
+        var byPath = new Dictionary<string, PathGroup>();
         foreach (var s in _skills)
         {
-            string key = string.IsNullOrWhiteSpace(s.Type) ? "Основные" : s.Type;
-            if (!byType.TryGetValue(key, out var b))
+            // Type: "Меч · Акт", "Меч · Пас", "Лук · Акт", "Лук · Пас"
+            string type = string.IsNullOrWhiteSpace(s.Type) ? "Основные" : s.Type;
+            string pathId = type.StartsWith("Меч") ? "Меч" : type.StartsWith("Лук") ? "Лук" : "Прочее";
+            string pathTitle = pathId switch { "Меч" => "Путь меча", "Лук" => "Путь лука", _ => type };
+            bool isPassive = type.Contains("Пас") || type == "Пассивные";
+
+            if (!byPath.TryGetValue(pathId, out var pg))
             {
-                b = new Branch { Name = key };
-                byType[key] = b;
-                _branches.Add(b);
+                pg = new PathGroup { PathId = pathId, PathTitle = pathTitle };
+                byPath[pathId] = pg;
+                _pathGroups.Add(pg);
             }
-            b.Nodes.Add(s);
+            (isPassive ? pg.Passive : pg.Active).Add(s);
         }
-        // Сортируем ветки и узлы внутри (по тиру, затем по мин. уровню)
-        _branches.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
-        foreach (var b in _branches)
-            b.Nodes.Sort((a, c) => a.Tier != c.Tier ? a.Tier.CompareTo(c.Tier) : a.MinLevel.CompareTo(c.MinLevel));
+        _pathGroups.Sort((a, b) => string.Compare(a.PathId, b.PathId, StringComparison.Ordinal));
+        foreach (var pg in _pathGroups)
+        {
+            pg.Active.Sort((a, c) => a.Tier != c.Tier ? a.Tier.CompareTo(c.Tier) : a.MinLevel.CompareTo(c.MinLevel));
+            pg.Passive.Sort((a, c) => a.Tier != c.Tier ? a.Tier.CompareTo(c.Tier) : a.MinLevel.CompareTo(c.MinLevel));
+        }
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -168,33 +178,50 @@ public class SkillsWindow : GameWindow
         var nodes = new List<NodeLayout>();
         var byId = new Dictionary<string, NodeLayout>();
 
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         int startX = ContentX;
-        int startY = ContentY + HeaderH + PathTitleH;
+        int startY = ContentY + HeaderH + PathTitleH + BranchHeaderH;
 
         int colX = startX;
-        foreach (var branch in _branches)
+        foreach (var pg in _pathGroups)
         {
-            int y = startY + BranchHeaderH;
-            // заголовок ветки (для замера ширины)
-            var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-            int colW = NodeW;
+            // Ширина подколонки = макс(NodeW, ширина текста «Активные»/«Пассивные» + запас)
+            var aw = font?.MeasureString("Активные").X ?? 48;
+            var pw2 = font?.MeasureString("Пассивные").X ?? 48;
+            int subColW = Math.Max(NodeW, Math.Max((int)aw, (int)pw2) + 10);
+
+            int totalW = subColW * 2 + SubColGapX;
             if (font != null)
             {
-                var hs = font.MeasureString(branch.Name);
-                colW = Math.Max(NodeW, (int)hs.X + 16);
+                var pw = font.MeasureString(pg.PathTitle).X;
+                totalW = Math.Max(totalW, (int)pw + 16);
             }
 
-            foreach (var skill in branch.Nodes)
+            int activeX = colX + (totalW - subColW * 2 - SubColGapX) / 2;
+            int passiveX = activeX + subColW + SubColGapX;
+
+            int nodeOffX = (subColW - NodeW) / 2;
+            int y = startY;
+            foreach (var skill in pg.Active)
             {
-                var rect = new Rectangle(colX, y, NodeW, NodeH);
+                var rect = new Rectangle(activeX + nodeOffX, y, NodeW, NodeH);
                 bool available = skill.MinLevel <= _playerLevel;
-                var nl = new NodeLayout { Skill = skill, Rect = rect, Available = available, Branch = branch.Name };
-                nodes.Add(nl);
-                if (!byId.ContainsKey(skill.Id)) byId[skill.Id] = nl;
+                nodes.Add(new NodeLayout { Skill = skill, Rect = rect, Available = available, Branch = pg.PathId });
+                if (!byId.ContainsKey(skill.Id)) byId[skill.Id] = nodes[^1];
                 y += NodeH + NodeGapY;
             }
 
-            colX += colW + ColGapX;
+            y = startY;
+            foreach (var skill in pg.Passive)
+            {
+                var rect = new Rectangle(passiveX + nodeOffX, y, NodeW, NodeH);
+                bool available = skill.MinLevel <= _playerLevel;
+                nodes.Add(new NodeLayout { Skill = skill, Rect = rect, Available = available, Branch = pg.PathId });
+                if (!byId.ContainsKey(skill.Id)) byId[skill.Id] = nodes[^1];
+                y += NodeH + NodeGapY;
+            }
+
+            colX += totalW + ColGapX;
         }
 
         // Линии связи к родителю (в той же ветке)
@@ -234,9 +261,6 @@ public class SkillsWindow : GameWindow
         string ptsText = $"Очки навыков: {_skillPoints}";
         DrawText(sb, ptsText, cx + cw - (int)font.MeasureString(ptsText).X - 4, cy, _skillPoints > 0 ? new Color(255, 215, 0) : new Color(120, 120, 130));
 
-        string pathTitle = "Путь меча";
-        DrawText(sb, pathTitle, cx + cw / 2 - (int)(font.MeasureString(pathTitle).X / 2), cy + HeaderH + 2, new Color(220, 200, 130));
-
         if (_skills.Count == 0)
         {
             DrawText(sb, "Нет навыков.", cx + cw / 2 - (int)(font.MeasureString("Нет навыков.").X / 2),
@@ -262,15 +286,33 @@ public class SkillsWindow : GameWindow
             }
         }
 
-        // Заголовки веток
+        // Заголовки: название пути + «Активные» / «Пассивные» над каждой подколонкой
         int colX = cx;
-        foreach (var branch in _branches)
+        foreach (var pg in _pathGroups)
         {
-            int colW = NodeW;
-            var hs = font.MeasureString(branch.Name);
-            colW = Math.Max(NodeW, (int)hs.X + 16);
-            DrawText(sb, branch.Name, colX, cy + HeaderH + PathTitleH, new Color(180, 180, 200));
-            colX += colW + ColGapX;
+            var aw = font.MeasureString("Активные").X;
+            var pw2 = font.MeasureString("Пассивные").X;
+            int subColW = Math.Max(NodeW, Math.Max((int)aw, (int)pw2) + 10);
+
+            int totalW = subColW * 2 + SubColGapX;
+            var pw = font.MeasureString(pg.PathTitle).X;
+            totalW = Math.Max(totalW, (int)pw + 16);
+
+            int activeX = colX + (totalW - subColW * 2 - SubColGapX) / 2;
+            int passiveX = activeX + subColW + SubColGapX;
+
+            // Название пути (по центру над обеими подколонками)
+            int pathTitleX = colX + (totalW - (int)pw) / 2;
+            DrawText(sb, pg.PathTitle, pathTitleX, cy + HeaderH + 2, new Color(220, 200, 130));
+
+            // «Активные» / «Пассивные»
+            int labelY = cy + HeaderH + PathTitleH;
+            int activeLabelX = activeX + (subColW - (int)aw) / 2;
+            DrawText(sb, "Активные", activeLabelX, labelY, new Color(180, 180, 200));
+            int passiveLabelX = passiveX + (subColW - (int)pw2) / 2;
+            DrawText(sb, "Пассивные", passiveLabelX, labelY, new Color(160, 160, 180));
+
+            colX += totalW + ColGapX;
         }
 
         // Узлы
@@ -338,7 +380,7 @@ public class SkillsWindow : GameWindow
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
-        bool isPassive = skill.Type == "Пассивные";
+        bool isPassive = skill.Type.Contains("Пас");
 
         var lines = new List<string>
         {
