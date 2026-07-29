@@ -954,7 +954,41 @@ public class CombatService
             string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, ohDmg, ohCrit, "off");
             await _svc.Projectiles.BroadcastSpawn(proj);
+
+            if (ohEvaded)
+            {
+                await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} уклонился от атаки.");
+                await _svc.Hub.BroadcastMapAsync();
+                return;
+            }
+            if (ohParried)
+            {
+                await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} парировал атаку!");
+                await _svc.Hub.BroadcastMapAsync();
+                return;
+            }
+
+            string ohCritText = ohCrit ? " (КРИТ!)" : "";
+            string ohBlockText = ohBlocked ? " (блок)" : "";
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"Доп. атака ({pl.Equipment.GetOffHandWeapon()?.Name ?? "ручное оружие"}) нанесла {ohDmg} урона{ohCritText}{ohBlockText} {offMonster.Name}.");
+
+            if (ohDmg > 0)
+            {
+                await TryLifesteal(pl, ohDmg, false, client);
+                offMonster.Health -= ohDmg;
+                offMonster.LastDamagedTime = DateTime.UtcNow;
+                offMonster.DamageTracker[pl.Id] = offMonster.DamageTracker.GetValueOrDefault(pl.Id) + ohDmg;
+            }
+
             await _svc.Hub.BroadcastMapAsync();
+
+            var ohDmgMsg = new GameMessage
+            {
+                Type = "damage",
+                Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = ohDmg, IsCrit = ohCrit, Hand = "off" }
+            };
+            await _svc.Hub.SendToClient(client, ohDmgMsg);
+            await _svc.Hub.SendStatusAsync(client, pl);
             return;
         }
 
