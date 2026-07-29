@@ -14,9 +14,9 @@ internal static class BowShotHelper
         return false;
     }
 
-    public static async Task<(int dmg, bool crit, bool evaded, bool parried, bool blocked)> DealPvE(
-        Player pl, Monster monster, ClientConnection client, CombatService svc,
-        double dmgMult, bool vulnerable, string skillName, string skillId)
+    public static (int dmg, bool crit, bool evaded, bool parried, bool blocked) CalculatePvE(
+        Player pl, Monster monster, CombatService svc,
+        double dmgMult, bool vulnerable, string skillId)
     {
         int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
         dmgMult *= pl.GetSkillRankDmgMult(skillId);
@@ -30,7 +30,6 @@ internal static class BowShotHelper
 
         double evadeChance = Math.Max(0, monster.GetEvadeChance() - pl.GetBowAccuracyBonus());
         bool evaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
-        // Дальний бой — без парирования
         bool parried = false;
         bool blocked = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
         int hitDmg = 0; bool hitCrit = false;
@@ -46,21 +45,6 @@ internal static class BowShotHelper
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
             if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
-            monster.Health -= hitDmg;
-            monster.LastDamagedTime = DateTime.UtcNow;
-            monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
-        }
-
-        if (evaded)
-            await svc.ChatToC(client, "Бой", $"{monster.Name} уклонился от «{skillName}».");
-        else if (parried)
-            await svc.ChatToC(client, "Бой", $"{monster.Name} парировал «{skillName}»!");
-        else
-        {
-            string critT = hitCrit ? (vulnerable ? " (УЯЗВИМОЕ!)" : " (КРИТ!)") : "";
-            string blockT = blocked ? " (блок)" : "";
-            await svc.ChatToC(client, "Бой", $"«{skillName}»: {hitDmg} урона{critT}{blockT} {monster.Name}.");
-            await svc.SendDmgToMonster(client, monster, hitDmg, hitCrit, "main", pl, isSkill: true);
         }
 
         return (hitDmg, hitCrit, evaded, parried, blocked);

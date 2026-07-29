@@ -14,7 +14,14 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
         await svc.SendPlayerAttack(pl.Name, "main", skill.Id, monster.X, monster.Y);
 
         var (hitDmg, hitCrit, evaded, _, _) =
-            await BowShotHelper.DealPvE(pl, monster, client, svc, skill.DamageMultiplier, false, skill.Name, skill.Id);
+            BowShotHelper.CalculatePvE(pl, monster, svc, skill.DamageMultiplier, true, skill.Id);
+
+        if (!evaded)
+        {
+            string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
+            var proj = Program.Services.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
+            await Program.Services.Projectiles.BroadcastSpawn(proj);
+        }
 
         if (!evaded && hitDmg > 0)
         {
@@ -27,19 +34,6 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
         }
 
         pl.Combat.LastAttackTime = DateTime.UtcNow;
-        if (monster.Health <= 0)
-        {
-            if (monster.IsMannequin)
-            {
-                monster.Health = monster.MaxHealth;
-                await svc.SendToC(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
-                return true;
-            }
-            var killMsg = !evaded ? KillDamageMsg(monster, hitDmg, hitCrit, "main") : null;
-            await svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killMsg);
-            return true;
-        }
-        await svc.SendToC(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
         return true;
     }
 

@@ -20,7 +20,8 @@ public class ProjectileManager
 
     public Projectile Spawn(
         Player owner, Monster target,
-        string visualType, int damage, bool isCrit, string attackHand = "main")
+        string visualType, int damage, bool isCrit, string attackHand = "main",
+        string? skillName = null)
     {
         var proj = new Projectile
         {
@@ -37,6 +38,7 @@ public class ProjectileManager
             OwnerName = owner.Name,
             TargetMonsterId = target.Id,
             AttackHand = attackHand,
+            SkillName = skillName,
             SpawnTime = DateTime.UtcNow
         };
         lock (_lock) { _projectiles.Add(proj); }
@@ -101,8 +103,9 @@ public class ProjectileManager
                     }
                     else
                     {
+                        string skillPrefix = proj.SkillName != null ? $"«{proj.SkillName}»: " : "";
                         await Program.ChatTo(client, ChatChannel.Combat, "Бой",
-                            $"Вы нанесли {proj.Damage} урона{critText} {monster.Name}.");
+                            $"{skillPrefix}Вы нанесли {proj.Damage} урона{critText} {monster.Name}.");
 
                         var dmgMsg = new GameMessage
                         {
