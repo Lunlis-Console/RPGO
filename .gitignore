@@ -28,5 +28,6 @@ CopilotIndices/
 ## macOS
 .DS_Store
 
-## Local database journal
+## Local database
+*.db
 *.db-journal

@@ -28,7 +28,7 @@ internal static class BowShotHelper
         double effDef = svc.Monsters.GetEffectiveDefense(monster) * (1.0 - armorPen);
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage(dist));
 
-        double evadeChance = monster.GetEvadeChance() - pl.GetBowAccuracyBonus();
+        double evadeChance = Math.Max(0, monster.GetEvadeChance() - pl.GetBowAccuracyBonus());
         bool evaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
         // Дальний бой — без парирования
         bool parried = false;
@@ -74,7 +74,7 @@ internal static class BowShotHelper
         double armorPen = pl.GetCloseRangeArmorPen(dist);
         if (vulnerable) armorPen = Math.Min(1.0, armorPen + BalanceStatic.VulnerableArmorIgnore);
 
-        double evadeChance = target.GetEvadeChance() - pl.GetBowAccuracyBonus();
+        double evadeChance = Math.Max(0, target.GetEvadeChance() - pl.GetBowAccuracyBonus());
         bool evaded = Random.Shared.NextDouble() * 100 < evadeChance;
         int hitDmg = 0; bool hitCrit = false;
 
