@@ -286,6 +286,7 @@ public class GameScreen : IScreen
             _mapRenderer.SetShieldSubtype(shieldSub);
             _mapRenderer.SetOffHandWeaponSubtype(offWeaponSub);
         };
+        _inventoryWindow.NewItemCountChanged += count => _hudDraw.SetNewInventoryCount(count);
         _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;
         _inventoryWindow.DragStateChanged += item =>

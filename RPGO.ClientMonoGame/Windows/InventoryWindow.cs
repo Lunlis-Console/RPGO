@@ -65,6 +65,12 @@ public class InventoryWindow : GameWindow
     private Point _dragPos;
     private Point _dragStart;
 
+    // Подсветка новых предметов
+    private HashSet<string> _knownItemIds = new();
+    private HashSet<string> _newItemIds = new();
+    public int NewItemCount => _newItemIds.Count;
+    public Action<int>? NewItemCountChanged;
+
     // Подтверждение удаления
     private (Item item, int count)? _confirm;
     private Rectangle _confirmYes, _confirmNo;
@@ -76,7 +82,21 @@ public class InventoryWindow : GameWindow
         Height = 600;
     }
 
-    public void UpdateData(InventoryData data) => _data = data;
+    public void UpdateData(InventoryData data)
+    {
+        // Определяем новые предметы (по Id)
+        var newIds = data?.Items?.Select(i => i.Id).ToHashSet() ?? new HashSet<string>();
+        var added = newIds.Except(_knownItemIds).ToHashSet();
+        _newItemIds.UnionWith(added);
+        _knownItemIds = newIds;
+
+        // Если окно открыто — новые предметы сразу считаются просмотренными
+        if (Visible)
+            _newItemIds.Clear();
+
+        NewItemCountChanged?.Invoke(NewItemCount);
+        _data = data;
+    }
 
     private string[] Filters => new[] { "all", "equipment", "consumable", "material" };
     private string[] FilterLabels => new[] { "Все", "Экип.", "Расх.", "Мат." };
@@ -130,6 +150,13 @@ public class InventoryWindow : GameWindow
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
+        // При открытии окна сбрасываем счётчик новых предметов
+        if (Visible && _newItemIds.Count > 0)
+        {
+            _newItemIds.Clear();
+            NewItemCountChanged?.Invoke(0);
+        }
+
         if (!Visible || _data == null)
         {
             _prevMouse = mouse;
@@ -377,6 +404,14 @@ public class InventoryWindow : GameWindow
                 bool hover = rect.Contains(mouse.X, mouse.Y) && _dragIndex < 0;
                 sb.Draw(SpriteCache.Pixel, rect, hover ? new Color(55, 60, 80) : new Color(35, 38, 48));
                 sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X, rect.Y, rect.Width, 2), new Color(60, 65, 80));
+
+                // Подсветка новых предметов
+                if (filled && r * GridCols + c < _stacks.Count)
+                {
+                    var stack = _stacks[r * GridCols + c];
+                    if (_newItemIds.Contains(stack.item.Id))
+                        UIHelper.DrawRectOutline(sb, rect, new Color(255, 215, 0), 2);
+                }
 
                 if (filled && !(r * GridCols + c == _dragIndex))
                 {

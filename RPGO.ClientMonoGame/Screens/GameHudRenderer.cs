@@ -16,6 +16,7 @@ internal class GameHudRenderer
     // Icon bar state
     private Rectangle[] _iconRects = Array.Empty<Rectangle>();
     private int _mailUnreadCount;
+    private int _newInventoryCount;
     private const int IconSize = 40;
     private const int IconGap = 6;
 
@@ -180,6 +181,7 @@ internal class GameHudRenderer
     }
 
     internal void SetMailUnreadCount(int count) => _mailUnreadCount = count;
+    internal void SetNewInventoryCount(int count) => _newInventoryCount = count;
 
     internal void DrawIconBar(SpriteBatch sb)
     {
@@ -229,6 +231,20 @@ internal class GameHudRenderer
                     sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, tw, 1), new Color(90, 95, 115));
                     sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty + th - 1, tw, 1), new Color(90, 95, 115));
                     sb.DrawString(font, text, new Vector2(tx + 6, ty + 3), new Color(210, 215, 230));
+                }
+            }
+
+            if (i == 1 && _newInventoryCount > 0)
+            {
+                var bFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+                if (bFont != null)
+                {
+                    string badge = _newInventoryCount > 99 ? "99+" : _newInventoryCount.ToString();
+                    var bSize = bFont.MeasureString(badge);
+                    int bw = Math.Max((int)bSize.X + 6, 18);
+                    var badgeRect = new Rectangle(r.Right - bw, r.Top - 2, bw, 16);
+                    sb.Draw(SpriteCache.Pixel, badgeRect, new Color(220, 180, 50));
+                    sb.DrawString(bFont, badge, new Vector2(badgeRect.X + (badgeRect.Width - bSize.X) / 2, badgeRect.Y + 1), Color.Black);
                 }
             }
 
