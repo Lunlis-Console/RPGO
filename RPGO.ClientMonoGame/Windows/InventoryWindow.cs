@@ -208,6 +208,10 @@ public class InventoryWindow : GameWindow
                 var rect = _slotRects[c, r];
                 if (!rect.Contains(mouse.X, mouse.Y)) continue;
 
+                // Наведение на предмет снимает подсветку нового
+                if (idx < _stacks.Count && _newItemIds.Remove(_stacks[idx].item.Id))
+                    NewItemCountChanged?.Invoke(NewItemCount);
+
                 if (pressed && idx < _stacks.Count)
                 {
                     _dragIndex = idx;
