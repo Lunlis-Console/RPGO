@@ -244,7 +244,7 @@ namespace RPGGame.ClientMonoGame.Windows
                         {
                             int uniqueIdx = r * InvCols + c + _scrollOffset;
                             if (uniqueIdx < groupedInv.Count)
-                                OnInventoryClick(groupedInv[uniqueIdx].Key);
+                                OnInventoryClick(groupedInv[uniqueIdx].Key, keyboard.IsKeyDown(Keys.LeftControl));
                             _prevMouse = mouse;
                             _prevKeyboard = keyboard;
                             return;
@@ -260,7 +260,7 @@ namespace RPGGame.ClientMonoGame.Windows
                             int uniqueIdx = r * InvCols + c + _offerScroll;
                             var grouped = GetGroupedOffer();
                             if (uniqueIdx < grouped.Count)
-                                OnOfferClick(grouped[uniqueIdx].Key);
+                                OnOfferClick(grouped[uniqueIdx].Key, keyboard.IsKeyDown(Keys.LeftControl));
                             _prevMouse = mouse;
                             _prevKeyboard = keyboard;
                             return;
@@ -441,7 +441,7 @@ namespace RPGGame.ClientMonoGame.Windows
             _goldInputBuffer.Clear();
         }
 
-        private void OnInventoryClick(string itemId)
+        private void OnInventoryClick(string itemId, bool ctrlHeld)
         {
             var availableInv = GetAvailableInventory();
             var item = availableInv.FirstOrDefault(i => i.Id == itemId);
@@ -453,7 +453,12 @@ namespace RPGGame.ClientMonoGame.Windows
 
             Logger.Debug($"ОБМЕН: клик по инвентарю '{item.Name}' (id={itemId}), доступно={available}");
 
-            if (available > 1)
+            if (ctrlHeld)
+            {
+                AddToOffer(itemId, Math.Min(available, item.MaxStack));
+                NotifyOfferChanged();
+            }
+            else if (available > 1)
             {
                 RequestQuantity?.Invoke(item.Name ?? "", available, 1, qty =>
                 {
@@ -494,12 +499,18 @@ namespace RPGGame.ClientMonoGame.Windows
                 _myOfferItems.Remove(existing);
         }
 
-        private void OnOfferClick(string itemId)
+        private void OnOfferClick(string itemId, bool ctrlHeld)
         {
             int count = _myOfferItems.Where(o => o.Id == itemId).Sum(o => Math.Max(1, o.Quantity));
             if (count <= 0) return;
 
-            if (count > 1)
+            if (ctrlHeld)
+            {
+                var existing = _myOfferItems.FirstOrDefault(o => o.Id == itemId);
+                if (existing != null) _myOfferItems.Remove(existing);
+                NotifyOfferChanged();
+            }
+            else if (count > 1)
             {
                 RequestQuantity?.Invoke("предмет", count, 1, qty =>
                 {
