@@ -35,6 +35,16 @@ public class UseSkillHandler : BaseHandler
             return;
         }
 
+        if (!player.LearnedSkills.Contains(skill.Id))
+        {
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Бой", Text = $"«{skill.Name}» не изучен." }
+            });
+            return;
+        }
+
         if (!player.Combat.InCombat)
         {
             if (InstantSkills.Contains(skill.Id))
