@@ -469,6 +469,11 @@ public class GameScreen : IScreen
             else
                 _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
         };
+        _mapRenderer.SelectionChanged += entity =>
+        {
+            if (entity == null)
+                _hudRenderer.UpdateTargetDebuffs(null);
+        };
 
         // Hotbar
         _inputManager.HotbarActivated += (idx, item) => _input.ActivateHotbarSlot(idx, item, GameMain.Instance!);

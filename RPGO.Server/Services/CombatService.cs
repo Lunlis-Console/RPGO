@@ -1402,7 +1402,7 @@ public class CombatService
         }
     }
 
-    public async Task SendTargetPlayerDebuffUpdateAsync(Player target)
+    public async Task SendTargetPlayerDebuffUpdateAsync(Player target, ClientConnection? requester = null)
     {
         var debuffData = target.ActiveDebuffs.Select(d => new
         {
@@ -1419,6 +1419,11 @@ public class CombatService
 
         var msg = GameMessage.TargetDebuffUpdate(debuffData);
         bool sent = false;
+        if (requester != null)
+        {
+            await _svc.Hub.SendToClient(requester, msg);
+            sent = true;
+        }
         foreach (var pl in _svc.World.GetPlayersSnapshot())
         {
             if (pl.Combat.HasTarget && pl.Combat.TargetPlayerId == target.Id)

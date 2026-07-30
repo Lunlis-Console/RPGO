@@ -118,7 +118,7 @@ public class InteractTargetHandler : BaseHandler
             }
 
             // Шлём текущие дебаффы цели (в любом режиме)
-            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer);
+            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
             await BroadcastMapAsync();
             return;
         }

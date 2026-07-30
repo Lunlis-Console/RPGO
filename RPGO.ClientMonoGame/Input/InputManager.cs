@@ -129,7 +129,7 @@ public class InputManager
 
     public void HandleMapClick(MouseState mouse, MouseState prevMouse, MapRenderer mapRenderer)
     {
-        if (mouse.RightButton == ButtonState.Pressed && prevMouse.RightButton == ButtonState.Released)
+        if (mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released)
         {
             // Координаты и размеры карты должны совпадать с GameScreen.Draw:
             // карта растянута на весь экран под топбаром.
@@ -150,7 +150,7 @@ public class InputManager
 
     public void HandleMapRightClick(MouseState mouse, MouseState prevMouse, MapRenderer mapRenderer)
     {
-        if (mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released)
+        if (mouse.RightButton == ButtonState.Pressed && prevMouse.RightButton == ButtonState.Released)
         {
             int topH = 40;
             int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;

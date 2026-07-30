@@ -618,12 +618,12 @@ private sealed class RemotePlayerState
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
     {
         StartInteraction(entity, mapX, mapY);
-        InteractRequested?.Invoke(entity, mapX, mapY);
     }
 
     private void HandleSingleEntityRightClick(EntityInfo entity, int mapX, int mapY)
     {
         StartInteraction(entity, mapX, mapY);
+        InteractRequested?.Invoke(entity, mapX, mapY);
     }
 
     public void ClearSelection()

@@ -58,7 +58,7 @@ public class HudRenderer
     {
         _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp;
     }
-    public void ClearTarget() { _selectedEntity = null; }
+    public void ClearTarget() { _selectedEntity = null; _targetDebuffs = null; }
     public void UpdateParty(PartyInfo party)
     {
         // Лидер всегда первым в списке (для HUD-панели группы).
