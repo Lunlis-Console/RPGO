@@ -225,8 +225,20 @@ public class InventoryWindow : GameWindow
                 if (!rect.Contains(mouse.X, mouse.Y)) continue;
 
                 // Наведение на предмет снимает подсветку нового
-                if (idx < _stacks.Count && _newItemIds.Remove(_stacks[idx].item.Id))
-                    NewItemCountChanged?.Invoke(NewItemCount);
+                if (idx < _stacks.Count)
+                {
+                    var stack = _stacks[idx];
+                    bool removed = _newItemIds.Remove(stack.item.Id);
+                    // Для стакающихся — чистим все Id того же TemplateId
+                    if (_data?.Items != null)
+                    {
+                        foreach (var di in _data.Items)
+                            if (di.TemplateId == stack.item.TemplateId)
+                                removed |= _newItemIds.Remove(di.Id);
+                    }
+                    if (removed)
+                        NewItemCountChanged?.Invoke(NewItemCount);
+                }
 
                 if (pressed && idx < _stacks.Count)
                 {
@@ -429,7 +441,9 @@ public class InventoryWindow : GameWindow
                 if (filled && r * GridCols + c < _stacks.Count)
                 {
                     var stack = _stacks[r * GridCols + c];
-                    if (_newItemIds.Contains(stack.item.Id))
+                    bool isNew = _newItemIds.Contains(stack.item.Id)
+                        || (_data?.Items?.Any(i => i.TemplateId == stack.item.TemplateId && _newItemIds.Contains(i.Id)) ?? false);
+                    if (isNew)
                         UIHelper.DrawRectOutline(sb, rect, new Color(255, 215, 0), 2);
                 }
 
