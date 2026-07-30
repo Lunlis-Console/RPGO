@@ -89,6 +89,7 @@ public class ShopWindow : GameWindow
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
         if (!Visible) return;
+        var prevRightState = _prevMouse.RightButton;
         base.Update(gameTime, keyboard, mouse);
 
         int gridX = ContentX + 8;
@@ -147,7 +148,7 @@ public class ShopWindow : GameWindow
         // ПКМ — покупка сразу; ЛКМ — только двойной клик (одиночный ЛКМ запускает drag)
         if (_hoverItem >= 0 && _hoverItem < ActiveItems.Count)
         {
-            if (mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released)
+            if (mouse.RightButton == ButtonState.Pressed && prevRightState == ButtonState.Released)
                 RequestBuy(ActiveItems[_hoverItem], keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl));
             else if (pressed)
                 HandleBuyClick(ActiveItems[_hoverItem]);
