@@ -277,6 +277,18 @@ public class HudRenderer
                 sb.Draw(icon, new Rectangle(slotRect.X + pad, slotRect.Y + pad, isz, isz), Color.White);
             }
 
+            // Затемнение иконки если не хватает маны
+            bool noMana = false;
+            if (_status != null && _inputManager != null && hotbarSlots != null && i < hotbarSlots.Length && hotbarSlots[i]?.StartsWith("skill:") == true)
+            {
+                var skillName = hotbarSlots[i]![6..];
+                var skill = _inputManager.GetSkillByName(skillName);
+                if (skill != null && skill.MpCost > 0 && _status.Mana < skill.MpCost)
+                    noMana = true;
+            }
+            if (noMana)
+                sb.Draw(SpriteCache.Pixel, new Rectangle(slotRect.X, slotRect.Y, slotRect.Width, slotRect.Height), new Color(0, 0, 0, 140));
+
             // Количество предмета (для item-слотов)
             int cnt = (counts != null && i < counts.Length) ? counts[i] : 0;
             if (cnt > 1)
