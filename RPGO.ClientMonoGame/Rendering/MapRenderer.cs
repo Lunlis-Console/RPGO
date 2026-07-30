@@ -1542,11 +1542,11 @@ private sealed class RemotePlayerState
 
                 (                Color fill, Color border) = _hoverCursorType switch
                 {
-                    "attack" => (new Color(200, 60, 60, 5), new Color(200, 60, 60, 50)),
-                    "talk" or "harvest" => (new Color(60, 180, 80, 5), new Color(60, 180, 80, 50)),
-                    "portal" => (new Color(80, 130, 220, 5), new Color(80, 130, 220, 50)),
-                    "loot" => (new Color(140, 140, 140, 5), new Color(140, 140, 140, 50)),
-                    _ => (new Color(220, 200, 80, 5), new Color(220, 200, 80, 50))
+                    "attack" => (new Color(120, 35, 35, 8), new Color(160, 50, 50, 40)),
+                    "talk" or "harvest" => (new Color(35, 110, 50, 8), new Color(50, 140, 65, 40)),
+                    "portal" => (new Color(50, 80, 140, 8), new Color(65, 100, 170, 40)),
+                    "loot" => (new Color(85, 85, 85, 8), new Color(110, 110, 110, 40)),
+                    _ => (new Color(130, 120, 50, 8), new Color(170, 155, 60, 40))
                 };
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
                 DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
@@ -1571,7 +1571,7 @@ private sealed class RemotePlayerState
                  {
                      "monster" => Color.Red,
                      "player" when _currentMap?.PvPEnabled == true => Color.Red,
-                     "move" => new Color(220, 200, 80),
+                     "move" => new Color(170, 155, 60),
                      "corpse" => Color.Gray,
                      _ => Color.LimeGreen
                  };
