@@ -93,6 +93,17 @@ public class UseSkillHandler : BaseHandler
                 return;
             }
 
+            // Проверка маны перед добавлением в очередь
+            if (player.Mana < skill.MpCost)
+            {
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
+                });
+                return;
+            }
+
             // Мирный режим: прекаст одного навыка (заменяем, не добавляем).
             player.QueuedSkillIds.Clear();
             player.QueuedSkillIds.Add(skill.Id);
@@ -106,6 +117,16 @@ public class UseSkillHandler : BaseHandler
         }
 
         // В бою: добавляем в хвост очереди, без дублей.
+        if (player.Mana < skill.MpCost)
+        {
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
+            });
+            return;
+        }
+
         if (player.QueuedSkillIds.Contains(skill.Id))
         {
             await SendToClient(connection, new GameMessage
