@@ -148,7 +148,7 @@ public class ShopWindow : GameWindow
         if (_hoverItem >= 0 && _hoverItem < ActiveItems.Count)
         {
             if (mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released)
-                RequestBuy(ActiveItems[_hoverItem]);
+                RequestBuy(ActiveItems[_hoverItem], keyboard.IsKeyDown(Keys.LeftControl));
             else if (pressed)
                 HandleBuyClick(ActiveItems[_hoverItem]);
         }
@@ -198,14 +198,18 @@ public class ShopWindow : GameWindow
         }
     }
 
-    private void RequestBuy(Item item)
+    private void RequestBuy(Item item, bool ctrlHeld = false)
     {
         int price = _discount > 0 ? DiscountedPrice(item) : item.Value;
         int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
         int maxAffordable = price > 0 ? _playerGold / price : stock;
         int max = Math.Min(stock, Math.Max(1, maxAffordable));
         int effectiveStack = item.IsBuyback ? Math.Max(1, item.Quantity) : item.MaxStack;
-        if (stock > 1 || effectiveStack > 1)
+        if (ctrlHeld)
+        {
+            BuyItem?.Invoke(item.Id ?? "", max);
+        }
+        else if (stock > 1 || effectiveStack > 1)
             PendingBuy?.Invoke(item, max);
         else
             BuyItem?.Invoke(item.Id ?? "", 1);
