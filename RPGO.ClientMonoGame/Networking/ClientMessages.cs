@@ -60,6 +60,7 @@ public sealed class StatusData
     public int MoveIntervalMs { get; set; }
     public double AttackSpeed { get; set; }
     public int AttackIntervalMs { get; set; }
+    public int AttackRange { get; set; }
     public string WeaponDamageType { get; set; } = "";
     public double WeaponSpeedModifier { get; set; } = 1.0;
     public BreakdownData? Breakdown { get; set; }

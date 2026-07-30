@@ -71,13 +71,6 @@ public class InteractTargetHandler : BaseHandler
 
         if (entityType == "player")
         {
-            // PvP: проверяем что зона поддерживает PvP
-            if (!Program.Services.Zones.IsPvPEnabled(player.CurrentZoneId))
-            {
-                await SendError(connection, ErrorCodes.TargetNotFound, "PvP доступно только на Арене!");
-                return;
-            }
-
             // Находим цель
             Player? targetPlayer = null;
             if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid pid))
@@ -93,34 +86,40 @@ public class InteractTargetHandler : BaseHandler
 
             if (targetPlayer.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "Нельзя атаковать себя!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "Нельзя выбрать себя!");
                 return;
             }
 
+            bool isPvp = Program.Services.Zones.IsPvPEnabled(player.CurrentZoneId);
             player.Combat.EnterPlayer(targetPlayer.Id, player.Movement);
 
-            Log.Debug($"{player.Name} вступил в PvP бой с {targetPlayer.Name} ({targetPlayer.X},{targetPlayer.Y})");
+            Log.Debug($"{player.Name} выбрал целью {targetPlayer.Name}{(isPvp ? " (PvP)" : "")}");
 
             await SendToClient(connection, new GameMessage
             {
                 Type = "combat_state",
                 Data = new
                 {
-                    InCombat = true,
+                    InCombat = isPvp,
                     TargetId = targetPlayer.Id.ToString(),
                     TargetName = targetPlayer.Name,
                     TargetHp = targetPlayer.Health,
                     TargetMaxHp = targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth(),
                     TargetX = targetPlayer.X,
                     TargetY = targetPlayer.Y,
-                    IsPvP = true
+                    IsPvP = isPvp
                 }
             });
-            await SendToClient(connection, new GameMessage
+            if (isPvp)
             {
-                Type = "chat",
-                Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
-            });
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
+                });
+            }
+            // Отправляем текущие дебаффы цели
+            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer);
             await BroadcastMapAsync();
             return;
         }

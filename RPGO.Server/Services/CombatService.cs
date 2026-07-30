@@ -1402,6 +1402,28 @@ public class CombatService
         }
     }
 
+    public async Task SendTargetPlayerDebuffUpdateAsync(Player target)
+    {
+        var debuffData = target.ActiveDebuffs.Select(d => new
+        {
+            Type = d.Type.ToString(),
+            d.DisplayName,
+            d.Description,
+            Value = Math.Round(d.Value, 2),
+            d.RemainingMs,
+            DurationMs = d.DurationMs
+        }).ToList();
+        var msg = GameMessage.TargetDebuffUpdate(debuffData);
+        foreach (var pl in _svc.World.GetPlayersSnapshot())
+        {
+            if (pl.Combat.HasTarget && pl.Combat.TargetPlayerId == target.Id)
+            {
+                var conn = _svc.World.FindClientByPlayer(pl);
+                if (conn != null) await _svc.Hub.SendToClient(conn, msg);
+            }
+        }
+    }
+
     // ──────────────── PvP ────────────────
 
     private async Task<bool> RunPvPTick(Player pl)
@@ -1678,6 +1700,20 @@ public class CombatService
     {
         double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult("SK0015");
         int range = pl.GetEffectiveAttackRange();
+        string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
+
+        // 1) Визуальные стрелы по краям конуса
+        (int tx1, int ty1, int tx2, int ty2) = pl.Facing switch
+        {
+            "right" => (pl.X + range, pl.Y + range, pl.X + range, pl.Y - range),
+            "left" => (pl.X - range, pl.Y + range, pl.X - range, pl.Y - range),
+            "down" => (pl.X + range, pl.Y + range, pl.X - range, pl.Y + range),
+            _ => (pl.X + range, pl.Y - range, pl.X - range, pl.Y - range)
+        };
+        await _svc.Projectiles.BroadcastArrowVisual(pl.X, pl.Y, tx1, ty1, visualType);
+        await _svc.Projectiles.BroadcastArrowVisual(pl.X, pl.Y, tx2, ty2, visualType);
+
+        // 2) Самонаводящиеся стрелы по всем монстрам в конусе
         foreach (var m in _svc.Monsters.GetAllMonstersIncludingInstances())
         {
             if (m.Id == primary.Id || m.Health <= 0 || m.ZoneId != pl.CurrentZoneId) continue;
@@ -1689,12 +1725,8 @@ public class CombatService
             double effAtk = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage(dist));
             double effDef = _svc.Monsters.GetEffectiveDefense(m) * (1.0 - pl.GetCloseRangeArmorPen(dist));
             int dmg = Math.Max(Balance.MinDamage, (int)((effAtk - effDef) * mult));
-            m.Health -= dmg;
-            m.LastDamagedTime = DateTime.UtcNow;
-            m.DamageTracker[pl.Id] = m.DamageTracker.GetValueOrDefault(pl.Id) + dmg;
-            await SendDmgToMonster(client, m, dmg, false, "main", pl, isSkill: true);
-            if (m.Health <= 0 && !m.IsMannequin)
-                await _svc.KillService.ResolveMonsterKill(pl, m, dmg, true, null);
+            var proj = _svc.Projectiles.Spawn(pl, m, visualType, dmg, false, "main", "Подавляющий огонь");
+            await _svc.Projectiles.BroadcastSpawn(proj);
         }
     }
 

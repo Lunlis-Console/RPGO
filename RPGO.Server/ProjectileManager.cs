@@ -161,4 +161,40 @@ public class ProjectileManager
         };
         await _hub.SendToAllAsync(msg);
     }
+
+    /// <summary>Спавн визуальной стрелы без цели (не наносит урон).</summary>
+    public async Task BroadcastArrowVisual(double startX, double startY, double targetX, double targetY, string visualType = "arrow")
+    {
+        if (_hub == null) return;
+        string id = Guid.NewGuid().ToString("N")[..8];
+        var spawnMsg = new GameMessage
+        {
+            Type = "projectile_spawn",
+            Data = new
+            {
+                Id = id,
+                StartX = startX,
+                StartY = startY,
+                TargetX = targetX,
+                TargetY = targetY,
+                VisualType = visualType,
+                FlightMs = Balance.ProjectileFlightMs
+            }
+        };
+        await _hub.SendToAllAsync(spawnMsg);
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(Balance.ProjectileFlightMs + 50);
+            if (_hub != null)
+            {
+                var hitMsg = new GameMessage
+                {
+                    Type = "projectile_hit",
+                    Data = new { Id = id, X = targetX, Y = targetY }
+                };
+                await _hub.SendToAllAsync(hitMsg);
+            }
+        });
+    }
 }

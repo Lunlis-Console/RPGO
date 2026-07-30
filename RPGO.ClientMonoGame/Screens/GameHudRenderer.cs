@@ -330,50 +330,49 @@ internal class GameHudRenderer
         var sel = _map.GetSelectedEntity();
         InvitePartyRect = Rectangle.Empty;
         TradePlayerRect = Rectangle.Empty;
+        if (sel == null || sel.Type != "player") return;
+
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font == null) return;
+
         var party = _hud.Party;
-        bool canInvite = sel != null && sel.Type == "player" &&
-            (party == null || party.Members.Count == 0 || game.Client.PlayerId == party.LeaderId);
-        bool targetInParty = party != null && sel != null && sel.Type == "player" &&
-            party.Members.Any(m => m.Name == sel.Name);
-        if (sel != null && sel.Type == "player")
+        bool canInvite = party == null || party.Members.Count == 0 || game.Client.PlayerId == party.LeaderId;
+        bool targetInParty = party != null && party.Members.Any(m => m.Name == sel.Name);
+
+        int barW = 320;
+        int barX = (w - barW) / 2;
+        int barY = 64;
+
+        int btnW = 120;
+        int btnH = 22;
+        int btnX = barX + barW + 8;
+        int btnY = barY;
+
+        if (canInvite)
         {
-            var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-            if (font != null)
-            {
-                int btnW = 200;
-                int btnH = 24;
-                int btnX = (w - btnW) / 2;
-                int btnY = 84;
-
-                if (canInvite)
-                {
-                    InvitePartyRect = new Rectangle(btnX, btnY, btnW, btnH);
-                    var ms = Mouse.GetState();
-                    bool hov = InvitePartyRect.Contains(ms.X, ms.Y);
-                    sb.Draw(SpriteCache.Pixel, InvitePartyRect, hov ? new Color(70, 190, 100) : new Color(50, 160, 80));
-                    var txt = "Пригласить в группу";
-                    var ts = font.MeasureString(txt);
-                    sb.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), Color.White);
-                    btnY += btnH + 4;
-                }
-                else if (targetInParty)
-                {
-                    var infoRect = new Rectangle(btnX, btnY, btnW, btnH);
-                    sb.Draw(SpriteCache.Pixel, infoRect, new Color(70, 75, 90));
-                    var txt = "В группе";
-                    var ts = font.MeasureString(txt);
-                    sb.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), new Color(180, 185, 195));
-                    btnY += btnH + 4;
-                }
-
-                TradePlayerRect = new Rectangle(btnX, btnY, btnW, btnH);
-                var tMs = Mouse.GetState();
-                bool tHov = TradePlayerRect.Contains(tMs.X, tMs.Y);
-                sb.Draw(SpriteCache.Pixel, TradePlayerRect, tHov ? new Color(200, 170, 60) : new Color(160, 130, 40));
-                var tTxt = "Обмен";
-                var tSz = font.MeasureString(tTxt);
-                sb.DrawString(font, tTxt, new Vector2(btnX + (btnW - tSz.X) / 2, btnY + (btnH - tSz.Y) / 2), Color.White);
-            }
+            InvitePartyRect = new Rectangle(btnX, btnY, btnW, btnH);
+            var ms = Mouse.GetState();
+            bool hov = InvitePartyRect.Contains(ms.X, ms.Y);
+            sb.Draw(SpriteCache.Pixel, InvitePartyRect, hov ? new Color(70, 190, 100) : new Color(50, 160, 80));
+            var txt = "В группу";
+            var ts = font.MeasureString(txt);
+            sb.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), Color.White);
         }
+        else if (targetInParty)
+        {
+            var infoRect = new Rectangle(btnX, btnY, btnW, btnH);
+            sb.Draw(SpriteCache.Pixel, infoRect, new Color(70, 75, 90));
+            var txt = "В группе";
+            var ts = font.MeasureString(txt);
+            sb.DrawString(font, txt, new Vector2(btnX + (btnW - ts.X) / 2, btnY + (btnH - ts.Y) / 2), new Color(180, 185, 195));
+        }
+
+        TradePlayerRect = new Rectangle(btnX, btnY + btnH + 4, btnW, btnH);
+        var tMs = Mouse.GetState();
+        bool tHov = TradePlayerRect.Contains(tMs.X, tMs.Y);
+        sb.Draw(SpriteCache.Pixel, TradePlayerRect, tHov ? new Color(200, 170, 60) : new Color(160, 130, 40));
+        var tTxt = "Обмен";
+        var tSz = font.MeasureString(tTxt);
+        sb.DrawString(font, tTxt, new Vector2(btnX + (btnW - tSz.X) / 2, btnY + btnH + 4 + (btnH - tSz.Y) / 2), Color.White);
     }
 }

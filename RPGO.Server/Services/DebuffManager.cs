@@ -14,6 +14,8 @@ public class DebuffManager
             return false;
         }
         target.ActiveDebuffs.Add(debuff);
+
+        _ = Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(target);
         return true;
     }
 
@@ -30,11 +32,12 @@ public class DebuffManager
         return true;
     }
 
-    public void TickDebuffs(Player target)
+    public async void TickDebuffs(Player target)
     {
         foreach (var d in target.ActiveDebuffs)
             d.RemainingMs -= Balance.DebuffTickMs;
         target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
+        await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(target);
     }
 
     public void TickDebuffs(Monster target)

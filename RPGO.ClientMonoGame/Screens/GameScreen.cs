@@ -249,6 +249,8 @@ public class GameScreen : IScreen
                 SkillEffectManager.SpawnLooping("SK0002", _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
             else if (!hasBuff)
                 SkillEffectManager.StopLooping("SK0002");
+
+            _mapRenderer.SetSuppressingFireActive(status.ActiveDebuffs?.Any(d => d.Type == "SuppressingFire") ?? false);
         };
         client.SkillsUpdated += skills =>
         {

@@ -197,22 +197,6 @@ public class HudRenderer
             curY += 18;
         }
 
-        // Кнопки для игроков
-        if (_selectedEntity.Type == "player")
-        {
-            var inviteRect = new Rectangle((int)(x + 4), (int)curY, (int)(w - 8), 26);
-            sb.Draw(SpriteCache.Pixel, inviteRect, new Color(50, 160, 80));
-            var t1 = fontSmall.MeasureString("Пригласить в пати");
-            sb.DrawString(fontSmall, "Пригласить в пати", new Vector2(inviteRect.X + (inviteRect.Width - t1.X) / 2, inviteRect.Y + 5), Color.White);
-            curY += 28;
-
-            var tradeRect = new Rectangle((int)(x + 4), (int)curY, (int)(w - 8), 26);
-            sb.Draw(SpriteCache.Pixel, tradeRect, new Color(180, 150, 50));
-            var t2 = fontSmall.MeasureString("Обмен");
-            sb.DrawString(fontSmall, "Обмен", new Vector2(tradeRect.X + (tradeRect.Width - t2.X) / 2, tradeRect.Y + 5), Color.White);
-            curY += 28;
-        }
-
         // Кнопка взаимодействия
         string interactText = _selectedEntity.Type switch
         {
@@ -688,25 +672,27 @@ public class HudRenderer
 
         int barW = 320;
         int barH = 18;
-        int x = (screenW - barW) / 2;
-        int y = 64; // ниже верхней панели (topH = 40), чтобы имя не залезало
+        int barX = (screenW - barW) / 2;
+        int barY = 64;
 
         // Имя цели с уровнем
         var nameSize = font.MeasureString(displayName);
-        sb.DrawString(font, displayName, new Vector2(x + (barW - nameSize.X) / 2, y - 16), Color.White);
+        sb.DrawString(font, displayName, new Vector2(barX + (barW - nameSize.X) / 2, barY - 16), Color.White);
 
         // Фон полосы
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, barW, barH), new Color(40, 20, 20));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(barX, barY, barW, barH), new Color(40, 20, 20));
         // Заполнение HP
         float pct = maxHp > 0 ? Math.Clamp((float)hp / maxHp, 0, 1) : 0;
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, (int)(barW * pct), barH), new Color(200, 40, 40));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(barX, barY, (int)(barW * pct), barH), new Color(200, 40, 40));
         // Рамка
-        UIHelper.DrawRectOutline(sb, new Rectangle(x, y, barW, barH), new Color(120, 120, 130));
+        UIHelper.DrawRectOutline(sb, new Rectangle(barX, barY, barW, barH), new Color(120, 120, 130));
 
         // Текст HP
         string hpText = $"{hp} / {maxHp}";
         var hpSize = font.MeasureString(hpText);
-        sb.DrawString(font, hpText, new Vector2(x + (barW - hpSize.X) / 2, y + (barH - hpSize.Y) / 2), Color.White);
+        sb.DrawString(font, hpText, new Vector2(barX + (barW - hpSize.X) / 2, barY + (barH - hpSize.Y) / 2), Color.White);
+
+
     }
 
     public void DrawZoneIndicator(SpriteBatch sb, int screenW)

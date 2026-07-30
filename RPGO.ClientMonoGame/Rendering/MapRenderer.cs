@@ -164,6 +164,10 @@ public class MapRenderer
     // Игрок в данный момент движется (интерполяция не завершена).
     private bool _isMoving;
 
+    // Активен ли бафф «Подавляющий огонь» — рисовать конус
+    private bool _suppressingFireActive;
+    public void SetSuppressingFireActive(bool active) => _suppressingFireActive = active;
+
     // Игрок мёртв — показываем death-анимацию вместо walk/idle.
     private bool _isDead;
     private int _deathFrame;
@@ -562,6 +566,7 @@ private sealed class RemotePlayerState
                 "collectible" => "harvest",
                 "npc" or "merchant" or "board" => "talk",
                 "player" when _currentMap?.PvPEnabled == true => "attack",
+                "player" => "player",
                 _ => "main"
             };
             _hoverCursorType = ct;
@@ -613,10 +618,7 @@ private sealed class RemotePlayerState
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
     {
         StartInteraction(entity, mapX, mapY);
-        if (entity.Type != "player")
-            InteractRequested?.Invoke(entity, mapX, mapY);
-        else if (_currentMap?.PvPEnabled == true)
-            InteractRequested?.Invoke(entity, mapX, mapY);
+        InteractRequested?.Invoke(entity, mapX, mapY);
     }
 
     private void HandleSingleEntityRightClick(EntityInfo entity, int mapX, int mapY)
@@ -1562,6 +1564,7 @@ private sealed class RemotePlayerState
                 (                Color fill, Color border) = _hoverCursorType switch
                 {
                     "attack" => (new Color(60, 18, 18, 8), new Color(160, 50, 50, 40)),
+                    "player" => (new Color(18, 55, 25, 8), new Color(50, 200, 65, 40)),
                     "talk" or "harvest" => (new Color(18, 55, 25, 8), new Color(50, 140, 65, 40)),
                     "portal" => (new Color(25, 40, 70, 8), new Color(65, 100, 170, 40)),
                     "loot" => (new Color(43, 43, 43, 8), new Color(110, 110, 110, 40)),

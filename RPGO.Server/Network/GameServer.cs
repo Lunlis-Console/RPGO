@@ -330,6 +330,7 @@ public sealed class GameServer : INetworkHub
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
                 AttackSpeed = GetAttackSpeed(player),
                 AttackIntervalMs = GetAttackIntervalMs(player),
+                AttackRange = player.GetEffectiveAttackRange(),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player),
