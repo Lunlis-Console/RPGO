@@ -1542,11 +1542,11 @@ private sealed class RemotePlayerState
 
                 (                Color fill, Color border) = _hoverCursorType switch
                 {
-                    "attack" => (new Color(200, 60, 60, 20), new Color(200, 60, 60, 50)),
-                    "talk" or "harvest" => (new Color(60, 180, 80, 20), new Color(60, 180, 80, 50)),
-                    "portal" => (new Color(80, 130, 220, 20), new Color(80, 130, 220, 50)),
-                    "loot" => (new Color(140, 140, 140, 20), new Color(140, 140, 140, 50)),
-                    _ => (new Color(220, 200, 80, 20), new Color(220, 200, 80, 50))
+                    "attack" => (new Color(200, 60, 60, 10), new Color(200, 60, 60, 50)),
+                    "talk" or "harvest" => (new Color(60, 180, 80, 10), new Color(60, 180, 80, 50)),
+                    "portal" => (new Color(80, 130, 220, 10), new Color(80, 130, 220, 50)),
+                    "loot" => (new Color(140, 140, 140, 10), new Color(140, 140, 140, 50)),
+                    _ => (new Color(220, 200, 80, 10), new Color(220, 200, 80, 50))
                 };
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
                 DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
