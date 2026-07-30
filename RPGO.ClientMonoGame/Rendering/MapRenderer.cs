@@ -1571,7 +1571,7 @@ private sealed class RemotePlayerState
                  {
                      "monster" => Color.Red,
                      "player" when _currentMap?.PvPEnabled == true => Color.Red,
-                     "move" => new Color(170, 155, 60),
+                     "move" => new Color(220, 200, 80),
                      "corpse" => Color.Gray,
                      _ => Color.LimeGreen
                  };
