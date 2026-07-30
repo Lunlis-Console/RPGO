@@ -339,7 +339,7 @@ public class SkillsWindow : GameWindow
                       : SpriteCache.ForItemType(skill.Type);
             if (spr != null)
             {
-                int iconSize = 36;
+                int iconSize = 42;
                 int iconX = n.Rect.X + (n.Rect.Width - iconSize) / 2;
                 int iconY = n.Rect.Y + (n.Rect.Height - iconSize) / 2;
                 sb.Draw(spr, new Rectangle(iconX, iconY, iconSize, iconSize), Color.White);

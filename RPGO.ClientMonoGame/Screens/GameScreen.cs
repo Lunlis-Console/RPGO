@@ -844,6 +844,10 @@ public class GameScreen : IScreen
                 int areaH = h2 - topH2;
                 ct = _mapRenderer.GetCursorType(mouse.X, mouse.Y, areaW, areaH);
             }
+            else
+            {
+                _mapRenderer.ClearHoverTile();
+            }
             CurrentCursorType = ct;
         }
 

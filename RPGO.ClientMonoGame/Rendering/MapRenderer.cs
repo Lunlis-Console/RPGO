@@ -21,6 +21,7 @@ public class MapRenderer
     private int _selectedEntityX, _selectedEntityY;
     private string? _selectedEntityId;
     private int _moveTargetX = -1, _moveTargetY = -1;
+    private int _hoverTileX = -1, _hoverTileY = -1;
 
     // Визуальная интерполяция
     private readonly Dictionary<string, (float X, float Y)> _visPos = new();
@@ -514,7 +515,13 @@ private sealed class RemotePlayerState
     public string GetCursorType(float screenX, float screenY, float areaW, float areaH)
     {
         if (_currentMap == null) return "main";
-        if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return "main";
+        if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY))
+        {
+            _hoverTileX = _hoverTileY = -1;
+            return "main";
+        }
+        _hoverTileX = mapX;
+        _hoverTileY = mapY;
 
         if (_currentMap.Portals != null && _currentMap.Portals.Any(p => p.X == mapX && p.Y == mapY))
             return "portal";
@@ -536,6 +543,8 @@ private sealed class RemotePlayerState
 
         return "moving";
     }
+
+    public void ClearHoverTile() => _hoverTileX = _hoverTileY = -1;
 
     // Запрос окна выбора сущности, когда в клетке несколько сущностей
     public event Action<List<EntityInfo>, int, int>? EntityPickRequested;
@@ -1510,6 +1519,18 @@ private sealed class RemotePlayerState
                 sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 // Цветной текст поверх обводки
                 sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
+            }
+        }
+
+        // Превью тайла под курсором (предполагаемое перемещение)
+        if (_hoverTileX >= 0 && _hoverTileY >= 0)
+        {
+            if (_hoverTileX >= _viewStartX && _hoverTileX <= _viewEndX && _hoverTileY >= _viewStartY && _hoverTileY <= _viewEndY)
+            {
+                float tx = _gridOX + (_hoverTileX - _viewStartX) * _cellW;
+                float ty = _gridOY + (_hoverTileY - _viewStartY) * _cellH;
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), new Color(100, 149, 237, 50));
+                DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, new Color(100, 149, 237, 120), 1);
             }
         }
 
