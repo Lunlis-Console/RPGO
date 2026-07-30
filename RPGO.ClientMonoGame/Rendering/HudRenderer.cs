@@ -235,8 +235,10 @@ public class HudRenderer
     {
         if (_status == null || _inputManager == null) return false;
         bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
-        bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
-        bool wrongWeapon = skill.Type.StartsWith("Меч") && _inputManager.IsWieldingBow();
+        bool isWeaponSkill = skill.Type.StartsWith("Лук") || skill.Type.StartsWith("Меч");
+        bool noWeapon = isWeaponSkill && !_inputManager.HasWeaponEquipped();
+        bool wrongWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
+        wrongWeapon |= skill.Type.StartsWith("Меч") && _inputManager.IsWieldingBow();
         return noMana || noWeapon || wrongWeapon;
     }
 
