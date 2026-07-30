@@ -265,7 +265,7 @@ public static class Balance
     public const double AcidSlowValue = 0.10;
     public const int SuppressingFireDurationMs = 10000;
     public const double SuppressingFireDmgMult = 0.60;
-    public const double SuppressingFireSpeedPenalty = -0.12;
+    public const double SuppressingFireSpeedPenalty = 0.12;
     public const double VulnerableArmorIgnore = 0.30;
     public const double ExtraArrowChance = 7.0;
     public const double BowAccuracyBonus = 15.0;

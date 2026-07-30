@@ -41,8 +41,8 @@ public sealed class SuppressingFireExecutor : SkillExecutorBase
             "Подавляющий огонь", "Автоатаки бьют конусом на 60% от базы.");
         Program.Services.Debuffs.ApplyDebuff(pl, fire);
 
-        var slow = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.SuppressingFireSpeedPenalty, dur, "skill_sf",
-            "Подавление (скорость)", "−12% к скорости атаки.");
+            var slow = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.SuppressingFireSpeedPenalty, dur, "skill_sf",
+                "Подавление (скорость)", "+12% к скорости атаки.");
         Program.Services.Debuffs.ApplyDebuff(pl, slow);
     }
 }
