@@ -260,15 +260,20 @@ public class HudRenderer
             // Жёлтая рамка для слота, над которым заготовлен (drag) навык
             if (i == dragSlot)
             {
-                bool noManaDrag = false;
+                bool blocked = false;
                 if (_status != null && _inputManager != null && hotbarSlots != null && i < hotbarSlots.Length && hotbarSlots[i]?.StartsWith("skill:") == true)
                 {
                     var skillName = hotbarSlots[i]![6..];
                     var skill = _inputManager.GetSkillByName(skillName);
-                    if (skill != null && skill.MpCost > 0 && _status.Mana < skill.MpCost)
-                        noManaDrag = true;
+                    if (skill != null)
+                    {
+                        bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
+                        bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
+                        if (noMana || noWeapon)
+                            blocked = true;
+                    }
                 }
-                if (!noManaDrag)
+                if (!blocked)
                     UIHelper.DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
             }
 
@@ -288,16 +293,21 @@ public class HudRenderer
                 sb.Draw(icon, new Rectangle(slotRect.X + pad, slotRect.Y + pad, isz, isz), Color.White);
             }
 
-            // Затемнение иконки если не хватает маны
-            bool noMana = false;
+            // Затемнение иконки если навык недоступен
+            bool skillBlocked = false;
             if (_status != null && _inputManager != null && hotbarSlots != null && i < hotbarSlots.Length && hotbarSlots[i]?.StartsWith("skill:") == true)
             {
                 var skillName = hotbarSlots[i]![6..];
                 var skill = _inputManager.GetSkillByName(skillName);
-                if (skill != null && skill.MpCost > 0 && _status.Mana < skill.MpCost)
-                    noMana = true;
+                if (skill != null)
+                {
+                    bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
+                    bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
+                    if (noMana || noWeapon)
+                        skillBlocked = true;
+                }
             }
-            if (noMana)
+            if (skillBlocked)
                 sb.Draw(SpriteCache.Pixel, new Rectangle(slotRect.X, slotRect.Y, slotRect.Width, slotRect.Height), new Color(0, 0, 0, 140));
 
             // Количество предмета (для item-слотов)

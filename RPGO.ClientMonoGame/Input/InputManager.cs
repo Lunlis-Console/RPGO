@@ -20,6 +20,7 @@ public class InputManager
 
     public void SetSkills(List<ClientSkillInfo> skills) => _skills = skills;
     public void SetInventory(InventoryData inv) => _inventory = inv;
+    public bool IsWieldingBow() => _inventory?.Equipment?.Slots?.GetValueOrDefault("rhand")?.WeaponSubtype == "bow";
     public void UpdateHotbar(string?[] slots)
     {
         for (int i = 0; i < 10 && i < slots.Length; i++)
