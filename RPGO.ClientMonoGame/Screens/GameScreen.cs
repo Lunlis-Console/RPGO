@@ -82,6 +82,7 @@ public class GameScreen : IScreen
                 if (p.Name == client.PlayerName) continue;
                 _mapRenderer.UpdateRemotePlayer(p.Name, p.Facing, p.WeaponSubtype, p.OffWeaponSubtype, p.ShieldSubtype, p.IsTwoHanded, p.IsDead, p.X, p.Y);
             }
+            HazardRenderer.Sync(map.Hazards);
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
@@ -746,6 +747,7 @@ public class GameScreen : IScreen
         var game = GameMain.Instance!;
 
         SkillEffectManager.Update(dtMs: (float)gameTime.ElapsedGameTime.TotalMilliseconds);
+        HazardRenderer.Update(dtMs: (float)gameTime.ElapsedGameTime.TotalMilliseconds);
 
         _input.HandleHotbarDrop(mouse, game);
         bool mouseOverAnyWindowBefore = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);

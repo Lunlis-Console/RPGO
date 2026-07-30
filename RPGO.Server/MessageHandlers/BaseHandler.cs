@@ -96,8 +96,8 @@ public abstract class BaseHandler : IMessageHandler
     protected StatsBreakdown BuildBreakdown(Player player)
         => Hub.BuildBreakdown(player);
 
-    protected Task SendInventoryAndStatus(ClientConnection connection, Player player)
-        => Hub.SendInventoryAndStatus(connection, player);
+    protected Task SendInventoryAndStatus(ClientConnection connection, Player player, bool fromUnequip = false)
+        => Hub.SendInventoryAndStatus(connection, player, fromUnequip);
 
     protected Task SendQuestLog(ClientConnection connection, Player player)
         => Hub.SendQuestLog(connection, player);

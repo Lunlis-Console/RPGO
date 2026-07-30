@@ -172,11 +172,12 @@ public class MonsterManager
         _world.RemoveMonster(monster);
     }
 
-    public void WanderStep()
+    public bool WanderStep()
     {
         var players = _world.GetPlayersSnapshot();
         var monsters = _world.GetMonstersSnapshot();
         var now = DateTime.UtcNow;
+        bool anyMoved = false;
 
         foreach (var m in monsters)
         {
@@ -202,7 +203,8 @@ public class MonsterManager
                     m.StuckTicks = 0;
                     m.AggroTarget = null;
                     m.DamageTracker.Clear();
-                    m.LastMoveTime = now;
+                    m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                    anyMoved = true;
                     continue;
                 }
 
@@ -225,9 +227,10 @@ public class MonsterManager
                     {
                         m.X = nx;
                         m.Y = ny;
+                        anyMoved = true;
                     }
                 }
-                m.LastMoveTime = now;
+                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
@@ -256,7 +259,6 @@ public class MonsterManager
             {
                 m.AggroTarget = null;
                 m.StuckTicks = 0;
-                // Начинаем возврат на спавн если не на месте
                 if (m.X != m.SpawnX || m.Y != m.SpawnY)
                     m.ReturningToSpawn = true;
                 continue;
@@ -266,11 +268,19 @@ public class MonsterManager
             if (m.AggroTarget != null && m.AggroTarget.Health > 0)
             {
                 int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
+                if (dist > m.AggroRange)
+                {
+                    m.AggroTarget = null;
+                    m.StuckTicks = 0;
+                    if (m.X != m.SpawnX || m.Y != m.SpawnY)
+                        m.ReturningToSpawn = true;
+                    continue;
+                }
                 if (dist <= 1)
                 {
                     if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
                     {
-                        m.LastMoveTime = now;
+                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2);
                         m.StuckTicks = 0;
                         int dmgToPlayer = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
@@ -305,6 +315,7 @@ public class MonsterManager
                 if (moved)
                 {
                     m.StuckTicks = 0;
+                    anyMoved = true;
                 }
                 else
                 {
@@ -316,7 +327,7 @@ public class MonsterManager
                         m.StuckTicks = 0;
                     }
                 }
-                m.LastMoveTime = now;
+                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
@@ -339,8 +350,11 @@ public class MonsterManager
 
             m.X = wnx;
             m.Y = wny;
-            m.LastMoveTime = now;
+            m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+            anyMoved = true;
         }
+
+        return anyMoved;
     }
 
     /// <summary>Тик ИИ для монстров инстанса (адаптация WanderStep).</summary>
@@ -366,7 +380,7 @@ public class MonsterManager
                     m.Health = m.MaxHealth;
                     m.ReturningToSpawn = false; m.StuckTicks = 0;
                     m.AggroTarget = null; m.DamageTracker.Clear();
-                    m.LastMoveTime = now;
+                    m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                     continue;
                 }
                 int stepX = Math.Sign(m.SpawnX - m.X);
@@ -376,7 +390,7 @@ public class MonsterManager
                 int nx = m.X + mx, ny = m.Y + my;
                 if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH && !InstanceOccupied(monsters, nx, ny))
                 { m.X = nx; m.Y = ny; }
-                m.LastMoveTime = now;
+                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
@@ -402,11 +416,17 @@ public class MonsterManager
             if (m.AggroTarget != null && m.AggroTarget.Health > 0)
             {
                 int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
+                if (dist > m.AggroRange)
+                {
+                    m.AggroTarget = null; m.StuckTicks = 0;
+                    if (m.X != m.SpawnX || m.Y != m.SpawnY) m.ReturningToSpawn = true;
+                    continue;
+                }
                 if (dist <= 1)
                 {
                     if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
                     {
-                        m.LastMoveTime = now; m.StuckTicks = 0;
+                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2); m.StuckTicks = 0;
                         int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
                     }
@@ -437,7 +457,7 @@ public class MonsterManager
                 }
                 if (moved) m.StuckTicks = 0;
                 else { m.StuckTicks++; if (m.StuckTicks >= Balance.MonsterLeashStuckTicks) { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; } }
-                m.LastMoveTime = now;
+                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
@@ -451,7 +471,7 @@ public class MonsterManager
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
             if (InstanceOccupied(monsters, wnx, wny)) continue;
             m.X = wnx; m.Y = wny;
-            m.LastMoveTime = now;
+            m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
         }
     }
 
@@ -609,7 +629,7 @@ public class MonsterManager
             attackerDamage = Math.Max(Balance.MinDamage, attackerDamage - blockValue);
         }
 
-        if (applyDefenderDamage && defender is Monster mon)
+        if (applyDefenderDamage && defender is Monster mon && !mon.ReturningToSpawn)
         {
             mon.Health -= attackerDamage;
             mon.LastDamagedTime = DateTime.UtcNow;

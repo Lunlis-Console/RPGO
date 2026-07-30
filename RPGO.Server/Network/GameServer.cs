@@ -91,6 +91,20 @@ public sealed class GameServer : INetworkHub
                 .Select(p => new PortalPosition { X = p.FromX, Y = p.FromY, TargetZone = p.ToZone })
                 .ToList();
 
+            var nearbyHazards = svc.World.GetHazardsSnapshot()
+                .Where(h => h.ZoneId == zoneId &&
+                    Math.Abs(h.X - player.X) <= viewRadius &&
+                    Math.Abs(h.Y - player.Y) <= viewRadius)
+                .Select(h => new HazardPosition
+                {
+                    Id = h.Id,
+                    X = h.X,
+                    Y = h.Y,
+                    Kind = h.Kind.ToString(),
+                    IsTriggered = h.AffectedIds.Count > 0,
+                    ExpiresAtMs = new DateTimeOffset(h.ExpiresAt).ToUnixTimeMilliseconds()
+                }).ToList();
+
             var mapData = new WorldMap
             {
                 Width = zoneMap.Width,
@@ -101,6 +115,7 @@ public sealed class GameServer : INetworkHub
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
                 Corpses = nearbyCorpses,
+                Hazards = nearbyHazards,
                 Npcs = !zoneId.StartsWith("instance:")
                     ? allNpcs.Where(n =>
                         Math.Abs(n.X - player.X) <= viewRadius &&
@@ -331,7 +346,7 @@ public sealed class GameServer : INetworkHub
         });
     }
 
-    public async Task SendInventoryAndStatus(ClientConnection connection, Player player)
+    public async Task SendInventoryAndStatus(ClientConnection connection, Player player, bool fromUnequip = false)
     {
         Program.Services.Debuffs.RefreshDualWieldBuff(player);
         await SendToClient(connection, new GameMessage
@@ -349,7 +364,8 @@ public sealed class GameServer : INetworkHub
                 BonusMagAttack = player.Equipment.GetBonusMagAttack(),
                 BonusDefense = player.Equipment.GetBonusDefense(),
                 BonusResistance = player.Equipment.GetBonusResistance(),
-                BonusMaxHealth = player.Equipment.GetBonusMaxHealth()
+                BonusMaxHealth = player.Equipment.GetBonusMaxHealth(),
+                FromUnequip = fromUnequip
             }
         });
         await SendToClient(connection, new GameMessage

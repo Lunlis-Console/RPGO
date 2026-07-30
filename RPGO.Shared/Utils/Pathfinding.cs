@@ -52,16 +52,103 @@ public static class Pathfinding
         if (!found)
             return new List<(int, int)>();
 
-        var path = new List<(int X, int Y)>();
+        // Восстанавливаем путь
+        var raw = new List<(int X, int Y)>();
         int x = targetX, y = targetY;
         while (x != startX || y != startY)
         {
-            path.Add((x, y));
+            raw.Add((x, y));
             var p = parent[x, y];
             x = p.X;
             y = p.Y;
         }
-        path.Reverse();
-        return path;
+        raw.Reverse();
+
+        // Сглаживание: переставляем шаги так, чтобы направление чередовалось
+        // (вместо "10 вверх → 10 влево" делаем "вверх, влево, вверх, влево...")
+        return SmoothPath(startX, startY, targetX, targetY, raw, isBlocked);
+    }
+
+    private static List<(int X, int Y)> SmoothPath(
+        int startX, int startY, int targetX, int targetY,
+        List<(int X, int Y)> raw,
+        Func<int, int, bool> isBlocked)
+    {
+        int dx = targetX - startX;
+        int dy = targetY - startY;
+        int stepX = dx == 0 ? 0 : dx > 0 ? 1 : -1;
+        int stepY = dy == 0 ? 0 : dy > 0 ? 1 : -1;
+
+        // Если цель на одной оси — никакого L-пути нет, возвращаем как есть
+        if (dx == 0 || dy == 0)
+            return raw;
+
+        // Строим чередующийся путь: шаг по X, шаг по Y, шаг по X, шаг по Y...
+        var smooth = new List<(int X, int Y)>();
+        int cx = startX, cy = startY;
+        int totalX = Math.Abs(dx);
+        int totalY = Math.Abs(dy);
+        int takenX = 0, takenY = 0;
+        bool preferX = true;
+        int stuckCounter = 0;
+
+        while (takenX < totalX || takenY < totalY)
+        {
+            bool stepped = false;
+
+            if (preferX && takenX < totalX)
+            {
+                int nx = cx + stepX;
+                if (!isBlocked(nx, cy))
+                {
+                    cx = nx; takenX++; smooth.Add((cx, cy)); stepped = true;
+                }
+            }
+            else if (!preferX && takenY < totalY)
+            {
+                int ny = cy + stepY;
+                if (!isBlocked(cx, ny))
+                {
+                    cy = ny; takenY++; smooth.Add((cx, cy)); stepped = true;
+                }
+            }
+
+            if (!stepped)
+            {
+                if (takenX < totalX)
+                {
+                    int nx = cx + stepX;
+                    if (!isBlocked(nx, cy))
+                    {
+                        cx = nx; takenX++; smooth.Add((cx, cy)); stepped = true;
+                    }
+                }
+                if (!stepped && takenY < totalY)
+                {
+                    int ny = cy + stepY;
+                    if (!isBlocked(cx, ny))
+                    {
+                        cy = ny; takenY++; smooth.Add((cx, cy)); stepped = true;
+                    }
+                }
+            }
+
+            if (cx == targetX && cy == targetY)
+                break;
+
+            if (!stepped)
+            {
+                stuckCounter++;
+                if (stuckCounter > raw.Count * 2)
+                    return raw;
+            }
+
+            preferX = !preferX;
+        }
+
+        if (cx != targetX || cy != targetY)
+            return raw;
+
+        return smooth;
     }
 }

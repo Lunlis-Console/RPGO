@@ -258,7 +258,7 @@ public static class Balance
 
     // ===== ПУТЬ ЛУКА =====
     public const int AchillesRootMs = 3000;
-    public const int TrapDurationMs = 4000;
+    public const int TrapDurationMs = 10000;
     public const int RetreatTiles = 3;
     public const double SmokeAccuracyReduction = 0.40;
     public const double AcidDotFractionPerSec = 0.20;

@@ -76,6 +76,7 @@ public sealed class InventoryData
     public int BonusDefense { get; set; }
     public int BonusResistance { get; set; }
     public int BonusMaxHealth { get; set; }
+    public bool FromUnequip { get; set; }
 }
 
 public sealed class EquipmentData

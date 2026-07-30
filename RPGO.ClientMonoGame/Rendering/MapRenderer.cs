@@ -265,6 +265,7 @@ private sealed class RemotePlayerState
     {
         // Координаты сетки уже посчитаны в Draw() — используем те же _gridOX/_viewStart/_cell*
         SkillEffectManager.Draw(sb, _gridOX, _gridOY, _viewStartX, _viewStartY, _cellW, _cellH);
+        HazardRenderer.Draw(sb, _gridOX, _gridOY, _viewStartX, _viewStartY, _cellW, _cellH);
 
         // OnPlayer VFX поверх локального персонажа
         var me = _currentMap?.Players.FirstOrDefault(p => p.Name == _playerName);
@@ -402,13 +403,31 @@ private sealed class RemotePlayerState
     {
         if (_selectedEntityType == null) return null;
         // Берём полные данные (включая HP/MaxHp/Level) из списка сущностей клетки
-        var list = GetEntitiesAt(_selectedEntityX, _selectedEntityY);
-        foreach (var e in list)
+        var map = _currentMap;
+        if (map != null)
         {
-            bool same = _selectedEntityType == "monster" || _selectedEntityType == "player" || _selectedEntityType == "corpse"
-                ? e.Id == _selectedEntityId
-                : e.Type == _selectedEntityType && e.X == _selectedEntityX && e.Y == _selectedEntityY;
-            if (same) return e;
+            // Сначала ищем по ID по всей карте (сущность могла переместиться)
+            if (_selectedEntityType == "monster" && _selectedEntityId != null)
+            {
+                var mon = map.Monsters.FirstOrDefault(m => m.Id.ToString() == _selectedEntityId);
+                if (mon != null)
+                    return new EntityInfo { Type = "monster", Name = mon.Name, Level = mon.Level,
+                        Hp = mon.Health, MaxHp = mon.MaxHealth, X = mon.X, Y = mon.Y, Id = mon.Id.ToString() };
+            }
+            if (_selectedEntityType == "player" && _selectedEntityName != null)
+            {
+                var pl = map.Players.FirstOrDefault(p => p.Name == _selectedEntityName);
+                if (pl != null)
+                    return new EntityInfo { Type = "player", Name = pl.Name, Level = pl.Level,
+                        Hp = pl.Health, MaxHp = pl.MaxHealth, X = pl.X, Y = pl.Y, Id = pl.Id.ToString() };
+            }
+            if (_selectedEntityType == "corpse" && _selectedEntityId != null)
+            {
+                var corpse = map.Corpses.FirstOrDefault(c => c.Id.ToString() == _selectedEntityId);
+                if (corpse != null)
+                    return new EntityInfo { Type = "corpse", Name = corpse.MonsterName, Level = corpse.Level,
+                        X = corpse.X, Y = corpse.Y, Id = corpse.Id.ToString() };
+            }
         }
         // Фолбэк, если точного совпадения нет
         return new EntityInfo
@@ -1744,11 +1763,12 @@ public static class ProjectileRenderer
             {
                 double dx = p.TargetX - p.StartX;
                 double dy = p.TargetY - p.StartY;
-                float angle = (float)Math.Atan2(dy, dx);
-                var tex = SpriteCache.Pixel;
-                sb.Draw(tex, new Rectangle((int)px - 4, (int)py - 1, 8, 2),
-                    null, new Color(204, 170, 68), angle,
-                    new Vector2(0, 0.5f), SpriteEffects.None, 0f);
+                float angle = (float)Math.Atan2(dy, dx) - MathHelper.PiOver2;
+                var tex = SpriteCache.Get("projectile_arrow") ?? SpriteCache.Pixel;
+                float scale = Math.Max(cellW, cellH) * 0.6f / 64f;
+                int size = (int)(64 * scale);
+                sb.Draw(tex, new Vector2(px, py), null, Color.White, angle,
+                    new Vector2(32, 32), scale, SpriteEffects.None, 0f);
             }
             else
             {

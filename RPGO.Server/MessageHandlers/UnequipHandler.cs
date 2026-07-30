@@ -43,6 +43,6 @@ public class UnequipHandler : BaseHandler
             Type = "chat",
             Data = new { Name = "Система", Text = $"Вы сняли {item.Name}" }
         });
-        await SendInventoryAndStatus(connection, player);
+        await SendInventoryAndStatus(connection, player, fromUnequip: true);
     }
 }

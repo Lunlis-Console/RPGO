@@ -35,10 +35,10 @@ public class GameMessage
     public static GameMessage SystemChat(string text) => Chat("Система", text);
 
     /// <summary>Урон (монстр→игрок или игрок→монстр).</summary>
-    public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null) => new()
+    public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null, string? result = null) => new()
     {
         Type = "damage",
-        Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit }
+        Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit, Result = result }
     };
 
     /// <summary>Обновление дебаффов цели (монстра) для HUD.</summary>

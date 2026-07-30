@@ -70,6 +70,15 @@ public class CombatService
         };
         await _svc.Hub.SendToClient(client, dmgMsg);
         await _svc.Hub.SendDamageNearbyAsync(monster.X, monster.Y, dmgMsg, pl);
+        // Отправляем урон всем, кто выбрал этого монстра целью
+        foreach (var targetter in _svc.World.GetPlayersSnapshot())
+        {
+            if (targetter.Id != pl.Id && targetter.Combat.HasTarget && targetter.Combat.TargetMonsterId == monster.Id)
+            {
+                var conn = _svc.World.FindClientByPlayer(targetter);
+                if (conn != null) await _svc.Hub.SendToClient(conn, dmgMsg);
+            }
+        }
     }
 
     internal Task SendToC(ClientConnection client, GameMessage msg)
@@ -342,6 +351,14 @@ public class CombatService
 
         var (dmgToMonster, dmgToPlayer, monsterDead, isCrit, isEvaded, isParried, isBlocked) =
             _svc.Monsters.CalculateCombat(pl, monster, weaponRange <= 1, weaponRange <= 1);
+
+        if (monster.ReturningToSpawn && !isEvaded && !isParried && !isBlocked)
+        {
+            var retMsg = GameMessage.Damage("monster", monster.Id.ToString(), monster.X, monster.Y, 0, false, pl.Name, result: "returning");
+            await _svc.Hub.SendToClient(client, retMsg);
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} возвращается на спавн — не получает урон.");
+            return;
+        }
 
         await TryLifesteal(pl, dmgToMonster, weaponRange <= 1, client);
 
@@ -919,7 +936,8 @@ public class CombatService
     public async Task ExecuteOffHandAttack(Player pl, ClientConnection client)
     {
         var offMonster = _svc.Monsters.FindMonsterById(pl.Combat.TargetMonsterId!.Value);
-        if (offMonster == null || offMonster.Health <= 0)
+        if (offMonster == null) return;
+        if (offMonster.Health <= 0)
         {
             if (offMonster != null && offMonster.IsMannequin && offMonster.Health <= 0)
             {
@@ -999,6 +1017,14 @@ public class CombatService
         }
 
         if (meleeDmg <= 0) return;
+
+        if (offMonster.ReturningToSpawn)
+        {
+            var retMsg = GameMessage.Damage("monster", offMonster.Id.ToString(), offMonster.X, offMonster.Y, 0, false, pl.Name, result: "returning");
+            await _svc.Hub.SendToClient(client, retMsg);
+            await ChatTo(client, ChatChannel.Combat, "Бой", $"{offMonster.Name} возвращается на спавн — не получает урон.");
+            return;
+        }
 
         await TryLifesteal(pl, meleeDmg, true, client);
 
@@ -1260,13 +1286,13 @@ public class CombatService
                     if (player.IsDead) continue;
 
                     var rng = new Random();
-                    // Монстры бьют в melee (dist≤1) — учитываем «Руками не трогать»
-                    double evadeChance = player.GetEvadeChance() + player.GetMeleeEvadeBonus();
+                    // Монстры бьют в melee (dist≤1) — учитываем «Руками не трогать» и дебаффы меткости моба
+                    double accuracyReduction = Program.Services.Debuffs.GetDebuffValue(monster, DebuffType.AccuracyReduction);
+                    double evadeChance = player.GetEvadeChance() + accuracyReduction * 100 + player.GetMeleeEvadeBonus();
                     bool evaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
                     bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < player.GetParryChance();
                     bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < player.GetBlockChance();
-                    int finalDmg = blocked ? Math.Max(Balance.MinDamage, damage - player.GetBlockValue()) : damage;
-                    if (evaded || parried) finalDmg = 0;
+                    int finalDmg = (evaded || parried || blocked) ? 0 : damage;
 
                     player.Health -= finalDmg;
                     player.LastDamagedTime = DateTime.UtcNow;
@@ -1275,11 +1301,21 @@ public class CombatService
 
                     if (evaded)
                     {
+                        var missMsg = GameMessage.Damage("player", null, player.X, player.Y, 0, false, player.Name, result: "miss");
+                        await _svc.Hub.SendToClient(client, missMsg);
                         await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {monster.Name}.");
                     }
                     else if (parried)
                     {
+                        var parryMsg = GameMessage.Damage("player", null, player.X, player.Y, 0, false, player.Name, result: "parry");
+                        await _svc.Hub.SendToClient(client, parryMsg);
                         await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы парировали атаку {monster.Name}!");
+                    }
+                    else if (blocked)
+                    {
+                        var blockMsg = GameMessage.Damage("player", null, player.X, player.Y, 0, false, player.Name, result: "block");
+                        await _svc.Hub.SendToClient(client, blockMsg);
+                        await ChatTo(client, ChatChannel.Combat, "Бой", $"Вы заблокировали атаку {monster.Name}!");
                     }
                     else
                     {
@@ -1287,10 +1323,7 @@ public class CombatService
                         await _svc.Hub.SendToClient(client, hitMsg);
                         await _svc.Hub.SendDamageNearbyAsync(player.X, player.Y, hitMsg, player);
 
-                        if (blocked)
-                            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {finalDmg} урона (блок!). ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
-                        else
-                            await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {finalDmg} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
+                        await ChatTo(client, ChatChannel.Combat, "Бой", $"{monster.Name} нанёс вам {finalDmg} урона. ({player.Health}/{player.MaxHealth + player.Equipment.GetBonusMaxHealth()}) HP");
                     }
 
                     await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
@@ -1718,6 +1751,7 @@ public class CombatService
                     var deb = ActiveDebuff.Create(DebuffType.AccuracyReduction, Balance.SmokeAccuracyReduction,
                         (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Дым", "−40% точности.");
                     _svc.Debuffs.ApplyDebuff(m, deb);
+                    await SendTargetDebuffUpdateAsync(m);
                 }
                 break;
             case HazardKind.Snare:
@@ -1727,6 +1761,7 @@ public class CombatService
                     var root = ActiveDebuff.Create(DebuffType.Root, 0,
                         (int)(h.ExpiresAt - DateTime.UtcNow).TotalMilliseconds, "trap", "Капкан", "Обездвижен.");
                     _svc.Debuffs.ApplyDebuff(m, root);
+                    await SendTargetDebuffUpdateAsync(m);
                 }
                 break;
             case HazardKind.Acid:
@@ -1737,9 +1772,16 @@ public class CombatService
                     if (!_svc.Debuffs.HasDebuff(m, DebuffType.Slow))
                     {
                         var slow = ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue,
-                            1500, "trap", "Кислота", "−10% скорости.");
+                            Balance.TrapDurationMs, "trap", "Кислота", "−10% скорости.");
                         _svc.Debuffs.ApplyDebuff(m, slow);
                     }
+                    if (!_svc.Debuffs.HasDebuff(m, DebuffType.Dot))
+                    {
+                        var dot = ActiveDebuff.Create(DebuffType.Dot, h.DotDamagePerTick,
+                            Balance.TrapDurationMs, "trap", "Кислота", $"{h.DotDamagePerTick} урона/тик.");
+                        _svc.Debuffs.ApplyDebuff(m, dot);
+                    }
+                    await SendTargetDebuffUpdateAsync(m);
                     var owner = _svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == h.OwnerId);
                     if (owner != null)
                     {
@@ -1781,7 +1823,11 @@ public class CombatService
                     p.Health -= h.DotDamagePerTick;
                     p.LastDamagedTime = DateTime.UtcNow;
                     if (!_svc.Debuffs.HasDebuff(p, DebuffType.Slow))
-                        _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue, 1500, "trap", "Кислота", "−10% скорости."));
+                        _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue,
+                            Balance.TrapDurationMs, "trap", "Кислота", "−10% скорости."));
+                    if (!_svc.Debuffs.HasDebuff(p, DebuffType.Dot))
+                        _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Dot, h.DotDamagePerTick,
+                            Balance.TrapDurationMs, "trap", "Кислота", $"{h.DotDamagePerTick} урона/тик."));
                 }
                 break;
         }

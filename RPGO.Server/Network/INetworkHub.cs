@@ -17,7 +17,7 @@ public interface INetworkHub
     Task SendToClient(ClientConnection connection, GameMessage message);
     Task SendToAllAsync(GameMessage message);
     Task SendStatusAsync(ClientConnection connection, Player player);
-    Task SendInventoryAndStatus(ClientConnection connection, Player player);
+    Task SendInventoryAndStatus(ClientConnection connection, Player player, bool fromUnequip = false);
     Task SendDamageNearbyAsync(int x, int y, GameMessage damageMsg, Player? exclude);
     Task SendQuestLog(ClientConnection connection, Player player);
     Task SendHotbar(ClientConnection connection, Player player);

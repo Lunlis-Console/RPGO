@@ -97,6 +97,11 @@ public class InventoryWindow : GameWindow
                     _knownQtys[name] = qty;
                 _initTracked = true;
             }
+            else if (data.FromUnequip)
+            {
+                foreach (var (name, qty) in newQty)
+                    _knownQtys[name] = qty;
+            }
             else
             {
                 foreach (var (name, qty) in newQty)

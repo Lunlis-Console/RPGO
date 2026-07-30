@@ -642,6 +642,8 @@ public class HudRenderer
             "DualWieldBonus" => new Color(200, 140, 60),
             "Stun" => new Color(255, 200, 40),
             "Root" => new Color(100, 180, 100),
+            "Slow" => new Color(80, 160, 40),
+            "Dot" => new Color(60, 200, 60),
             _ => new Color(80, 80, 100)
         };
         sb.Draw(SpriteCache.Pixel, rect, bg);

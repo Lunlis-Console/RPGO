@@ -357,13 +357,38 @@ public sealed class GameClient
                         int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
                         int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
                         string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
+                        string result = dmgEl.TryGetProperty("Result", out var rs) ? (rs.GetString() ?? "") : "";
 
                         uint color;
                         string text;
                         bool crit = isCrit;
-                        if (amount <= 0)
+                        if (amount <= 0 && result == "miss")
                         {
                             color = 0xFFAAAAAAu;   // серый
+                            text = "Промах";
+                            crit = false;
+                        }
+                        else if (amount <= 0 && result == "parry")
+                        {
+                            color = 0xFF66CCFFu;   // голубой
+                            text = "Парирование";
+                            crit = false;
+                        }
+                        else if (amount <= 0 && result == "block")
+                        {
+                            color = 0xFFFFCC44u;   // жёлтый
+                            text = "Блок";
+                            crit = false;
+                        }
+                        else if (amount <= 0 && result == "returning")
+                        {
+                            color = 0xFF8888FFu;   // сиреневый
+                            text = "Возвращение";
+                            crit = false;
+                        }
+                        else if (amount <= 0)
+                        {
+                            color = 0xFFAAAAAAu;
                             text = "Промах";
                             crit = false;
                         }

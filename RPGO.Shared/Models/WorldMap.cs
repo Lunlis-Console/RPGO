@@ -26,6 +26,8 @@ public class WorldMap
     public ChestPosition? InstanceChest { get; set; }
     public double? InstanceExpiresAtUtcMs { get; set; }
 
+    public List<HazardPosition> Hazards { get; set; } = new();
+
     // Тайл-карта
     public string? TileMapId { get; set; }
     public byte[]? TileData { get; set; }

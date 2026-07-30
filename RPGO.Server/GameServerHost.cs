@@ -37,9 +37,10 @@ public class GameServerHost
         {
             try
             {
-                await Task.Delay(Balance.LoopMonsterWanderMs);
-                _svc.Monsters.WanderStep();
-                await _svc.Hub.BroadcastMapAsync();
+                await Task.Delay(Balance.LoopMonsterWanderMs / 3);
+                bool moved = _svc.Monsters.WanderStep();
+                if (moved)
+                    await _svc.Hub.BroadcastMapAsync();
             }
             catch (Exception ex) { Log.Error("Ошибка цикла блуждания монстров", ex); }
         }

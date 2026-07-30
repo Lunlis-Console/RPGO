@@ -68,6 +68,8 @@ public class ProjectileManager
                     var monster = svc.Monsters.FindMonsterById(proj.TargetMonsterId);
                     if (monster == null || monster.Health <= 0) continue;
 
+                    if (monster.ReturningToSpawn) continue;
+
                     Player? owner = null;
                     _world.TryGetPlayer(proj.OwnerId, out owner);
                     if (owner == null || owner.Health <= 0) continue;

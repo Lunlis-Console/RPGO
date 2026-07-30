@@ -114,6 +114,14 @@ public static class SpriteCache
         foreach (var sa in skillAnims)
             LoadTexture($"skill_anim_{sa.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.{sa}-Sheet.png");
 
+        // Анимации ловушек (Retreat)
+        LoadTexture("hazard_retreat_acid", "RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.Retreat-1-Sheet.png");
+        LoadTexture("hazard_retreat_smoke", "RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.Retreat-2-Sheet.png");
+        LoadTexture("hazard_retreat_snare", "RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.Retreat-3-Sheet.png");
+
+        // Спрайт стрелы для снарядов
+        LoadTexture("projectile_arrow", "RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.Arrow.png");
+
         Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
     }
 
