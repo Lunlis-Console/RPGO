@@ -150,8 +150,8 @@ public class InventoryWindow : GameWindow
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
-        // При открытии окна сбрасываем счётчик новых предметов
-        if (Visible && _newItemIds.Count > 0)
+        // При закрытии окна сбрасываем подсветку новых предметов
+        if (!Visible && _newItemIds.Count > 0)
         {
             _newItemIds.Clear();
             NewItemCountChanged?.Invoke(0);
