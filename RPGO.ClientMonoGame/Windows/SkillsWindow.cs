@@ -276,13 +276,20 @@ public class SkillsWindow : GameWindow
             if (n.ParentRect != default)
             {
                 int x1 = n.ParentRect.X + n.ParentRect.Width / 2;
-                int y1 = n.ParentRect.Bottom;
+                int y1 = n.ParentRect.Y + n.ParentRect.Height / 2;
                 int x2 = n.Rect.X + n.Rect.Width / 2;
-                int y2 = n.Rect.Y;
+                int y2 = n.Rect.Y + n.Rect.Height / 2;
                 Color lineCol = n.Available ? new Color(90, 130, 200) : new Color(70, 70, 80);
-                sb.Draw(SpriteCache.Pixel, new Rectangle(x1 - 1, y1, 2, y2 - y1), lineCol);
-                sb.Draw(SpriteCache.Pixel, new Rectangle(Math.Min(x1, x2), y2 - 1, Math.Abs(x2 - x1) + 2, 2), lineCol);
-                sb.Draw(SpriteCache.Pixel, new Rectangle(x2 - 1, y2 - 6, 2, 6), lineCol);
+                if (y1 <= y2)
+                {
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(x1 - 1, y1, 2, y2 - y1), lineCol);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(Math.Min(x1, x2), y2 - 1, Math.Abs(x2 - x1) + 2, 2), lineCol);
+                }
+                else
+                {
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(x2 - 1, y2, 2, y1 - y2), lineCol);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle(Math.Min(x1, x2), y1 - 1, Math.Abs(x2 - x1) + 2, 2), lineCol);
+                }
             }
         }
 
