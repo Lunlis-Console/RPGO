@@ -22,6 +22,7 @@ public class MapRenderer
     private string? _selectedEntityId;
     private int _moveTargetX = -1, _moveTargetY = -1;
     private int _hoverTileX = -1, _hoverTileY = -1;
+    private string _hoverCursorType = "";
 
     // Визуальная интерполяция
     private readonly Dictionary<string, (float X, float Y)> _visPos = new();
@@ -523,28 +524,37 @@ private sealed class RemotePlayerState
         _hoverTileX = mapX;
         _hoverTileY = mapY;
 
+        string ct;
         if (_currentMap.Portals != null && _currentMap.Portals.Any(p => p.X == mapX && p.Y == mapY))
-            return "portal";
+        {
+            ct = "portal";
+            _hoverCursorType = ct;
+            return ct;
+        }
 
         var entities = GetEntitiesAt(mapX, mapY);
         if (entities.Count > 0)
         {
-             var first = entities[0];
-             return first.Type switch
-             {
-                 "monster" => "attack",
-                 "corpse" => "loot",
-                 "collectible" => "harvest",
-                 "npc" or "merchant" or "board" => "talk",
-                 "player" when _currentMap?.PvPEnabled == true => "attack",
-                 _ => "main"
-             };
+            var first = entities[0];
+            ct = first.Type switch
+            {
+                "monster" => "attack",
+                "corpse" => "loot",
+                "collectible" => "harvest",
+                "npc" or "merchant" or "board" => "talk",
+                "player" when _currentMap?.PvPEnabled == true => "attack",
+                _ => "main"
+            };
+            _hoverCursorType = ct;
+            return ct;
         }
 
-        return "moving";
+        ct = "moving";
+        _hoverCursorType = ct;
+        return ct;
     }
 
-    public void ClearHoverTile() => _hoverTileX = _hoverTileY = -1;
+    public void ClearHoverTile() { _hoverTileX = _hoverTileY = -1; _hoverCursorType = ""; }
 
     // Запрос окна выбора сущности, когда в клетке несколько сущностей
     public event Action<List<EntityInfo>, int, int>? EntityPickRequested;
@@ -1529,8 +1539,17 @@ private sealed class RemotePlayerState
             {
                 float tx = _gridOX + (_hoverTileX - _viewStartX) * _cellW;
                 float ty = _gridOY + (_hoverTileY - _viewStartY) * _cellH;
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), new Color(100, 149, 237, 50));
-                DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, new Color(100, 149, 237, 120), 1);
+
+                (Color fill, Color border) = _hoverCursorType switch
+                {
+                    "attack" => (new Color(200, 60, 60, 40), new Color(200, 60, 60, 100)),
+                    "talk" or "harvest" => (new Color(60, 180, 80, 40), new Color(60, 180, 80, 100)),
+                    "portal" => (new Color(80, 130, 220, 40), new Color(80, 130, 220, 100)),
+                    "loot" => (new Color(140, 140, 140, 40), new Color(140, 140, 140, 100)),
+                    _ => (new Color(220, 200, 80, 40), new Color(220, 200, 80, 100))
+                };
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
+                DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
             }
         }
 
