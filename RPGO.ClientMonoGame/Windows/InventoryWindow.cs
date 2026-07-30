@@ -66,10 +66,10 @@ public class InventoryWindow : GameWindow
     private Point _dragStart;
 
     // Подсветка новых предметов
-    private Dictionary<string, int> _knownTmplQtys = new();
-    private HashSet<string> _newTemplates = new();
+    private Dictionary<string, int> _knownQtys = new();
+    private HashSet<string> _newNames = new();
     private bool _initTracked;
-    public int NewItemCount => _newTemplates.Count;
+    public int NewItemCount => _newNames.Count;
     public Action<int>? NewItemCountChanged;
 
     // Подтверждение удаления
@@ -89,28 +89,28 @@ public class InventoryWindow : GameWindow
         {
             var newQty = new Dictionary<string, int>();
             foreach (var item in data.Items)
-                newQty[item.TemplateId] = newQty.GetValueOrDefault(item.TemplateId, 0) + item.Quantity;
+                newQty[item.Name] = newQty.GetValueOrDefault(item.Name, 0) + item.Quantity;
 
             if (!_initTracked)
             {
-                foreach (var (tmpl, qty) in newQty)
-                    _knownTmplQtys[tmpl] = qty;
+                foreach (var (name, qty) in newQty)
+                    _knownQtys[name] = qty;
                 _initTracked = true;
             }
             else
             {
-                foreach (var (tmpl, qty) in newQty)
+                foreach (var (name, qty) in newQty)
                 {
-                    if (!_knownTmplQtys.TryGetValue(tmpl, out var prev) || qty > prev)
-                        _newTemplates.Add(tmpl);
-                    _knownTmplQtys[tmpl] = qty;
+                    if (!_knownQtys.TryGetValue(name, out var prev) || qty > prev)
+                        _newNames.Add(name);
+                    _knownQtys[name] = qty;
                 }
             }
         }
 
         // Если окно открыто — новые предметы сразу считаются просмотренными
         if (Visible)
-            _newTemplates.Clear();
+            _newNames.Clear();
 
         NewItemCountChanged?.Invoke(NewItemCount);
         _data = data;
@@ -169,9 +169,9 @@ public class InventoryWindow : GameWindow
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
         // При закрытии окна сбрасываем подсветку новых предметов
-        if (!Visible && _newTemplates.Count > 0)
+        if (!Visible && _newNames.Count > 0)
         {
-            _newTemplates.Clear();
+            _newNames.Clear();
             NewItemCountChanged?.Invoke(0);
         }
 
@@ -227,7 +227,7 @@ public class InventoryWindow : GameWindow
                 if (!rect.Contains(mouse.X, mouse.Y)) continue;
 
                 // Наведение на предмет снимает подсветку нового
-                if (idx < _stacks.Count && _newTemplates.Remove(_stacks[idx].item.TemplateId))
+                if (idx < _stacks.Count && _newNames.Remove(_stacks[idx].item.Name))
                     NewItemCountChanged?.Invoke(NewItemCount);
 
                 if (pressed && idx < _stacks.Count)
@@ -431,7 +431,7 @@ public class InventoryWindow : GameWindow
                 if (filled && r * GridCols + c < _stacks.Count)
                 {
                     var stack = _stacks[r * GridCols + c];
-                    if (_newTemplates.Contains(stack.item.TemplateId))
+                    if (_newNames.Contains(stack.item.Name))
                         UIHelper.DrawRectOutline(sb, rect, new Color(255, 215, 0), 2);
                 }
 
