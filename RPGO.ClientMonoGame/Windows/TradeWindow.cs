@@ -213,6 +213,8 @@ namespace RPGGame.ClientMonoGame.Windows
 
             bool justClicked = mouse.LeftButton == ButtonState.Pressed
                             && _prevMouse.LeftButton == ButtonState.Released;
+            bool justRightClicked = mouse.RightButton == ButtonState.Pressed
+                                 && _prevMouse.RightButton == ButtonState.Released;
 
             if (_goldInputActive)
             {
@@ -244,7 +246,7 @@ namespace RPGGame.ClientMonoGame.Windows
                         {
                             int uniqueIdx = r * InvCols + c + _scrollOffset;
                             if (uniqueIdx < groupedInv.Count)
-                                OnInventoryClick(groupedInv[uniqueIdx].Key, keyboard.IsKeyDown(Keys.LeftControl));
+                                OnInventoryClick(groupedInv[uniqueIdx].Key, false);
                             _prevMouse = mouse;
                             _prevKeyboard = keyboard;
                             return;
@@ -260,7 +262,7 @@ namespace RPGGame.ClientMonoGame.Windows
                             int uniqueIdx = r * InvCols + c + _offerScroll;
                             var grouped = GetGroupedOffer();
                             if (uniqueIdx < grouped.Count)
-                                OnOfferClick(grouped[uniqueIdx].Key, keyboard.IsKeyDown(Keys.LeftControl));
+                                OnOfferClick(grouped[uniqueIdx].Key, false);
                             _prevMouse = mouse;
                             _prevKeyboard = keyboard;
                             return;
@@ -277,6 +279,42 @@ namespace RPGGame.ClientMonoGame.Windows
                     _prevKeyboard = keyboard;
                     return;
                 }
+            }
+
+            // Правая кнопка + Ctrl = добавить/убрать все без диалога
+            if (justRightClicked && keyboard.IsKeyDown(Keys.LeftControl))
+            {
+                var groupedInv = GetGroupedInventory();
+                for (int r = 0; r < InvRows; r++)
+                    for (int c = 0; c < InvCols; c++)
+                    {
+                        var rect = GetInvSlotRect(c, r);
+                        if (rect.Contains(mouse.X, mouse.Y))
+                        {
+                            int uniqueIdx = r * InvCols + c + _scrollOffset;
+                            if (uniqueIdx < groupedInv.Count)
+                                OnInventoryClick(groupedInv[uniqueIdx].Key, true);
+                            _prevMouse = mouse;
+                            _prevKeyboard = keyboard;
+                            return;
+                        }
+                    }
+
+                for (int r = 0; r < OfferRows; r++)
+                    for (int c = 0; c < InvCols; c++)
+                    {
+                        var rect = GetOfferSlotRect(c, r);
+                        if (rect.Contains(mouse.X, mouse.Y))
+                        {
+                            int uniqueIdx = r * InvCols + c + _offerScroll;
+                            var grouped = GetGroupedOffer();
+                            if (uniqueIdx < grouped.Count)
+                                OnOfferClick(grouped[uniqueIdx].Key, true);
+                            _prevMouse = mouse;
+                            _prevKeyboard = keyboard;
+                            return;
+                        }
+                    }
             }
 
             HandleScrollClick(mouse);
