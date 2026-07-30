@@ -66,8 +66,9 @@ public class InventoryWindow : GameWindow
     private Point _dragStart;
 
     // Подсветка новых предметов
-    private HashSet<string> _knownItemIds = new();
+    private Dictionary<string, int> _knownQtys = new();
     private HashSet<string> _newItemIds = new();
+    private bool _initTracked;
     public int NewItemCount => _newItemIds.Count;
     public Action<int>? NewItemCountChanged;
 
@@ -84,11 +85,26 @@ public class InventoryWindow : GameWindow
 
     public void UpdateData(InventoryData data)
     {
-        // Определяем новые предметы (по Id)
-        var newIds = data?.Items?.Select(i => i.Id).ToHashSet() ?? new HashSet<string>();
-        var added = newIds.Except(_knownItemIds).ToHashSet();
-        _newItemIds.UnionWith(added);
-        _knownItemIds = newIds;
+        if (data?.Items != null)
+        {
+            if (!_initTracked)
+            {
+                // Первая загрузка — просто запоминаем, не маркируем как новые
+                foreach (var item in data.Items)
+                    _knownQtys[item.Id] = item.Quantity;
+                _initTracked = true;
+            }
+            else
+            {
+                foreach (var item in data.Items)
+                {
+                    int prevQty = _knownQtys.GetValueOrDefault(item.Id, 0);
+                    if (item.Quantity > prevQty)
+                        _newItemIds.Add(item.Id);
+                    _knownQtys[item.Id] = item.Quantity;
+                }
+            }
+        }
 
         // Если окно открыто — новые предметы сразу считаются просмотренными
         if (Visible)
