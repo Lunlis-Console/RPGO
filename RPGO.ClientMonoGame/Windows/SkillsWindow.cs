@@ -352,6 +352,10 @@ public class SkillsWindow : GameWindow
                 sb.Draw(spr, new Rectangle(iconX, iconY, iconSize, iconSize), Color.White);
             }
 
+            // Затемнение если навык не изучен
+            if (!skill.Learned)
+                sb.Draw(SpriteCache.Pixel, n.Rect, new Color(0, 0, 0, 120));
+
             // Ранг навыка (I, II, III)
             if (skill.Learned && skill.MaxRank > 1 && skill.Rank > 0)
             {
