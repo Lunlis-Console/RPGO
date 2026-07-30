@@ -282,7 +282,7 @@ namespace RPGGame.ClientMonoGame.Windows
             }
 
             // Правая кнопка + Ctrl = добавить/убрать все без диалога
-            if (justRightClicked && keyboard.IsKeyDown(Keys.LeftControl))
+            if (justRightClicked && (keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl)))
             {
                 var groupedInv = GetGroupedInventory();
                 for (int r = 0; r < InvRows; r++)

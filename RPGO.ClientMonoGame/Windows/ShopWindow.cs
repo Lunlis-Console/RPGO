@@ -148,7 +148,7 @@ public class ShopWindow : GameWindow
         if (_hoverItem >= 0 && _hoverItem < ActiveItems.Count)
         {
             if (mouse.RightButton == ButtonState.Pressed && _prevMouse.RightButton == ButtonState.Released)
-                RequestBuy(ActiveItems[_hoverItem], keyboard.IsKeyDown(Keys.LeftControl));
+                RequestBuy(ActiveItems[_hoverItem], keyboard.IsKeyDown(Keys.LeftControl) || keyboard.IsKeyDown(Keys.RightControl));
             else if (pressed)
                 HandleBuyClick(ActiveItems[_hoverItem]);
         }
