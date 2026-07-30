@@ -66,10 +66,10 @@ public class InventoryWindow : GameWindow
     private Point _dragStart;
 
     // Подсветка новых предметов
-    private Dictionary<string, int> _knownQtys = new();
-    private HashSet<string> _newItemIds = new();
+    private Dictionary<string, int> _knownTmplQtys = new();
+    private HashSet<string> _newTemplates = new();
     private bool _initTracked;
-    public int NewItemCount => _newItemIds.Count;
+    public int NewItemCount => _newTemplates.Count;
     public Action<int>? NewItemCountChanged;
 
     // Подтверждение удаления
@@ -87,29 +87,30 @@ public class InventoryWindow : GameWindow
     {
         if (data?.Items != null)
         {
+            var newQty = new Dictionary<string, int>();
+            foreach (var item in data.Items)
+                newQty[item.TemplateId] = newQty.GetValueOrDefault(item.TemplateId, 0) + item.Quantity;
+
             if (!_initTracked)
             {
-                // Первая загрузка — просто запоминаем, не маркируем как новые
-                foreach (var item in data.Items)
-                    _knownQtys[item.Id] = item.Quantity;
+                foreach (var (tmpl, qty) in newQty)
+                    _knownTmplQtys[tmpl] = qty;
                 _initTracked = true;
             }
             else
             {
-                _newItemIds.Clear();
-                foreach (var item in data.Items)
+                foreach (var (tmpl, qty) in newQty)
                 {
-                    int prevQty = _knownQtys.GetValueOrDefault(item.Id, 0);
-                    if (item.Quantity > prevQty)
-                        _newItemIds.Add(item.Id);
-                    _knownQtys[item.Id] = item.Quantity;
+                    if (!_knownTmplQtys.TryGetValue(tmpl, out var prev) || qty > prev)
+                        _newTemplates.Add(tmpl);
+                    _knownTmplQtys[tmpl] = qty;
                 }
             }
         }
 
         // Если окно открыто — новые предметы сразу считаются просмотренными
         if (Visible)
-            _newItemIds.Clear();
+            _newTemplates.Clear();
 
         NewItemCountChanged?.Invoke(NewItemCount);
         _data = data;
@@ -168,9 +169,9 @@ public class InventoryWindow : GameWindow
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
         // При закрытии окна сбрасываем подсветку новых предметов
-        if (!Visible && _newItemIds.Count > 0)
+        if (!Visible && _newTemplates.Count > 0)
         {
-            _newItemIds.Clear();
+            _newTemplates.Clear();
             NewItemCountChanged?.Invoke(0);
         }
 
@@ -226,20 +227,8 @@ public class InventoryWindow : GameWindow
                 if (!rect.Contains(mouse.X, mouse.Y)) continue;
 
                 // Наведение на предмет снимает подсветку нового
-                if (idx < _stacks.Count)
-                {
-                    var stack = _stacks[idx];
-                    bool removed = _newItemIds.Remove(stack.item.Id);
-                    // Для стакающихся — чистим все Id того же TemplateId
-                    if (_data?.Items != null)
-                    {
-                        foreach (var di in _data.Items)
-                            if (di.TemplateId == stack.item.TemplateId)
-                                removed |= _newItemIds.Remove(di.Id);
-                    }
-                    if (removed)
-                        NewItemCountChanged?.Invoke(NewItemCount);
-                }
+                if (idx < _stacks.Count && _newTemplates.Remove(_stacks[idx].item.TemplateId))
+                    NewItemCountChanged?.Invoke(NewItemCount);
 
                 if (pressed && idx < _stacks.Count)
                 {
@@ -442,9 +431,7 @@ public class InventoryWindow : GameWindow
                 if (filled && r * GridCols + c < _stacks.Count)
                 {
                     var stack = _stacks[r * GridCols + c];
-                    bool isNew = _newItemIds.Contains(stack.item.Id)
-                        || (_data?.Items?.Any(i => i.TemplateId == stack.item.TemplateId && _newItemIds.Contains(i.Id)) ?? false);
-                    if (isNew)
+                    if (_newTemplates.Contains(stack.item.TemplateId))
                         UIHelper.DrawRectOutline(sb, rect, new Color(255, 215, 0), 2);
                 }
 
