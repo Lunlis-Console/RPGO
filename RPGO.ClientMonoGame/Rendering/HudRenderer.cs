@@ -259,7 +259,18 @@ public class HudRenderer
 
             // Жёлтая рамка для слота, над которым заготовлен (drag) навык
             if (i == dragSlot)
-                UIHelper.DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
+            {
+                bool noManaDrag = false;
+                if (_status != null && _inputManager != null && hotbarSlots != null && i < hotbarSlots.Length && hotbarSlots[i]?.StartsWith("skill:") == true)
+                {
+                    var skillName = hotbarSlots[i]![6..];
+                    var skill = _inputManager.GetSkillByName(skillName);
+                    if (skill != null && skill.MpCost > 0 && _status.Mana < skill.MpCost)
+                        noManaDrag = true;
+                }
+                if (!noManaDrag)
+                    UIHelper.DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
+            }
 
             bool hasContent = hotbarSlots != null && i < hotbarSlots.Length && !string.IsNullOrEmpty(hotbarSlots[i]);
 
