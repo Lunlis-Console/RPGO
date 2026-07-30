@@ -231,6 +231,15 @@ public class HudRenderer
 
     public void SetInputManager(Input.InputManager im) => _inputManager = im;
 
+    private bool IsSkillBlocked(ClientSkillInfo skill)
+    {
+        if (_status == null || _inputManager == null) return false;
+        bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
+        bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
+        bool wrongWeapon = skill.Type.StartsWith("Меч") && _inputManager.IsWieldingBow();
+        return noMana || noWeapon || wrongWeapon;
+    }
+
     public void DrawHotbar(SpriteBatch sb, float x, float y, float w, float h, string?[] hotbarSlots, Texture2D?[] icons, int[] counts,
         int hoverSlot = -1, int dragSlot = -1, int[]? cdRemain = null, int[]? cdTotal = null)
     {
@@ -266,12 +275,7 @@ public class HudRenderer
                     var skillName = hotbarSlots[i]![6..];
                     var skill = _inputManager.GetSkillByName(skillName);
                     if (skill != null)
-                    {
-                        bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
-                        bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
-                        if (noMana || noWeapon)
-                            blocked = true;
-                    }
+                        blocked = IsSkillBlocked(skill);
                 }
                 if (!blocked)
                     UIHelper.DrawRectOutline(sb, new Rectangle(slotRect.X - 1, slotRect.Y - 1, slotRect.Width + 2, slotRect.Height + 2), new Color(255, 215, 0));
@@ -300,12 +304,7 @@ public class HudRenderer
                 var skillName = hotbarSlots[i]![6..];
                 var skill = _inputManager.GetSkillByName(skillName);
                 if (skill != null)
-                {
-                    bool noMana = skill.MpCost > 0 && _status.Mana < skill.MpCost;
-                    bool noWeapon = skill.Type.StartsWith("Лук") && !_inputManager.IsWieldingBow();
-                    if (noMana || noWeapon)
-                        skillBlocked = true;
-                }
+                    skillBlocked = IsSkillBlocked(skill);
             }
             if (skillBlocked)
                 sb.Draw(SpriteCache.Pixel, new Rectangle(slotRect.X, slotRect.Y, slotRect.Width, slotRect.Height), new Color(0, 0, 0, 140));
