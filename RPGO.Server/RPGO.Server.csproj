@@ -15,6 +15,11 @@
     <ProjectReference Include="..\RPGO.Shared\RPGO.Shared.csproj" />
   </ItemGroup>
 
+  <Target Name="CopyContent" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\worldmap_text.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\Tilemap-test.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
+  </Target>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />

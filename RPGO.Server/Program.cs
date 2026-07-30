@@ -1,6 +1,7 @@
 ﻿using RPGGame.Server.Instances;
 using RPGGame.Server.Network;
 using RPGGame.Server.MessageHandlers;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Net;
@@ -62,6 +63,28 @@ partial class Program
         dialogue.LoadAll();
         loot.LoadFromDatabase();
         zones.LoadAll();
+
+        Log.Info("Загрузка Tiled-карты...");
+        try
+        {
+            string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", "worldmap_text.tmj");
+            if (File.Exists(tiledPath))
+            {
+                var tiledMap = TiledMapLoader.Load(tiledPath);
+                var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
+                var gameMap = zones.GetOrCreateMap("main");
+                gameMap.SetTiles(tileData);
+                Log.Info($"Tiled-карта загружена: {tiledMap.Width}x{tiledMap.Height}, тайлов: {tileData.Length}");
+            }
+            else
+            {
+                Log.Warn($"Tiled-карта не найдена: {tiledPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Ошибка загрузки Tiled-карты", ex);
+        }
 
         Log.Info("Загрузка монстров...");
         monsters.Initialize();

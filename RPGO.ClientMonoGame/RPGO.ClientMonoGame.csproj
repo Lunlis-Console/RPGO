@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Content\Sprites\**\*.*" />
+    <EmbeddedResource Include="Content\Tilesets\**\*.*" />
+    <EmbeddedResource Include="Content\worldmap_text.tmj" />
   </ItemGroup>
 
   <ItemGroup>

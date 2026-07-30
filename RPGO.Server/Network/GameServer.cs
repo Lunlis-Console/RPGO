@@ -128,9 +128,9 @@ public sealed class GameServer : INetworkHub
                 Portals = portals,
                 TileMapId = zoneId,
                 TileData = zoneMap.GetTiles(),
-                TileWidth = 32,
-                TileHeight = 32,
-                TilesetId = zoneId
+                TileWidth = zoneId == "main" ? 64 : 32,
+                TileHeight = zoneId == "main" ? 64 : 32,
+                TilesetId = zoneId == "main" ? "Tilemap-test" : zoneId
             };
 
             // Данные инстанса: выход, сундук, таймер
