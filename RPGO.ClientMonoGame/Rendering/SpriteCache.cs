@@ -105,7 +105,7 @@ public static class SpriteCache
             LoadTexture($"icon_{sub.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 
         // Иконки навыков (из Skill_Icons)
-        var skillIcons = new[] { "StrongHand", "BarrageOfBlows", "Cutting", "HolyTrinity", "Duel", "Ambidexter", "WarriorsConcentration", "Reflexes", "Bloodletting", "Berserk" };
+        var skillIcons = new[] { "StrongHand", "BarrageOfBlows", "Cutting", "HolyTrinity", "Duel", "Ambidexter", "WarriorsConcentration", "Reflexes", "Bloodletting", "Berserk", "AimedShot", "AchillesHeel", "Retreat", "SuppressingFire", "VeniVidiVici", "ExtraArrow", "BowAccuracy", "MeleeEvade", "LongRangeSight", "HuntingInstinct" };
         foreach (var si in skillIcons)
             LoadTexture($"icon_skill_{si.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Skill_Icons.Icon_{si}.png");
 
