@@ -934,7 +934,7 @@ private sealed class RemotePlayerState
             else if (me.X == _moveTargetX && me.Y == _moveTargetY) _moveTargetX = _moveTargetY = -1;
             else
             {
-                var pathColor = new Color(100, 149, 237, 180);
+                var pathColor = new Color(220, 200, 80, 180);
                 foreach (var (px, py) in pathDots)
                 {
                     if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
@@ -1540,13 +1540,13 @@ private sealed class RemotePlayerState
                 float tx = _gridOX + (_hoverTileX - _viewStartX) * _cellW;
                 float ty = _gridOY + (_hoverTileY - _viewStartY) * _cellH;
 
-                (Color fill, Color border) = _hoverCursorType switch
+                (                Color fill, Color border) = _hoverCursorType switch
                 {
-                    "attack" => (new Color(200, 60, 60, 40), new Color(200, 60, 60, 100)),
-                    "talk" or "harvest" => (new Color(60, 180, 80, 40), new Color(60, 180, 80, 100)),
-                    "portal" => (new Color(80, 130, 220, 40), new Color(80, 130, 220, 100)),
-                    "loot" => (new Color(140, 140, 140, 40), new Color(140, 140, 140, 100)),
-                    _ => (new Color(220, 200, 80, 40), new Color(220, 200, 80, 100))
+                    "attack" => (new Color(200, 60, 60, 20), new Color(200, 60, 60, 50)),
+                    "talk" or "harvest" => (new Color(60, 180, 80, 20), new Color(60, 180, 80, 50)),
+                    "portal" => (new Color(80, 130, 220, 20), new Color(80, 130, 220, 50)),
+                    "loot" => (new Color(140, 140, 140, 20), new Color(140, 140, 140, 50)),
+                    _ => (new Color(220, 200, 80, 20), new Color(220, 200, 80, 50))
                 };
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
                 DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
@@ -1571,7 +1571,7 @@ private sealed class RemotePlayerState
                  {
                      "monster" => Color.Red,
                      "player" when _currentMap?.PvPEnabled == true => Color.Red,
-                     "move" => Color.DodgerBlue,
+                     "move" => new Color(220, 200, 80),
                      "corpse" => Color.Gray,
                      _ => Color.LimeGreen
                  };
