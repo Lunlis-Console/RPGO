@@ -1413,15 +1413,21 @@ public class CombatService
             d.RemainingMs,
             DurationMs = d.DurationMs
         }).ToList();
+        Log.Debug($"SendTargetPlayerDebuffUpdate: {target.Name} debuffs={debuffData.Count}");
+        foreach (var d in debuffData)
+            Log.Debug($"  {d.Type}: {d.DisplayName}");
+
         var msg = GameMessage.TargetDebuffUpdate(debuffData);
+        bool sent = false;
         foreach (var pl in _svc.World.GetPlayersSnapshot())
         {
             if (pl.Combat.HasTarget && pl.Combat.TargetPlayerId == target.Id)
             {
                 var conn = _svc.World.FindClientByPlayer(pl);
-                if (conn != null) await _svc.Hub.SendToClient(conn, msg);
+                if (conn != null) { await _svc.Hub.SendToClient(conn, msg); sent = true; }
             }
         }
+        if (!sent) Log.Debug($"  → никому не отправлено (никто не смотрит на {target.Name})");
     }
 
     // ──────────────── PvP ────────────────

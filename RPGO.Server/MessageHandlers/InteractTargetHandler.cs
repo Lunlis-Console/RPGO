@@ -91,34 +91,33 @@ public class InteractTargetHandler : BaseHandler
             }
 
             bool isPvp = Program.Services.Zones.IsPvPEnabled(player.CurrentZoneId);
-            player.Combat.EnterPlayer(targetPlayer.Id, player.Movement);
 
-            Log.Debug($"{player.Name} выбрал целью {targetPlayer.Name}{(isPvp ? " (PvP)" : "")}");
-
-            await SendToClient(connection, new GameMessage
-            {
-                Type = "combat_state",
-                Data = new
-                {
-                    InCombat = isPvp,
-                    TargetId = targetPlayer.Id.ToString(),
-                    TargetName = targetPlayer.Name,
-                    TargetHp = targetPlayer.Health,
-                    TargetMaxHp = targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth(),
-                    TargetX = targetPlayer.X,
-                    TargetY = targetPlayer.Y,
-                    IsPvP = isPvp
-                }
-            });
             if (isPvp)
             {
+                player.Combat.EnterPlayer(targetPlayer.Id, player.Movement);
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "combat_state",
+                    Data = new
+                    {
+                        InCombat = true,
+                        TargetId = targetPlayer.Id.ToString(),
+                        TargetName = targetPlayer.Name,
+                        TargetHp = targetPlayer.Health,
+                        TargetMaxHp = targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth(),
+                        TargetX = targetPlayer.X,
+                        TargetY = targetPlayer.Y,
+                        IsPvP = true
+                    }
+                });
                 await SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
                     Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
                 });
             }
-            // Отправляем текущие дебаффы цели
+
+            // Шлём текущие дебаффы цели (в любом режиме)
             await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer);
             await BroadcastMapAsync();
             return;

@@ -14,6 +14,7 @@ public class DebuffManager
             return false;
         }
         target.ActiveDebuffs.Add(debuff);
+        Log.Debug($"ApplyDebuff player={target.Name} type={debuff.Type}");
 
         _ = Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(target);
         return true;
