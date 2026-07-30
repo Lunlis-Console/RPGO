@@ -96,6 +96,7 @@ public class InventoryWindow : GameWindow
             }
             else
             {
+                _newItemIds.Clear();
                 foreach (var item in data.Items)
                 {
                     int prevQty = _knownQtys.GetValueOrDefault(item.Id, 0);
