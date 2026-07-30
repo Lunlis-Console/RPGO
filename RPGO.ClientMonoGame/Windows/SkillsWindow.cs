@@ -202,7 +202,7 @@ public class SkillsWindow : GameWindow
 
             int nodeOffX = (subColW - NodeW) / 2;
             int y = startY;
-            foreach (var skill in pg.Active)
+            foreach (var skill in pg.Active.ToList())
             {
                 var rect = new Rectangle(activeX + nodeOffX, y, NodeW, NodeH);
                 bool available = skill.MinLevel <= _playerLevel;
@@ -212,7 +212,7 @@ public class SkillsWindow : GameWindow
             }
 
             y = startY;
-            foreach (var skill in pg.Passive)
+            foreach (var skill in pg.Passive.ToList())
             {
                 var rect = new Rectangle(passiveX + nodeOffX, y, NodeW, NodeH);
                 bool available = skill.MinLevel <= _playerLevel;
