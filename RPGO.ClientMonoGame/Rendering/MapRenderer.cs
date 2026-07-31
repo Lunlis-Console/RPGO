@@ -55,16 +55,16 @@ public class MapRenderer
 
     // Фактический размер клетки (подгоняется под экран, чтобы не было зазоров)
     private float _cellW = 22f;
-    private float _cellH = 18f;
+    private float _cellH = 22f;
     private float _gridOX = 4f;
     private float _gridOY = 18f;
 
     // Масштаб карты (зум колесом мыши)
-    private float _zoom = 1f;
+    private float _zoom = 1.5f;
     public float Zoom => _zoom;
     public void ChangeZoom(float delta)
     {
-        _zoom = Math.Clamp(_zoom + delta, 1.5f, 3f);
+        _zoom = Math.Clamp(_zoom + delta, 1f, 4f);
     }
 
     // Плавная позиция камеры (float), следует за интерполированной позицией игрока
@@ -72,9 +72,9 @@ public class MapRenderer
     private float _camY = 50f;
     private DateTime _lastFrameTime = DateTime.UtcNow;
 
-    // Базовые размеры клеток
+    // Базовые размеры клеток (квадратные, как тайлы в тайлсете 32x32)
     private const float BaseCellW = 22f;
-    private const float BaseCellH = 18f;
+    private const float BaseCellH = 22f;
     private const float HeaderH = 0f;
     private const float LeftMargin = 4f;
 
