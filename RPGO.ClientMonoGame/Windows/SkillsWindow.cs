@@ -427,6 +427,19 @@ public class SkillsWindow : GameWindow
             lines.Add(desc);
         }
 
+        // Превью следующего ранга (жёлтым)
+        if (skill.Learned && skill.Rank < skill.MaxRank && !string.IsNullOrEmpty(skill.Description))
+        {
+            double nextMult = isPassive
+                ? 1.0 + skill.Rank * 0.33
+                : 1.0 + skill.Rank * 0.12;
+            string nextDesc = RankAdjustDescription(skill.Description, nextMult);
+            var nextPcts = Regex.Matches(nextDesc, @"(\d+(?:[.,]\d+)?)\s*%")
+                .Cast<Match>().Select(m => m.Value).Distinct().ToList();
+            if (nextPcts.Count > 0)
+                lines.Add($"→ {string.Join(" ", nextPcts)}");
+        }
+
         if (!string.IsNullOrEmpty(skill.ParentId))
             lines.Add("Требует родительский навык");
 
@@ -454,8 +467,9 @@ public class SkillsWindow : GameWindow
         var wrapped = new List<(string text, Color color)>();
         for (int i = 0; i < lines.Count; i++)
         {
-            Color color = i == 0 || i == lines.Count - 1 ? new Color(230, 220, 140) : Color.White;
             string text = lines[i];
+            Color color = i == 0 || i == lines.Count - 1 ? new Color(230, 220, 140)
+                       : text.StartsWith("→") ? new Color(255, 215, 0) : Color.White;
             if (font.MeasureString(text).X <= maxW - pad * 2)
             {
                 wrapped.Add((text, color));
