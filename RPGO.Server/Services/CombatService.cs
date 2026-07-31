@@ -948,6 +948,7 @@ public class CombatService
         var client = _svc.World.FindClientByPlayer(pl);
         if (client != null)
         {
+            await _svc.Hub.SendZoneTransition(client, pl);
             await ChatTo(client, ChatChannel.System, "Система", "Вы возродились!");
             await _svc.Hub.SendToClient(client, GameMessage.SystemChat("Вы возродились!"));
         }

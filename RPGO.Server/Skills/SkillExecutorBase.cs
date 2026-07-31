@@ -106,7 +106,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
             if (useOffHand)
             {
-                double offFrac = pl.LearnedSkills.Contains("SK0003") ? 0.75 : Equipment.OffHandDamageFraction;
+                double offFrac = pl.GetOffHandDamageFraction();
                 hitDmg = Math.Max(Balance.MinDamage, (int)(hitDmg * offFrac));
             }
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);

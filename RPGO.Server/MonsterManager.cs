@@ -664,9 +664,7 @@ public class MonsterManager
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
         int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
         int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
-        double offHandFraction = attacker.LearnedSkills.Contains("SK0003")
-            ? 0.75
-            : Equipment.OffHandDamageFraction;
+        double offHandFraction = attacker.GetOffHandDamageFraction();
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * offHandFraction));
 
         if (blocked)

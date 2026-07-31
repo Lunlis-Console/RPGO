@@ -420,9 +420,25 @@ public class PvPService
         double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
         attackIntervalMs = (int)(attackIntervalMs / speedBuff);
         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;
+        bool offHandReady = pl.Equipment.IsDualWielding()
+            && pl.Combat.LastAttackTime > pl.Combat.OffHandLastAttackTime
+            && (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds
+                >= Math.Max(Balance.OffHandDelayMinMs, (int)(attackIntervalMs * Balance.OffHandDelayFraction));
 
-        if (!mainAttackReady) return false;
+        if (!mainAttackReady && !offHandReady) return false;
 
+        if (mainAttackReady)
+            await ExecutePvPMainAutoAttack(pl, target, atkClient, dist);
+        else
+            await ExecutePvPOffHandAutoAttack(pl, target, atkClient, dist);
+
+        return true;
+    }
+
+    // ──────── PvP-атака основной рукой ────────
+
+    private async Task ExecutePvPMainAutoAttack(Player pl, Player target, ClientConnection atkClient, int dist)
+    {
         pl.Combat.LastAttackTime = DateTime.UtcNow;
 
         string attackHand;
@@ -543,7 +559,125 @@ public class PvPService
         {
             await HandlePvPDeath(pl, target, atkClient);
         }
+    }
 
-        return true;
+    // ──────── PvP-атака второй рукой (двойное оружие) ────────
+
+    private async Task ExecutePvPOffHandAutoAttack(Player pl, Player target, ClientConnection atkClient, int dist)
+    {
+        pl.Combat.OffHandLastAttackTime = DateTime.UtcNow;
+
+        await _svc.Hub.SendToAllAsync(new GameMessage
+        {
+            Type = "player_attack",
+            Data = new { PlayerName = pl.Name, Hand = "off", TargetX = target.X, TargetY = target.Y }
+        });
+
+        int rawDmg = Math.Max(Balance.MinDamage, pl.GetOffHandTotalAttack(dist));
+        bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+        if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
+        rawDmg = Math.Max(Balance.MinDamage, (int)(rawDmg * pl.GetOffHandDamageFraction()));
+
+        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
+        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+
+        int finalDmg = 0;
+        if (!isEvaded && !isParried)
+        {
+            finalDmg = Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
+            if (isBlocked)
+                finalDmg = Math.Max(Balance.MinDamage, finalDmg - target.GetBlockValue());
+        }
+
+        string offWeaponName = pl.Equipment.GetOffHandWeapon()?.Name ?? "второе оружие";
+        var targetClient = _svc.World.FindClientByPlayer(target);
+
+        if (isEvaded)
+        {
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"{target.Name} уклонился от вашей атаки вторым оружием.");
+            var missMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "miss");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, missMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, missMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {pl.Name}.");
+            }
+        }
+        else if (isParried)
+        {
+            await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                $"{target.Name} парировал вашу атаку вторым оружием!");
+            var parryMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "parry");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, parryMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, parryMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы парировали атаку {pl.Name}!");
+            }
+        }
+        else
+        {
+            target.Health -= finalDmg;
+            await _svc.Combat.TryLifesteal(pl, finalDmg, dist <= 1, atkClient);
+            target.LastDamagedTime = DateTime.UtcNow;
+            string critText = isCrit ? " (КРИТ!)" : "";
+
+            if (isBlocked)
+            {
+                await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                    $"Второе оружие ({offWeaponName}) нанесло {finalDmg} урона{critText} {target.Name} (блок).");
+                var blockMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "block");
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, blockMsg, target);
+                if (targetClient != null)
+                {
+                    await _svc.Hub.SendToClient(targetClient, blockMsg);
+                    await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы заблокировали атаку {pl.Name}!");
+                }
+            }
+            else
+            {
+                await ChatTo(atkClient, ChatChannel.Combat, "Бой",
+                    $"Второе оружие ({offWeaponName}) нанесло {finalDmg} урона{critText} {target.Name}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+            }
+
+            if (targetClient != null)
+            {
+                var hitMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = finalDmg, IsCrit = isCrit }
+                };
+                await _svc.Hub.SendToClient(targetClient, hitMsg);
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, hitMsg, target);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                    $"{pl.Name} нанёс вам {finalDmg} урона{critText} вторым оружием. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+                await _svc.Hub.SendStatusAsync(targetClient, target);
+            }
+        }
+
+        await _svc.Hub.SendToClient(atkClient, new GameMessage
+        {
+            Type = "combat_state",
+            Data = new
+            {
+                InCombat = true,
+                TargetId = target.Id.ToString(),
+                TargetName = target.Name,
+                TargetHp = target.Health,
+                TargetMaxHp = target.MaxHealth + target.Equipment.GetBonusMaxHealth(),
+                TargetX = target.X,
+                TargetY = target.Y,
+                IsPvP = true
+            }
+        });
+
+        await _svc.Hub.SendStatusAsync(atkClient, pl);
+
+        if (target.Health <= 0)
+        {
+            await HandlePvPDeath(pl, target, atkClient);
+        }
     }
 }

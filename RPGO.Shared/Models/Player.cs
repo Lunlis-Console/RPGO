@@ -105,6 +105,29 @@ public class Player : ICombatant
         return Equipment.IsDualWielding() ? 10.0 * GetPassiveRankMult("SK0008") : 0.0;
     }
 
+    // Пассивный навык «Амбидекстр» (SK0003): доля урона левой руки от правой.
+    // Ранг 1: +25% (итого 75%), ранг 2: +40% (90%), ранг 3: +50% (100% — как правая рука).
+    public double GetOffHandDamageFraction()
+    {
+        if (!LearnedSkills.Contains("SK0003")) return Equipment.OffHandDamageFraction;
+        double bonus = GetSkillRank("SK0003") switch
+        {
+            3 => 0.50,
+            2 => 0.40,
+            _ => 0.25
+        };
+        return Math.Min(1.0, Equipment.OffHandDamageFraction + bonus);
+    }
+
+    // Максимальная атака для удара второй рукой (аналог GetTotalAttack, но по оффхенд-оружию).
+    public int GetOffHandTotalAttack(int dist)
+    {
+        var offHand = Equipment.GetOffHandWeapon();
+        bool useMag = offHand != null && Equipment.IsCasterWeapon(offHand);
+        return (int)(((useMag ? GetMagAttack() : GetPhysAttack()) + Equipment.GetOffHandMaxDamage())
+            * GetBerserkMultiplier());
+    }
+
     public int GetBlockValue()
         => (int)(Equipment.GetShieldBonusDefense() * BalanceStatic.ShieldBlockValueMultiplier);
 

@@ -396,7 +396,7 @@ public class SkillsWindow : GameWindow
         var lines = new List<string>
         {
             skill.Name,
-            $"Тир {skill.Tier}  •  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type.ToLowerInvariant())}"
+            $"Тир {skill.Tier}  {(string.IsNullOrWhiteSpace(skill.Type) ? "Основные" : skill.Type.ToLowerInvariant())}"
         };
 
         // Ранг (только если изучен)
@@ -406,9 +406,14 @@ public class SkillsWindow : GameWindow
         // Статы активного навыка
         if (!isPassive)
         {
-            double curDmg = skill.DamageMultiplier * (1.0 + (skill.Rank - 1) * 0.12);
             int curCd = (int)(skill.CooldownMs * (1.0 - (skill.Rank - 1) * 0.08)) / 1000;
-            lines.Add($"МП {skill.MpCost}  •  КД {curCd}с  •  Урон x{curDmg:F2}");
+            string cdText = $"КД {curCd}с";
+            if (skill.Learned && skill.Rank < skill.MaxRank)
+            {
+                int nextCd = (int)(skill.CooldownMs * (1.0 - skill.Rank * 0.08)) / 1000;
+                cdText += $" \x01({nextCd}с)\x01";
+            }
+            lines.Add($"МП {skill.MpCost}  {cdText}");
         }
 
         lines.Add($"Мин. уровень {skill.MinLevel}");
@@ -420,17 +425,15 @@ public class SkillsWindow : GameWindow
             double currentMult = 1.0;
             if (skill.Learned)
             {
+                currentMult = isPassive
+                    ? PassiveRankMult(skill.Id, skill.Rank)
+                    : 1.0 + (skill.Rank - 1) * 0.12;
                 if (skill.Rank > 1)
-                {
-                    currentMult = isPassive
-                        ? 1.0 + (skill.Rank - 1) * 0.33
-                        : 1.0 + (skill.Rank - 1) * 0.12;
                     desc = RankAdjustDescription(desc, currentMult);
-                }
                 if (skill.Rank < skill.MaxRank)
                 {
                     double nextMult = isPassive
-                        ? 1.0 + skill.Rank * 0.33
+                        ? PassiveRankMult(skill.Id, skill.Rank + 1)
                         : 1.0 + skill.Rank * 0.12;
                     desc = InsertInlinePreviews(desc, currentMult, nextMult);
                 }
@@ -443,18 +446,9 @@ public class SkillsWindow : GameWindow
 
         // Статус: неизучен / можно улучшить / максимум
         if (!skill.Learned)
-            lines.Add($"ПКМ — изучить ({skill.SkillPointCost} оч.)");
+            lines.Add($"ПКМ изучить ({skill.SkillPointCost} оч.)");
         else if (skill.Rank < skill.MaxRank)
-        {
-            string hint = $"ПКМ — улучшить ({skill.SkillPointCost} оч.)";
-            if (!isPassive)
-            {
-                double nextDmg = skill.DamageMultiplier * (1.0 + skill.Rank * 0.12);
-                int nextCd = (int)(skill.CooldownMs * (1.0 - skill.Rank * 0.08)) / 1000;
-                hint += $"  →  x{nextDmg:F2}  КД {nextCd}с";
-            }
-            lines.Add(hint);
-        }
+            lines.Add($"ПКМ улучшить ({skill.SkillPointCost} оч.)");
         else
             lines.Add("Максимальный ранг");
 
@@ -511,6 +505,14 @@ public class SkillsWindow : GameWindow
             DrawStringColored(sb, font, wrapped[i].text,
                 new Vector2(tx + pad, ty + pad + i * lineH), wrapped[i].color);
         }
+    }
+
+    // Множитель пассивного навыка от ранга. Для «Амбидекстра» (SK0003) бонус фиксированный: 25%/40%/50%.
+    private static double PassiveRankMult(string skillId, int rank)
+    {
+        if (skillId == "SK0003")
+            return rank switch { 2 => 1.6, 3 => 2.0, _ => 1.0 };
+        return 1.0 + (rank - 1) * 0.33;
     }
 
     // Заменяет все числа с % в описании, умножая на ранговый коэффициент.
