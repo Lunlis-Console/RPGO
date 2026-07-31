@@ -569,7 +569,7 @@ public class SkillsWindow : GameWindow
             {
                 double baseVal = val / currentMult;
                 double next = baseVal * nextMult;
-                return $"{val}% \x01\u2192{next:F0}%\x01";
+                return $"{val}% \x01({next:F0}%)\x01";
             }
             return m.Value;
         });
