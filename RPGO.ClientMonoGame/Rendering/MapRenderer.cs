@@ -672,12 +672,16 @@ private sealed class RemotePlayerState
     // чтобы координаты клика всегда совпадали с тем, что нарисовано в текущем кадре.
     private void ComputeView(WorldMap map, int centerX, int centerY, float offsetX, float offsetY, float areaW, float areaH)
     {
-        float cellW = BaseCellW * _zoom;
-        float cellH = BaseCellH * _zoom;
         float availW = areaW - LeftMargin - 4;
         float availH = areaH - HeaderH - 4;
-        int cols = Math.Max(1, (int)(availW / cellW));
-        int rows = Math.Max(1, (int)(availH / cellH));
+
+        // Квадратные клетки: сколько влезет при идеальном размере
+        float baseCell = BaseCellW * _zoom;
+        int cols = Math.Max(1, (int)(availW / baseCell));
+        int rows = Math.Max(1, (int)(availH / baseCell));
+
+        // Фактический размер — берём меньший, чтобы влезло и по W и по H
+        _cellW = _cellH = Math.Min(availW / cols, availH / rows);
 
         int startX, startY, endX, endY;
         if (map.Width <= cols)
@@ -715,10 +719,11 @@ private sealed class RemotePlayerState
         int viewW = endX - startX + 1, viewH = endY - startY + 1;
         _viewStartX = startX; _viewStartY = startY; _viewEndX = endX; _viewEndY = endY;
 
-        _gridOX = offsetX + LeftMargin;
-        _gridOY = offsetY + HeaderH;
-        _cellW = availW / viewW;
-        _cellH = availH / viewH;
+        // Центрируем сетку
+        float gridTotalW = viewW * _cellW;
+        float gridTotalH = viewH * _cellH;
+        _gridOX = offsetX + LeftMargin + (availW - gridTotalW) / 2f;
+        _gridOY = offsetY + HeaderH + (availH - gridTotalH) / 2f;
     }
 
     private bool ScreenToMap(float sx, float sy, float areaW, float areaH, out int mapX, out int mapY)
