@@ -434,9 +434,19 @@ public sealed class GameClient
                         int amount = healEl.TryGetProperty("Amount", out var ham) ? ham.GetInt32() : 0;
                         int x = healEl.TryGetProperty("X", out var hxp) ? hxp.GetInt32() : 0;
                         int y = healEl.TryGetProperty("Y", out var hyp) ? hyp.GetInt32() : 0;
-                        // Зелёный для лечения — визуально отличается от красного урона
                         Logger.Debug($"FLT heal argb={0xFF40E060u:X8} text=+{amount}");
                         Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF40E060u, false));
+                    }
+                    break;
+
+                case "mana_regen":
+                    if (message.Data is JsonElement manaEl)
+                    {
+                        int amount = manaEl.TryGetProperty("Amount", out var mam) ? mam.GetInt32() : 0;
+                        int x = manaEl.TryGetProperty("X", out var mxp) ? mxp.GetInt32() : 0;
+                        int y = manaEl.TryGetProperty("Y", out var myp) ? myp.GetInt32() : 0;
+                        Logger.Debug($"FLT mana_regen argb={0xFF60A0FFu:X8} text=+{amount}");
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount + " MP", 0xFF60A0FFu, false));
                     }
                     break;
 

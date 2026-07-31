@@ -81,9 +81,10 @@ public class GameServerHost
                         }
 
                         int maxMana = pl.MaxMana;
+                        int manaTick = 0;
                         if (pl.Mana < maxMana)
                         {
-                            int manaTick = plInCombat
+                            manaTick = plInCombat
                                 ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction))
                                 : Balance.ManaRegenOutOfCombat;
                             pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
@@ -103,6 +104,16 @@ public class GameServerHost
                                 };
                                 await _svc.Hub.SendToClient(conn, healMsg);
                                 await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, healMsg, pl);
+                            }
+                            if (manaTick > 0)
+                            {
+                                var manaMsg = new GameMessage
+                                {
+                                    Type = "mana_regen",
+                                    Data = new { X = pl.X, Y = pl.Y, Amount = manaTick }
+                                };
+                                await _svc.Hub.SendToClient(conn, manaMsg);
+                                await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, manaMsg, pl);
                             }
                             await _svc.Hub.SendStatusAsync(conn, pl);
                         }
