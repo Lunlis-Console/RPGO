@@ -143,10 +143,10 @@ public class StatusWindow : GameWindow
         // Кнопка «Сброс атрибутов»
         if (clicked && !_scrollDragging)
         {
-            int resetBtnY = ContentY + ContentH - RowH - 6;
-            int resetBtnH = RowH;
+            int resetBtnH = 22;
             int resetBtnW = 120;
             int resetBtnX = ContentX + ContentW - resetBtnW;
+            int resetBtnY = ContentY + Height - TitleH - resetBtnH - 4;
             var resetRect = new Rectangle(resetBtnX, resetBtnY, resetBtnW, resetBtnH);
             if (resetRect.Contains(mouse.X, mouse.Y))
             {
@@ -294,7 +294,7 @@ public class StatusWindow : GameWindow
             int btnW = (int)resetSz.X + 16;
             int btnH = 22;
             int btnX = cx + cw - btnW;
-            int btnY = cy + 8;
+            int btnY = ContentY + Height - TitleH - btnH - 4;
             var resetRect = new Rectangle(btnX, btnY, btnW, btnH);
             bool resetHover = resetRect.Contains(mouse.X, mouse.Y);
             Color resetBg = resetHover ? new Color(120, 50, 50) : new Color(80, 35, 35);
