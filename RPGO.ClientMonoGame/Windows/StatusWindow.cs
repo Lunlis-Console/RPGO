@@ -35,6 +35,7 @@ public class StatusWindow : GameWindow
     private static readonly Color RowBg = new Color(40, 42, 52);
 
     public Action<string>? AllocateAttribute { get; set; }
+    public Action? ResetAttributes { get; set; }
 
     public StatusWindow()
     {
@@ -138,6 +139,20 @@ public class StatusWindow : GameWindow
             }
         }
         if (released) _scrollDragging = false;
+
+        // Кнопка «Сброс атрибутов»
+        if (clicked && !_scrollDragging)
+        {
+            int resetBtnY = ContentY + ContentH - RowH - 6;
+            int resetBtnH = RowH;
+            int resetBtnW = 120;
+            int resetBtnX = ContentX + ContentW - resetBtnW;
+            var resetRect = new Rectangle(resetBtnX, resetBtnY, resetBtnW, resetBtnH);
+            if (resetRect.Contains(mouse.X, mouse.Y))
+            {
+                ResetAttributes?.Invoke();
+            }
+        }
 
         // Распределение атрибутов
         if (clicked && !_scrollDragging && _data.AttributePoints > 0)
@@ -271,6 +286,22 @@ public class StatusWindow : GameWindow
         DrawDebuffs(sb, ref cy, cx, cw);
 
         _contentHeight = cy - startCy;
+
+        // Кнопка «Сброс атрибутов»
+        {
+            string resetText = "Сброс атрибутов";
+            var resetSz = font.MeasureString(resetText);
+            int btnW = (int)resetSz.X + 16;
+            int btnH = 22;
+            int btnX = cx + cw - btnW;
+            int btnY = cy + 8;
+            var resetRect = new Rectangle(btnX, btnY, btnW, btnH);
+            bool resetHover = resetRect.Contains(mouse.X, mouse.Y);
+            Color resetBg = resetHover ? new Color(120, 50, 50) : new Color(80, 35, 35);
+            sb.Draw(SpriteCache.Pixel, resetRect, resetBg);
+            UIHelper.DrawRectOutline(sb, resetRect, new Color(160, 70, 70), 1);
+            DrawText(sb, resetText, btnX + 8, btnY + 3, new Color(220, 160, 160));
+        }
 
         // Полоса прокрутки
         var (track, thumb) = GetScrollBarRects();

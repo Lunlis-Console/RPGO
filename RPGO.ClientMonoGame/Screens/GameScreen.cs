@@ -594,6 +594,7 @@ public class GameScreen : IScreen
             _ = client.SendAsync("inventory_sort", new { Order = order });
         };
         _statusWindow.AllocateAttribute += attr => _ = client.SendAsync("allocate_attribute", new { Attribute = attr });
+        _statusWindow.ResetAttributes += () => _ = client.SendAsync("reset_attributes", new { });
 
         // Register windows in manager
         _windows.Add(_inventoryWindow);

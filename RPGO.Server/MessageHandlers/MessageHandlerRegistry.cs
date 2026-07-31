@@ -40,6 +40,7 @@ public static class MessageHandlerRegistry
         Register("allocate_attribute", new AllocateAttributeHandler(world, hub));
         Register("allocate_skill", new AllocateSkillHandler(world, hub));
         Register("reset_skills", new ResetSkillsHandler(world, hub));
+        Register("reset_attributes", new ResetAttributesHandler(world, hub));
         Register("quest_log_request", new QuestLogRequestHandler(world, hub));
         Register("take_quest", new TakeQuestHandler(world, hub));
         Register("hotbar_update", new HotbarUpdateHandler(world, hub));
