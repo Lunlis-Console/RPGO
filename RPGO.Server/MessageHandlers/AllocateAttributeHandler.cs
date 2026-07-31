@@ -44,7 +44,7 @@ public class AllocateAttributeHandler : BaseHandler
             case "agility": player.Agility++; break;
             case "cunning": player.Cunning++; break;
             case "intellect": player.Intellect++; break;
-            case "wisdom": player.Wisdom++; break;
+            case "wisdom": player.Wisdom++; player.MaxMana += Balance.ManaPerWisdom; break;
         }
 
         player.AttributePoints--;
