@@ -27,22 +27,20 @@ public class ResetAttributesHandler : BaseHandler
             return;
         }
 
-        int healthReduction = spentEndurance * Balance.MaxHealthPerEndurance;
-        int manaReduction = spentWisdom * Balance.ManaPerWisdom;
-
         player.Strength = 1;
         player.Endurance = 1;
         player.Agility = 1;
         player.Cunning = 1;
         player.Intellect = 1;
         player.Wisdom = 1;
-        player.MaxHealth -= healthReduction;
-        player.MaxMana -= manaReduction;
+
+        player.MaxHealth = 100 + (player.Level - 1) * BalanceStatic.MaxHealthPerLevel;
+        player.MaxMana = Balance.MaxMana(player.Wisdom);
         if (player.Health > player.MaxHealth) player.Health = player.MaxHealth;
         if (player.Mana > player.MaxMana) player.Mana = player.MaxMana;
         player.AttributePoints += totalSpent;
 
-        Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. HP-{healthReduction}, MP-{manaReduction}");
+        Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
         DatabaseManager.SavePlayerProgress(player);
 
         await SendToClient(connection, new GameMessage
