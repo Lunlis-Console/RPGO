@@ -909,8 +909,8 @@ private sealed class RemotePlayerState
 
         if (hasTileset && tilesetTex != null)
         {
-            int srcTileW = tilesetTex.Width / Math.Max(1, tilesetCols);
-            int srcTileH = tilesetTex.Height / Math.Max(1, tilesetRows);
+            int srcTileW = Math.Max(1, _tileSize);
+            int srcTileH = Math.Max(1, _tileSize);
             for (int y = -1; y <= viewH + 1; y++)
             {
                 float ty = _gridOY + y * _cellH;

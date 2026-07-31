@@ -103,11 +103,7 @@ public class MoveDirectionHandler : BaseHandler
         string zoneName = targetZone?.Name ?? portal.ToZone;
         Log.Info($"{player.Name} перешёл из зоны '{fromZone}' в '{portal.ToZone}' ({portal.ToX},{portal.ToY})");
 
-        await SendToClient(connection, new GameMessage
-        {
-            Type = "zone_transition",
-            Data = new { ZoneId = portal.ToZone, ZoneName = zoneName, X = portal.ToX, Y = portal.ToY, PvPEnabled = targetZone?.PvpEnabled ?? false }
-        });
+        await Hub.SendZoneTransition(connection, player);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

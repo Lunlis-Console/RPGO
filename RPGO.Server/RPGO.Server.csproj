@@ -16,8 +16,8 @@
   </ItemGroup>
 
   <Target Name="CopyContent" AfterTargets="Build">
-    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\worldmap_text.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\Tilemap-test.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\wordlmap.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\World-Tilemap.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
   </Target>
 
   <ItemGroup>

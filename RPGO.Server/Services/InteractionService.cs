@@ -399,11 +399,7 @@ public class InteractionService
         var conn = _svc.World.FindClientByPlayer(player);
         if (conn != null)
         {
-            await _svc.Hub.SendToClient(conn, new GameMessage
-            {
-                Type = "zone_transition",
-                Data = new { ZoneId = portal.ToZone, ZoneName = zoneName, X = portal.ToX, Y = portal.ToY, PvPEnabled = targetZone?.PvpEnabled ?? false }
-            });
+            await _svc.Hub.SendZoneTransition(conn, player);
             await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
                 $"Вы вошли в зону: {zoneName}{(targetZone?.PvpEnabled == true ? " [PvP]" : "")}");
         }

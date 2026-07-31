@@ -171,7 +171,7 @@ public sealed class GameServer : INetworkHub
                 TileData = client.TileDataSent ? null : zoneMap.GetTiles(),
                 TileWidth = zoneId == "main" ? 64 : 32,
                 TileHeight = zoneId == "main" ? 64 : 32,
-                TilesetId = zoneId == "main" ? "Tilemap-test" : zoneId
+                TilesetId = zoneId == "main" ? "World-Tilemap" : zoneId
             };
             client.TileDataSent = true;
 
@@ -692,7 +692,7 @@ public sealed class GameServer : INetworkHub
                 TileData = zoneMap.GetTiles(),
                 TileWidth = player.CurrentZoneId == "main" ? 64 : 32,
                 TileHeight = player.CurrentZoneId == "main" ? 64 : 32,
-                TilesetId = player.CurrentZoneId == "main" ? "Tilemap-test" : player.CurrentZoneId
+                TilesetId = player.CurrentZoneId == "main" ? "World-Tilemap" : player.CurrentZoneId
             }
         });
     }

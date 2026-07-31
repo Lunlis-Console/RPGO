@@ -58,7 +58,7 @@ partial class Program
         Log.Info("Загрузка Tiled-карты...");
         try
         {
-            string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", "worldmap_text.tmj");
+            string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", "wordlmap.tmj");
             if (File.Exists(tiledPath))
             {
                 var tiledMap = TiledMapLoader.Load(tiledPath);
