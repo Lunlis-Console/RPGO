@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class CancelTargetHandler : BaseHandler
 {
-    public CancelTargetHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public CancelTargetHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -15,11 +16,11 @@ public class CancelTargetHandler : BaseHandler
 
         if (player.Combat.HasTarget)
         {
-            var prevTarget = Program.Services.Monsters.FindMonsterById(player.Combat.TargetMonsterId!.Value);
+            var prevTarget = Svc.Monsters.FindMonsterById(player.Combat.TargetMonsterId!.Value);
             Log.Debug($"{player.Name} отменил цель: {prevTarget?.Name ?? "?"}");
             player.Combat.Cancel();
             player.QueuedSkillIds.Clear();
-            await UseSkillHandler.SendSkillQueue(connection, player);
+            await UseSkillHandler.SendSkillQueue(connection, player, Hub);
             await SendToClient(connection, new GameMessage
             {
                 Type = "combat_state",

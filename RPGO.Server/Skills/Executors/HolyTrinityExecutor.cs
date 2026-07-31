@@ -9,11 +9,13 @@ public sealed class HolyTrinityExecutor : SkillExecutorBase
 {
     public override Task<bool> ExecutePvE(Player pl, Monster monster, Skill skill,
         ClientConnection client, CombatService svc, int weaponRange)
-        => ExecuteFirstHitPvE(pl, monster, skill, client, svc, 2.0, comboHitsRemaining: 2, ApplyDebuff);
+        => ExecuteFirstHitPvE(pl, monster, skill, client, svc, 2.0, comboHitsRemaining: 2,
+            (p, m, d, c, r) => ApplyDebuff(p, m, d, c, r, svc));
 
     public override Task<bool> ExecuteComboPvE(Player pl, Monster monster,
         ClientConnection client, CombatService svc)
-        => ExecuteComboHitPvE(pl, monster, client, svc, totalHits: 3, _ => 2.0, useOffHand: false, ApplyDebuff);
+        => ExecuteComboHitPvE(pl, monster, client, svc, totalHits: 3, _ => 2.0, useOffHand: false,
+            (p, m, d, c, r) => ApplyDebuff(p, m, d, c, r, svc));
 
     public override Task<bool> ExecutePvP(Player pl, Player target, Skill skill,
         ClientConnection atkClient, CombatService svc, int weaponRange, int dist)
@@ -23,7 +25,7 @@ public sealed class HolyTrinityExecutor : SkillExecutorBase
         ClientConnection atkClient, CombatService svc)
         => ExecuteComboHitPvP(pl, target, atkClient, svc, totalHits: 3, _ => 2.0);
 
-    private static void ApplyDebuff(Player pl, Monster monster, int dmg, bool crit, Random rng)
+    private static void ApplyDebuff(Player pl, Monster monster, int dmg, bool crit, Random rng, CombatService svc)
     {
         if (rng.Next(Balance.ChanceRollMax) < Balance.HolyTrinityDebuffChance)
         {
@@ -38,7 +40,7 @@ public sealed class HolyTrinityExecutor : SkillExecutorBase
                     Balance.HammerStunDurationMs, "skill", "Контузия",
                     $"Снижает точность цели на {(int)(Balance.HammerAccuracyReductionValue * 100)}%")
             };
-            Program.Services.Debuffs.ApplyDebuff(monster, debuff);
+            svc.Debuffs.ApplyDebuff(monster, debuff);
         }
     }
 }

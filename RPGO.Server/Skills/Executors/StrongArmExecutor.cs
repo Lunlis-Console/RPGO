@@ -20,7 +20,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
         await svc.SendPlayerAttack(pl.Name, "main", skill.Id, monster.X, monster.Y);
 
         double dmgMult = skill.DamageMultiplier * pl.GetSkillRankDmgMult(skill.Id);
-        var rng = new Random();
+        var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster);
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
@@ -46,7 +46,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
                 var stun = ActiveDebuff.Create(DebuffType.Stun, 0,
                     Balance.StunDurationMs, "skill", "Оглушение",
                     $"Оглушение на {Balance.StunDurationMs / 1000} сек.");
-                Program.Services.Debuffs.ApplyDebuff(monster, stun);
+                svc.Debuffs.ApplyDebuff(monster, stun);
                 await svc.ChatToC(client, "Бой",
                     $"«Крепкая рука» оглушил {monster.Name} на {Balance.StunDurationMs / 1000} сек.!");
                 await svc.SendTargetDebuffUpdateAsync(monster);

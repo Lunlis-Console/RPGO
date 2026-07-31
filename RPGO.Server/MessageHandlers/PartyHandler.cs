@@ -1,5 +1,6 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
 using System.Text.Json;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class PartyHandler : BaseHandler
 {
-    public PartyHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public PartyHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -29,7 +30,7 @@ public class PartyHandler : BaseHandler
 
             if (player.PartyId.HasValue)
             {
-                var myParty = Program.Services.Party.GetParty(player.PartyId.Value);
+                var myParty = Svc.Party.GetParty(player.PartyId.Value);
                 if (myParty == null || myParty.LeaderId != player.Id)
                 {
                     await SendError(connection, ErrorCodes.InvalidRequest, "В группу может приглашать только лидер");
@@ -54,7 +55,7 @@ public class PartyHandler : BaseHandler
                 return;
             }
 
-            if (Program.Services.Trade.IsInTrade(target))
+            if (Svc.Trade.IsInTrade(target))
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} сейчас занят обменом");
                 return;
@@ -95,7 +96,7 @@ public class PartyHandler : BaseHandler
 
             if (inviter.PartyId.HasValue)
             {
-                var existingParty = Program.Services.Party.GetParty(inviter.PartyId.Value);
+                var existingParty = Svc.Party.GetParty(inviter.PartyId.Value);
                 if (existingParty != null)
                 {
                     if (existingParty.Members.Count >= 5)
@@ -104,19 +105,19 @@ public class PartyHandler : BaseHandler
                         return;
                     }
 
-                    if (Program.Services.Party.JoinParty(player, existingParty.Id))
+                    if (Svc.Party.JoinParty(player, existingParty.Id))
                     {
-                        await Program.Services.Party.SendPartyUpdateAsync(existingParty);
+                        await Svc.Party.SendPartyUpdateAsync(existingParty);
                     }
                     return;
                 }
             }
 
-            var party = Program.Services.Party.CreateParty(inviter, player);
+            var party = Svc.Party.CreateParty(inviter, player);
             if (party != null)
             {
                 Log.Info($"Группа создана: {inviter.Name} + {player.Name}");
-                await Program.Services.Party.SendPartyUpdateAsync(party);
+                await Svc.Party.SendPartyUpdateAsync(party);
             }
         }
         else if (action == "party_decline")
@@ -151,7 +152,7 @@ public class PartyHandler : BaseHandler
                 return;
             }
 
-            var party = Program.Services.Party.GetParty(player.PartyId.Value);
+            var party = Svc.Party.GetParty(player.PartyId.Value);
             if (party == null)
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
@@ -185,7 +186,7 @@ public class PartyHandler : BaseHandler
             party.LeaderId = target.Id;
             party.LeaderName = target.Name;
             Log.Info($"{player.Name} передал лидерство {target.Name}");
-            await Program.Services.Party.SendPartyUpdateAsync(party);
+            await Svc.Party.SendPartyUpdateAsync(party);
 
             var targetConn = World.FindClientByPlayer(target);
             if (targetConn != null)
@@ -206,7 +207,7 @@ public class PartyHandler : BaseHandler
                 return;
             }
 
-            var party = Program.Services.Party.GetParty(player.PartyId.Value);
+            var party = Svc.Party.GetParty(player.PartyId.Value);
             if (party == null)
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
@@ -240,7 +241,7 @@ public class PartyHandler : BaseHandler
             Log.Info($"{player.Name} исключил {target.Name} из группы");
 
             // Исключённый покидает группу
-            Program.Services.Party.LeaveParty(target);
+            Svc.Party.LeaveParty(target);
 
             // Уведомляем исключённого
             var targetConn = World.FindClientByPlayer(target);
@@ -256,11 +257,11 @@ public class PartyHandler : BaseHandler
 
             if (party.Members.Count >= 2)
             {
-                await Program.Services.Party.SendPartyUpdateAsync(party);
+                await Svc.Party.SendPartyUpdateAsync(party);
             }
             else
             {
-                await Program.Services.Party.DisbandAndNotifyAsync(party.Id);
+                await Svc.Party.DisbandAndNotifyAsync(party.Id);
             }
         }
         else if (action == "party_leave")
@@ -271,8 +272,8 @@ public class PartyHandler : BaseHandler
                 return;
             }
 
-            var party = Program.Services.Party.GetParty(player.PartyId.Value);
-            Program.Services.Party.LeaveParty(player);
+            var party = Svc.Party.GetParty(player.PartyId.Value);
+            Svc.Party.LeaveParty(player);
 
             if (party != null)
             {
@@ -281,7 +282,7 @@ public class PartyHandler : BaseHandler
                 if (party.Members.Count >= 2)
                 {
                     // Группа жива: шлём обновлённый состав (с возможно новым лидером)
-                    await Program.Services.Party.SendPartyUpdateAsync(party);
+                    await Svc.Party.SendPartyUpdateAsync(party);
                 }
                 else
                 {
@@ -289,7 +290,7 @@ public class PartyHandler : BaseHandler
                     // разошлёт party_disbanded оставшимся. Самому ушедшему (уже не в
                     // Members) шлём отдельно, иначе у него в HUD висит панель группы.
                     await DisbandNotifySelf(connection);
-                    await Program.Services.Party.DisbandAndNotifyAsync(party.Id);
+                    await Svc.Party.DisbandAndNotifyAsync(party.Id);
                 }
             }
         }

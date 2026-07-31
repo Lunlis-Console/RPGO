@@ -19,8 +19,8 @@ public sealed class AimedShotExecutor : SkillExecutorBase
         if (!evaded)
         {
             string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
-            var proj = Program.Services.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
-            await Program.Services.Projectiles.BroadcastSpawn(proj);
+            var proj = svc.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
+            await svc.Projectiles.BroadcastSpawn(proj);
         }
 
         pl.Combat.LastAttackTime = DateTime.UtcNow;

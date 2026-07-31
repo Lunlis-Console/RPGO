@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+
 using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class ReconnectHandler : BaseHandler
 {
-    public ReconnectHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public ReconnectHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

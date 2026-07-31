@@ -287,7 +287,7 @@ public class InstanceManager
                 WanderRadius = Balance.MonsterWanderRadius,
                 AggroRange = isBoss ? 10 : 5,
                 MoveIntervalMs = 1500,
-                LastMoveTime = DateTime.UtcNow.AddMilliseconds(-new Random().Next(0, 500))
+                LastMoveTime = DateTime.UtcNow.AddMilliseconds(-Random.Shared.Next(0, 500))
             };
             instance.Monsters.Add(monster);
         }
@@ -543,7 +543,7 @@ public class InstanceManager
 
         // Ролл лута
         var templates = _svc.World.GetMonsterTemplates();
-        var randomTpl = templates.Count > 0 ? templates[new Random().Next(templates.Count)] : null;
+        var randomTpl = templates.Count > 0 ? templates[Random.Shared.Next(templates.Count)] : null;
         var loot = randomTpl != null ? _svc.Loot.RollLoot(randomTpl.Id) : new List<Item>();
 
         foreach (var item in loot)
@@ -552,7 +552,7 @@ public class InstanceManager
         }
 
         // Золото
-        int goldReward = 50 + new Random().Next(51); // 50-100
+        int goldReward = 50 + Random.Shared.Next(51); // 50-100
         player.Gold += goldReward;
 
         await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",

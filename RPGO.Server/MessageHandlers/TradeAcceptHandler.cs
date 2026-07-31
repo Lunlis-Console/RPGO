@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.Shared.Commands;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TradeAcceptHandler : BaseHandler
 {
-    public TradeAcceptHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TradeAcceptHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -22,7 +23,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        if (Program.Services.Trade.IsInTrade(player))
+        if (Svc.Trade.IsInTrade(player))
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Вы уже в обмене.");
             return;
@@ -34,7 +35,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        if (Program.Services.Trade.IsInTrade(inviter))
+        if (Svc.Trade.IsInTrade(inviter))
         {
             await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} уже в обмене.");
             return;
@@ -47,7 +48,7 @@ public class TradeAcceptHandler : BaseHandler
             return;
         }
 
-        var session = Program.Services.Trade.CreateSession(inviter, player);
+        var session = Svc.Trade.CreateSession(inviter, player);
 
         inviter.IsTrading = true;
         player.IsTrading = true;

@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.Shared.Commands;
@@ -8,13 +9,13 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TradeConfirmHandler : BaseHandler
 {
-    public TradeConfirmHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TradeConfirmHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
 
-        var session = Program.Services.Trade.GetSession(player.Id);
+        var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
             Log.Warn($"TRADE CONFIRM: нет сессии у {player.Name} (id={player.Id})");
@@ -80,7 +81,7 @@ public class TradeConfirmHandler : BaseHandler
             !ValidateFinalOffer(partner, session.PartnerItemIds, session.PartnerGold))
         {
             await NotifyError(session, "Предметы изменились. Обмен отменён.");
-            Program.Services.Trade.CancelSession(session, "validation failed");
+            Svc.Trade.CancelSession(session, "validation failed");
             return;
         }
 
@@ -136,7 +137,7 @@ public class TradeConfirmHandler : BaseHandler
             await SendInventoryAndStatus(partnerConn, partner);
         }
 
-        Program.Services.Trade.RemoveSession(session);
+        Svc.Trade.RemoveSession(session);
 
         int iniTotal = session.InitiatorItemIds.Sum(e => e.Quantity);
         int parTotal = session.PartnerItemIds.Sum(e => e.Quantity);

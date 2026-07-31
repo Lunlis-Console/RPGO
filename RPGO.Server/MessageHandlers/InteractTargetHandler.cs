@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class InteractTargetHandler : BaseHandler
 {
-    public InteractTargetHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public InteractTargetHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -29,9 +30,9 @@ public class InteractTargetHandler : BaseHandler
         {
             Monster? interMonster = null;
             if (monsterIdStr != null && Guid.TryParse(monsterIdStr, out Guid interMonsterId))
-                interMonster = Program.Services.Monsters.FindMonsterById(interMonsterId);
+                interMonster = Svc.Monsters.FindMonsterById(interMonsterId);
             if (interMonster == null)
-                interMonster = Program.Services.Monsters.FindMonsterAt(targetX, targetY);
+                interMonster = Svc.Monsters.FindMonsterAt(targetX, targetY);
 
             if (interMonster == null || interMonster.Health <= 0)
             {
@@ -74,9 +75,9 @@ public class InteractTargetHandler : BaseHandler
             // Находим цель
             Player? targetPlayer = null;
             if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid pid))
-                targetPlayer = Program.Services.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == pid && p.CurrentZoneId == player.CurrentZoneId);
+                targetPlayer = Svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == pid && p.CurrentZoneId == player.CurrentZoneId);
             if (targetPlayer == null)
-                targetPlayer = Program.Services.World.GetPlayersSnapshot().FirstOrDefault(p => p.X == targetX && p.Y == targetY && p.CurrentZoneId == player.CurrentZoneId);
+                targetPlayer = Svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.X == targetX && p.Y == targetY && p.CurrentZoneId == player.CurrentZoneId);
 
             if (targetPlayer == null || targetPlayer.IsDead)
             {
@@ -90,7 +91,7 @@ public class InteractTargetHandler : BaseHandler
                 return;
             }
 
-            bool isPvp = Program.Services.Zones.IsPvPEnabled(player.CurrentZoneId);
+            bool isPvp = Svc.Zones.IsPvPEnabled(player.CurrentZoneId);
 
             if (isPvp)
             {
@@ -118,7 +119,7 @@ public class InteractTargetHandler : BaseHandler
             }
 
             // Шлём текущие дебаффы цели (в любом режиме)
-            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
+            await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
             await BroadcastMapAsync();
             return;
         }
@@ -145,9 +146,9 @@ public class InteractTargetHandler : BaseHandler
             int nx = targetX + dx[i];
             int ny = targetY + dy[i];
             if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-            if (nx == Program.Services.Merchant.MerchantX && ny == Program.Services.Merchant.MerchantY) continue;
-            if (nx == Program.Services.Quests.BoardX && ny == Program.Services.Quests.BoardY) continue;
-            if (Program.Services.Monsters.FindMonsterAt(nx, ny) != null) continue;
+            if (nx == Svc.Merchant.MerchantX && ny == Svc.Merchant.MerchantY) continue;
+            if (nx == Svc.Quests.BoardX && ny == Svc.Quests.BoardY) continue;
+            if (Svc.Monsters.FindMonsterAt(nx, ny) != null) continue;
 
             int dist = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);
             if (dist < bestDist)
@@ -168,7 +169,7 @@ public class InteractTargetHandler : BaseHandler
             return;
         }
 
-        var path = Program.Services.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+        var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
         if (path.Count > 0)
         {
             player.Movement.SetPath(path);

@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.Shared.Commands;
@@ -7,13 +8,13 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TradeCancelHandler : BaseHandler
 {
-    public TradeCancelHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TradeCancelHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
 
-        var session = Program.Services.Trade.GetSession(player.Id);
+        var session = Svc.Trade.GetSession(player.Id);
         if (session == null) return;
 
         var other = session.GetOther(player);
@@ -33,6 +34,6 @@ public class TradeCancelHandler : BaseHandler
         if (initiatorConn != null) await SendToClient(initiatorConn, closeMsg);
         if (partnerConn != null) await SendToClient(partnerConn, closeMsg);
 
-        Program.Services.Trade.CancelSession(session, $"отменён игроком {player.Name}");
+        Svc.Trade.CancelSession(session, $"отменён игроком {player.Name}");
     }
 }

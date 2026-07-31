@@ -12,6 +12,7 @@ public class DialogueManager
     private readonly QuestManager _quests;
     private readonly MerchantManager _merchant;
     private INetworkHub? _hub;
+    private GameServices _svc = null!;
     private readonly Dictionary<string, DialogueTree> _cache = new();
     private readonly object _lock = new();
 
@@ -82,6 +83,8 @@ public class DialogueManager
     }
 
     public void SetHub(INetworkHub hub) => _hub = hub;
+
+    public void SetServices(GameServices svc) => _svc = svc;
 
     public void LoadAll()
     {
@@ -204,7 +207,7 @@ public class DialogueManager
     private async Task<bool> ApplyAction(ClientConnection client, Player player, string action)
     {
         if (_hub == null) return false;
-        var svc = Program.Services;
+        var svc = _svc;
         if (action.StartsWith("accept_quest:"))
         {
             string qid = action["accept_quest:".Length..];

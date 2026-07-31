@@ -1,5 +1,6 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
 using RPGGame.Shared.Commands;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class MoveDirectionHandler : BaseHandler
 {
-    public MoveDirectionHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public MoveDirectionHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -22,7 +23,7 @@ public class MoveDirectionHandler : BaseHandler
         {
             player.Combat.Cancel();
             player.QueuedSkillIds.Clear();
-            await UseSkillHandler.SendSkillQueue(connection, player);
+            await UseSkillHandler.SendSkillQueue(connection, player, Hub);
             await SendToClient(connection, new GameMessage
             {
                 Type = "combat_state",
@@ -37,7 +38,7 @@ public class MoveDirectionHandler : BaseHandler
         if ((DateTime.UtcNow - player.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs)
             return; // слишком быстро, игнорируем перемещение
 
-        var zoneMap = Program.Services.Zones.GetOrCreateMap(player.CurrentZoneId);
+        var zoneMap = Svc.Zones.GetOrCreateMap(player.CurrentZoneId);
         int newX = player.X;
         int newY = player.Y;
 
@@ -60,16 +61,16 @@ public class MoveDirectionHandler : BaseHandler
             // Проверка выхода из инстанса
             if (player.CurrentZoneId.StartsWith("instance:"))
             {
-                var inst = Program.Services.Instances.FindInstanceByPlayer(player);
+                var inst = Svc.Instances.FindInstanceByPlayer(player);
                 if (inst != null && player.X == inst.Template.ExitX + inst.OffsetX && player.Y == inst.Template.ExitY + inst.OffsetY)
                 {
-                    await Program.Services.Instances.KickPlayer(player, "Вы вышли из подземелья.");
+                    await Svc.Instances.KickPlayer(player, "Вы вышли из подземелья.");
                     return;
                 }
             }
 
             // Проверка портала
-            var portal = Program.Services.Zones.FindPortal(player.CurrentZoneId, player.X, player.Y);
+            var portal = Svc.Zones.FindPortal(player.CurrentZoneId, player.X, player.Y);
             if (portal != null)
             {
                 await HandleZoneTransition(connection, player, portal);
@@ -98,7 +99,7 @@ public class MoveDirectionHandler : BaseHandler
         player.Combat.Cancel();
         player.QueuedSkillIds.Clear();
 
-        var targetZone = Program.Services.Zones.GetZone(portal.ToZone);
+        var targetZone = Svc.Zones.GetZone(portal.ToZone);
         string zoneName = targetZone?.Name ?? portal.ToZone;
         Log.Info($"{player.Name} перешёл из зоны '{fromZone}' в '{portal.ToZone}' ({portal.ToX},{portal.ToY})");
 

@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class DialogueChoiceHandler : BaseHandler
 {
-    public DialogueChoiceHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public DialogueChoiceHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -15,6 +16,6 @@ public class DialogueChoiceHandler : BaseHandler
         if (message.Data is not JsonElement el) return;
 
         int choiceIndex = el.TryGetProperty("ChoiceIndex", out var ci) ? ci.GetInt32() : -1;
-        await Program.Services.Dialogue.HandleChoice(connection, player, choiceIndex);
+        await Svc.Dialogue.HandleChoice(connection, player, choiceIndex);
     }
 }

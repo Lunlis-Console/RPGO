@@ -9,15 +9,18 @@ namespace RPGGame.Server;
 public class MonsterManager
 {
     private readonly GameWorld _world;
+    private GameServices _svc = null!;
 
     public MonsterManager(GameWorld world)
     {
         _world = world;
     }
 
+    public void SetServices(GameServices svc) => _svc = svc;
+
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
     {
-        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
+        double dmgBonus = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
         double mult = 1.0 + dmgBonus;
         if (attacker is Player p) mult *= p.GetBerserkMultiplier();
         return baseAttack * mult;
@@ -28,13 +31,13 @@ public class MonsterManager
 
     public double GetEffectiveDefense(ICombatant defender)
     {
-        double armorPen = Program.Services.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        double armorPen = _svc.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
         return defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
     }
 
     public int ApplyDmgReduction(ICombatant attacker, int baseDamage)
     {
-        double dmgReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.DamageReduction);
+        double dmgReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.DamageReduction);
         return Math.Max(Balance.MinDamage, (int)(baseDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
     }
 
@@ -501,14 +504,14 @@ public class MonsterManager
     {
         var world = _world.FindMonsterAt(x, y);
         if (world != null) return world;
-        return Program.Services.Instances.FindMonsterAt(x, y);
+        return _svc.Instances.FindMonsterAt(x, y);
     }
 
     public Monster? FindMonsterById(Guid id)
     {
         var world = _world.FindMonsterById(id);
         if (world != null) return world;
-        return Program.Services.Instances.FindMonsterById(id);
+        return _svc.Instances.FindMonsterById(id);
     }
 
     public List<Monster> GetAllMonsters() => _world.GetMonstersSnapshot();
@@ -516,7 +519,7 @@ public class MonsterManager
     public List<Monster> GetAllMonstersIncludingInstances()
     {
         var result = _world.GetMonstersSnapshot();
-        result.AddRange(Program.Services.Instances.GetAllMonsters());
+        result.AddRange(_svc.Instances.GetAllMonsters());
         return result;
     }
 
@@ -579,12 +582,12 @@ public class MonsterManager
     public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
     {
-        var rng = new Random();
+        var rng = Random.Shared;
 
         int rolledAttack = attacker.RollAttackDamage();
         double effectiveAttackerAttack = GetEffectiveAttack(attacker, rolledAttack);
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
-        double accuracyReduction = Program.Services.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
+        double accuracyReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
         double passiveAccuracyBonus = 0;
         double passiveCritBonus = 0;
@@ -592,7 +595,7 @@ public class MonsterManager
         if (attacker is Player plPassive)
         {
             if (plPassive.LearnedSkills.Contains("SK0006")
-                && Program.Services.Debuffs.HasDebuff(defender, DebuffType.Stun))
+                && _svc.Debuffs.HasDebuff(defender, DebuffType.Stun))
             {
                 passiveAccuracyBonus = 10;
                 passiveCritBonus = 10;
@@ -644,7 +647,7 @@ public class MonsterManager
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateOffHandAttack(Player attacker, Monster target)
     {
-        var rng = new Random();
+        var rng = Random.Shared;
         if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
 
         bool evaded = rng.Next(Balance.ChanceRollMax) < target.GetEvadeChance();
@@ -685,10 +688,10 @@ public class MonsterManager
             var monster = FindMonsterAt(cx, cy);
             if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
 
-            bool evaded = new Random().Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+            bool evaded = Random.Shared.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
             if (evaded) continue;
 
-            bool crit = new Random().Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            bool crit = Random.Shared.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
             int dmg = crit ? (int)(cleaveDmg * attacker.GetCritDamage()) : cleaveDmg;
             dmg = Math.Max(Balance.MinDamage, dmg);
             monster.Health -= dmg;

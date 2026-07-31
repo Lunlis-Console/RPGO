@@ -9,6 +9,7 @@ namespace RPGGame.Server;
 public class GameServerHost
 {
     private readonly GameServices _svc;
+    private readonly CancellationTokenSource _cts = new();
 
     public GameServerHost(GameServices svc)
     {
@@ -17,36 +18,44 @@ public class GameServerHost
 
     public void StartAsync()
     {
-        Task.Run(() => _svc.Combat.RunCombatLoop());
-        Task.Run(() => _svc.Combat.RunMonsterAttackLoop());
-        Task.Run(() => _svc.Combat.RunDeathTimerLoop());
-        Task.Run(() => _svc.Combat.RunHazardTickLoop());
-        Task.Run(() => _svc.Interactions.RunMovePathLoop());
-        Task.Run(RunMonsterWanderLoop);
-        Task.Run(RunRegenLoop);
-        Task.Run(RunDebuffTickLoop);
-        Task.Run(RunCorpseCleanupLoop);
-        Task.Run(() => _svc.Projectiles.RunTick());
-        Task.Run(RunSessionCleanupLoop);
-        Task.Run(RunInstanceTickLoop);
+        var ct = _cts.Token;
+        Task.Run(() => _svc.Combat.RunCombatLoop(ct), ct);
+        Task.Run(() => _svc.Combat.RunMonsterAttackLoop(ct), ct);
+        Task.Run(() => _svc.Combat.RunDeathTimerLoop(ct), ct);
+        Task.Run(() => _svc.Combat.RunHazardTickLoop(ct), ct);
+        Task.Run(() => _svc.Interactions.RunMovePathLoop(ct), ct);
+        Task.Run(() => RunMonsterWanderLoop(ct), ct);
+        Task.Run(() => RunRegenLoop(ct), ct);
+        Task.Run(() => RunDebuffTickLoop(ct), ct);
+        Task.Run(() => RunCorpseCleanupLoop(ct), ct);
+        Task.Run(() => _svc.Projectiles.RunTick(ct), ct);
+        Task.Run(() => RunSessionCleanupLoop(ct), ct);
+        Task.Run(() => RunInstanceTickLoop(ct), ct);
     }
 
-    private async Task RunMonsterWanderLoop()
+    public void Stop()
     {
-        while (true)
+        _cts.Cancel();
+        _cts.Dispose();
+    }
+
+    private async Task RunMonsterWanderLoop(CancellationToken ct)
+    {
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(Balance.LoopMonsterWanderMs / 3);
+                await Task.Delay(Balance.LoopMonsterWanderMs / 3, ct);
                 bool moved = _svc.Monsters.WanderStep();
                 if (moved)
                     await _svc.Hub.BroadcastMapAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла блуждания монстров", ex); }
         }
     }
 
-    private async Task RunRegenLoop()
+    private async Task RunRegenLoop(CancellationToken ct)
     {
         const int inCombatDelayMs = Balance.PlayerRegenInCombatDelayMs;
         const int outOfCombatHeal = Balance.PlayerRegenOutOfCombatHeal;
@@ -54,11 +63,11 @@ public class GameServerHost
         const double inCombatFraction = Balance.PlayerRegenInCombatFraction;
         const int inCombatTickMs = Balance.PlayerRegenInCombatTickMs;
 
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(outOfCombatTickMs);
+                await Task.Delay(outOfCombatTickMs, ct);
                 var now = DateTime.UtcNow;
 
                 foreach (var pl in _svc.World.GetPlayersSnapshot())
@@ -124,17 +133,18 @@ public class GameServerHost
                 _svc.Monsters.RegenStep();
                 await _svc.Hub.BroadcastMapAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла регенерации", ex); }
         }
     }
 
-    private async Task RunDebuffTickLoop()
+    private async Task RunDebuffTickLoop(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(Balance.DebuffTickMs);
+                await Task.Delay(Balance.DebuffTickMs, ct);
                 foreach (var pl in _svc.World.GetPlayersSnapshot())
                 {
                     if (pl.IsDead) continue;
@@ -157,47 +167,51 @@ public class GameServerHost
                     }
                 }
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла дебаффов", ex); }
         }
     }
 
-    private async Task RunCorpseCleanupLoop()
+    private async Task RunCorpseCleanupLoop(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(30_000);
+                await Task.Delay(30_000, ct);
                 _svc.Corpses.CleanupExpired();
                 _svc.Monsters.SpawnOneMonsterPublic();
                 await _svc.Hub.BroadcastMapAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла очистки трупов", ex); }
         }
     }
 
-    private static async Task RunSessionCleanupLoop()
+    private static async Task RunSessionCleanupLoop(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(60_000);
+                await Task.Delay(60_000, ct);
                 SessionManager.Cleanup();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла очистки сессий", ex); }
         }
     }
 
-    private async Task RunInstanceTickLoop()
+    private async Task RunInstanceTickLoop(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(1000);
+                await Task.Delay(1000, ct);
                 await _svc.Instances.TickAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex) { Log.Error("Ошибка цикла инстансов", ex); }
         }
     }

@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -11,7 +12,7 @@ namespace RPGGame.Server.MessageHandlers;
 /// </summary>
 public class ClientLogHandler : BaseHandler
 {
-    public ClientLogHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public ClientLogHandler(GameServices svc) : base(svc) { }
 
     public override Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

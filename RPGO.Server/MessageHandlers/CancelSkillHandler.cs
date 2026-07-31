@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -10,14 +11,14 @@ namespace RPGGame.Server.MessageHandlers;
 /// </summary>
 public class CancelSkillHandler : BaseHandler
 {
-    public CancelSkillHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public CancelSkillHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
 
         player.QueuedSkillIds.Clear();
-        await UseSkillHandler.SendSkillQueue(connection, player);
+        await UseSkillHandler.SendSkillQueue(connection, player, Hub);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

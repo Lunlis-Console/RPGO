@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TakeLootHandler : BaseHandler
 {
-    public TakeLootHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TakeLootHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -22,7 +23,7 @@ public class TakeLootHandler : BaseHandler
         }
         corpseId = Guid.Parse(cidEl.GetString()!);
 
-        var corpse = Program.Services.Corpses.FindCorpseById(corpseId);
+        var corpse = Svc.Corpses.FindCorpseById(corpseId);
         if (corpse == null)
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Труп не найден или уже собран");
@@ -55,7 +56,7 @@ public class TakeLootHandler : BaseHandler
                 int nx = corpse.X + dx[i];
                 int ny = corpse.Y + dy[i];
                 if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-                if (Program.Services.Monsters.FindMonsterAt(nx, ny) != null) continue;
+                if (Svc.Monsters.FindMonsterAt(nx, ny) != null) continue;
                 int d = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);
                 if (d < bestDist)
                 {
@@ -71,7 +72,7 @@ public class TakeLootHandler : BaseHandler
                 return;
             }
 
-            var path = Program.Services.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+            var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
             if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");
@@ -141,7 +142,7 @@ public class TakeLootHandler : BaseHandler
             ? corpse.PlayerLoot.Values.All(v => v.Gold == 0 && v.Items.Count == 0)
             : corpse.Loot.Count == 0 && corpse.GoldReward == 0;
         if (allEmpty)
-            Program.Services.Corpses.RemoveCorpse(corpse.Id);
+            Svc.Corpses.RemoveCorpse(corpse.Id);
 
         string lootText = takenNames.Count > 0
             ? string.Join(", ", takenNames)

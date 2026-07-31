@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.Server.MessageHandlers;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 /// </summary>
 public class AttackHandler : BaseHandler
 {
-    public AttackHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public AttackHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

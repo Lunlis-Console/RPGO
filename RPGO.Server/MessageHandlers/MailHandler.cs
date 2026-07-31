@@ -1,6 +1,7 @@
-using RPGGame.Server.Repositories;
-using RPGGame.Server.Services;
+﻿using RPGGame.Server.Repositories;
+
 using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -9,7 +10,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class MailHandler : BaseHandler
 {
-    public MailHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public MailHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

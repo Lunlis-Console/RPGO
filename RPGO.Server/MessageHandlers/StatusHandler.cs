@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -6,7 +7,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class StatusHandler : BaseHandler
 {
-    public StatusHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public StatusHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -23,8 +24,8 @@ public class StatusHandler : BaseHandler
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = GameServer.GetBuffedPhysAttack(player),
-                MagAttack = GameServer.GetBuffedMagAttack(player),
+                PhysAttack = GameServer.GetBuffedPhysAttack(player, Svc.Debuffs),
+                MagAttack = GameServer.GetBuffedMagAttack(player, Svc.Debuffs),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
@@ -49,8 +50,8 @@ public class StatusHandler : BaseHandler
                 player.SkillPoints,
                 player.Speed,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
-                AttackSpeed = GameServer.GetAttackSpeed(player),
-                AttackIntervalMs = GameServer.GetAttackIntervalMs(player),
+                AttackSpeed = GameServer.GetAttackSpeed(player, Svc.Debuffs),
+                AttackIntervalMs = GameServer.GetAttackIntervalMs(player, Svc.Debuffs),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 IsDualWielding = player.Equipment.IsDualWielding(),

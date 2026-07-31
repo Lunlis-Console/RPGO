@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.Shared.Commands;
@@ -8,13 +9,13 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TradeOfferHandler : BaseHandler
 {
-    public TradeOfferHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TradeOfferHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
 
-        var session = Program.Services.Trade.GetSession(player.Id);
+        var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
             Log.Warn($"TRADE OFFER: нет сессии у {player.Name} (id={player.Id})");

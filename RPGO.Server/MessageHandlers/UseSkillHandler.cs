@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -9,12 +10,12 @@ public class UseSkillHandler : BaseHandler
 {
     private static readonly HashSet<string> InstantSkills = new() { "SK0002" };
 
-    public UseSkillHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public UseSkillHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (Program.Services.Debuffs.HasDebuff(player, DebuffType.Stun))
+        if (Svc.Debuffs.HasDebuff(player, DebuffType.Stun))
         {
             await SendToClient(connection, new GameMessage
             {
@@ -79,9 +80,9 @@ public class UseSkillHandler : BaseHandler
                     var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
                         Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
                         $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
-                    Program.Services.Debuffs.ApplyDebuff(player, buff);
+                    Svc.Debuffs.ApplyDebuff(player, buff);
 
-                    await Program.Services.Hub.SendToAllAsync(new GameMessage
+                    await Svc.Hub.SendToAllAsync(new GameMessage
                     {
                         Type = "player_attack",
                         Data = new { PlayerName = player.Name, Hand = "main", SkillId = "SK0002", BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
@@ -99,7 +100,7 @@ public class UseSkillHandler : BaseHandler
                     Type = "skill_cooldown",
                     Data = new { SkillId = skill.Id, RemainingMs = effectiveCd, TotalMs = effectiveCd }
                 });
-                await Program.Services.Hub.SendStatusAsync(connection, player);
+                await Svc.Hub.SendStatusAsync(connection, player);
                 return;
             }
 
@@ -122,7 +123,7 @@ public class UseSkillHandler : BaseHandler
                 Type = "chat",
                 Data = new { Name = "Бой", Text = $"Навык «{skill.Name}» заготовлен — применится в начале боя." }
             });
-            await SendSkillQueue(connection, player);
+            await SendSkillQueue(connection, player, Hub);
             return;
         }
 
@@ -153,12 +154,12 @@ public class UseSkillHandler : BaseHandler
             Type = "chat",
             Data = new { Name = "Бой", Text = $"«{skill.Name}» добавлен в очередь ({player.QueuedSkillIds.Count} в очереди)." }
         });
-        await SendSkillQueue(connection, player);
+        await SendSkillQueue(connection, player, Hub);
     }
 
-    public static async Task SendSkillQueue(ClientConnection connection, Player player)
+    public static async Task SendSkillQueue(ClientConnection connection, Player player, INetworkHub hub)
     {
-        await Program.Services.Hub.SendToClient(connection, new GameMessage
+        await hub.SendToClient(connection, new GameMessage
         {
             Type = "skill_queue",
             Data = new { Skills = player.QueuedSkillIds.ToList() }

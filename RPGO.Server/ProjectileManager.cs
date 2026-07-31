@@ -8,6 +8,7 @@ public class ProjectileManager
 {
     private readonly GameWorld _world;
     private INetworkHub? _hub;
+    private GameServices _svc = null!;
     private readonly List<Projectile> _projectiles = new();
     private readonly object _lock = new();
 
@@ -17,6 +18,8 @@ public class ProjectileManager
     }
 
     public void SetHub(INetworkHub hub) => _hub = hub;
+
+    public void SetServices(GameServices svc) => _svc = svc;
 
     public Projectile Spawn(
         Player owner, Monster target,
@@ -45,16 +48,16 @@ public class ProjectileManager
         return proj;
     }
 
-    public async Task RunTick()
+    public async Task RunTick(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(Balance.ProjectileTickMs);
+                await Task.Delay(Balance.ProjectileTickMs, ct);
 
                 if (_hub == null) continue;
-                var svc = Program.Services;
+                var svc = _svc;
                 List<Projectile> snapshot;
                 lock (_lock) { snapshot = _projectiles.ToList(); }
 
@@ -135,6 +138,7 @@ public class ProjectileManager
                 if (snapshot.Count > 0)
                     await _hub.BroadcastMapAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
                 Log.Error("Ошибка цикла снарядов", ex);

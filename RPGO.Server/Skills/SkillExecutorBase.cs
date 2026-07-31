@@ -18,7 +18,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        var rng = new Random();
+        var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster);
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
@@ -88,7 +88,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendPlayerAttack(pl.Name, hitHand, pl.Combat.PendingSkillId,
             targetX: monster.X, targetY: monster.Y);
 
-        var rng = new Random();
+        var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster);
         double effAtk = useOffHand
             ? svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage())
@@ -163,7 +163,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         pl.Mana = Math.Max(0, pl.Mana - skill.MpCost);
         pl.LastSkillUse[skill.Id] = DateTime.UtcNow;
         pl.QueuedSkillIds.RemoveAt(0);
-        _ = Server.MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl);
+        _ = Server.MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl, svc.Hub);
         _ = svc.SendSkillCooldown(client, skill, pl.GetSkillRankCdMult(skill.Id));
     }
 

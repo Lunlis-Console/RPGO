@@ -1,5 +1,6 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
 using System.Text.Json;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -11,7 +12,7 @@ namespace RPGGame.Server.MessageHandlers;
 /// </summary>
 public class FriendHandler : BaseHandler
 {
-    public FriendHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public FriendHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

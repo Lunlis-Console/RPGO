@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class DropItemHandler : BaseHandler
 {
-    public DropItemHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public DropItemHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class ChatHandler : BaseHandler
 {
-    public ChatHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public ChatHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -46,7 +47,7 @@ public class ChatHandler : BaseHandler
 
         if (text.StartsWith("/"))
         {
-            if (await AdminCommands.TryHandle(connection, player, text, World, Hub))
+            if (await AdminCommands.TryHandle(connection, player, text, Svc))
                 return;
         }
 

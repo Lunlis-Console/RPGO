@@ -1,4 +1,5 @@
 using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -8,7 +9,7 @@ public static class AdminCommands
 {
     public static async Task<bool> TryHandle(
         ClientConnection connection, Player player, string text,
-        GameWorld world, INetworkHub hub)
+        GameServices svc)
     {
         if (!player.IsAdmin) return false;
 
@@ -20,43 +21,43 @@ public static class AdminCommands
         switch (cmd)
         {
             case "/gold":
-                return await HandleGold(connection, player, args, hub);
+                return await HandleGold(connection, player, args, svc);
             case "/item":
-                return await HandleItem(connection, player, args, hub);
+                return await HandleItem(connection, player, args, svc);
             case "/tp":
-                return await HandleTeleport(connection, player, args, world, hub);
+                return await HandleTeleport(connection, player, args, svc);
             case "/kick":
-                return await HandleKick(player, args, world, hub);
+                return await HandleKick(player, args, svc);
             case "/ban":
-                return await HandleBan(player, args, world, hub);
+                return await HandleBan(player, args, svc);
             case "/unban":
-                return await HandleUnban(connection, player, args, hub);
+                return await HandleUnban(connection, player, args, svc);
             case "/level":
-                return await HandleLevel(connection, player, args, world, hub);
+                return await HandleLevel(connection, player, args, svc);
             default:
                 return false;
         }
     }
 
-    private static async Task<bool> HandleGold(ClientConnection connection, Player player, string[] args, INetworkHub hub)
+    private static async Task<bool> HandleGold(ClientConnection connection, Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2 || !int.TryParse(args[1], out int amount))
         {
-            await SystemToSelf(player, hub, "Использование: /gold <количество>");
+            await SystemToSelf(player, svc, "Использование: /gold <количество>");
             return true;
         }
 
         player.Gold += amount;
-        await SystemToSelf(player, hub, $"Золото: {player.Gold} (+{amount})");
-        await hub.SendInventoryAndStatus(connection, player);
+        await SystemToSelf(player, svc, $"Золото: {player.Gold} (+{amount})");
+        await svc.Hub.SendInventoryAndStatus(connection, player);
         return true;
     }
 
-    private static async Task<bool> HandleItem(ClientConnection connection, Player player, string[] args, INetworkHub hub)
+    private static async Task<bool> HandleItem(ClientConnection connection, Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /item <id> [количество]");
+            await SystemToSelf(player, svc, "Использование: /item <id> [количество]");
             return true;
         }
 
@@ -68,7 +69,7 @@ public static class AdminCommands
         var template = DatabaseManager.GetItemTemplate(templateId);
         if (template == null)
         {
-            await SystemToSelf(player, hub, $"Предмет с ID «{templateId}» не найден.");
+            await SystemToSelf(player, svc, $"Предмет с ID «{templateId}» не найден.");
             return true;
         }
 
@@ -80,95 +81,95 @@ public static class AdminCommands
             player.Inventory.Add(clone);
         }
 
-        await SystemToSelf(player, hub, $"Выдано: {template.Name} x{count}");
-        await hub.SendInventoryAndStatus(connection, player);
+        await SystemToSelf(player, svc, $"Выдано: {template.Name} x{count}");
+        await svc.Hub.SendInventoryAndStatus(connection, player);
         return true;
     }
 
-    private static async Task<bool> HandleTeleport(ClientConnection connection, Player player, string[] args, GameWorld world, INetworkHub hub)
+    private static async Task<bool> HandleTeleport(ClientConnection connection, Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /tp <x> <y> или /tp <имя> или /tp <zone> <x> <y>");
+            await SystemToSelf(player, svc, "Использование: /tp <x> <y> или /tp <имя> или /tp <zone> <x> <y>");
             return true;
         }
 
         if (args.Length >= 4 && int.TryParse(args[1], out int tz) && int.TryParse(args[2], out int tx2) && int.TryParse(args[3], out int ty2))
         {
             var zoneId = args[0] == "/tp" ? player.CurrentZoneId : args[1];
-            var zone = Program.Services.Zones.GetZone(zoneId);
+            var zone = svc.Zones.GetZone(zoneId);
             if (zone == null)
             {
-                await SystemToSelf(player, hub, $"Зона '{zoneId}' не найдена.");
+                await SystemToSelf(player, svc, $"Зона '{zoneId}' не найдена.");
                 return true;
             }
             player.CurrentZoneId = zoneId;
             player.X = Math.Clamp(tx2, 0, zone.Width - 1);
             player.Y = Math.Clamp(ty2, 0, zone.Height - 1);
-            await SystemToSelf(player, hub, $"Телепорт в '{zone.Name}': ({player.X}, {player.Y})");
-            await hub.SendInventoryAndStatus(connection, player);
-            await hub.BroadcastMapAsync();
+            await SystemToSelf(player, svc, $"Телепорт в '{zone.Name}': ({player.X}, {player.Y})");
+            await svc.Hub.SendInventoryAndStatus(connection, player);
+            await svc.Hub.BroadcastMapAsync();
             return true;
         }
 
         if (args.Length >= 3 && int.TryParse(args[1], out int tx) && int.TryParse(args[2], out int ty))
         {
-            var zoneMap = Program.Services.Zones.GetOrCreateMap(player.CurrentZoneId);
+            var zoneMap = svc.Zones.GetOrCreateMap(player.CurrentZoneId);
             player.X = Math.Clamp(tx, 0, zoneMap.Width - 1);
             player.Y = Math.Clamp(ty, 0, zoneMap.Height - 1);
-            await SystemToSelf(player, hub, $"Телепорт: ({player.X}, {player.Y})");
-            await hub.SendInventoryAndStatus(connection, player);
-            await hub.BroadcastMapAsync();
+            await SystemToSelf(player, svc, $"Телепорт: ({player.X}, {player.Y})");
+            await svc.Hub.SendInventoryAndStatus(connection, player);
+            await svc.Hub.BroadcastMapAsync();
             return true;
         }
 
         string targetName = args[1];
-        if (world.TryGetPlayerByName(targetName, out var target) && target != null)
+        if (svc.World.TryGetPlayerByName(targetName, out var target) && target != null)
         {
             player.X = target.X;
             player.Y = target.Y;
-            await SystemToSelf(player, hub, $"Телепорт к {target.Name}: ({player.X}, {player.Y})");
-            await hub.SendInventoryAndStatus(connection, player);
-            await hub.BroadcastMapAsync();
+            await SystemToSelf(player, svc, $"Телепорт к {target.Name}: ({player.X}, {player.Y})");
+            await svc.Hub.SendInventoryAndStatus(connection, player);
+            await svc.Hub.BroadcastMapAsync();
             return true;
         }
 
-        await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+        await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
         return true;
     }
 
-    private static async Task<bool> HandleKick(Player player, string[] args, GameWorld world, INetworkHub hub)
+    private static async Task<bool> HandleKick(Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /kick <имя>");
+            await SystemToSelf(player, svc, "Использование: /kick <имя>");
             return true;
         }
 
         string targetName = args[1];
-        if (!world.TryGetPlayerByName(targetName, out var target) || target == null)
+        if (!svc.World.TryGetPlayerByName(targetName, out var target) || target == null)
         {
-            await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+            await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
             return true;
         }
 
-        var targetConn = world.FindClientByPlayer(target);
+        var targetConn = svc.World.FindClientByPlayer(target);
         if (targetConn == null)
         {
-            await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+            await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
             return true;
         }
 
-        await hub.KickPlayer(targetConn, "Вы были кикнуты администратором.");
-        await SystemToSelf(player, hub, $"Игрок {target.Name} кикнут.");
+        await svc.Hub.KickPlayer(targetConn, "Вы были кикнуты администратором.");
+        await SystemToSelf(player, svc, $"Игрок {target.Name} кикнут.");
         return true;
     }
 
-    private static async Task<bool> HandleBan(Player player, string[] args, GameWorld world, INetworkHub hub)
+    private static async Task<bool> HandleBan(Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /ban <имя> [причина]");
+            await SystemToSelf(player, svc, "Использование: /ban <имя> [причина]");
             return true;
         }
 
@@ -178,28 +179,28 @@ public static class AdminCommands
         var login = DatabaseManager.GetLoginByPlayerName(targetName);
         if (login == null)
         {
-            await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+            await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
             return true;
         }
 
         DatabaseManager.SetBanned(login, true, reason);
 
-        if (world.TryGetPlayerByName(targetName, out var target) && target != null)
+        if (svc.World.TryGetPlayerByName(targetName, out var target) && target != null)
         {
-            var targetConn = world.FindClientByPlayer(target);
+            var targetConn = svc.World.FindClientByPlayer(target);
             if (targetConn != null)
-                await hub.KickPlayer(targetConn, $"Вы заблокированы. Причина: {reason}");
+                await svc.Hub.KickPlayer(targetConn, $"Вы заблокированы. Причина: {reason}");
         }
 
-        await SystemToSelf(player, hub, $"Игрок {targetName} заблокирован. Причина: {reason}");
+        await SystemToSelf(player, svc, $"Игрок {targetName} заблокирован. Причина: {reason}");
         return true;
     }
 
-    private static async Task<bool> HandleUnban(ClientConnection connection, Player player, string[] args, INetworkHub hub)
+    private static async Task<bool> HandleUnban(ClientConnection connection, Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2)
         {
-            await SystemToSelf(player, hub, "Использование: /unban <имя>");
+            await SystemToSelf(player, svc, "Использование: /unban <имя>");
             return true;
         }
 
@@ -207,20 +208,20 @@ public static class AdminCommands
         var login = DatabaseManager.GetLoginByPlayerName(targetName);
         if (login == null)
         {
-            await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+            await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
             return true;
         }
 
         DatabaseManager.SetBanned(login, false, "");
-        await SystemToSelf(player, hub, $"Игрок {targetName} разблокирован.");
+        await SystemToSelf(player, svc, $"Игрок {targetName} разблокирован.");
         return true;
     }
 
-    private static async Task<bool> HandleLevel(ClientConnection connection, Player player, string[] args, GameWorld world, INetworkHub hub)
+    private static async Task<bool> HandleLevel(ClientConnection connection, Player player, string[] args, GameServices svc)
     {
         if (args.Length < 2 || !int.TryParse(args[1], out int targetLevel) || targetLevel < 1)
         {
-            await SystemToSelf(player, hub, "Использование: /level <уровень> [имя_игрока]");
+            await SystemToSelf(player, svc, "Использование: /level <уровень> [имя_игрока]");
             return true;
         }
 
@@ -232,13 +233,13 @@ public static class AdminCommands
         if (args.Length >= 3)
         {
             string targetName = args[2];
-            if (!world.TryGetPlayerByName(targetName, out var found) || found == null)
+            if (!svc.World.TryGetPlayerByName(targetName, out var found) || found == null)
             {
-                await SystemToSelf(player, hub, $"Игрок «{targetName}» не найден.");
+                await SystemToSelf(player, svc, $"Игрок «{targetName}» не найден.");
                 return true;
             }
             target = found;
-            targetConn = world.FindClientByPlayer(target);
+            targetConn = svc.World.FindClientByPlayer(target);
         }
         else
         {
@@ -258,26 +259,26 @@ public static class AdminCommands
 
         string diff = targetLevel > oldLevel ? $"+{targetLevel - oldLevel}" : $"{targetLevel - oldLevel}";
         string who = target == player ? "" : $" для {target.Name}";
-        await SystemToSelf(player, hub, $"Уровень изменён{who}: {oldLevel} → {targetLevel} ({diff}). HP/Очк. навыков/атрибутов обновлены.");
+        await SystemToSelf(player, svc, $"Уровень изменён{who}: {oldLevel} → {targetLevel} ({diff}). HP/Очк. навыков/атрибутов обновлены.");
 
         if (target == player)
         {
-            await hub.SendInventoryAndStatus(connection, player);
+            await svc.Hub.SendInventoryAndStatus(connection, player);
         }
         else
         {
             if (targetConn != null)
-                await hub.SendInventoryAndStatus(targetConn, target);
-            await hub.SendInventoryAndStatus(connection, player);
+                await svc.Hub.SendInventoryAndStatus(targetConn, target);
+            await svc.Hub.SendInventoryAndStatus(connection, player);
         }
 
         return true;
     }
 
-    private static async Task SystemToSelf(Player player, INetworkHub hub, string msg)
+    private static async Task SystemToSelf(Player player, GameServices svc, string msg)
     {
-        var conn = Program.Services.World.FindClientByPlayer(player);
+        var conn = svc.World.FindClientByPlayer(player);
         if (conn != null)
-            await hub.SendChatToAsync(conn, ChatChannel.System, "Система", msg);
+            await svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", msg);
     }
 }

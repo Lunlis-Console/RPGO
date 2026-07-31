@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class SelectTargetHandler : BaseHandler
 {
-    public SelectTargetHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public SelectTargetHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -18,21 +19,21 @@ public class SelectTargetHandler : BaseHandler
         string? playerIdStr = selEl.TryGetProperty("PlayerId", out var pidProp) ? pidProp.GetString() : null;
         if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid playerTargetId))
         {
-            Player? targetPlayer = Program.Services.World.GetPlayersSnapshot()
+            Player? targetPlayer = Svc.World.GetPlayersSnapshot()
                 .FirstOrDefault(p => p.Id == playerTargetId && p.CurrentZoneId == player.CurrentZoneId);
             if (targetPlayer == null || targetPlayer.IsDead)
             {
                 await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
                 return;
             }
-            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
+            await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
             return;
         }
 
         string? monsterIdStr = selEl.TryGetProperty("MonsterId", out var midProp) ? midProp.GetString() : null;
         if (monsterIdStr == null || !Guid.TryParse(monsterIdStr, out Guid monsterId)) return;
 
-        var target = Program.Services.Monsters.FindMonsterById(monsterId);
+        var target = Svc.Monsters.FindMonsterById(monsterId);
         if (target == null)
         {
             await SendToClient(connection, new GameMessage

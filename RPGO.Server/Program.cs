@@ -15,15 +15,6 @@ partial class Program
     public static GameServices Services { get; internal set; } = null!;
     private static GameServerHost? _host;
 
-    public static List<Player> GetPlayers() => Services.World.GetPlayersSnapshot();
-    public static GameWorld GetWorld() => Services.World;
-
-    public static Task RespawnPlayer(Player player)
-        => Services.Combat.RespawnPlayer(player);
-
-    public static Task ProcessPendingInteraction(Player player, string interactionType)
-        => Services.Interactions.ProcessPendingInteraction(player, interactionType);
-
     public static double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
@@ -118,6 +109,10 @@ partial class Program
             combat, interactions, auth, zones, instances);
 
         // Обновляем ссылку на GameServices у сервисов, чтобы они видели Instances и другие циклические зависимости
+        hub.SetServices(Services);
+        monsters.SetServices(Services);
+        dialogue.SetServices(Services);
+        projectiles.SetServices(Services);
         interactions.SetServices(Services);
         combat.SetServices(Services);
         instances.SetServices(Services);
@@ -125,7 +120,7 @@ partial class Program
         // Передаём GameServices в KillService
         killService.SetGameServices(Services);
 
-        MessageHandlerRegistry.RegisterAll(world, hub);
+        MessageHandlerRegistry.RegisterAll(Services);
 
         // Запуск фоновых задач
         _host = new GameServerHost(Services);

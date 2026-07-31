@@ -4,6 +4,10 @@ namespace RPGGame.Server;
 
 public class DebuffManager
 {
+    private CombatService _combat = null!;
+
+    public void SetCombatService(CombatService combat) => _combat = combat;
+
     public bool ApplyDebuff(Player target, ActiveDebuff debuff)
     {
         var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
@@ -16,7 +20,7 @@ public class DebuffManager
         target.ActiveDebuffs.Add(debuff);
         Log.Debug($"ApplyDebuff player={target.Name} type={debuff.Type}");
 
-        _ = Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(target);
+        _ = _combat.SendTargetPlayerDebuffUpdateAsync(target);
         return true;
     }
 
@@ -38,7 +42,7 @@ public class DebuffManager
         foreach (var d in target.ActiveDebuffs)
             d.RemainingMs -= Balance.DebuffTickMs;
         target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
-        await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(target);
+        await _combat.SendTargetPlayerDebuffUpdateAsync(target);
     }
 
     public void TickDebuffs(Monster target)
@@ -108,7 +112,7 @@ public class DebuffManager
 
     public (ActiveDebuff Debuff, bool IsNew) OnWeaponProc(ICombatant attacker, ICombatant defender, string weaponSubtype)
     {
-        var rng = new Random();
+        var rng = Random.Shared;
         if (rng.Next(Balance.ChanceRollMax) >= Balance.WeaponProcChance) return default;
 
         ActiveDebuff debuff;

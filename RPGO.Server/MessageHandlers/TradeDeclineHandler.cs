@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.Shared.Commands;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class TradeDeclineHandler : BaseHandler
 {
-    public TradeDeclineHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public TradeDeclineHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

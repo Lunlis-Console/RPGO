@@ -11,7 +11,7 @@ public sealed class SuppressingFireExecutor : SkillExecutorBase
     {
         if (!BowShotHelper.RequireBow(pl, client, svc, skill.Name)) return false;
         CommonPreHit(svc, pl, skill, client);
-        ApplyBuff(pl, skill);
+        ApplyBuff(pl, skill, svc);
         await svc.SendPlayerAttack(pl.Name, "main", skill.Id, monster.X, monster.Y,
             buffDurationMs: Balance.SuppressingFireDurationMs);
         await svc.ChatToC(client, "Бой",
@@ -25,7 +25,7 @@ public sealed class SuppressingFireExecutor : SkillExecutorBase
     {
         if (!BowShotHelper.RequireBow(pl, atkClient, svc, skill.Name)) return false;
         CommonPreHit(svc, pl, skill, atkClient);
-        ApplyBuff(pl, skill);
+        ApplyBuff(pl, skill, svc);
         await svc.SendPlayerAttack(pl.Name, "main", skill.Id, target.X, target.Y,
             buffDurationMs: Balance.SuppressingFireDurationMs);
         await svc.ChatToC(atkClient, "Бой",
@@ -34,15 +34,15 @@ public sealed class SuppressingFireExecutor : SkillExecutorBase
         return true;
     }
 
-    private static void ApplyBuff(Player pl, Skill skill)
+    private static void ApplyBuff(Player pl, Skill skill, CombatService svc)
     {
         int dur = (int)(Balance.SuppressingFireDurationMs * (1.0 + (pl.GetSkillRank(skill.Id) - 1) * 0.1));
         var fire = ActiveDebuff.Create(DebuffType.SuppressingFire, Balance.SuppressingFireDmgMult, dur, "skill",
             "Подавляющий огонь", "Автоатаки бьют конусом на 60% от базы.");
-        Program.Services.Debuffs.ApplyDebuff(pl, fire);
+        svc.Debuffs.ApplyDebuff(pl, fire);
 
             var slow = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.SuppressingFireSpeedPenalty, dur, "skill_sf",
                 "Подавление (скорость)", "+12% к скорости атаки.");
-        Program.Services.Debuffs.ApplyDebuff(pl, slow);
+        svc.Debuffs.ApplyDebuff(pl, slow);
     }
 }

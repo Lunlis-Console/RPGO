@@ -10,15 +10,18 @@ namespace RPGGame.Server.Network;
 public sealed class GameServer : INetworkHub
 {
     private readonly GameWorld _world;
+    private GameServices _svc = null!;
 
     public GameServer(GameWorld world)
     {
         _world = world;
     }
 
+    public void SetServices(GameServices svc) => _svc = svc;
+
     public async Task BroadcastMapAsync()
     {
-        var svc = Program.Services;
+        var svc = _svc;
         List<ClientConnection> clientsCopy = _world.GetClientsSnapshot()
             .Where(c => c.Player != null).ToList();
 
@@ -163,9 +166,9 @@ public sealed class GameServer : INetworkHub
         }
     }
 
-    private static string? GetQuestIndicator(string npcId, Player player)
+    private string? GetQuestIndicator(string npcId, Player player)
     {
-        var svc = Program.Services;
+        var svc = _svc;
         string? result = null;
         foreach (var def in svc.Quests.GetAvailableQuests())
         {
@@ -189,7 +192,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendQuestLog(ClientConnection connection, Player player)
     {
-        var svc = Program.Services;
+        var svc = _svc;
         var quests = player.ActiveQuests.Select(q =>
         {
             var def = svc.Quests.FindQuest(q.QuestId);
@@ -305,8 +308,8 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = GetBuffedPhysAttack(player),
-                MagAttack = GetBuffedMagAttack(player),
+                PhysAttack = GetBuffedPhysAttack(player, _svc.Debuffs),
+                MagAttack = GetBuffedMagAttack(player, _svc.Debuffs),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
@@ -328,8 +331,8 @@ public sealed class GameServer : INetworkHub
                 player.AttributePoints,
                 player.SkillPoints,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
-                AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = GetAttackIntervalMs(player),
+                AttackSpeed = GetAttackSpeed(player, _svc.Debuffs),
+                AttackIntervalMs = GetAttackIntervalMs(player, _svc.Debuffs),
                 AttackRange = player.GetEffectiveAttackRange(),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
@@ -349,7 +352,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendInventoryAndStatus(ClientConnection connection, Player player, bool fromUnequip = false)
     {
-        Program.Services.Debuffs.RefreshDualWieldBuff(player);
+        _svc.Debuffs.RefreshDualWieldBuff(player);
         await SendToClient(connection, new GameMessage
         {
             Type = "inventory_response",
@@ -380,8 +383,8 @@ public sealed class GameServer : INetworkHub
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
                 MaxMana = player.MaxMana,
-                PhysAttack = GetBuffedPhysAttack(player),
-                MagAttack = GetBuffedMagAttack(player),
+                PhysAttack = GetBuffedPhysAttack(player, _svc.Debuffs),
+                MagAttack = GetBuffedMagAttack(player, _svc.Debuffs),
                 Defense = player.GetDefense(),
                 Resistance = player.GetResistance(),
                 CritChance = Math.Round(player.GetCritChance(), 2),
@@ -403,8 +406,8 @@ public sealed class GameServer : INetworkHub
                 player.AttributePoints,
                 player.SkillPoints,
                 MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
-                AttackSpeed = GetAttackSpeed(player),
-                AttackIntervalMs = GetAttackIntervalMs(player),
+                AttackSpeed = GetAttackSpeed(player, _svc.Debuffs),
+                AttackIntervalMs = GetAttackIntervalMs(player, _svc.Debuffs),
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player)
@@ -585,32 +588,32 @@ public sealed class GameServer : INetworkHub
         };
     }
 
-    internal static double GetAttackSpeed(Player player)
+    internal static double GetAttackSpeed(Player player, DebuffManager debuffs)
     {
         double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
-        double speedBuff = 1.0 + Program.Services.Debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
+        double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
         return baseSpeed * speedBuff;
     }
 
-    internal static int GetAttackIntervalMs(Player player)
+    internal static int GetAttackIntervalMs(Player player, DebuffManager debuffs)
     {
         int baseInterval = Balance.AttackIntervalMs(
             Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier());
-        double speedBuff = 1.0 + Program.Services.Debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
+        double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
         return (int)(baseInterval / speedBuff);
     }
 
-    internal static int GetBuffedPhysAttack(Player player)
+    internal static int GetBuffedPhysAttack(Player player, DebuffManager debuffs)
     {
         int base_ = player.GetTotalAttack();
-        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
+        double dmgBonus = debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
         return (int)(base_ * (1.0 + dmgBonus));
     }
 
-    internal static int GetBuffedMagAttack(Player player)
+    internal static int GetBuffedMagAttack(Player player, DebuffManager debuffs)
     {
         int base_ = player.GetMagAttack();
-        double dmgBonus = Program.Services.Debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
+        double dmgBonus = debuffs.GetDebuffValue(player, DebuffType.DamageBonus);
         return (int)(base_ * (1.0 + dmgBonus));
     }
 
@@ -626,7 +629,7 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendZoneTransition(ClientConnection connection, Player player)
     {
-        var zone = Program.Services.Zones.GetZone(player.CurrentZoneId);
+        var zone = _svc.Zones.GetZone(player.CurrentZoneId);
         await SendToClient(connection, new GameMessage
         {
             Type = "zone_transition",

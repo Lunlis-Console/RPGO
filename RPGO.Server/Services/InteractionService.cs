@@ -201,7 +201,7 @@ public class InteractionService
                 {
                     var corpse = _svc.Corpses.FindCorpseById(player.Interaction.CorpseId.Value);
                     if (corpse != null)
-                        await LootCorpseHandler.LootCorpseAsync(client, player, corpse);
+                        await LootCorpseHandler.LootCorpseAsync(client, player, corpse, _svc.Hub, _svc.Corpses);
                     else
                         await _svc.Hub.SendToClient(client, new GameMessage
                         {
@@ -249,7 +249,7 @@ public class InteractionService
                                 ItemIds = player.Interaction.ItemIds
                             }
                         };
-                        await new TakeLootHandler(_svc.World, _svc.Hub).Handle(client, msg, player);
+                        await new TakeLootHandler(_svc).Handle(client, msg, player);
                     }
                     else
                         await _svc.Hub.SendToClient(client, new GameMessage
@@ -265,13 +265,13 @@ public class InteractionService
     /// <summary>
     /// Цикл перемещения игроков по путям + обработка отмены обмена при удалении.
     /// </summary>
-    public async Task RunMovePathLoop()
+    public async Task RunMovePathLoop(CancellationToken ct)
     {
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(Balance.LoopMovePathMs);
+                await Task.Delay(Balance.LoopMovePathMs, ct);
                 bool moved = false;
                 List<Player> playersCopy = _svc.World.GetPlayersSnapshot();
                 foreach (var pl in playersCopy)
@@ -374,6 +374,7 @@ public class InteractionService
                 }
                 if (moved) await _svc.Hub.BroadcastMapAsync();
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
                 Log.Error("Ошибка цикла перемещения", ex);

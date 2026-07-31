@@ -1,22 +1,22 @@
 using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
 namespace RPGGame.Server.MessageHandlers;
 
 /// <summary>
-/// Базовый класс хендлеров: даёт доступ к GameWorld и сетевому хабу,
-/// чтобы переносимые обработчики не дублировали вызовы отправки.
+/// Базовый класс хендлеров: даёт доступ к GameServices, GameWorld и сетевому хабу.
 /// </summary>
 public abstract class BaseHandler : IMessageHandler
 {
-    protected GameWorld World { get; }
-    protected INetworkHub Hub { get; }
+    protected GameServices Svc { get; }
+    protected GameWorld World => Svc.World;
+    protected INetworkHub Hub => Svc.Hub;
 
-    protected BaseHandler(GameWorld world, INetworkHub hub)
+    protected BaseHandler(GameServices svc)
     {
-        World = world;
-        Hub = hub;
+        Svc = svc;
     }
 
     public abstract Task Handle(ClientConnection connection, GameMessage message, Player? player);
@@ -49,7 +49,7 @@ public abstract class BaseHandler : IMessageHandler
 
     protected async Task SendChatPartyAsync(Player sender, string from, string text)
     {
-        var party = Program.Services.Party.GetPartyForPlayer(sender.Id);
+        var party = Svc.Party.GetPartyForPlayer(sender.Id);
         var targets = new List<Player>();
         if (party != null)
         {
@@ -88,7 +88,7 @@ public abstract class BaseHandler : IMessageHandler
     }
 
     protected Task ReloadContent(ClientConnection? connection = null)
-        => Program.ReloadContent(connection);
+        => Svc.ReloadContent(connection);
 
     protected double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
@@ -103,7 +103,7 @@ public abstract class BaseHandler : IMessageHandler
         => Hub.SendQuestLog(connection, player);
 
     protected Task ProcessPendingInteraction(Player player, string interactionType)
-        => Program.ProcessPendingInteraction(player, interactionType);
+        => Svc.Interactions.ProcessPendingInteraction(player, interactionType);
 
     protected Task SendError(ClientConnection connection, string code, string message)
         => Hub.SendError(connection, code, message);

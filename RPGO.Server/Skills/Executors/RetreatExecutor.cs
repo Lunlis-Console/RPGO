@@ -59,7 +59,7 @@ public sealed class RetreatExecutor : SkillExecutorBase
         pl.Movement.Stop();
         await svc.Hub.BroadcastMapAsync();
 
-        var kind = (HazardKind)new Random().Next(0, 3);
+        var kind = (HazardKind)Random.Shared.Next(0, 3);
         int duration = (int)(Balance.TrapDurationMs * (1.0 + (pl.GetSkillRank(skill.Id) - 1) * 0.15));
         int baseDmg = Math.Max(1, pl.GetMaxAttackDamage());
         var hazard = new GroundHazard

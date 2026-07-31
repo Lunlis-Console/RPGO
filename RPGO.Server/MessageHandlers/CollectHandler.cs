@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -6,13 +7,13 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class CollectHandler : BaseHandler
 {
-    public CollectHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public CollectHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
 
-        var lootItem = Program.Services.Collectibles.TryCollect(player.X, player.Y, player.CurrentZoneId);
+        var lootItem = Svc.Collectibles.TryCollect(player.X, player.Y, player.CurrentZoneId);
         if (lootItem == null)
         {
             await SendError(connection, ErrorCodes.NothingToCollect, "Здесь нечего собирать.");
@@ -26,7 +27,7 @@ public class CollectHandler : BaseHandler
             Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
         });
 
-        var collectResults = Program.Services.Quests.IncrementCollectProgress(player, lootItem.Id);
+        var collectResults = Svc.Quests.IncrementCollectProgress(player, lootItem.Id);
         foreach (var (title, current, target, completed) in collectResults)
         {
             string msg = completed

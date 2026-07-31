@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class AbandonQuestHandler : BaseHandler
 {
-    public AbandonQuestHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public AbandonQuestHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -37,7 +38,7 @@ public class AbandonQuestHandler : BaseHandler
             return;
         }
 
-        var def = Program.Services.Quests.FindQuest(questId);
+        var def = Svc.Quests.FindQuest(questId);
         player.ActiveQuests.Remove(prog);
         Log.Info($"{player.Name} отказался от задания {def?.Title ?? questId}");
         await SendToClient(connection, new GameMessage

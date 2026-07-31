@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -6,7 +7,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class ShopRequestHandler : BaseHandler
 {
-    public ShopRequestHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public ShopRequestHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -17,11 +18,11 @@ public class ShopRequestHandler : BaseHandler
             Type = "shop_response",
             Data = new
             {
-                MerchantX = Program.Services.Merchant.MerchantX,
-                MerchantY = Program.Services.Merchant.MerchantY,
+                MerchantX = Svc.Merchant.MerchantX,
+                MerchantY = Svc.Merchant.MerchantY,
                 MerchantName = "Торговец",
                 Discount = 0,
-                Items = Program.Services.Merchant.ShopItems.Select(i => new
+                Items = Svc.Merchant.ShopItems.Select(i => new
                 {
                     i.Id, i.Name, i.Type, i.WeaponSubtype,
                     Value = Balance.BuyPrice(i.Value),

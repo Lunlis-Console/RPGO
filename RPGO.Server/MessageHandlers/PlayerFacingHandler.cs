@@ -1,5 +1,6 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class PlayerFacingHandler : BaseHandler
 {
-    public PlayerFacingHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public PlayerFacingHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {

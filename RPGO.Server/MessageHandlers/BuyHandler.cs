@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class BuyHandler : BaseHandler
 {
-    public BuyHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public BuyHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -23,7 +24,7 @@ public class BuyHandler : BaseHandler
 
         if (buyItemId == null) return;
 
-        var template = Program.Services.Merchant.FindItem(buyItemId);
+        var template = Svc.Merchant.FindItem(buyItemId);
         if (template == null)
         {
             await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
@@ -43,7 +44,7 @@ public class BuyHandler : BaseHandler
         }
 
         player.Gold -= totalCost;
-        var newItem = Program.Services.Merchant.CreatePlayerCopy(template);
+        var newItem = Svc.Merchant.CreatePlayerCopy(template);
         newItem.Quantity = qty;
         InventoryHelper.AddItem(player, newItem);
         Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");

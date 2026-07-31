@@ -1,4 +1,5 @@
-using RPGGame.Server.Network;
+﻿using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -7,7 +8,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class CompleteQuestHandler : BaseHandler
 {
-    public CompleteQuestHandler(GameWorld world, INetworkHub hub) : base(world, hub) { }
+    public CompleteQuestHandler(GameServices svc) : base(svc) { }
 
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
@@ -18,7 +19,7 @@ public class CompleteQuestHandler : BaseHandler
             ? compEl.GetString()
             : compEl.TryGetProperty("QuestId", out var cqProp) ? cqProp.GetString() : null;
 
-        if (!Program.Services.Quests.IsAtBoard(player.X, player.Y))
+        if (!Svc.Quests.IsAtBoard(player.X, player.Y))
         {
             await SendError(connection, ErrorCodes.NotAtBoard, "Вернитесь к доске заданий, чтобы сдать задание.");
             return;
@@ -31,7 +32,7 @@ public class CompleteQuestHandler : BaseHandler
         }
 
         var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == questId);
-        var def = Program.Services.Quests.FindQuest(questId);
+        var def = Svc.Quests.FindQuest(questId);
         if (prog == null || def == null)
         {
             await SendError(connection, ErrorCodes.QuestNotActive, "У вас нет этого задания.");

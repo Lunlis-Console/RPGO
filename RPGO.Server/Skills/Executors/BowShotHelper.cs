@@ -21,7 +21,7 @@ internal static class BowShotHelper
         int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
         dmgMult *= pl.GetSkillRankDmgMult(skillId);
 
-        var rng = new Random();
+        var rng = Random.Shared;
         double armorPen = pl.GetCloseRangeArmorPen(dist);
         if (vulnerable) armorPen = Math.Min(1.0, armorPen + BalanceStatic.VulnerableArmorIgnore);
 

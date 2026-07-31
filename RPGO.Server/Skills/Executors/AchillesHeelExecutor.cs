@@ -19,8 +19,8 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
         if (!evaded)
         {
             string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
-            var proj = Program.Services.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
-            await Program.Services.Projectiles.BroadcastSpawn(proj);
+            var proj = svc.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
+            await svc.Projectiles.BroadcastSpawn(proj);
         }
 
         if (!evaded && hitDmg > 0)
@@ -28,7 +28,7 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
             int rootMs = (int)(Balance.AchillesRootMs * (1.0 + (pl.GetSkillRank(skill.Id) - 1) * 0.15));
             var root = ActiveDebuff.Create(DebuffType.Root, 0, rootMs, "skill", "Обездвижен",
                 $"Обездвижен на {rootMs / 1000} сек.");
-            Program.Services.Debuffs.ApplyDebuff(monster, root);
+            svc.Debuffs.ApplyDebuff(monster, root);
             await svc.ChatToC(client, "Бой", $"«{skill.Name}» обездвижил {monster.Name}!");
             await svc.SendTargetDebuffUpdateAsync(monster);
         }
@@ -50,7 +50,7 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
             int rootMs = (int)(Balance.AchillesRootMs * (1.0 + (pl.GetSkillRank(skill.Id) - 1) * 0.15));
             var root = ActiveDebuff.Create(DebuffType.Root, 0, rootMs, "skill", "Обездвижен",
                 $"Обездвижен на {rootMs / 1000} сек.");
-            Program.Services.Debuffs.ApplyDebuff(target, root);
+            svc.Debuffs.ApplyDebuff(target, root);
             await svc.ChatToC(atkClient, "Бой", $"«{skill.Name}» обездвижил {target.Name}!");
         }
         pl.Combat.LastAttackTime = DateTime.UtcNow;

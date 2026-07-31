@@ -1,5 +1,7 @@
 using RPGGame.Server.Instances;
 using RPGGame.Server.Network;
+using RPGGame.Shared.Models;
+using RPGGame.Shared.Network;
 
 namespace RPGGame.Server;
 
@@ -72,5 +74,42 @@ public sealed class GameServices
         Auth = auth;
         Zones = zones;
         Instances = instances;
+    }
+
+    public async Task ReloadContent(ClientConnection? connection = null)
+    {
+        try
+        {
+            Log.Info("Перезагрузка данных на сервере...");
+            Merchant.Initialize();
+            Quests.Initialize();
+            Dialogue.LoadAll();
+            Loot.LoadFromDatabase();
+            Monsters.Initialize();
+            Collectibles.Initialize();
+
+            await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
+
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Обновление завершено." }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Ошибка обновления: {ex.Message}", ex);
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Ошибка обновления: " + ex.Message }
+                });
+            }
+        }
     }
 }
