@@ -64,7 +64,6 @@ public class GameServerHost
                 foreach (var pl in _svc.World.GetPlayersSnapshot())
                 {
                     if (pl.IsDead) continue;
-                    if (pl.Health >= pl.MaxHealth + pl.Equipment.GetBonusMaxHealth()) continue;
 
                     bool plInCombat = (now - pl.LastDamagedTime).TotalMilliseconds < inCombatDelayMs;
                     int tick = plInCombat ? inCombatTickMs : outOfCombatTickMs;
@@ -72,11 +71,14 @@ public class GameServerHost
                     if ((now - pl.LastRegenTime).TotalMilliseconds >= tick)
                     {
                         int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
-                        int heal = plInCombat
-                            ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction))
-                            : outOfCombatHeal;
-                        pl.Health = Math.Min(maxHp, pl.Health + heal);
-                        pl.LastRegenTime = now;
+                        int heal = 0;
+                        if (pl.Health < maxHp)
+                        {
+                            heal = plInCombat
+                                ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction))
+                                : outOfCombatHeal;
+                            pl.Health = Math.Min(maxHp, pl.Health + heal);
+                        }
 
                         int maxMana = pl.MaxMana;
                         if (pl.Mana < maxMana)
@@ -86,6 +88,8 @@ public class GameServerHost
                                 : Balance.ManaRegenOutOfCombat;
                             pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
                         }
+
+                        pl.LastRegenTime = now;
 
                         var conn = _svc.World.FindClientByPlayer(pl);
                         if (conn != null)
