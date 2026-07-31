@@ -413,31 +413,29 @@ public class SkillsWindow : GameWindow
 
         lines.Add($"Мин. уровень {skill.MinLevel}");
 
-        // Описание (с ранговой корректировкой чисел)
+        // Описание (с инлайн-превью следующего ранга)
         if (!string.IsNullOrEmpty(skill.Description))
         {
             string desc = skill.Description;
-            if (skill.Learned && skill.Rank > 1)
+            double currentMult = 1.0;
+            if (skill.Learned)
             {
-                double mult = isPassive
-                    ? 1.0 + (skill.Rank - 1) * 0.33
-                    : 1.0 + (skill.Rank - 1) * 0.12;
-                desc = RankAdjustDescription(desc, mult);
+                if (skill.Rank > 1)
+                {
+                    currentMult = isPassive
+                        ? 1.0 + (skill.Rank - 1) * 0.33
+                        : 1.0 + (skill.Rank - 1) * 0.12;
+                    desc = RankAdjustDescription(desc, currentMult);
+                }
+                if (skill.Rank < skill.MaxRank)
+                {
+                    double nextMult = isPassive
+                        ? 1.0 + skill.Rank * 0.33
+                        : 1.0 + skill.Rank * 0.12;
+                    desc = InsertInlinePreviews(desc, currentMult, nextMult);
+                }
             }
             lines.Add(desc);
-        }
-
-        // Превью следующего ранга (жёлтым)
-        if (skill.Learned && skill.Rank < skill.MaxRank && !string.IsNullOrEmpty(skill.Description))
-        {
-            double nextMult = isPassive
-                ? 1.0 + skill.Rank * 0.33
-                : 1.0 + skill.Rank * 0.12;
-            string nextDesc = RankAdjustDescription(skill.Description, nextMult);
-            var nextPcts = Regex.Matches(nextDesc, @"(\d+(?:[.,]\d+)?)\s*%")
-                .Cast<Match>().Select(m => m.Value).Distinct().ToList();
-            if (nextPcts.Count > 0)
-                lines.Add($"→ {string.Join(" ", nextPcts)}");
         }
 
         if (!string.IsNullOrEmpty(skill.ParentId))
@@ -468,9 +466,8 @@ public class SkillsWindow : GameWindow
         for (int i = 0; i < lines.Count; i++)
         {
             string text = lines[i];
-            Color color = i == 0 || i == lines.Count - 1 ? new Color(230, 220, 140)
-                       : text.StartsWith("→") ? new Color(255, 215, 0) : Color.White;
-            if (font.MeasureString(text).X <= maxW - pad * 2)
+            Color color = i == 0 || i == lines.Count - 1 ? new Color(230, 220, 140) : Color.White;
+            if (MeasureStripped(font, text).X <= maxW - pad * 2)
             {
                 wrapped.Add((text, color));
             }
@@ -481,7 +478,7 @@ public class SkillsWindow : GameWindow
                 foreach (var w in words)
                 {
                     string test = string.IsNullOrEmpty(current) ? w : current + " " + w;
-                    if (font.MeasureString(test).X > maxW - pad * 2 && !string.IsNullOrEmpty(current))
+                    if (MeasureStripped(font, test).X > maxW - pad * 2 && !string.IsNullOrEmpty(current))
                     {
                         wrapped.Add((current, color));
                         current = w;
@@ -511,7 +508,8 @@ public class SkillsWindow : GameWindow
         sb.Draw(SpriteCache.Pixel, new Rectangle(tx, ty, ww, 2), new Color(90, 150, 220));
         for (int i = 0; i < wrapped.Count; i++)
         {
-            sb.DrawString(font, wrapped[i].text, new Vector2(tx + pad, ty + pad + i * lineH), wrapped[i].color);
+            DrawStringColored(sb, font, wrapped[i].text,
+                new Vector2(tx + pad, ty + pad + i * lineH), wrapped[i].color);
         }
     }
 
@@ -525,6 +523,54 @@ public class SkillsWindow : GameWindow
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture, out double val))
                 return $"{val * mult:F0}%";
+            return m.Value;
+        });
+    }
+
+    private static Vector2 MeasureStripped(SpriteFont font, string text)
+        => font.MeasureString(text.Replace("\x01", ""));
+
+    private static readonly Color YellowHL = new(255, 215, 0);
+
+    private static void DrawStringColored(SpriteBatch sb, SpriteFont font, string text,
+        Vector2 pos, Color defaultColor)
+    {
+        float x = pos.X;
+        Color cur = defaultColor;
+        int start = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\x01')
+            {
+                string seg = text.Substring(start, i - start);
+                if (seg.Length > 0)
+                {
+                    sb.DrawString(font, seg, new Vector2(x, pos.Y), cur);
+                    x += font.MeasureString(seg).X;
+                }
+                start = i + 1;
+                cur = cur == defaultColor ? YellowHL : defaultColor;
+            }
+        }
+        if (start < text.Length)
+        {
+            string seg = text.Substring(start);
+            sb.DrawString(font, seg, new Vector2(x, pos.Y), cur);
+        }
+    }
+
+    private static string InsertInlinePreviews(string desc, double currentMult, double nextMult)
+    {
+        return Regex.Replace(desc, @"(\d+(?:[.,]\d+)?)\s*%", m =>
+        {
+            if (double.TryParse(m.Groups[1].Value.Replace(',', '.'),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                double baseVal = val / currentMult;
+                double next = baseVal * nextMult;
+                return $"{val}% \x01\u2192{next:F0}%\x01";
+            }
             return m.Value;
         });
     }
