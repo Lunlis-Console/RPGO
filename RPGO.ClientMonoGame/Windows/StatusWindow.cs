@@ -37,6 +37,8 @@ public class StatusWindow : GameWindow
     public Action<string>? AllocateAttribute { get; set; }
     public Action? ResetAttributes { get; set; }
 
+    private Rectangle _resetBtnRect;
+
     public StatusWindow()
     {
         Title = "Персонаж";
@@ -141,17 +143,9 @@ public class StatusWindow : GameWindow
         if (released) _scrollDragging = false;
 
         // Кнопка «Сброс атрибутов»
-        if (clicked && !_scrollDragging)
+        if (clicked && !_scrollDragging && _resetBtnRect.Contains(mouse.X, mouse.Y))
         {
-            int resetBtnH = 22;
-            int resetBtnW = 120;
-            int resetBtnX = ContentX + ContentW - resetBtnW;
-            int resetBtnY = ContentY + Height - TitleH - resetBtnH - 4;
-            var resetRect = new Rectangle(resetBtnX, resetBtnY, resetBtnW, resetBtnH);
-            if (resetRect.Contains(mouse.X, mouse.Y))
-            {
-                ResetAttributes?.Invoke();
-            }
+            ResetAttributes?.Invoke();
         }
 
         // Распределение атрибутов
@@ -281,12 +275,6 @@ public class StatusWindow : GameWindow
             cy += RowH + 2;
         }
 
-        DrawBreakdown(sb, ref cy, cx, cw);
-
-        DrawDebuffs(sb, ref cy, cx, cw);
-
-        _contentHeight = cy - startCy;
-
         // Кнопка «Сброс атрибутов»
         {
             string resetText = "Сброс атрибутов";
@@ -294,14 +282,21 @@ public class StatusWindow : GameWindow
             int btnW = (int)resetSz.X + 16;
             int btnH = 22;
             int btnX = cx + cw - btnW;
-            int btnY = ContentY + Height - TitleH - btnH - 4;
-            var resetRect = new Rectangle(btnX, btnY, btnW, btnH);
-            bool resetHover = resetRect.Contains(mouse.X, mouse.Y);
+            int btnY = cy + 4;
+            _resetBtnRect = new Rectangle(btnX, btnY, btnW, btnH);
+            bool resetHover = _resetBtnRect.Contains(mouse.X, mouse.Y);
             Color resetBg = resetHover ? new Color(120, 50, 50) : new Color(80, 35, 35);
-            sb.Draw(SpriteCache.Pixel, resetRect, resetBg);
-            UIHelper.DrawRectOutline(sb, resetRect, new Color(160, 70, 70), 1);
+            sb.Draw(SpriteCache.Pixel, _resetBtnRect, resetBg);
+            UIHelper.DrawRectOutline(sb, _resetBtnRect, new Color(160, 70, 70), 1);
             DrawText(sb, resetText, btnX + 8, btnY + 3, new Color(220, 160, 160));
+            cy = _resetBtnRect.Bottom + 6;
         }
+
+        DrawBreakdown(sb, ref cy, cx, cw);
+
+        DrawDebuffs(sb, ref cy, cx, cw);
+
+        _contentHeight = cy - startCy;
 
         // Полоса прокрутки
         var (track, thumb) = GetScrollBarRects();
