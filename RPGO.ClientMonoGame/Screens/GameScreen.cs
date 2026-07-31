@@ -472,7 +472,14 @@ public class GameScreen : IScreen
         _mapRenderer.SelectionChanged += entity =>
         {
             if (entity == null)
+            {
                 _hudRenderer.UpdateTargetDebuffs(null);
+            }
+            else if (entity.Type == "player" && entity.Id != null)
+            {
+                _hudRenderer.UpdateTargetDebuffs(null);
+                _ = client.SendAsync("select_target", new { PlayerId = entity.Id });
+            }
         };
 
         // Hotbar

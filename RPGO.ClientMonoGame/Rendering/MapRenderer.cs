@@ -530,10 +530,29 @@ private sealed class RemotePlayerState
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
 
         var entitiesOnCell = GetEntitiesAt(mapX, mapY);
-        if (entitiesOnCell.Count == 1)
+        if (entitiesOnCell.Count == 0)
+        {
+            HandleEmptyCellRightClick(mapX, mapY);
+        }
+        else if (entitiesOnCell.Count == 1)
         {
             HandleSingleEntityRightClick(entitiesOnCell[0], mapX, mapY);
         }
+        else
+        {
+            EntityPickRequested?.Invoke(entitiesOnCell, mapX, mapY);
+        }
+    }
+
+    private void HandleEmptyCellRightClick(int mapX, int mapY)
+    {
+        ClearSelection();
+        _selectedEntityType = "move";
+        _selectedEntityName = "Точка назначения";
+        _selectedEntityX = mapX; _selectedEntityY = mapY;
+        _moveTargetX = mapX; _moveTargetY = mapY;
+        SelectionChanged?.Invoke(GetSelection());
+        MoveRequested?.Invoke(mapX, mapY);
     }
 
     public string GetCursorType(float screenX, float screenY, float areaW, float areaH)
@@ -612,7 +631,6 @@ private sealed class RemotePlayerState
         _selectedEntityX = mapX; _selectedEntityY = mapY;
         _moveTargetX = mapX; _moveTargetY = mapY;
         SelectionChanged?.Invoke(GetSelection());
-        MoveRequested?.Invoke(mapX, mapY);
     }
 
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)

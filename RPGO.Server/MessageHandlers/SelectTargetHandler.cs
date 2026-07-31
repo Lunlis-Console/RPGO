@@ -15,6 +15,20 @@ public class SelectTargetHandler : BaseHandler
         if (player.IsDead) return;
         if (message.Data is not JsonElement selEl) return;
 
+        string? playerIdStr = selEl.TryGetProperty("PlayerId", out var pidProp) ? pidProp.GetString() : null;
+        if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid playerTargetId))
+        {
+            Player? targetPlayer = Program.Services.World.GetPlayersSnapshot()
+                .FirstOrDefault(p => p.Id == playerTargetId && p.CurrentZoneId == player.CurrentZoneId);
+            if (targetPlayer == null || targetPlayer.IsDead)
+            {
+                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
+                return;
+            }
+            await Program.Services.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
+            return;
+        }
+
         string? monsterIdStr = selEl.TryGetProperty("MonsterId", out var midProp) ? midProp.GetString() : null;
         if (monsterIdStr == null || !Guid.TryParse(monsterIdStr, out Guid monsterId)) return;
 

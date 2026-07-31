@@ -666,10 +666,30 @@ public class CombatService
             target.LastDamagedTime = DateTime.UtcNow;
         }
 
+        var targetClient = _svc.World.FindClientByPlayer(target);
+
         if (isEvaded)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от первого удара «{skill.Name}».");
+            var missMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "miss");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, missMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, missMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {pl.Name}.");
+            }
+        }
         else if (isParried)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал первый удар «{skill.Name}»!");
+            var parryMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "parry");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, parryMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, parryMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы парировали атаку {pl.Name}!");
+            }
+        }
         else
         {
             critText = hitCrit ? " (КРИТ!)" : "";
@@ -683,20 +703,13 @@ public class CombatService
             };
             await _svc.Hub.SendToClient(atkClient, dmgMsg);
             await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
-        }
-
-        var targetClient = _svc.World.FindClientByPlayer(target);
-        if (targetClient != null)
-        {
-            var hitMsg = new GameMessage
+            if (targetClient != null)
             {
-                Type = "damage",
-                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
-            };
-            await _svc.Hub.SendToClient(targetClient, hitMsg);
-            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
-                $"{pl.Name} применил «{skill.Name}»: {hitDmg} урона{critText} вам.");
-            await _svc.Hub.SendStatusAsync(targetClient, target);
+                await _svc.Hub.SendToClient(targetClient, dmgMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                    $"{pl.Name} применил «{skill.Name}»: {hitDmg} урона{critText}{blockText} вам.");
+                await _svc.Hub.SendStatusAsync(targetClient, target);
+            }
         }
 
         if (target.Health <= 0)
@@ -762,37 +775,61 @@ public class CombatService
             target.LastDamagedTime = DateTime.UtcNow;
         }
 
+        var targetClient = _svc.World.FindClientByPlayer(target);
+
         if (isEvaded)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от удара «ЭТО ДУЭЛЬ!».");
+            var missMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "miss");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, missMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, missMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {pl.Name}.");
+            }
+        }
         else if (isParried)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал удар «ЭТО ДУЭЛЬ!»!");
+            var parryMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "parry");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, parryMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, parryMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы парировали атаку {pl.Name}!");
+            }
+        }
         else
         {
             critText = hitCrit ? " (КРИТ!)" : "";
             string blockText = isBlocked ? " (блок)" : "";
             await ChatTo(atkClient, ChatChannel.Combat, "Бой",
                 $"«ЭТО ДУЭЛЬ!»: {hitDmg} урона{critText}{blockText} {target.Name}.");
-            var dmgMsg = new GameMessage
-            {
-                Type = "damage",
-                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
-            };
-            await _svc.Hub.SendToClient(atkClient, dmgMsg);
-            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
-        }
 
-        var targetClient = _svc.World.FindClientByPlayer(target);
-        if (targetClient != null)
-        {
-            var hitMsg = new GameMessage
+            if (isBlocked)
             {
-                Type = "damage",
-                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
-            };
-            await _svc.Hub.SendToClient(targetClient, hitMsg);
-            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
-                $"{pl.Name} нанёс вам {hitDmg} урона{critText} «ЭТО ДУЭЛЬ!».");
-            await _svc.Hub.SendStatusAsync(targetClient, target);
+                var blockMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "block");
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, blockMsg, target);
+                if (targetClient != null)
+                {
+                    await _svc.Hub.SendToClient(targetClient, blockMsg);
+                    await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы заблокировали атаку {pl.Name}!");
+                }
+            }
+
+            if (targetClient != null)
+            {
+                var hitMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit }
+                };
+                await _svc.Hub.SendToClient(targetClient, hitMsg);
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, hitMsg, target);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                    $"{pl.Name} нанёс вам {hitDmg} урона{critText} «ЭТО ДУЭЛЬ!».");
+                await _svc.Hub.SendStatusAsync(targetClient, target);
+            }
         }
 
         pl.Combat.LastAttackTime = DateTime.UtcNow;
@@ -849,36 +886,60 @@ public class CombatService
             target.LastDamagedTime = DateTime.UtcNow;
         }
 
+        var targetClient = _svc.World.FindClientByPlayer(target);
+
         if (isEvaded)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от наказания «ЭТО ДУЭЛЬ!»!");
+            var missMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "miss");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, missMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, missMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {pl.Name}.");
+            }
+        }
         else if (isParried)
+        {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал наказание «ЭТО ДУЭЛЬ!»!");
+            var parryMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "parry");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, parryMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, parryMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы парировали атаку {pl.Name}!");
+            }
+        }
         else
         {
             string blockText = isBlocked ? " (блок)" : "";
             await ChatTo(atkClient, ChatChannel.Combat, "Бой",
                 $"«ЭТО ДУЭЛЬ!» — наказание за смену таргета: {hitDmg} урона{blockText} {target.Name}!");
-            var dmgMsg = new GameMessage
-            {
-                Type = "damage",
-                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false }
-            };
-            await _svc.Hub.SendToClient(atkClient, dmgMsg);
-            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, dmgMsg, target);
-        }
 
-        var targetClient = _svc.World.FindClientByPlayer(target);
-        if (targetClient != null)
-        {
-            var hitMsg = new GameMessage
+            if (isBlocked)
             {
-                Type = "damage",
-                Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false }
-            };
-            await _svc.Hub.SendToClient(targetClient, hitMsg);
-            await ChatTo(targetClient, ChatChannel.Combat, "Бой",
-                $"{pl.Name} наказал вас сменой таргета «ЭТО ДУЭЛЬ!»: {hitDmg} урона.");
-            await _svc.Hub.SendStatusAsync(targetClient, target);
+                var blockMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "block");
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, blockMsg, target);
+                if (targetClient != null)
+                {
+                    await _svc.Hub.SendToClient(targetClient, blockMsg);
+                    await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы заблокировали атаку {pl.Name}!");
+                }
+            }
+
+            if (targetClient != null)
+            {
+                var hitMsg = new GameMessage
+                {
+                    Type = "damage",
+                    Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false }
+                };
+                await _svc.Hub.SendToClient(targetClient, hitMsg);
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, hitMsg, target);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой",
+                    $"{pl.Name} наказал вас сменой таргета «ЭТО ДУЭЛЬ!»: {hitDmg} урона{blockText}.");
+                await _svc.Hub.SendStatusAsync(targetClient, target);
+            }
         }
 
         // Оглушение с 100% шансом
@@ -1555,29 +1616,55 @@ public class CombatService
                 finalDmg = Math.Max(Balance.MinDamage, finalDmg - target.GetBlockValue());
         }
 
+        var targetClient = _svc.World.FindClientByPlayer(target);
+
         if (isEvaded)
         {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} уклонился от вашей атаки.");
+            var missMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "miss");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, missMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, missMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы уклонились от атаки {pl.Name}.");
+            }
         }
         else if (isParried)
         {
             await ChatTo(atkClient, ChatChannel.Combat, "Бой", $"{target.Name} парировал вашу атаку!");
+            var parryMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "parry");
+            await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, parryMsg, target);
+            if (targetClient != null)
+            {
+                await _svc.Hub.SendToClient(targetClient, parryMsg);
+                await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы парировали атаку {pl.Name}!");
+            }
         }
         else
         {
             target.Health -= finalDmg;
-                    await TryLifesteal(pl, finalDmg, dist <= 1, atkClient);
+            await TryLifesteal(pl, finalDmg, dist <= 1, atkClient);
             target.LastDamagedTime = DateTime.UtcNow;
-
             string critText = isCrit ? " (КРИТ!)" : "";
+
             if (isBlocked)
+            {
                 await ChatTo(atkClient, ChatChannel.Combat, "Бой",
                     $"Вы нанесли {finalDmg} урона{critText} {target.Name} (блок). ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+                var blockMsg = GameMessage.Damage("player", null, target.X, target.Y, 0, false, target.Name, result: "block");
+                await _svc.Hub.SendDamageNearbyAsync(target.X, target.Y, blockMsg, target);
+                if (targetClient != null)
+                {
+                    await _svc.Hub.SendToClient(targetClient, blockMsg);
+                    await ChatTo(targetClient, ChatChannel.Combat, "Бой", $"Вы заблокировали атаку {pl.Name}!");
+                }
+            }
             else
+            {
                 await ChatTo(atkClient, ChatChannel.Combat, "Бой",
                     $"Вы нанесли {finalDmg} урона{critText} {target.Name}. ({target.Health}/{target.MaxHealth + target.Equipment.GetBonusMaxHealth()}) HP");
+            }
 
-            var targetClient = _svc.World.FindClientByPlayer(target);
             if (targetClient != null)
             {
                 var hitMsg = new GameMessage
