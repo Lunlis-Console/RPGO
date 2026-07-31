@@ -255,7 +255,7 @@ public static class AdminCommands
         target.SkillPoints = targetLevel / 2;
         target.Experience = 0;
 
-        DatabaseManager.SavePlayerProgress(target);
+        svc.Persistence.EnqueueSave(target);
 
         string diff = targetLevel > oldLevel ? $"+{targetLevel - oldLevel}" : $"{targetLevel - oldLevel}";
         string who = target == player ? "" : $" для {target.Name}";

@@ -69,7 +69,7 @@ public class AllocateSkillHandler : BaseHandler
         player.SkillRanks[skillId] = newRank;
 
         Log.Info($"{player.Name} улучшил «{skill.Name}» до ранга {newRank}/{skill.MaxRank}. Очков: {player.SkillPoints}");
-        DatabaseManager.SavePlayerProgress(player);
+        Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {

@@ -16,11 +16,12 @@ public class Player : ICombatant
     public int Mana { get; set; } = 100;
     public int MaxMana { get; set; } = 100;
 
-    // Кулдауны навыков: skillId -> время последнего применения (UTC)
-    public Dictionary<string, DateTime> LastSkillUse { get; set; } = new();
+    // Кулдауны навыков: skillId -> время последнего применения (UTC) (потокобезопасная)
+    public System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastSkillUse { get; set; } = new();
 
-    // Очередь прекаста/боя: skillId в порядке применения (без дублей)
+    // Очередь прекаста/боя: skillId в порядке применения (без дублей, потокобезопасная)
     public List<string> QueuedSkillIds { get; set; } = new();
+    public object QueuedSkillIdsLock { get; } = new();
 
     public List<Item> Inventory { get; set; } = new();
     public Equipment Equipment { get; set; } = new();
@@ -204,8 +205,8 @@ public class Player : ICombatant
         if (!LearnedSkills.Contains("SK0021") || !IsWieldingBow()) return 0;
         bool marked = target switch
         {
-            Player p => p.ActiveDebuffs.Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
-            Monster m => m.ActiveDebuffs.Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
+            Player p => p.GetDebuffsSnapshot().Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
+            Monster m => m.GetDebuffsSnapshot().Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
             _ => false
         };
         return marked ? BalanceStatic.HunterInstinctCritBonus * GetPassiveRankMult("SK0021") : 0;
@@ -232,8 +233,15 @@ public class Player : ICombatant
     // Направление взгляда (для cleave и т.д.)
     public string Facing { get; set; } = "down";
 
-    // Активные дебаффы
+    // Активные дебаффы (потокобезопасный доступ через DebuffsLock)
     public List<ActiveDebuff> ActiveDebuffs { get; set; } = new();
+    public object DebuffsLock { get; } = new();
+
+    /// <summary>Возвращает снимок списка дебаффов (потокобезопасно).</summary>
+    public List<ActiveDebuff> GetDebuffsSnapshot()
+    {
+        lock (DebuffsLock) return new List<ActiveDebuff>(ActiveDebuffs);
+    }
 
     // Панель быстрого доступа (10 слотов, хранятся ID предметов)
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };

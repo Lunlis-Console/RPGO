@@ -10,92 +10,132 @@ public class DebuffManager
 
     public bool ApplyDebuff(Player target, ActiveDebuff debuff)
     {
-        var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
-        if (existing != null)
+        lock (target.DebuffsLock)
         {
-            existing.RemainingMs = debuff.DurationMs;
-            existing.Value = debuff.Value;
-            return false;
+            var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
+            if (existing != null)
+            {
+                existing.RemainingMs = debuff.DurationMs;
+                existing.Value = debuff.Value;
+                return false;
+            }
+            target.ActiveDebuffs.Add(debuff);
         }
-        target.ActiveDebuffs.Add(debuff);
         Log.Debug($"ApplyDebuff player={target.Name} type={debuff.Type}");
 
-        _ = _combat.SendTargetPlayerDebuffUpdateAsync(target);
+        _ = _combat?.SendTargetPlayerDebuffUpdateAsync(target);
         return true;
     }
 
     public bool ApplyDebuff(Monster target, ActiveDebuff debuff)
     {
-        var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
-        if (existing != null)
+        lock (target.DebuffsLock)
         {
-            existing.RemainingMs = debuff.DurationMs;
-            existing.Value = debuff.Value;
-            return false;
+            var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == debuff.Type && d.SourceSubtype == debuff.SourceSubtype);
+            if (existing != null)
+            {
+                existing.RemainingMs = debuff.DurationMs;
+                existing.Value = debuff.Value;
+                return false;
+            }
+            target.ActiveDebuffs.Add(debuff);
         }
-        target.ActiveDebuffs.Add(debuff);
         return true;
     }
 
     public async void TickDebuffs(Player target)
     {
-        foreach (var d in target.ActiveDebuffs)
-            d.RemainingMs -= Balance.DebuffTickMs;
-        target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
-        await _combat.SendTargetPlayerDebuffUpdateAsync(target);
+        lock (target.DebuffsLock)
+        {
+            foreach (var d in target.ActiveDebuffs)
+                d.RemainingMs -= Balance.DebuffTickMs;
+            target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
+        }
+        if (_combat != null)
+            await _combat.SendTargetPlayerDebuffUpdateAsync(target);
     }
 
     public void TickDebuffs(Monster target)
     {
-        foreach (var d in target.ActiveDebuffs)
-            d.RemainingMs -= Balance.DebuffTickMs;
-        target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
+        lock (target.DebuffsLock)
+        {
+            foreach (var d in target.ActiveDebuffs)
+                d.RemainingMs -= Balance.DebuffTickMs;
+            target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
+        }
     }
 
     public double GetDebuffValue(ICombatant target, DebuffType type)
     {
-        var list = target switch
+        return target switch
         {
-            Player p => p.ActiveDebuffs,
-            Monster m => m.ActiveDebuffs,
-            _ => new List<ActiveDebuff>()
+            Player p => GetDebuffValueSafe(p.DebuffsLock, p.ActiveDebuffs, type),
+            Monster m => GetDebuffValueSafe(m.DebuffsLock, m.ActiveDebuffs, type),
+            _ => 0
         };
-        return list.Where(d => d.Type == type).Sum(d => d.Value);
+    }
+
+    private static double GetDebuffValueSafe(object syncRoot, List<ActiveDebuff> debuffs, DebuffType type)
+    {
+        lock (syncRoot)
+        {
+            return debuffs.Where(d => d.Type == type).Sum(d => d.Value);
+        }
     }
 
     public bool HasDebuff(ICombatant target, DebuffType type)
     {
         return target switch
         {
-            Player p => p.ActiveDebuffs.Any(d => d.Type == type),
-            Monster m => m.ActiveDebuffs.Any(d => d.Type == type),
+            Player p => HasDebuffSafe(p.DebuffsLock, p.ActiveDebuffs, type),
+            Monster m => HasDebuffSafe(m.DebuffsLock, m.ActiveDebuffs, type),
             _ => false
         };
     }
 
-    public void ClearDebuffs(Player target) => target.ActiveDebuffs.Clear();
-    public void ClearDebuffs(Monster target) => target.ActiveDebuffs.Clear();
+    private static bool HasDebuffSafe(object syncRoot, List<ActiveDebuff> debuffs, DebuffType type)
+    {
+        lock (syncRoot)
+        {
+            return debuffs.Any(d => d.Type == type);
+        }
+    }
+
+    public void ClearDebuffs(Player target)
+    {
+        lock (target.DebuffsLock)
+            target.ActiveDebuffs.Clear();
+    }
+
+    public void ClearDebuffs(Monster target)
+    {
+        lock (target.DebuffsLock)
+            target.ActiveDebuffs.Clear();
+    }
 
     public void RefreshDualWieldBuff(Player target)
     {
-        var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == DebuffType.DualWieldBonus);
-        if (target.Equipment.IsDualWielding())
+        lock (target.DebuffsLock)
         {
-            if (existing != null)
+            var existing = target.ActiveDebuffs.FirstOrDefault(d => d.Type == DebuffType.DualWieldBonus);
+            if (target.Equipment.IsDualWielding())
             {
-                existing.RemainingMs = Balance.DualWieldBuffRefreshMs;
-                existing.DurationMs = Balance.DualWieldBuffRefreshMs;
+                if (existing != null)
+                {
+                    existing.RemainingMs = Balance.DualWieldBuffRefreshMs;
+                    existing.DurationMs = Balance.DualWieldBuffRefreshMs;
+                }
+                else
+                {
+                    target.ActiveDebuffs.Add(ActiveDebuff.Create(DebuffType.DualWieldBonus, Balance.DualWieldBonusValue,
+                        Balance.DualWieldBuffRefreshMs, "passive", "Второе оружие",
+                        $"Двойная атака, +{(int)(Balance.DualWieldBonusValue * 100)}% к скорости атаки"));
+                }
             }
-            else
+            else if (existing != null)
             {
-                ApplyDebuff(target, ActiveDebuff.Create(DebuffType.DualWieldBonus, Balance.DualWieldBonusValue,
-                    Balance.DualWieldBuffRefreshMs, "passive", "Второе оружие",
-                    $"Двойная атака, +{(int)(Balance.DualWieldBonusValue * 100)}% к скорости атаки"));
+                target.ActiveDebuffs.Remove(existing);
             }
-        }
-        else if (existing != null)
-        {
-            target.ActiveDebuffs.Remove(existing);
         }
     }
 
@@ -104,9 +144,13 @@ public class DebuffManager
     /// </summary>
     public bool CheckDualWieldBuff(Player target)
     {
-        bool hadBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
+        bool hadBuff;
+        lock (target.DebuffsLock)
+            hadBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
         RefreshDualWieldBuff(target);
-        bool hasBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
+        bool hasBuff;
+        lock (target.DebuffsLock)
+            hasBuff = target.ActiveDebuffs.Any(d => d.Type == DebuffType.DualWieldBonus);
         return hadBuff != hasBuff;
     }
 

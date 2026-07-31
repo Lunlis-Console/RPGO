@@ -77,10 +77,11 @@ public sealed class GameWorld
     private readonly List<Player> _players = new();
     private readonly List<ClientConnection> _clients = new();
     private readonly object _lock = new();
-    private readonly Random _random = new();
 
     // --- Монстры (отдельный лок, чтобы блуждание не блокировало игроков) ---
     private readonly List<Monster> _monsters = new();
+    private readonly Dictionary<Guid, Monster> _monsterById = new();
+    private readonly Dictionary<(int X, int Y), List<Monster>> _monsterByPos = new();
     private readonly object _monsterLock = new();
     private readonly List<(Monster Monster, Player Player, int Damage)> _pendingMonsterAttacks = new();
     private readonly object _monsterAttackLock = new();
@@ -125,22 +126,29 @@ public sealed class GameWorld
 
     private void NotifyFriendsAsync(string playerName, bool online)
     {
+        if (_hub == null) return;
         try
         {
-            if (_hub == null) return;
             var friendOwners = DatabaseManager.GetReverseFriendNames(playerName);
             foreach (var owner in friendOwners)
             {
-                if (!this.TryGetPlayerByName(owner, out var ownerPlayer) || ownerPlayer == null) continue;
-                var conn = FindClientByPlayer(ownerPlayer);
-                if (conn == null) continue;
+                try
+                {
+                    if (!this.TryGetPlayerByName(owner, out var ownerPlayer) || ownerPlayer == null) continue;
+                    var conn = FindClientByPlayer(ownerPlayer);
+                    if (conn == null) continue;
 
-                _ = _hub.SendFriendListToAsync(conn, ownerPlayer);
+                    _ = _hub.SendFriendListToAsync(conn, ownerPlayer);
 
-                string text = online
-                    ? $"Друг {playerName} зашёл(а) в игру"
-                    : $"Друг {playerName} вышел(а) из игры";
-                _ = _hub.SendChatToAsync(conn, ChatChannel.System, "Друзья", text);
+                    string text = online
+                        ? $"Друг {playerName} зашёл(а) в игру"
+                        : $"Друг {playerName} вышел(а) из игры";
+                    _ = _hub.SendChatToAsync(conn, ChatChannel.System, "Друзья", text);
+                }
+                catch
+                {
+                    // Не падаем из-за ошибки уведомления одного игрока
+                }
             }
         }
         catch
@@ -227,17 +235,29 @@ public sealed class GameWorld
 
     public void AddMonster(Monster monster)
     {
-        lock (_monsterLock) _monsters.Add(monster);
+        lock (_monsterLock)
+        {
+            _monsters.Add(monster);
+            _monsterById[monster.Id] = monster;
+        }
     }
 
     public void RemoveMonster(Monster monster)
     {
-        lock (_monsterLock) _monsters.Remove(monster);
+        lock (_monsterLock)
+        {
+            _monsters.Remove(monster);
+            _monsterById.Remove(monster.Id);
+        }
     }
 
     public void ClearMonsters()
     {
-        lock (_monsterLock) _monsters.Clear();
+        lock (_monsterLock)
+        {
+            _monsters.Clear();
+            _monsterById.Clear();
+        }
     }
 
     public List<Monster> GetMonstersSnapshot()
@@ -252,7 +272,7 @@ public sealed class GameWorld
 
     public Monster? FindMonsterById(Guid id)
     {
-        lock (_monsterLock) return _monsters.FirstOrDefault(m => m.Id == id);
+        lock (_monsterLock) return _monsterById.GetValueOrDefault(id);
     }
 
     public int GetMonsterCount()
@@ -277,7 +297,7 @@ public sealed class GameWorld
     }
 
     // --- Случайности ---
-    public int NextRandom(int min, int max) => _random.Next(min, max);
+    public int NextRandom(int min, int max) => Random.Shared.Next(min, max);
 
     // --- Собираемые объекты (коллекционы) ---
     private readonly List<Collectible> _collectibles = new();

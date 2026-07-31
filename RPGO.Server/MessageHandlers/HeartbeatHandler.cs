@@ -16,13 +16,15 @@ public class HeartbeatHandler : BackgroundService
 {
     private readonly GameWorld _world;
     private readonly INetworkHub _hub;
+    private readonly PersistenceService _persistence;
     private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
     private readonly int _maxMissedPings = 3; // 3 * 5s = 15s timeout
 
-    public HeartbeatHandler(GameWorld world, INetworkHub hub)
+    public HeartbeatHandler(GameWorld world, INetworkHub hub, PersistenceService persistence)
     {
         _world = world;
         _hub = hub;
+        _persistence = persistence;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -56,7 +58,7 @@ public class HeartbeatHandler : BackgroundService
             foreach (var conn in _world.GetAllConnectionsSnapshot())
             {
                 if (conn.Player == null) continue;
-                try { DatabaseManager.SavePlayerProgress(conn.Player); }
+                try { _persistence.EnqueueSave(conn.Player); }
                 catch (Exception ex) { Log.Debug($"[AutoSave] Failed for {conn.Player.Name}: {ex.Message}"); }
             }
         }

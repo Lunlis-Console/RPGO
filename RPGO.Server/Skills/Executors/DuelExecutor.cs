@@ -75,7 +75,7 @@ public sealed class DuelExecutor : SkillExecutorBase
             if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
             monster.Health -= hitDmg;
             monster.LastDamagedTime = DateTime.UtcNow;
-            monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+            monster.DamageTracker.AddOrUpdate(pl.Id, hitDmg, (k, old) => old + hitDmg);
         }
 
         if (evaded)

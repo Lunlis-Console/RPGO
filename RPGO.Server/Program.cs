@@ -89,38 +89,37 @@ partial class Program
         projectiles.SetHub(hub);
         dialogue.SetHub(hub);
         party.SetHub(hub);
-        world.SetDependencies(hub, player => { DatabaseManager.SavePlayerProgress(player); return true; });
+        world.SetDependencies(hub, player => { Services.Persistence.EnqueueSave(player); return true; });
 
-        // Создаём контейнер сервисов (временно без циклических зависимостей)
-        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
-            trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat: null!, interactions: null!, auth: null!, zones, instances: null!);
+        // Lazy<GameServices> для разрыва циклических зависимостей:
+        // CombatService, InteractionService, AuthService, InstanceManager
+        // получают Lazy и резолвят GameServices при первом обращении.
+        var servicesLazy = new Lazy<GameServices>(() => Services);
 
-        // Создаём сервисы, зависящие от GameServices
-        var combat = new CombatService(Services);
-        var interactions = new InteractionService(Services);
-        var auth = new AuthService(Services);
-        var instances = new InstanceManager(Services);
+        // Создаём сервисы с циклическими зависимостями
+        var combat = new CombatService(servicesLazy);
+        var pvp = new PvPService(servicesLazy);
+        var hazard = new HazardService(servicesLazy);
+        var interactions = new InteractionService(servicesLazy);
+        var auth = new AuthService(servicesLazy);
+        var instances = new InstanceManager(servicesLazy);
         instances.LoadAll();
+        var persistence = new PersistenceService();
 
-        // Пересоздаём контейнер с полным набором сервисов
+        // Единственное создание GameServices
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, interactions, auth, zones, instances);
+            combat, pvp, hazard, interactions, auth, zones, instances, persistence);
 
-        // Обновляем ссылку на GameServices у сервисов, чтобы они видели Instances и другие циклические зависимости
         hub.SetServices(Services);
         monsters.SetServices(Services);
         dialogue.SetServices(Services);
         projectiles.SetServices(Services);
-        interactions.SetServices(Services);
-        combat.SetServices(Services);
-        instances.SetServices(Services);
-
-        // Передаём GameServices в KillService
         killService.SetGameServices(Services);
 
         MessageHandlerRegistry.RegisterAll(Services);
+        hub.LoadNpcCache();
+        persistence.Start();
 
         // Запуск фоновых задач
         _host = new GameServerHost(Services);
@@ -203,7 +202,7 @@ partial class Program
                 Log.Info($"Игрок {player.Name} покинул игру");
                 await Services.Hub.BroadcastMapAsync();
 
-                DatabaseManager.SavePlayerProgress(player);
+                Services.Persistence.EnqueueSave(player);
             }
 
             try { connection.Client.Close(); } catch (Exception ex) { Log.Warn($"Close client: {ex.Message}"); }
@@ -247,6 +246,7 @@ partial class Program
             Services.Loot.LoadFromDatabase();
             Services.Monsters.Initialize();
             Services.Collectibles.Initialize();
+            Services.Hub.LoadNpcCache();
 
             await Services.Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
 

@@ -16,6 +16,9 @@ public class ClientConnection
     public bool IsReconnecting { get; set; } = false;
     public string? SessionToken { get; set; }
 
+    /// <summary>Tile data already sent for current zone — skip in subsequent map_updates.</summary>
+    public bool TileDataSent { get; set; }
+
     public ClientConnection(TcpClient client)
     {
         Client = client;

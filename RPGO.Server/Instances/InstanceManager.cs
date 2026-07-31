@@ -7,7 +7,8 @@ namespace RPGGame.Server.Instances;
 
 public class InstanceManager
 {
-    private GameServices _svc;
+    private readonly Lazy<GameServices> _svcLazy;
+    private GameServices _svc => _svcLazy.Value;
     private readonly Dictionary<Guid, ActiveInstance> _instances = new();
     private readonly object _lock = new();
     private readonly List<InstanceTemplate> _templates = new();
@@ -16,12 +17,10 @@ public class InstanceManager
 
     public IReadOnlyList<InstanceTemplate> Templates => _templates;
 
-    public InstanceManager(GameServices svc)
+    public InstanceManager(Lazy<GameServices> svc)
     {
-        _svc = svc;
+        _svcLazy = svc;
     }
-
-    public void SetServices(GameServices svc) => _svc = svc;
 
     public void LoadAll()
     {
@@ -346,7 +345,7 @@ public class InstanceManager
                 // Дебаффы монстров
                 foreach (var m in monsters)
                 {
-                    if (m.ActiveDebuffs.Count > 0)
+                    if (m.GetDebuffsSnapshot().Count > 0)
                         _svc.Debuffs.TickDebuffs(m);
                 }
             }

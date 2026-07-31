@@ -11,14 +11,13 @@ namespace RPGGame.Server;
 /// </summary>
 public class InteractionService
 {
-    private GameServices _svc;
+    private readonly Lazy<GameServices> _svcLazy;
+    private GameServices _svc => _svcLazy.Value;
 
-    public InteractionService(GameServices svc)
+    public InteractionService(Lazy<GameServices> svc)
     {
-        _svc = svc;
+        _svcLazy = svc;
     }
-
-    public void SetServices(GameServices svc) => _svc = svc;
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
@@ -272,107 +271,7 @@ public class InteractionService
             try
             {
                 await Task.Delay(Balance.LoopMovePathMs, ct);
-                bool moved = false;
-                List<Player> playersCopy = _svc.World.GetPlayersSnapshot();
-                foreach (var pl in playersCopy)
-                {
-                    if (pl.IsDead) continue;
-                    if (pl.Movement.Path.Count == 0)
-                    {
-                        if (pl.Interaction.IsPending)
-                        {
-                            var interaction = pl.Interaction.Type!;
-                            await ProcessPendingInteraction(pl, interaction);
-                            pl.Interaction.Clear();
-                            moved = true;
-                        }
-                        continue;
-                    }
-                    double slow = 1.0 + pl.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
-                    int moveIntervalMs = (int)(Balance.MoveIntervalMs(pl.Speed) * Math.Max(1.0, slow));
-                    if ((DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs) continue;
-
-                    var next = pl.Movement.Path[0];
-                    pl.Movement.Path.RemoveAt(0);
-
-                    var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
-                    if (next.X < 0 || next.X >= zoneMap.Width
-                        || next.Y < 0 || next.Y >= zoneMap.Height
-                        || _svc.World.Map.IsObstacle(next.X, next.Y))
-                    {
-                        pl.Movement.Stop();
-                        continue;
-                    }
-
-                    int dx = next.X - pl.X;
-                    int dy = next.Y - pl.Y;
-                    if (dx == 1) pl.Facing = "right";
-                    else if (dx == -1) pl.Facing = "left";
-                    else if (dy == 1) pl.Facing = "down";
-                    else if (dy == -1) pl.Facing = "up";
-
-                    pl.X = next.X;
-                    pl.Y = next.Y;
-                    pl.Movement.LastMoveTime = DateTime.UtcNow;
-                    moved = true;
-
-                    // Проверка выхода из инстанса (ExitX, ExitY)
-                    if (pl.CurrentZoneId.StartsWith("instance:"))
-                    {
-                        var inst = _svc.Instances.FindInstanceByPlayer(pl);
-                        if (inst != null && pl.X == inst.Template.ExitX + inst.OffsetX && pl.Y == inst.Template.ExitY + inst.OffsetY)
-                        {
-                            pl.Movement.Stop();
-                            pl.Interaction.Clear();
-                            await _svc.Instances.KickPlayer(pl, "Вы вышли из подземелья.");
-                            continue;
-                        }
-                    }
-
-                    // Проверка портала при движении по пути
-                    var portal = _svc.Zones.FindPortal(pl.CurrentZoneId, pl.X, pl.Y);
-                    if (portal != null)
-                    {
-                        pl.Movement.Stop();
-                        pl.Interaction.Clear();
-                        await HandleZoneTransition(pl, portal);
-                        continue;
-                    }
-
-                    if (_svc.Trade.IsInTrade(pl))
-                    {
-                        var session = _svc.Trade.GetSession(pl.Id);
-                        if (session != null)
-                        {
-                            var other = session.GetOther(pl);
-                            if (other != null)
-                            {
-                                int dist = Math.Abs(pl.X - other.X) + Math.Abs(pl.Y - other.Y);
-                                if (dist > 1)
-                                {
-                                    pl.IsTrading = false;
-                                    other.IsTrading = false;
-                                    _svc.Trade.CancelSession(session, "слишком далеко");
-                                    var plConn = _svc.World.FindClientByPlayer(pl);
-                                    if (plConn != null)
-                                        await _svc.Hub.SendToClient(plConn, new GameMessage
-                                        {
-                                            Type = "trade_close",
-                                            Data = new { Message = "Обмен отменён: слишком далеко." }
-                                        });
-                                    var otherConn = _svc.World.FindClientByPlayer(other);
-                                    if (otherConn != null)
-                                        await _svc.Hub.SendToClient(otherConn, new GameMessage
-                                        {
-                                            Type = "trade_close",
-                                            Data = new { Message = $"Обмен отменён: {pl.Name} слишком далеко." }
-                                        });
-                                }
-                            }
-                        }
-                    }
-                }
-                if (moved) await _svc.Hub.BroadcastMapAsync();
+                await Tick();
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
@@ -380,6 +279,110 @@ public class InteractionService
                 Log.Error("Ошибка цикла перемещения", ex);
             }
         }
+    }
+
+    public async Task Tick()
+    {
+        bool moved = false;
+        List<Player> playersCopy = _svc.World.GetPlayersSnapshot();
+        foreach (var pl in playersCopy)
+        {
+            if (pl.IsDead) continue;
+            if (pl.Movement.Path.Count == 0)
+            {
+                if (pl.Interaction.IsPending)
+                {
+                    var interaction = pl.Interaction.Type!;
+                    await ProcessPendingInteraction(pl, interaction);
+                    pl.Interaction.Clear();
+                    moved = true;
+                }
+                continue;
+            }
+            double slow = 1.0 + pl.GetDebuffsSnapshot().Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+            int moveIntervalMs = (int)(Balance.MoveIntervalMs(pl.Speed) * Math.Max(1.0, slow));
+            if ((DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds < moveIntervalMs) continue;
+
+            var next = pl.Movement.Path[0];
+            pl.Movement.Path.RemoveAt(0);
+
+            var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
+            if (next.X < 0 || next.X >= zoneMap.Width
+                || next.Y < 0 || next.Y >= zoneMap.Height
+                || _svc.World.Map.IsObstacle(next.X, next.Y))
+            {
+                pl.Movement.Stop();
+                continue;
+            }
+
+            int dx = next.X - pl.X;
+            int dy = next.Y - pl.Y;
+            if (dx == 1) pl.Facing = "right";
+            else if (dx == -1) pl.Facing = "left";
+            else if (dy == 1) pl.Facing = "down";
+            else if (dy == -1) pl.Facing = "up";
+
+            pl.X = next.X;
+            pl.Y = next.Y;
+            pl.Movement.LastMoveTime = DateTime.UtcNow;
+            moved = true;
+            _svc.Hub.MarkZoneDirty(pl.CurrentZoneId);
+
+            if (pl.CurrentZoneId.StartsWith("instance:"))
+            {
+                var inst = _svc.Instances.FindInstanceByPlayer(pl);
+                if (inst != null && pl.X == inst.Template.ExitX + inst.OffsetX && pl.Y == inst.Template.ExitY + inst.OffsetY)
+                {
+                    pl.Movement.Stop();
+                    pl.Interaction.Clear();
+                    await _svc.Instances.KickPlayer(pl, "Вы вышли из подземелья.");
+                    continue;
+                }
+            }
+
+            var portal = _svc.Zones.FindPortal(pl.CurrentZoneId, pl.X, pl.Y);
+            if (portal != null)
+            {
+                pl.Movement.Stop();
+                pl.Interaction.Clear();
+                await HandleZoneTransition(pl, portal);
+                continue;
+            }
+
+            if (_svc.Trade.IsInTrade(pl))
+            {
+                var session = _svc.Trade.GetSession(pl.Id);
+                if (session != null)
+                {
+                    var other = session.GetOther(pl);
+                    if (other != null)
+                    {
+                        int dist = Math.Abs(pl.X - other.X) + Math.Abs(pl.Y - other.Y);
+                        if (dist > 1)
+                        {
+                            pl.IsTrading = false;
+                            other.IsTrading = false;
+                            _svc.Trade.CancelSession(session, "слишком далеко");
+                            var plConn = _svc.World.FindClientByPlayer(pl);
+                            if (plConn != null)
+                                await _svc.Hub.SendToClient(plConn, new GameMessage
+                                {
+                                    Type = "trade_close",
+                                    Data = new { Message = "Обмен отменён: слишком далеко." }
+                                });
+                            var otherConn = _svc.World.FindClientByPlayer(other);
+                            if (otherConn != null)
+                                await _svc.Hub.SendToClient(otherConn, new GameMessage
+                                {
+                                    Type = "trade_close",
+                                    Data = new { Message = $"Обмен отменён: {pl.Name} слишком далеко." }
+                                });
+                        }
+                    }
+                }
+            }
+        }
+        if (moved) await _svc.Hub.BroadcastMapAsync();
     }
 
     private async Task HandleZoneTransition(Player player, WorldPortal portal)

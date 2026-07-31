@@ -27,4 +27,6 @@ public interface INetworkHub
     StatsBreakdown BuildBreakdown(Player player);
     Task KickPlayer(ClientConnection connection, string reason);
     Task SendZoneTransition(ClientConnection connection, Player player);
+    void LoadNpcCache();
+    void MarkZoneDirty(string zoneId);
 }

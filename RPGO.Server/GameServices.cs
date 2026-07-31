@@ -27,10 +27,13 @@ public sealed class GameServices
     public PathfindingService Pathfinding { get; }
     public DebuffManager Debuffs { get; }
     public CombatService Combat { get; }
+    public PvPService PvP { get; }
+    public HazardService Hazard { get; }
     public InteractionService Interactions { get; }
     public AuthService Auth { get; }
     public ZoneManager Zones { get; }
     public InstanceManager Instances { get; }
+    public PersistenceService Persistence { get; }
 
     public GameServices(
         GameWorld world,
@@ -49,10 +52,13 @@ public sealed class GameServices
         PathfindingService pathfinding,
         DebuffManager debuffs,
         CombatService combat,
+        PvPService pvp,
+        HazardService hazard,
         InteractionService interactions,
         AuthService auth,
         ZoneManager zones,
-        InstanceManager instances)
+        InstanceManager instances,
+        PersistenceService persistence)
     {
         World = world;
         Hub = hub;
@@ -70,10 +76,13 @@ public sealed class GameServices
         Pathfinding = pathfinding;
         Debuffs = debuffs;
         Combat = combat;
+        PvP = pvp;
+        Hazard = hazard;
         Interactions = interactions;
         Auth = auth;
         Zones = zones;
         Instances = instances;
+        Persistence = persistence;
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)
@@ -87,6 +96,7 @@ public sealed class GameServices
             Loot.LoadFromDatabase();
             Monsters.Initialize();
             Collectibles.Initialize();
+            Hub.LoadNpcCache();
 
             await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
 

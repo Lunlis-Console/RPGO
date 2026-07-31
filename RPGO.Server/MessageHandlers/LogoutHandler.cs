@@ -15,7 +15,7 @@ public class LogoutHandler : BaseHandler
         {
             try
             {
-                DatabaseManager.SavePlayerProgress(player);
+                Svc.Persistence.EnqueueSave(player);
                 World.RemovePlayer(player);
                 Log.Info($"{player.Name} вышел из игры (прогресс сохранён)");
             }

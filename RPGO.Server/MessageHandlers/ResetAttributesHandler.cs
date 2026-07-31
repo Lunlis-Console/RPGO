@@ -42,7 +42,7 @@ public class ResetAttributesHandler : BaseHandler
         player.AttributePoints += totalSpent;
 
         Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
-        DatabaseManager.SavePlayerProgress(player);
+        Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {

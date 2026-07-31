@@ -25,22 +25,22 @@ public static class GameMessageExtensions
 public sealed class GameClient
 {
     private Action? _uiAction;
-    private int _skillPoints;
+    internal int _skillPoints;
 
     public int SkillPoints => _skillPoints;
 
     // Состояние игрока
-    public string PlayerName { get; private set; } = "Игрок";
-    public int PlayerLevel { get; private set; } = 1;
-    public WorldMap? CurrentMap { get; private set; }
-    public StatusData? Status { get; private set; }
-    public InventoryData? Inventory { get; private set; }
-    public List<QuestInfo> AvailableQuests { get; private set; } = new();
-    public List<QuestInfo> ActiveQuests { get; private set; } = new();
+    public string PlayerName { get; internal set; } = "Игрок";
+    public int PlayerLevel { get; internal set; } = 1;
+    public WorldMap? CurrentMap { get; internal set; }
+    public StatusData? Status { get; internal set; }
+    public InventoryData? Inventory { get; internal set; }
+    public List<QuestInfo> AvailableQuests { get; internal set; } = new();
+    public List<QuestInfo> ActiveQuests { get; internal set; } = new();
 
     public bool IsConnected { get; set; }
-    public string? SessionToken { get; private set; }
-    public Guid PlayerId { get; private set; }
+    public string? SessionToken { get; internal set; }
+    public Guid PlayerId { get; internal set; }
 
     // События (UI подписывается)
     public event Action? Connected;
@@ -81,6 +81,7 @@ public sealed class GameClient
 
     // Зоны
     public event Action<string, string, bool>? ZoneChanged;
+    public event Action<byte[], int, int, string, int>? TileDataReceived; // data, width, height, tilesetId, tileSize
     public event Action<string?[]>? HotbarUpdated;
     public event Action<string>? TargetCleared;
     public event Action<string, int, int>? AttackCooldownUpdated;
@@ -113,12 +114,59 @@ public sealed class GameClient
         _uiAction = uiCallback;
     }
 
-    private void Ui(Action action)
+    internal void Ui(Action action)
     {
         // В MonoGame все события уже на UI-потоке, просто вызываем
         try { action(); }
         catch (Exception ex) { Logger.Error("UI action failed", ex); }
     }
+
+    // Internal event raisers for ClientMessageHandlerRegistry
+    internal void RaiseSystemMessage(string msg) => Ui(() => SystemMessage?.Invoke(msg));
+    internal void RaiseWelcomeReceived() => Ui(() => WelcomeReceived?.Invoke());
+    internal void RaiseMapUpdated(WorldMap map) => Ui(() => MapUpdated?.Invoke(map));
+    internal void RaiseChatReceived(string channel, string name, string text, bool isAdmin) => Ui(() => ChatReceived?.Invoke(channel, name, text, isAdmin));
+    internal void RaiseErrorReceived(string text) => Ui(() => ErrorReceived?.Invoke(text));
+    internal void RaiseStatusUpdated(StatusData st) => Ui(() => StatusUpdated?.Invoke(st));
+    internal void RaiseStatusDetailsUpdated(StatusData st) => Ui(() => StatusDetailsUpdated?.Invoke(st));
+    internal void RaiseInventoryUpdated(InventoryData inv) => Ui(() => InventoryUpdated?.Invoke(inv));
+    internal void RaiseQuestLogUpdated(List<QuestInfo> available, List<QuestInfo> active) => Ui(() => QuestLogUpdated?.Invoke(available, active));
+    internal void RaiseZoneChanged(string zoneId, string zoneName, bool pvp) => Ui(() => ZoneChanged?.Invoke(zoneId, zoneName, pvp));
+    internal void RaiseTileDataReceived(byte[] data, int width, int height, string tilesetId, int tileSize) => Ui(() => TileDataReceived?.Invoke(data, width, height, tilesetId, tileSize));
+    internal void RaiseShopUpdated(ShopData shop) => Ui(() => ShopUpdated?.Invoke(shop));
+    internal void RaiseTradeOpened(TradeOpenData open) => Ui(() => TradeOpened?.Invoke(open));
+    internal void RaiseTradeOfferUpdated(TradeOfferData offer) => Ui(() => TradeOfferUpdated?.Invoke(offer));
+    internal void RaiseTradeConfirmUpdated(TradeConfirmData conf) => Ui(() => TradeConfirmUpdated?.Invoke(conf));
+    internal void RaiseTradeCompleted(TradeCompleteData done) => Ui(() => TradeCompleted?.Invoke(done));
+    internal void RaiseTradeClosed(string msg) => Ui(() => TradeClosed?.Invoke(msg));
+    internal void RaiseDialogueOpened(string npcId, string speaker, string text, List<(string Text, int Index)> choices) => Ui(() => DialogueOpened?.Invoke(npcId, speaker, text, choices));
+    internal void RaiseDialogueClosed() => Ui(() => DialogueClosed?.Invoke());
+    internal void RaiseFloatingText(int x, int y, string text, uint color, bool crit) => Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
+    internal void RaisePlayerDeath(int lostGold) => Ui(() => PlayerDeathReceived?.Invoke(lostGold));
+    internal void RaiseCombatStateUpdated(bool inCombat, string? targetName, int targetHp, int targetMaxHp) => Ui(() => CombatStateUpdated?.Invoke(inCombat, targetName, targetHp, targetMaxHp));
+    internal void RaiseTargetDebuffsUpdated(List<DebuffInfo>? debuffs) => Ui(() => TargetDebuffsUpdated?.Invoke(debuffs));
+    internal void RaiseTargetCleared(string reason) => Ui(() => TargetCleared?.Invoke(reason));
+    internal void RaisePartyUpdated(PartyInfo party) => Ui(() => PartyUpdated?.Invoke(party));
+    internal void RaisePartyDisbanded() => Ui(() => PartyDisbanded?.Invoke());
+    internal void RaisePartyInviteReceived(string inviterName, string msg) => Ui(() => PartyInviteReceived?.Invoke(inviterName, msg));
+    internal void RaiseTradeRequestReceived(string inviterName) => Ui(() => TradeRequestReceived?.Invoke(inviterName));
+    internal void RaiseSkillsUpdated(List<ClientSkillInfo> list) => Ui(() => SkillsUpdated?.Invoke(list));
+    internal void RaiseHotbarUpdated(string?[] slots) => Ui(() => HotbarUpdated?.Invoke(slots));
+    internal void RaiseLootReceived(string corpseId, string monsterName, int dmgPct, List<LootItemInfo> items, int gold) => Ui(() => LootReceived?.Invoke(corpseId, monsterName, dmgPct, items, gold));
+    internal void RaiseBoardOpened() => Ui(() => BoardOpened?.Invoke());
+    internal void RaiseFriendListUpdated(List<FriendInfo> friends) => Ui(() => FriendListUpdated?.Invoke(friends));
+    internal void RaiseFriendResultReceived(bool ok, string msg) => Ui(() => FriendResultReceived?.Invoke(ok, msg));
+    internal void RaiseAttackCooldownUpdated(string sid, int rem, int total) => Ui(() => AttackCooldownUpdated?.Invoke(sid, rem, total));
+    internal void RaiseProjectileSpawned(string id, double sx, double sy, double tx, double ty, string vt, int fm) => Ui(() => ProjectileSpawned?.Invoke(id, sx, sy, tx, ty, vt, fm));
+    internal void RaiseRemotePlayerAttack(string playerName, string hand, string? skillId, int? targetX, int? targetY, int? buffDurationMs) => Ui(() => RemotePlayerAttack?.Invoke(playerName, hand, skillId, targetX, targetY, buffDurationMs));
+    internal void RaisePlayerAttackPerformed(string hand, string? skillId) => Ui(() => PlayerAttackPerformed?.Invoke(hand, skillId));
+    internal void RaiseRemotePlayerFacing(string playerName, string facing) => Ui(() => RemotePlayerFacing?.Invoke(playerName, facing));
+    internal void RaiseProjectileHit(string id, double x, double y) => Ui(() => ProjectileHit?.Invoke(id, x, y));
+    internal void RaiseMailListReceived(string folder, List<MailEntry> messages) => Ui(() => MailListReceived?.Invoke(folder, messages));
+    internal void RaiseMailDetailReceived(MailEntry msg) => Ui(() => MailDetailReceived?.Invoke(msg));
+    internal void RaiseMailUnreadReceived(int count) => Ui(() => MailUnreadReceived?.Invoke(count));
+    internal void RaiseMailResultReceived(bool ok, string err) => Ui(() => MailResultReceived?.Invoke(ok, err));
+    internal void RaiseUnknownMessage(GameMessage message) => Ui(() => UnknownMessage?.Invoke(message));
 
     public Task SendAsync(string type, object? data)
     {
@@ -183,635 +231,8 @@ public sealed class GameClient
         Logger.Debug($"<< {message.Type}");
         try
         {
-            switch (message.Type)
-            {
-                case "auth_response":
-                    if (message.Data is JsonElement authEl)
-                    {
-                        bool success = authEl.TryGetProperty("Success", out var s) && s.GetBoolean();
-                        string msg = authEl.TryGetProperty("Message", out var m) ? (m.GetString() ?? "") : "";
-                        Ui(() => SystemMessage?.Invoke(success ? msg : $"Ошибка: {msg}"));
-                        if (success)
-                        {
-                            string? token = authEl.TryGetProperty("session_token", out var stEl) ? stEl.GetString() : null;
-                            Guid pid = authEl.TryGetProperty("player_id", out var pidEl) && pidEl.ValueKind == JsonValueKind.String ? Guid.Parse(pidEl.GetString() ?? Guid.Empty.ToString()) : Guid.Empty;
-                            SessionToken = token;
-                            PlayerId = pid;
-                            GameMain.Instance?.Network.SetSession(token ?? "", pid);
-                            _ = SendAsync("skills_request", null);
-                        }
-                    }
-                    break;
-
-                case "welcome":
-                    var wel = message.Deserialize<WelcomeData>();
-                    PlayerName = wel?.PlayerName ?? "Игрок";
-                    Ui(() => WelcomeReceived?.Invoke());
-                    break;
-
-                case "map_update":
-                    var map = message.Deserialize<WorldMap>();
-                    if (map != null)
-                    {
-                        CurrentMap = map;
-                        Ui(() => MapUpdated?.Invoke(map));
-                    }
-                    break;
-
-                case "chat":
-                    var chat = message.Deserialize<ChatData>();
-                    if (chat != null)
-                    {
-                        string channel = chat.Channel ?? "System";
-                        Ui(() => ChatReceived?.Invoke(channel, chat.Name ?? "Система", chat.Text ?? "", chat.IsAdmin));
-                    }
-                    break;
-
-                case "error":
-                    if (message.Data is JsonElement errEl)
-                    {
-                        string text = errEl.TryGetProperty("Message", out var m2) ? (m2.GetString() ?? "Неизвестная ошибка") : "Неизвестная ошибка";
-                        Ui(() => ErrorReceived?.Invoke(text));
-                        Ui(() => SystemMessage?.Invoke($"[Ошибка] {text}"));
-                    }
-                    break;
-
-                case "status_response":
-                    var st = message.Deserialize<StatusData>();
-                    if (st != null)
-                    {
-                        Status = st;
-                        PlayerLevel = st.Level;
-                        if (st.Health > 0) IsDead = false;
-                        Ui(() => StatusUpdated?.Invoke(st));
-                        Ui(() => StatusDetailsUpdated?.Invoke(st));
-                    }
-                    break;
-
-                case "inventory_response":
-                    var inv = message.Deserialize<InventoryData>();
-                    if (inv != null)
-                    {
-                        Inventory = inv;
-                        Ui(() => InventoryUpdated?.Invoke(inv));
-                    }
-                    break;
-
-                case "quest_log":
-                    var log = message.Deserialize<QuestLogData>();
-                    AvailableQuests = log?.Available ?? new List<QuestInfo>();
-                    ActiveQuests = log?.Active ?? new List<QuestInfo>();
-                    Ui(() => QuestLogUpdated?.Invoke(AvailableQuests, ActiveQuests));
-                    break;
-
-                case "zone_transition":
-                    if (message.Data is JsonElement ztEl)
-                    {
-                        string zoneId = ztEl.TryGetProperty("ZoneId", out var zi) ? zi.GetString() ?? "main" : "main";
-                        string zoneName = ztEl.TryGetProperty("ZoneName", out var zn) ? zn.GetString() ?? zoneId : zoneId;
-                        bool pvp = ztEl.TryGetProperty("PvPEnabled", out var pv) && pv.GetBoolean();
-                        Ui(() => ZoneChanged?.Invoke(zoneId, zoneName, pvp));
-                    }
-                    break;
-
-                case "shop_response":
-                case "shop_update":
-                    var shop = message.Deserialize<ShopData>();
-                    if (shop != null)
-                        Ui(() => ShopUpdated?.Invoke(shop));
-                    break;
-
-                case "trade_open":
-                    var open = message.Deserialize<TradeOpenData>();
-                    if (open != null)
-                        Ui(() => TradeOpened?.Invoke(open));
-                    break;
-
-                case "trade_offer_update":
-                    var offer = message.Deserialize<TradeOfferData>();
-                    if (offer != null)
-                        Ui(() => TradeOfferUpdated?.Invoke(offer));
-                    break;
-
-                case "trade_confirm_update":
-                    var conf = message.Deserialize<TradeConfirmData>();
-                    if (conf != null)
-                        Ui(() => TradeConfirmUpdated?.Invoke(conf));
-                    break;
-
-                case "trade_complete":
-                    var done = message.Deserialize<TradeCompleteData>();
-                    if (done != null)
-                        Ui(() => TradeCompleted?.Invoke(done));
-                    break;
-
-                case "trade_close":
-                    {
-                        string msg = "Обмен отменён.";
-                        if (message.Data is JsonElement el && el.TryGetProperty("Message", out var mEl))
-                            msg = mEl.GetString() ?? msg;
-                        Ui(() => TradeClosed?.Invoke(msg));
-                    }
-                    break;
-
-                case "trade_declined":
-                    {
-                        string msg = "Игрок отказался от обмена.";
-                        if (message.Data is JsonElement el && el.TryGetProperty("Message", out var mEl))
-                            msg = mEl.GetString() ?? msg;
-                        Ui(() => TradeClosed?.Invoke(msg));
-                    }
-                    break;
-
-                case "dialogue_open":
-                    if (message.Data is JsonElement dlgEl)
-                    {
-                        string npcId = dlgEl.TryGetProperty("NpcId", out var nid) ? (nid.GetString() ?? "") : "";
-                        string speaker = dlgEl.TryGetProperty("Speaker", out var sp) ? (sp.GetString() ?? "") : "";
-                        string text = dlgEl.TryGetProperty("Text", out var tx) ? (tx.GetString() ?? "") : "";
-                        var choices = new List<(string, int)>();
-                        if (dlgEl.TryGetProperty("Choices", out var carr) && carr.ValueKind == JsonValueKind.Array)
-                        {
-                            int idx = 0;
-                            foreach (var ce in carr.EnumerateArray())
-                            {
-                                string ct = ce.TryGetProperty("Text", out var ctP) ? (ctP.GetString() ?? "") : "";
-                                choices.Add((ct, idx));
-                                idx++;
-                            }
-                        }
-                        Ui(() => DialogueOpened?.Invoke(npcId, speaker, text, choices));
-                    }
-                    break;
-
-                case "dialogue_close":
-                    Ui(() => DialogueClosed?.Invoke());
-                    break;
-
-                case "damage":
-                    if (message.Data is JsonElement dmgEl)
-                    {
-                        int amount = dmgEl.TryGetProperty("Amount", out var am) ? am.GetInt32() : 0;
-                        bool isCrit = dmgEl.TryGetProperty("IsCrit", out var ic) && ic.GetBoolean();
-                        bool isSkill = dmgEl.TryGetProperty("IsSkill", out var skillEl) && skillEl.GetBoolean();
-                        int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
-                        int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
-                        string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
-                        string result = dmgEl.TryGetProperty("Result", out var rs) ? (rs.GetString() ?? "") : "";
-
-                        uint color;
-                        string text;
-                        bool crit = isCrit;
-                        if (amount <= 0 && result == "miss")
-                        {
-                            color = 0xFFAAAAAAu;   // серый
-                            text = "Промах";
-                            crit = false;
-                        }
-                        else if (amount <= 0 && result == "parry")
-                        {
-                            color = 0xFF66CCFFu;   // голубой
-                            text = "Парирование";
-                            crit = false;
-                        }
-                        else if (amount <= 0 && result == "block")
-                        {
-                            color = 0xFFFFCC44u;   // жёлтый
-                            text = "Блок";
-                            crit = false;
-                        }
-                        else if (amount <= 0 && result == "returning")
-                        {
-                            color = 0xFF8888FFu;   // сиреневый
-                            text = "Возвращение";
-                            crit = false;
-                        }
-                        else if (amount <= 0)
-                        {
-                            color = 0xFFAAAAAAu;
-                            text = "Промах";
-                            crit = false;
-                        }
-                        else if (isSkill && crit)
-                        {
-                            color = 0xFFFF6600u;   // оранжевый (крит навыка)
-                            text = "-" + amount + "!";
-                        }
-                        else if (isSkill)
-                        {
-                            color = 0xFFFFDD44u;   // жёлтый (навык)
-                            text = "-" + amount;
-                        }
-                        else if (crit && target == "player")
-                        {
-                            color = 0xFFFFD040u;   // жёлтый (крит по игроку)
-                            text = "-" + amount + "!";
-                        }
-                        else if (crit)
-                        {
-                            color = 0xFF40FF80u;   // ярко-зелёный (крит по монстру)
-                            text = "-" + amount + "!";
-                        }
-                        else if (target == "player")
-                        {
-                            color = 0xFFF06040u;   // оранжево-красный (по игроку)
-                            text = "-" + amount;
-                        }
-                        else
-                        {
-                            color = 0xFF30CC60u;   // зелёный (по монстру/НПС)
-                            text = "-" + amount;
-                        }
-
-                        Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
-                    }
-                    break;
-
-                case "heal":
-                    if (message.Data is JsonElement healEl)
-                    {
-                        int amount = healEl.TryGetProperty("Amount", out var ham) ? ham.GetInt32() : 0;
-                        int x = healEl.TryGetProperty("X", out var hxp) ? hxp.GetInt32() : 0;
-                        int y = healEl.TryGetProperty("Y", out var hyp) ? hyp.GetInt32() : 0;
-                        Logger.Debug($"FLT heal argb={0xFF40E060u:X8} text=+{amount}");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF40E060u, false));
-                    }
-                    break;
-
-                case "mana_regen":
-                    if (message.Data is JsonElement manaEl)
-                    {
-                        int amount = manaEl.TryGetProperty("Amount", out var mam) ? mam.GetInt32() : 0;
-                        int x = manaEl.TryGetProperty("X", out var mxp) ? mxp.GetInt32() : 0;
-                        int y = manaEl.TryGetProperty("Y", out var myp) ? myp.GetInt32() : 0;
-                        Logger.Debug($"FLT mana_regen argb={0xFF60A0FFu:X8} text=+{amount}");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF60A0FFu, false));
-                    }
-                    break;
-
-                case "player_death":
-                    if (message.Data is JsonElement deathEl)
-                    {
-                        int lostGold = deathEl.TryGetProperty("LostGold", out var lgEl) ? lgEl.GetInt32() : 0;
-                        IsDead = true;
-                        DeathLostGold = lostGold;
-                        Ui(() => PlayerDeathReceived?.Invoke(lostGold));
-                    }
-                    break;
-
-                case "combat_state":
-                    if (message.Data is JsonElement cs)
-                    {
-                        bool inCombat = cs.TryGetProperty("InCombat", out var ic2) && ic2.GetBoolean();
-                        string? tName = cs.TryGetProperty("TargetName", out var tn) ? tn.GetString() : null;
-                        int tHp = cs.TryGetProperty("TargetHp", out var th) ? th.GetInt32() : 0;
-                        int tMaxHp = cs.TryGetProperty("TargetMaxHp", out var tmh) ? tmh.GetInt32() : 0;
-                        Ui(() => CombatStateUpdated?.Invoke(inCombat, tName, tHp, tMaxHp));
-                        if (!inCombat)
-                        {
-                            Ui(() => TargetDebuffsUpdated?.Invoke(null));
-                        }
-                        else if (cs.TryGetProperty("TargetDebuffs", out var tdArr) && tdArr.ValueKind == JsonValueKind.Array)
-                        {
-                            var tDebuffs = new List<DebuffInfo>();
-                            foreach (var el in tdArr.EnumerateArray())
-                                tDebuffs.Add(new DebuffInfo
-                                {
-                                    Type = el.TryGetProperty("Type", out var dt) ? dt.GetString() ?? "" : "",
-                                    DisplayName = el.TryGetProperty("DisplayName", out var dn) ? dn.GetString() ?? "" : "",
-                                    Description = el.TryGetProperty("Description", out var dd2) ? dd2.GetString() ?? "" : "",
-                                    Value = el.TryGetProperty("Value", out var dv) ? dv.GetDouble() : 0,
-                                    RemainingMs = el.TryGetProperty("RemainingMs", out var dr) ? dr.GetInt32() : 0,
-                                    DurationMs = el.TryGetProperty("DurationMs", out var dd) ? dd.GetInt32() : 0
-                                });
-                            Ui(() => TargetDebuffsUpdated?.Invoke(tDebuffs));
-                        }
-                    }
-                    break;
-
-                case "target_debuff_update":
-                    if (message.Data is JsonElement tdu && tdu.TryGetProperty("Debuffs", out var debArr) && debArr.ValueKind == JsonValueKind.Array)
-                    {
-                        var debuffs = new List<DebuffInfo>();
-                        foreach (var el in debArr.EnumerateArray())
-                            debuffs.Add(new DebuffInfo
-                            {
-                                Type = el.TryGetProperty("Type", out var dt) ? dt.GetString() ?? "" : "",
-                                DisplayName = el.TryGetProperty("DisplayName", out var dn) ? dn.GetString() ?? "" : "",
-                                Description = el.TryGetProperty("Description", out var ddsc) ? ddsc.GetString() ?? "" : "",
-                                Value = el.TryGetProperty("Value", out var dv) ? dv.GetDouble() : 0,
-                                RemainingMs = el.TryGetProperty("RemainingMs", out var dr) ? dr.GetInt32() : 0,
-                                DurationMs = el.TryGetProperty("DurationMs", out var dd) ? dd.GetInt32() : 0
-                            });
-                        Ui(() => TargetDebuffsUpdated?.Invoke(debuffs));
-                    }
-                    break;
-
-                case "cancel_target":
-                case "target_cleared":
-                    Ui(() => TargetCleared?.Invoke("cleared"));
-                    break;
-
-                case "party_invite_sent":
-                    if (message.Data is JsonElement pis && pis.TryGetProperty("TargetName", out var ptn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"Приглашение отправлено {ptn.GetString()}", false));
-                    break;
-
-                case "party_invite_declined":
-                    if (message.Data is JsonElement pdec && pdec.TryGetProperty("TargetName", out var pdn))
-                        Ui(() => ChatReceived?.Invoke("Party", "Пати", $"{pdn.GetString()} отказал(а) от приглашения", false));
-                    break;
-
-                case "trade_request_sent":
-                    if (message.Data is JsonElement trs && trs.TryGetProperty("TargetName", out var trn))
-                        Ui(() => ChatReceived?.Invoke("System", "Трейд", $"Запрос обмена отправлен {trn.GetString()}", false));
-                    break;
-
-                case "party_update":
-                    var party = message.Deserialize<PartyInfo>();
-                    if (party != null)
-                        Ui(() => PartyUpdated?.Invoke(party));
-                    break;
-
-                case "party_disbanded":
-                    Ui(() => PartyDisbanded?.Invoke());
-                    break;
-
-                case "party_invite_received":
-                    if (message.Data is JsonElement pir)
-                    {
-                        string? inviterName = pir.TryGetProperty("InviterName", out var invEl) ? invEl.GetString() : null;
-                        if (inviterName != null)
-                            Ui(() => PartyInviteReceived?.Invoke(inviterName, ""));
-                    }
-                    break;
-
-                case "trade_request_received":
-                    if (message.Data is JsonElement trEl)
-                    {
-                        string? inviterName = trEl.TryGetProperty("InviterName", out var invN) ? invN.GetString() : null;
-                        if (inviterName != null)
-                            Ui(() => TradeRequestReceived?.Invoke(inviterName));
-                    }
-                    break;
-
-                case "skills_response":
-                    if (message.Data is JsonElement sk)
-                    {
-                        var list = new List<ClientSkillInfo>();
-                        if (sk.TryGetProperty("Skills", out var arr) && arr.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var e in arr.EnumerateArray())
-                            {
-                                list.Add(new ClientSkillInfo
-                                {
-                                    Id = e.TryGetProperty("Id", out var id) ? (id.GetString() ?? "") : "",
-                                    Name = e.TryGetProperty("Name", out var nm) ? (nm.GetString() ?? "") : "",
-                                    Description = e.TryGetProperty("Description", out var ds) ? (ds.GetString() ?? "") : "",
-                                    Type = e.TryGetProperty("Type", out var ty) ? (ty.GetString() ?? "") : "",
-                                    MpCost = e.TryGetProperty("MpCost", out var mp) ? mp.GetInt32() : 0,
-                                    CooldownMs = e.TryGetProperty("CooldownMs", out var cd) ? cd.GetInt32() : 0,
-                                    DamageMultiplier = e.TryGetProperty("DamageMultiplier", out var dm) ? dm.GetDouble() : 1,
-                                    MinLevel = e.TryGetProperty("MinLevel", out var ml) ? ml.GetInt32() : 1,
-                                    SkillPointCost = e.TryGetProperty("SkillPointCost", out var sp) ? sp.GetInt32() : 1,
-                                    ParentId = e.TryGetProperty("ParentId", out var pa) && pa.ValueKind != JsonValueKind.Null ? pa.GetString() : null,
-                                    Tier = e.TryGetProperty("Tier", out var ti) ? ti.GetInt32() : 1,
-                                    IconName = e.TryGetProperty("IconName", out var ic) && ic.ValueKind != JsonValueKind.Null ? ic.GetString() : null,
-                                    MaxRank = e.TryGetProperty("MaxRank", out var mr) ? mr.GetInt32() : 3
-                                });
-                            }
-                        }
-                        var learned = new List<string>();
-                        if (sk.TryGetProperty("LearnedSkills", out var ls) && ls.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var e in ls.EnumerateArray())
-                                if (e.ValueKind == JsonValueKind.String && e.GetString() is string sid)
-                                    learned.Add(sid);
-                        }
-                        var ranks = new Dictionary<string, int>();
-                        if (sk.TryGetProperty("SkillRanks", out var sr) && sr.ValueKind == JsonValueKind.Object)
-                        {
-                            foreach (var p in sr.EnumerateObject())
-                                if (p.Value.TryGetInt32(out int r)) ranks[p.Name] = r;
-                        }
-                        int skillPts = sk.TryGetProperty("SkillPoints", out var spt) ? spt.GetInt32() : 0;
-                        Ui(() =>
-                        {
-                            foreach (var s in list)
-                            {
-                                s.Learned = learned.Contains(s.Id);
-                                s.Rank = ranks.TryGetValue(s.Id, out int r) ? r : 1;
-                            }
-                            _skillPoints = skillPts;
-                            SkillsUpdated?.Invoke(list);
-                        });
-                    }
-                    break;
-
-                case "hotbar_update":
-                case "hotbar_response":
-                    if (message.Data is JsonElement hb)
-                    {
-                        var slots = new string?[10];
-                        if (hb.TryGetProperty("Slots", out var sarr) && sarr.ValueKind == JsonValueKind.Array)
-                        {
-                            int i = 0;
-                            foreach (var e in sarr.EnumerateArray())
-                            {
-                                if (i >= 10) break;
-                                slots[i++] = e.ValueKind == JsonValueKind.String ? e.GetString() : null;
-                            }
-                        }
-                        Ui(() => HotbarUpdated?.Invoke(slots));
-                    }
-                    break;
-
-                case "loot_corpse":
-                    if (message.Data is JsonElement lootEl)
-                    {
-                        string corpseId = lootEl.TryGetProperty("CorpseId", out var cid) ? (cid.GetString() ?? "") : "";
-                        string monsterName = lootEl.TryGetProperty("MonsterName", out var mn) ? (mn.GetString() ?? "") : "";
-                        int gold = lootEl.TryGetProperty("Gold", out var g) ? g.GetInt32() : 0;
-                        int dmgPct = lootEl.TryGetProperty("DamagePercent", out var dp) ? dp.GetInt32() : 0;
-                        var items = new List<LootItemInfo>();
-                        if (lootEl.TryGetProperty("Items", out var itemsEl) && itemsEl.ValueKind == JsonValueKind.Array)
-                        {
-                            foreach (var iel in itemsEl.EnumerateArray())
-                            {
-                                items.Add(new LootItemInfo
-                                {
-                                    Id = iel.TryGetProperty("Id", out var idP) ? (idP.GetString() ?? "") : "",
-                                    Name = iel.TryGetProperty("Name", out var nmP) ? (nmP.GetString() ?? "") : "",
-                                    Type = iel.TryGetProperty("Type", out var tpP) ? (tpP.GetString() ?? "") : "",
-                                    WeaponSubtype = iel.TryGetProperty("WeaponSubtype", out var wsP) ? (wsP.GetString() ?? "") : "",
-                                    Value = iel.TryGetProperty("Value", out var vP) ? vP.GetInt32() : 0,
-                                    Description = iel.TryGetProperty("Description", out var dP) ? (dP.GetString() ?? "") : ""
-                                });
-                            }
-                        }
-                        Ui(() => LootReceived?.Invoke(corpseId, monsterName, dmgPct, items, gold));
-                    }
-                    break;
-
-                case "board_open":
-                case "open_board":
-                    Ui(() => BoardOpened?.Invoke());
-                    break;
-
-                case "friend_list":
-                    var fl = message.Deserialize<FriendListData>();
-                    if (fl != null)
-                        Ui(() => FriendListUpdated?.Invoke(fl.Friends));
-                    break;
-
-                case "friend_result":
-                    if (message.Data is JsonElement frEl)
-                    {
-                        bool ok = frEl.TryGetProperty("Success", out var okEl) && okEl.GetBoolean();
-                        string msg = frEl.TryGetProperty("Message", out var mEl) ? (mEl.GetString() ?? "") : "";
-                        Ui(() => FriendResultReceived?.Invoke(ok, msg));
-                    }
-                    break;
-
-                case "attack_cooldown":
-                case "skill_cooldown":
-                    if (message.Data is JsonElement ac)
-                    {
-                        string? sid = ac.TryGetProperty("SkillId", out var sidEl) ? sidEl.GetString() : null;
-                        int rem = ac.TryGetProperty("RemainingMs", out var remEl) ? remEl.GetInt32() : 0;
-                        int total = ac.TryGetProperty("TotalMs", out var totEl) ? totEl.GetInt32() : 0;
-                        if (sid != null)
-                            Ui(() => AttackCooldownUpdated?.Invoke(sid, rem, total));
-                    }
-                    break;
-
-                case "projectile_spawn":
-                    if (message.Data is JsonElement ps)
-                    {
-                        string id = ps.TryGetProperty("Id", out var psId) ? (psId.GetString() ?? "") : "";
-                        double sx = ps.TryGetProperty("StartX", out var psSx) ? psSx.GetDouble() : 0;
-                        double sy = ps.TryGetProperty("StartY", out var psSy) ? psSy.GetDouble() : 0;
-                        double tx = ps.TryGetProperty("TargetX", out var psTx) ? psTx.GetDouble() : 0;
-                        double ty = ps.TryGetProperty("TargetY", out var psTy) ? psTy.GetDouble() : 0;
-                        string vt = ps.TryGetProperty("VisualType", out var psVt) ? (psVt.GetString() ?? "arrow") : "arrow";
-                        int fm = ps.TryGetProperty("FlightMs", out var psFm) ? psFm.GetInt32() : 350;
-                        Ui(() => ProjectileSpawned?.Invoke(id, sx, sy, tx, ty, vt, fm));
-                    }
-                    break;
-
-                case "player_attack":
-                    if (message.Data is JsonElement paEl)
-                    {
-                        string hand = paEl.TryGetProperty("Hand", out var hd) ? (hd.GetString() ?? "main") : "main";
-                        string playerName = paEl.TryGetProperty("PlayerName", out var pn) ? (pn.GetString() ?? "") : "";
-                        string? skillId = paEl.TryGetProperty("SkillId", out var skid) && skid.ValueKind != JsonValueKind.Null ? skid.GetString() : null;
-                        int? targetX = paEl.TryGetProperty("TargetX", out var tx) ? tx.GetInt32() : null;
-                        int? targetY = paEl.TryGetProperty("TargetY", out var ty) ? ty.GetInt32() : null;
-                        int? buffDurationMs = paEl.TryGetProperty("BuffDurationMs", out var bd) ? bd.GetInt32() : null;
-                        if (!string.IsNullOrEmpty(playerName) && playerName != PlayerName)
-                            Ui(() => RemotePlayerAttack?.Invoke(playerName, hand, skillId, targetX, targetY, buffDurationMs));
-                        else
-                            Ui(() => PlayerAttackPerformed?.Invoke(hand, skillId));
-                    }
-                    break;
-
-                case "player_facing":
-                    if (message.Data is JsonElement pfEl)
-                    {
-                        string pfName = pfEl.TryGetProperty("PlayerName", out var pfn) ? (pfn.GetString() ?? "") : "";
-                        string pfFacing = pfEl.TryGetProperty("Facing", out var pff) ? (pff.GetString() ?? "down") : "down";
-                        if (!string.IsNullOrEmpty(pfName) && pfName != PlayerName)
-                            Ui(() => RemotePlayerFacing?.Invoke(pfName, pfFacing));
-                    }
-                    break;
-
-                case "projectile_hit":
-                    if (message.Data is JsonElement ph)
-                    {
-                        string hid = ph.TryGetProperty("Id", out var phId) ? (phId.GetString() ?? "") : "";
-                        double hx = ph.TryGetProperty("X", out var phX) ? phX.GetDouble() : 0;
-                        double hy = ph.TryGetProperty("Y", out var phY) ? phY.GetDouble() : 0;
-                        Ui(() => ProjectileHit?.Invoke(hid, hx, hy));
-                    }
-                    break;
-
-                case "mail_list":
-                    if (message.Data is JsonElement mlData)
-                    {
-                        var messages = new List<MailEntry>();
-                        if (mlData.TryGetProperty("Mails", out var msgs))
-                        {
-                            foreach (var m in msgs.EnumerateArray())
-                            {
-                                var mm = new MailEntry
-                                {
-                                    Id = m.TryGetProperty("Id", out var mid) ? mid.GetInt32() : 0,
-                                    SenderName = m.TryGetProperty("SenderName", out var ms) ? ms.GetString() ?? "" : "",
-                                    RecipientName = m.TryGetProperty("RecipientName", out var mr) ? mr.GetString() ?? "" : "",
-                                    Subject = m.TryGetProperty("Subject", out var msu) ? msu.GetString() ?? "" : "",
-                                    Body = m.TryGetProperty("Body", out var mb) ? mb.GetString() ?? "" : "",
-                                    GoldAmount = m.TryGetProperty("GoldAmount", out var mg) ? mg.GetInt32() : 0,
-                                    ItemId = m.TryGetProperty("ItemId", out var mi) ? mi.GetString() ?? "" : "",
-                                    ItemName = m.TryGetProperty("ItemName", out var mn) ? mn.GetString() ?? "" : "",
-                                    ItemType = m.TryGetProperty("ItemType", out var mt) ? mt.GetString() ?? "" : "",
-                                    ItemQuantity = m.TryGetProperty("ItemQuantity", out var mq) ? mq.GetInt32() : 0,
-                                    SentAt = m.TryGetProperty("SentAt", out var mst) ? mst.GetString() ?? "" : "",
-                                    ReadAt = m.TryGetProperty("ReadAt", out var mrd) ? mrd.GetString() ?? "" : "",
-                                    TakenAt = m.TryGetProperty("TakenAt", out var mtn) ? mtn.GetString() ?? "" : ""
-                                };
-                                messages.Add(mm);
-                            }
-                        }
-                        string folder = mlData.TryGetProperty("Folder", out var mf) ? mf.GetString() ?? "" : "";
-                        Ui(() => MailListReceived?.Invoke(folder, messages));
-                    }
-                    break;
-
-                case "mail_detail":
-                    if (message.Data is JsonElement mdData)
-                    {
-                        var msg = new MailEntry
-                        {
-                            Id = mdData.TryGetProperty("Id", out var did) ? did.GetInt32() : 0,
-                            SenderName = mdData.TryGetProperty("SenderName", out var ds) ? ds.GetString() ?? "" : "",
-                            RecipientName = mdData.TryGetProperty("RecipientName", out var dr) ? dr.GetString() ?? "" : "",
-                            Subject = mdData.TryGetProperty("Subject", out var dsu) ? dsu.GetString() ?? "" : "",
-                            Body = mdData.TryGetProperty("Body", out var db) ? db.GetString() ?? "" : "",
-                            GoldAmount = mdData.TryGetProperty("GoldAmount", out var dg) ? dg.GetInt32() : 0,
-                            ItemId = mdData.TryGetProperty("ItemId", out var di) ? di.GetString() ?? "" : "",
-                            ItemName = mdData.TryGetProperty("ItemName", out var dn) ? dn.GetString() ?? "" : "",
-                            ItemType = mdData.TryGetProperty("ItemType", out var dt) ? dt.GetString() ?? "" : "",
-                            ItemQuantity = mdData.TryGetProperty("ItemQuantity", out var dq) ? dq.GetInt32() : 0,
-                            SentAt = mdData.TryGetProperty("SentAt", out var dst) ? dst.GetString() ?? "" : "",
-                            ReadAt = mdData.TryGetProperty("ReadAt", out var drd) ? drd.GetString() ?? "" : "",
-                            TakenAt = mdData.TryGetProperty("TakenAt", out var dtn) ? dtn.GetString() ?? "" : ""
-                        };
-                        Ui(() => MailDetailReceived?.Invoke(msg));
-                    }
-                    break;
-
-                case "mail_unread":
-                    if (message.Data is JsonElement muData)
-                    {
-                        int count = muData.TryGetProperty("Count", out var uc) ? uc.GetInt32() : 0;
-                        Ui(() => MailUnreadReceived?.Invoke(count));
-                    }
-                    break;
-
-                case "mail_result":
-                    if (message.Data is JsonElement mrData)
-                    {
-                        bool ok = mrData.TryGetProperty("Success", out var msucc) && msucc.GetBoolean();
-                        string err = mrData.TryGetProperty("Message", out var merr) ? merr.GetString() ?? "" : "";
-                        Ui(() => MailResultReceived?.Invoke(ok, err));
-                    }
-                    break;
-
-                default:
-                    Ui(() => UnknownMessage?.Invoke(message));
-                    break;
-            }
+            if (!ClientMessageHandlerRegistry.TryHandle(this, message))
+                Ui(() => UnknownMessage?.Invoke(message));
         }
         catch (Exception ex)
         {

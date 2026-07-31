@@ -53,6 +53,9 @@ public class MapRenderer
     // Видимая область
     private int _viewStartX, _viewStartY, _viewEndX, _viewEndY;
 
+    // Spatial hash для быстрого поиска сущностей по координатам — O(1) вместо O(N)
+    private readonly Dictionary<(int X, int Y), List<EntityInfo>> _spatialHash = new();
+
     // Фактический размер клетки (подгоняется под экран, чтобы не было зазоров)
     private float _cellW = 22f;
     private float _cellH = 22f;
@@ -370,7 +373,88 @@ private sealed class RemotePlayerState
 
     public void SetMap(WorldMap map)
     {
-        lock (_stateLock) { _currentMap = map; }
+        lock (_stateLock)
+        {
+            _currentMap = map;
+            RebuildSpatialHash(map);
+        }
+    }
+
+    private void RebuildSpatialHash(WorldMap map)
+    {
+        _spatialHash.Clear();
+        foreach (var p in map.Players)
+        {
+            if (p.Name == _playerName) continue;
+            var key = (p.X, p.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "player", Name = p.Name, Level = p.Level, Hp = p.Health, MaxHp = p.MaxHealth, X = p.X, Y = p.Y, Id = p.Id.ToString() });
+        }
+        foreach (var m in map.Monsters)
+        {
+            var key = (m.X, m.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "monster", Name = m.Name, Level = m.Level, Hp = m.Health, MaxHp = m.MaxHealth, X = m.X, Y = m.Y, Id = m.Id.ToString() });
+        }
+        if (map.Merchant != null)
+        {
+            var key = (map.Merchant.X, map.Merchant.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "merchant", Name = map.Merchant.Name, X = map.Merchant.X, Y = map.Merchant.Y });
+        }
+        if (map.Board != null)
+        {
+            var key = (map.Board.X, map.Board.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "board", Name = "Доска заданий", X = map.Board.X, Y = map.Board.Y });
+        }
+        foreach (var c in map.Collectibles ?? Enumerable.Empty<CollectiblePosition>())
+        {
+            var key = (c.X, c.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "collectible", Name = c.Name, X = c.X, Y = c.Y, Id = c.Id });
+        }
+        foreach (var cs in map.Corpses ?? Enumerable.Empty<CorpsePosition>())
+        {
+            var key = (cs.X, cs.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "corpse", Name = cs.MonsterName, Level = cs.Level, X = cs.X, Y = cs.Y, Id = cs.Id.ToString() });
+        }
+        foreach (var n in map.Npcs ?? Enumerable.Empty<NpcPosition>())
+        {
+            if (n.Type == "merchant" || n.Type == "board") continue;
+            var key = (n.X, n.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "npc", Name = n.Name, X = n.X, Y = n.Y, Id = n.Id });
+        }
     }
 
     public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
@@ -604,23 +688,9 @@ private sealed class RemotePlayerState
 
     private List<EntityInfo> GetEntitiesAt(int mapX, int mapY)
     {
-        var list = new List<EntityInfo>();
-        if (_currentMap == null) return list;
-        foreach (var p in _currentMap.Players.Where(p => p.X == mapX && p.Y == mapY && p.Name != _playerName))
-            list.Add(new EntityInfo { Type = "player", Name = p.Name, Level = p.Level, Hp = p.Health, MaxHp = p.MaxHealth, X = mapX, Y = mapY, Id = p.Id.ToString() });
-        foreach (var m in _currentMap.Monsters.Where(m => m.X == mapX && m.Y == mapY))
-            list.Add(new EntityInfo { Type = "monster", Name = m.Name, Level = m.Level, Hp = m.Health, MaxHp = m.MaxHealth, X = mapX, Y = mapY, Id = m.Id.ToString() });
-        if (_currentMap.Merchant != null && _currentMap.Merchant.X == mapX && _currentMap.Merchant.Y == mapY)
-            list.Add(new EntityInfo { Type = "merchant", Name = _currentMap.Merchant.Name, X = mapX, Y = mapY });
-        if (_currentMap.Board != null && _currentMap.Board.X == mapX && _currentMap.Board.Y == mapY)
-            list.Add(new EntityInfo { Type = "board", Name = "Доска заданий", X = mapX, Y = mapY });
-        foreach (var c in _currentMap.Collectibles?.Where(c => c.X == mapX && c.Y == mapY) ?? Enumerable.Empty<CollectiblePosition>())
-            list.Add(new EntityInfo { Type = "collectible", Name = c.Name, X = mapX, Y = mapY, Id = c.Id });
-        foreach (var cs in _currentMap.Corpses?.Where(cs => cs.X == mapX && cs.Y == mapY) ?? Enumerable.Empty<CorpsePosition>())
-            list.Add(new EntityInfo { Type = "corpse", Name = cs.MonsterName, Level = cs.Level, X = mapX, Y = mapY, Id = cs.Id.ToString() });
-        foreach (var n in _currentMap.Npcs?.Where(n => n.X == mapX && n.Y == mapY && n.Type != "merchant" && n.Type != "board") ?? Enumerable.Empty<NpcPosition>())
-            list.Add(new EntityInfo { Type = "npc", Name = n.Name, X = mapX, Y = mapY, Id = n.Id });
-        return list;
+        if (_spatialHash.TryGetValue((mapX, mapY), out var list))
+            return list;
+        return new List<EntityInfo>();
     }
 
     private void HandleEmptyCellClick(int mapX, int mapY)
@@ -758,7 +828,6 @@ private sealed class RemotePlayerState
         var fontSmall = SpriteCache.FontSmall ?? font;
         if (font == null) return;
 
-        // Фон
         sb.Draw(SpriteCache.Pixel, new Rectangle((int)offsetX, (int)offsetY, (int)areaW, (int)areaH), new Color(235, 240, 225));
 
         if (map == null)
@@ -768,9 +837,43 @@ private sealed class RemotePlayerState
         }
 
         var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
+        UpdateVisualInterpolation(map);
 
-        // Визуальная интерполяция — ДО чтения позиции камеры,
-        // чтобы камера следовала за ТЕКУЩЕЙ, а не вчерашней визуальной позицией.
+        float targetX = me?.X ?? (map.Merchant?.X ?? 50);
+        float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
+        if (me != null)
+        {
+            lock (_stateLock)
+            {
+                if (_visPos.TryGetValue($"player:{me.Name}", out var v))
+                { targetX = v.X; targetY = v.Y; }
+            }
+        }
+        _camX = targetX;
+        _camY = targetY;
+
+        int centerX = (int)Math.Floor(_camX);
+        int centerY = (int)Math.Floor(_camY);
+        ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
+
+        float subCellX = (_camX - centerX) * _cellW;
+        float subCellY = (_camY - centerY) * _cellH;
+        _gridOX -= subCellX;
+        _gridOY -= subCellY;
+
+        DrawTiles(sb, map, offsetX, offsetY, areaW, areaH);
+        DrawPortalsAndObjects(sb, map);
+        DrawPathDots(sb, map, me);
+        DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
+        DrawDeathMarkers(sb);
+        int viewH = _viewEndY - _viewStartY + 1;
+        int legendY = (int)(_gridOY + viewH * _cellH + 4);
+        DrawLegend(sb, font, fontSmall, offsetX, legendY);
+        DrawCoordinates(sb, font, offsetX, offsetY, areaW, centerX, centerY);
+    }
+
+    private void UpdateVisualInterpolation(WorldMap map)
+    {
         var liveKeys = new HashSet<string>();
         foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
         foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
@@ -780,39 +883,10 @@ private sealed class RemotePlayerState
                 if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
         }
         AdvanceVisPositions();
+    }
 
-        // Целевая позиция камеры: интерполированная позиция игрока (плавная).
-        float targetX = me?.X ?? (map.Merchant?.X ?? 50);
-        float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
-        if (me != null)
-        {
-            lock (_stateLock)
-            {
-                if (_visPos.TryGetValue($"player:{me.Name}", out var v))
-                {
-                    targetX = v.X;
-                    targetY = v.Y;
-                }
-            }
-        }
-
-        // Камера = визуальная (уже плавная) позиция игрока.
-        _camX = targetX;
-        _camY = targetY;
-
-        int centerX = (int)Math.Floor(_camX);
-        int centerY = (int)Math.Floor(_camY);
-
-        ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
-
-        // Sub-cell offset: сдвигаем всю сетку на дробную часть позиции камеры,
-        // чтобы тайлы и сущности рисовались непрерывно между клетками.
-        float subCellX = (_camX - centerX) * _cellW;
-        float subCellY = (_camY - centerY) * _cellH;
-        _gridOX -= subCellX;
-        _gridOY -= subCellY;
-
-        // Тайлы (слой земли) — из тайлсета или fallback на цвет
+    private void DrawTiles(SpriteBatch sb, WorldMap map, float offsetX, float offsetY, float areaW, float areaH)
+    {
         bool isSandy = map.ZoneId == "arena";
         var grass = isSandy ? SpriteCache.GetSandSprite() : SpriteCache.GetGrassSprite();
         int viewW = _viewEndX - _viewStartX + 1;
@@ -830,10 +904,11 @@ private sealed class RemotePlayerState
             if (tilesetTex == null) hasTileset = false;
         }
 
+        int tilePxW = (int)Math.Ceiling(_cellW);
+        int tilePxH = (int)Math.Ceiling(_cellH);
+
         if (hasTileset && tilesetTex != null)
         {
-            int tilePxW = (int)Math.Ceiling(_cellW);
-            int tilePxH = (int)Math.Ceiling(_cellH);
             int srcTileW = tilesetTex.Width / Math.Max(1, tilesetCols);
             int srcTileH = tilesetTex.Height / Math.Max(1, tilesetRows);
             for (int y = -1; y <= viewH + 1; y++)
@@ -855,8 +930,7 @@ private sealed class RemotePlayerState
                     }
                     if (tileId == 255)
                     {
-                        var voidRect = new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2);
-                        sb.Draw(SpriteCache.Pixel, voidRect, new Color(40, 40, 45));
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), new Color(40, 40, 45));
                         continue;
                     }
                     int tCol = (tileId - 1) % tilesetCols;
@@ -875,8 +949,6 @@ private sealed class RemotePlayerState
                  && _tileMapWidth == map.Width && _tileMapHeight == map.Height
                  && _tileData.Length == map.Width * map.Height)
         {
-            int tilePxW = (int)Math.Ceiling(_cellW);
-            int tilePxH = (int)Math.Ceiling(_cellH);
             for (int y = -1; y <= viewH + 1; y++)
             {
                 float ty = _gridOY + y * _cellH;
@@ -904,8 +976,6 @@ private sealed class RemotePlayerState
         }
         else
         {
-            int tilePxW = (int)Math.Ceiling(_cellW);
-            int tilePxH = (int)Math.Ceiling(_cellH);
             for (int y = -1; y <= viewH + 1; y++)
             {
                 float ty = _gridOY + y * _cellH;
@@ -921,8 +991,10 @@ private sealed class RemotePlayerState
                 }
             }
         }
+    }
 
-        // Порталы
+    private void DrawPortalsAndObjects(SpriteBatch sb, WorldMap map)
+    {
         if (map.Portals != null)
         {
             foreach (var portal in map.Portals)
@@ -937,8 +1009,6 @@ private sealed class RemotePlayerState
                 }
             }
         }
-
-        // Выход из инстанса (зелёный портал)
         if (map.InstanceExitPortal != null)
         {
             int px = map.InstanceExitPortal.X, py = map.InstanceExitPortal.Y;
@@ -950,8 +1020,6 @@ private sealed class RemotePlayerState
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(100, 220, 120, 200));
             }
         }
-
-        // Сундук инстанса
         if (map.InstanceChest != null)
         {
             int px = map.InstanceChest.X, py = map.InstanceChest.Y;
@@ -960,87 +1028,76 @@ private sealed class RemotePlayerState
                 float ptx = _gridOX + (px - _viewStartX) * _cellW;
                 float pty = _gridOY + (py - _viewStartY) * _cellH;
                 Color chestColor = map.InstanceChest.IsLocked
-                    ? new Color(120, 80, 40, 200)
-                    : new Color(220, 180, 50, 200);
+                    ? new Color(120, 80, 40, 200) : new Color(220, 180, 50, 200);
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), chestColor);
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8),
                     map.InstanceChest.IsLocked ? new Color(90, 60, 30, 200) : new Color(255, 215, 80, 220));
             }
         }
+    }
 
-        // Путь
-        if (_moveTargetX >= 0 && _moveTargetY >= 0 && me != null)
+    private void DrawPathDots(SpriteBatch sb, WorldMap map, PlayerPosition? me)
+    {
+        if (_moveTargetX < 0 || _moveTargetY < 0 || me == null) return;
+        int mx = map.Merchant?.X ?? -1, my = map.Merchant?.Y ?? -1;
+        int bx = map.Board?.X ?? -1, by = map.Board?.Y ?? -1;
+        var pathDots = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height);
+        if (pathDots.Count == 0 && (me.X != _moveTargetX || me.Y != _moveTargetY)) { _moveTargetX = _moveTargetY = -1; return; }
+        if (me.X == _moveTargetX && me.Y == _moveTargetY) { _moveTargetX = _moveTargetY = -1; return; }
+        var pathColor = new Color(220, 200, 80, 180);
+        foreach (var (px, py) in pathDots)
         {
-            int mx = map.Merchant?.X ?? -1, my = map.Merchant?.Y ?? -1;
-            int bx = map.Board?.X ?? -1, by = map.Board?.Y ?? -1;
-            var pathDots = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height);
-            if (pathDots.Count == 0 && (me.X != _moveTargetX || me.Y != _moveTargetY)) _moveTargetX = _moveTargetY = -1;
-            else if (me.X == _moveTargetX && me.Y == _moveTargetY) _moveTargetX = _moveTargetY = -1;
-            else
+            if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
             {
-                var pathColor = new Color(220, 200, 80, 180);
-                foreach (var (px, py) in pathDots)
-                {
-                    if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
-                    {
-                        float dotX = _gridOX + (px - _viewStartX) * _cellW + _cellW / 2 - 3;
-                        float dotY = _gridOY + (py - _viewStartY) * _cellH + _cellH / 2 - 3;
-                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)dotX, (int)dotY, 6, 6), pathColor);
-                    }
-                }
+                float dotX = _gridOX + (px - _viewStartX) * _cellW + _cellW / 2 - 3;
+                float dotY = _gridOY + (py - _viewStartY) * _cellH + _cellH / 2 - 3;
+                sb.Draw(SpriteCache.Pixel, new Rectangle((int)dotX, (int)dotY, 6, 6), pathColor);
             }
         }
+    }
 
-         // Сущности
-         DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
-
-          // Пепел на месте смерти удалённых игроков и самого себя (1 минута)
-          {
-              var deathNow = DateTime.UtcNow;
-              foreach (var kvp in _remotePlayers)
-              {
-                  var rp = kvp.Value;
-                  if (!rp.IsDead) continue;
-                  var elapsed = (deathNow - rp.DeathStart).TotalSeconds;
-                  if (elapsed > 60) continue;
-                  if (rp.DeathX < _viewStartX || rp.DeathX > _viewEndX || rp.DeathY < _viewStartY || rp.DeathY > _viewEndY) continue;
-                  float ax = _gridOX + (rp.DeathX - _viewStartX) * _cellW + _cellW / 2;
-                  float ay = _gridOY + (rp.DeathY - _viewStartY) * _cellH + _cellH / 2;
-                  var ashes = SpriteCache.GetCorpseSprite();
-                  if (ashes != null)
-                      sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
-              }
-              if (_isDead)
-              {
-                  var elapsed = (deathNow - _deathAnimStart).TotalSeconds;
-                  if (elapsed <= 60)
-                  {
-                      float ax = _gridOX + (_localDeathX - _viewStartX) * _cellW + _cellW / 2;
-                      float ay = _gridOY + (_localDeathY - _viewStartY) * _cellH + _cellH / 2;
-                      var ashes = SpriteCache.GetCorpseSprite();
-                      if (ashes != null)
-                          sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
-                  }
-              }
-          }
-
-         // Легенда
-        int legendY = (int)(_gridOY + viewH * _cellH + 4);
-        DrawLegend(sb, font, fontSmall, offsetX, legendY);
-
-        // Координаты — в правом верхнем углу карты, как HUD-плашка (поверх тайлов)
+    private void DrawDeathMarkers(SpriteBatch sb)
+    {
+        var deathNow = DateTime.UtcNow;
+        foreach (var kvp in _remotePlayers)
         {
-            string coordText = $"КАРТА [{centerX}, {centerY}]";
-            var coordSize = font.MeasureString(coordText);
-            int pad = 6;
-            int boxW = (int)coordSize.X + pad * 2;
-            int boxH = (int)coordSize.Y + pad * 2;
-            int boxX = (int)(offsetX + areaW - boxW - 8);
-            int boxY = (int)(offsetY + 4);
-            sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, boxH), new Color(35, 37, 45, 210));
-            sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, 2), new Color(90, 95, 115));
-            sb.DrawString(font, coordText, new Vector2(boxX + pad, boxY + pad), new Color(160, 200, 255));
+            var rp = kvp.Value;
+            if (!rp.IsDead) continue;
+            var elapsed = (deathNow - rp.DeathStart).TotalSeconds;
+            if (elapsed > 60) continue;
+            if (rp.DeathX < _viewStartX || rp.DeathX > _viewEndX || rp.DeathY < _viewStartY || rp.DeathY > _viewEndY) continue;
+            float ax = _gridOX + (rp.DeathX - _viewStartX) * _cellW + _cellW / 2;
+            float ay = _gridOY + (rp.DeathY - _viewStartY) * _cellH + _cellH / 2;
+            var ashes = SpriteCache.GetCorpseSprite();
+            if (ashes != null)
+                sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
         }
+        if (_isDead)
+        {
+            var elapsed = (deathNow - _deathAnimStart).TotalSeconds;
+            if (elapsed <= 60)
+            {
+                float ax = _gridOX + (_localDeathX - _viewStartX) * _cellW + _cellW / 2;
+                float ay = _gridOY + (_localDeathY - _viewStartY) * _cellH + _cellH / 2;
+                var ashes = SpriteCache.GetCorpseSprite();
+                if (ashes != null)
+                    sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
+            }
+        }
+    }
+
+    private void DrawCoordinates(SpriteBatch sb, SpriteFont font, float offsetX, float offsetY, float areaW, int centerX, int centerY)
+    {
+        string coordText = $"КАРТА [{centerX}, {centerY}]";
+        var coordSize = font.MeasureString(coordText);
+        int pad = 6;
+        int boxW = (int)coordSize.X + pad * 2;
+        int boxH = (int)coordSize.Y + pad * 2;
+        int boxX = (int)(offsetX + areaW - boxW - 8);
+        int boxY = (int)(offsetY + 4);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, boxH), new Color(35, 37, 45, 210));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, 2), new Color(90, 95, 115));
+        sb.DrawString(font, coordText, new Vector2(boxX + pad, boxY + pad), new Color(160, 200, 255));
     }
 
     private void DrawEntities(SpriteBatch sb, SpriteFont font, SpriteFont fontSmall, float offsetX, float offsetY, int startX, int startY, int endX, int endY, PlayerPosition? me)
@@ -1049,29 +1106,39 @@ private sealed class RemotePlayerState
         lock (_stateLock) { map = _currentMap; }
         if (map == null) return;
 
-        // Статичные объекты (ниже монстров/игроков): торговец, доска, сбор, трупы
-        Rectangle EntityRect(float px, float py)
-        {
-            int w = (int)(_cellW * EntityScale);
-            int h = (int)(_cellH * EntityScale);
-            return new Rectangle((int)px - w / 2 + (int)(_cellW / 2), (int)py - h / 2 + (int)(_cellH / 2), w, h);
-        }
+        DrawStaticEntities(sb, map, startX, startY, endX, endY);
+        DrawMonsterSprites(sb, font, map, startX, startY, endX, endY);
+        DrawPlayerSprites(sb, font, map, startX, startY, endX, endY);
+        DrawLabelsAndHP(sb, fontSmall, map, startX, startY, endX, endY);
+        ProjectileRenderer.Draw(sb, startX, startY, _gridOX, _gridOY, _cellW, _cellH);
+        DrawFloatingTexts(sb, font, startX, startY);
+        DrawHoverTile(sb);
+        DrawSelectionHighlight(sb, map, startX, startY, endX, endY);
+    }
 
-        void DrawStatic(Texture2D? spr, int wx, int wy, Color tint)
-        {
-            if (wx < startX || wx > endX || wy < startY || wy > endY) return;
-            float px = _gridOX + (wx - startX) * _cellW;
-            float py = _gridOY + (wy - startY) * _cellH;
-            if (spr != null)
-                sb.Draw(spr, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), tint);
-            else
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)px, (int)py, (int)_cellW, (int)_cellH), tint);
-        }
+    private static Rectangle EntityRect(float px, float py, float cellW, float cellH)
+    {
+        int w = (int)(cellW * EntityScale);
+        int h = (int)(cellH * EntityScale);
+        return new Rectangle((int)px - w / 2 + (int)(cellW / 2), (int)py - h / 2 + (int)(cellH / 2), w, h);
+    }
 
+    private void DrawStatic(SpriteBatch sb, Texture2D? spr, int wx, int wy, int startX, int startY, int endX, int endY, Color tint)
+    {
+        if (wx < startX || wx > endX || wy < startY || wy > endY) return;
+        float px = _gridOX + (wx - startX) * _cellW;
+        float py = _gridOY + (wy - startY) * _cellH;
+        if (spr != null)
+            sb.Draw(spr, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), tint);
+        else
+            sb.Draw(SpriteCache.Pixel, new Rectangle((int)px, (int)py, (int)_cellW, (int)_cellH), tint);
+    }
+
+    private void DrawStaticEntities(SpriteBatch sb, WorldMap map, int startX, int startY, int endX, int endY)
+    {
         if (map.Merchant != null && map.Merchant.X >= startX && map.Merchant.X <= endX && map.Merchant.Y >= startY && map.Merchant.Y <= endY)
         {
-            var trader = SpriteCache.GetTraderSprite();
-            DrawStatic(trader, map.Merchant.X, map.Merchant.Y, Color.White);
+            DrawStatic(sb, SpriteCache.GetTraderSprite(), map.Merchant.X, map.Merchant.Y, startX, startY, endX, endY, Color.White);
             var mFont = SpriteCache.FontSmall ?? SpriteCache.Font;
             if (mFont != null)
             {
@@ -1084,8 +1151,7 @@ private sealed class RemotePlayerState
         }
         if (map.Board != null && map.Board.X >= startX && map.Board.X <= endX && map.Board.Y >= startY && map.Board.Y <= endY)
         {
-            var board = SpriteCache.GetBoardSprite();
-            DrawStatic(board, map.Board.X, map.Board.Y, Color.White);
+            DrawStatic(sb, SpriteCache.GetBoardSprite(), map.Board.X, map.Board.Y, startX, startY, endX, endY, Color.White);
             var bFont = SpriteCache.FontSmall ?? SpriteCache.Font;
             if (bFont != null)
             {
@@ -1099,8 +1165,7 @@ private sealed class RemotePlayerState
         foreach (var npc in map.Npcs ?? Enumerable.Empty<NpcPosition>())
         {
             if (npc.Type == "merchant" || npc.Type == "board") continue;
-            var trader = SpriteCache.GetTraderSprite();
-            DrawStatic(trader, npc.X, npc.Y, Color.LightBlue);
+            DrawStatic(sb, SpriteCache.GetTraderSprite(), npc.X, npc.Y, startX, startY, endX, endY, Color.LightBlue);
             if (npc.X >= startX && npc.X <= endX && npc.Y >= startY && npc.Y <= endY)
             {
                 var npcFont = SpriteCache.FontSmall ?? SpriteCache.Font;
@@ -1131,17 +1196,13 @@ private sealed class RemotePlayerState
             }
         }
         foreach (var cl in map.Collectibles)
-        {
-            var cs = SpriteCache.GetCollectibleSprite();
-            DrawStatic(cs, cl.X, cl.Y, Color.White);
-        }
+            DrawStatic(sb, SpriteCache.GetCollectibleSprite(), cl.X, cl.Y, startX, startY, endX, endY, Color.White);
         foreach (var cp in map.Corpses ?? Enumerable.Empty<CorpsePosition>())
-        {
-            var corpse = SpriteCache.GetCorpseSprite();
-            DrawStatic(corpse, cp.X, cp.Y, new Color(200, 200, 200));
-        }
+            DrawStatic(sb, SpriteCache.GetCorpseSprite(), cp.X, cp.Y, startX, startY, endX, endY, new Color(200, 200, 200));
+    }
 
-        // === Фаза 1: отрисовка ВСЕХ спрайтов (монстры + игроки) ===
+    private void DrawMonsterSprites(SpriteBatch sb, SpriteFont font, WorldMap map, int startX, int startY, int endX, int endY)
+    {
         foreach (var m in map.Monsters)
         {
             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"monster:{m.Id}", out v)) continue; }
@@ -1152,7 +1213,7 @@ private sealed class RemotePlayerState
 
             var sprite = SpriteCache.GetMonsterSprite(m.TemplateId);
             if (sprite != null)
-                sb.Draw(sprite, EntityRect(px, py), Color.White);
+                sb.Draw(sprite, EntityRect(px, py, _cellW, _cellH), Color.White);
             else
             {
                 int diff = m.Level - _playerLevel;
@@ -1164,50 +1225,51 @@ private sealed class RemotePlayerState
                 sb.DrawString(font, m.Symbol.ToString(), new Vector2(px, py), color);
             }
         }
+    }
 
-         foreach (var p in map.Players)
-         {
-             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
-             int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
-             if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
-             float px = _gridOX + (v.X - startX) * _cellW + 3;
-             float py = _gridOY + (v.Y - startY) * _cellH;
+    private void DrawPlayerSprites(SpriteBatch sb, SpriteFont font, WorldMap map, int startX, int startY, int endX, int endY)
+    {
+        foreach (var p in map.Players)
+        {
+            (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
+            float px = _gridOX + (v.X - startX) * _cellW + 3;
+            float py = _gridOY + (v.Y - startY) * _cellH;
 
-             bool isLocal = p.Name == _playerName;
-             string facing = isLocal ? GetLocalFacing() : "down";
-             if (isLocal && facing != _lastRenderFacing)
-             {
-                 _lastRenderFacing = facing;
-                 try { OnFacingChanged?.Invoke(facing); } catch { }
-             }
-             string weaponSub = _weaponSubtype ?? "";
-             string offWeaponSub = _offWeaponSubtype ?? "";
-             string shieldSub = _shieldSubtype ?? "";
-             bool isTwoHanded = _isTwoHanded;
-             bool mainAttackActive = _mainAttackActive;
-             bool offAttackActive = _offAttackActive;
-             DateTime mainAttackStart = _mainAttackStart;
-             DateTime offAttackStart = _offAttackStart;
-             RemotePlayerState? deadRemote = null;
+            bool isLocal = p.Name == _playerName;
+            string facing = isLocal ? GetLocalFacing() : "down";
+            if (isLocal && facing != _lastRenderFacing)
+            {
+                _lastRenderFacing = facing;
+                try { OnFacingChanged?.Invoke(facing); } catch { }
+            }
+            string weaponSub = _weaponSubtype ?? "";
+            string offWeaponSub = _offWeaponSubtype ?? "";
+            string shieldSub = _shieldSubtype ?? "";
+            bool isTwoHanded = _isTwoHanded;
+            bool mainAttackActive = _mainAttackActive;
+            bool offAttackActive = _offAttackActive;
+            DateTime mainAttackStart = _mainAttackStart;
+            DateTime offAttackStart = _offAttackStart;
+            RemotePlayerState? deadRemote = null;
 
-             if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rp))
-             {
-                 facing = rp.Facing;
-                 weaponSub = rp.WeaponSubtype;
-                 offWeaponSub = rp.OffWeaponSubtype;
-                 shieldSub = rp.ShieldSubtype;
-                 isTwoHanded = rp.IsTwoHanded;
-                 mainAttackActive = rp.MainAttackActive;
-                 offAttackActive = rp.OffAttackActive;
-                 mainAttackStart = rp.MainAttackStart;
-                 offAttackStart = rp.OffAttackStart;
-                 if (rp.IsDead) deadRemote = rp;
-             }
+            if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rp))
+            {
+                facing = rp.Facing;
+                weaponSub = rp.WeaponSubtype;
+                offWeaponSub = rp.OffWeaponSubtype;
+                shieldSub = rp.ShieldSubtype;
+                isTwoHanded = rp.IsTwoHanded;
+                mainAttackActive = rp.MainAttackActive;
+                offAttackActive = rp.OffAttackActive;
+                mainAttackStart = rp.MainAttackStart;
+                offAttackStart = rp.OffAttackStart;
+                if (rp.IsDead) deadRemote = rp;
+            }
 
-            // Выбор анимации: death при смерти, attack при атаке, walk при движении, idle при стоянии
             SpriteAnimation? playerAnim = null;
             bool useAttackAnim = false;
-
             bool anyBodyAttack = mainAttackActive || offAttackActive;
             bool moving;
             if (isLocal)
@@ -1219,25 +1281,22 @@ private sealed class RemotePlayerState
                 moving = Math.Abs(tgt.X - v.X) > 0.05f || Math.Abs(tgt.Y - v.Y) > 0.05f;
             }
 
-              DateTime? deathAnimStart = null;
+            DateTime? deathAnimStart = null;
 
-              if (isLocal && _isDead)
-              {
-                  playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
-                  deathAnimStart = _deathAnimStart;
-              }
-              else if (deadRemote != null)
-              {
-                  continue;
-              }
-              else if (anyBodyAttack)
+            if (isLocal && _isDead)
+            {
+                playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+                deathAnimStart = _deathAnimStart;
+            }
+            else if (deadRemote != null)
+                continue;
+            else if (anyBodyAttack)
             {
                 if (mainAttackActive)
                 {
-                    if (weaponSub == "bow")
-                        playerAnim = SpriteCache.GetPlayerRangeAttackAnimation(facing);
-                    else
-                        playerAnim = isTwoHanded
+                    playerAnim = weaponSub == "bow"
+                        ? SpriteCache.GetPlayerRangeAttackAnimation(facing)
+                        : isTwoHanded
                             ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
                             : SpriteCache.GetPlayerAttackAnimation(facing);
                 }
@@ -1251,222 +1310,25 @@ private sealed class RemotePlayerState
                     ? SpriteCache.GetPlayerAnimation(facing)
                     : SpriteCache.GetAnimation($"player_idle_{facing}") ?? SpriteCache.GetPlayerAnimation(facing);
 
-             if (playerAnim != null)
-             {
-                 int frame;
-                 if (deathAnimStart.HasValue)
-                 {
-                     float elapsed = (float)(DateTime.UtcNow - deathAnimStart.Value).TotalSeconds;
-                     frame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
-                     if (isLocal) _deathFrame = frame;
-                 }
-                 else if (useAttackAnim)
-                {
-                    DateTime animStart = mainAttackActive ? mainAttackStart : offAttackStart;
-                    float elapsed = (float)(DateTime.UtcNow - animStart).TotalSeconds;
-                    float totalAnimDur = playerAnim.FrameDuration * playerAnim.FrameCount;
-                    int atkFrame = Math.Min((int)(elapsed / playerAnim.FrameDuration), playerAnim.FrameCount - 1);
-                    if (elapsed >= totalAnimDur)
-                    {
-                        if (isLocal)
-                        {
-                            if (_mainAttackActive) _mainAttackActive = false;
-                            if (_offAttackActive) _offAttackActive = false;
-                        }
-                        else if (!isLocal && _remotePlayers.TryGetValue(p.Name, out var rpClear))
-                        {
-                            rpClear.MainAttackActive = false;
-                            rpClear.OffAttackActive = false;
-                        }
-                    }
-                    frame = atkFrame;
-                }
-                else
-                {
-                    float frameDuration = playerAnim.FrameDuration;
-                    frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / frameDuration) % playerAnim.FrameCount;
-                }
-                 var src = playerAnim.GetSourceRect(frame);
-                 sb.Draw(playerAnim.Sheet, EntityRect(px, py), src, Color.White);
-
-                // Оружие поверх персонажа
-                if (!string.IsNullOrEmpty(weaponSub))
-                {
-                    SpriteAnimation? weaponAnim = null;
-                    bool useWeaponSwing = false;
-                    if (mainAttackActive)
-                    {
-                        weaponAnim = weaponSub == "bow"
-                            ? SpriteCache.GetWeaponRangeAttackAnimation(weaponSub, facing)
-                            : SpriteCache.GetWeaponAttackAnimation(weaponSub, facing);
-                        if (weaponAnim != null) useWeaponSwing = true;
-                        else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
-                    }
-                    else if (offAttackActive)
-                    {
-                        weaponAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(weaponSub, facing);
-                        if (weaponAnim != null) useWeaponSwing = true;
-                        if (weaponAnim == null)
-                            weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(weaponSub, facing);
-                        if (weaponAnim != null) useWeaponSwing = true;
-                        if (weaponAnim == null)
-                            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
-                    }
-                    else
-                        weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
-                    if (isLocal && _weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={weaponSub} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
-                    if (weaponAnim != null)
-                    {
-                        int wFrame;
-                        if (useWeaponSwing)
-                        {
-                            DateTime swingStart = mainAttackActive ? mainAttackStart : offAttackStart;
-                            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
-                            wFrame = Math.Min((int)(elapsed / weaponAnim.FrameDuration), weaponAnim.FrameCount - 1);
-                        }
-                        else
-                        {
-                            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
-                        }
-                         var wSrc = weaponAnim.GetSourceRect(wFrame);
-                         sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
-                    }
-                }
-
-                // Щит поверх персонажа (не двуручное)
-                if (!isTwoHanded && !string.IsNullOrEmpty(shieldSub))
-                {
-                    SpriteAnimation? shieldAnim;
-                    bool useShieldAttack = false;
-                        if (mainAttackActive)
-                    {
-                        shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
-                        if (shieldAnim != null) useShieldAttack = true;
-                        else shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
-                    }
-                    else
-                        shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
-                    if (shieldAnim != null)
-                    {
-                        int sFrame;
-                        if (useShieldAttack)
-                        {
-                            float elapsed = (float)(DateTime.UtcNow - mainAttackStart).TotalSeconds;
-                            sFrame = Math.Min((int)(elapsed / shieldAnim.FrameDuration), shieldAnim.FrameCount - 1);
-                        }
-                        else
-                        {
-                            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
-                        }
-                        var sSrc = shieldAnim.GetSourceRect(sFrame);
-                        sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
-                    }
-                }
-
-                // Левое оружие (attack swing / second_attack swing)
-                if (!isTwoHanded && !string.IsNullOrEmpty(offWeaponSub))
-                {
-                    SpriteAnimation? offAnim = null;
-                    bool useOffSwing = false;
-                    if (offAttackActive)
-                    {
-                        bool noMainWeapon = string.IsNullOrEmpty(weaponSub);
-                        if (noMainWeapon)
-                        {
-                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
-                        }
-                        else
-                        {
-                            offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                             offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
-                         }
-                     }
-                    else if (mainAttackActive)
-                    {
-                        bool mainIsRanged = weaponSub == "bow" || weaponSub == "staff";
-                        if (mainIsRanged)
-                            offAnim = SpriteCache.GetWeaponAttackAnimation(offWeaponSub, facing);
-                        else
-                        {
-                            offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
-                            if (offAnim != null) useOffSwing = true;
-                            if (offAnim == null)
-                                offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
-                        }
-                    }
-                     else
-                         offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
-                     if (offAnim != null)
-                    {
-                        int offFrame;
-                        if (useOffSwing)
-                        {
-                            DateTime swingStart = offAttackActive ? offAttackStart : mainAttackStart;
-                            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
-                            offFrame = Math.Min((int)(elapsed / offAnim.FrameDuration), offAnim.FrameCount - 1);
-                        }
-                        else
-                        {
-                            offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
-                        }
-                        var offSrc = offAnim.GetSourceRect(offFrame);
-                        sb.Draw(offAnim.Sheet, EntityRect(px, py), offSrc, Color.White);
-                    }
-                }
+            var er = EntityRect(px, py, _cellW, _cellH);
+            if (playerAnim != null)
+            {
+                int frame = ComputeAnimFrame(playerAnim, isLocal, deathAnimStart, useAttackAnim, mainAttackActive, offAttackStart, mainAttackStart, p.Name);
+                var src = playerAnim.GetSourceRect(frame);
+                sb.Draw(playerAnim.Sheet, er, src, Color.White);
+                DrawWeaponOverlay(sb, er, weaponSub, facing, moving, mainAttackActive, offAttackActive, mainAttackStart, offAttackStart, isLocal, isTwoHanded);
+                DrawShieldOverlay(sb, er, shieldSub, facing, moving, mainAttackActive, mainAttackStart, isTwoHanded);
+                DrawOffWeaponOverlay(sb, er, offWeaponSub, facing, moving, offAttackActive, mainAttackActive, mainAttackStart, offAttackStart, weaponSub, isTwoHanded);
             }
             else
             {
                 var playerSprite = SpriteCache.GetPlayerSprite(facing) ?? SpriteCache.GetPlayerSprite("down");
                 if (playerSprite != null)
                 {
-                    sb.Draw(playerSprite, EntityRect(px, py), Color.White);
-
-                    // Оружие поверх (статичный fallback)
-                    if (!string.IsNullOrEmpty(weaponSub))
-                    {
-                        SpriteAnimation? weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
-                        if (weaponAnim != null)
-                        {
-                            int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
-                            var wSrc = weaponAnim.GetSourceRect(wFrame);
-                            sb.Draw(weaponAnim.Sheet, EntityRect(px, py), wSrc, Color.White);
-                        }
-                    }
-
-                    // Щит поверх (статичный fallback)
-                    if (!isTwoHanded && !string.IsNullOrEmpty(shieldSub))
-                    {
-                        SpriteAnimation? shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
-                        if (shieldAnim != null)
-                        {
-                            int sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
-                            var sSrc = shieldAnim.GetSourceRect(sFrame);
-                            sb.Draw(shieldAnim.Sheet, EntityRect(px, py), sSrc, Color.White);
-                        }
-                    }
-
-                    // Левое оружие (статичный fallback)
-                    if (!isTwoHanded && !string.IsNullOrEmpty(offWeaponSub))
-                    {
-                        SpriteAnimation? offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
-                        if (offAnim != null)
-                        {
-                            int offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
-                            var offSrc = offAnim.GetSourceRect(offFrame);
-                            sb.Draw(offAnim.Sheet, EntityRect(px, py), offSrc, Color.White);
-                        }
-                    }
+                    sb.Draw(playerSprite, er, Color.White);
+                    DrawStaticWeaponOverlay(sb, er, weaponSub, facing, moving, isTwoHanded);
+                    DrawStaticShieldOverlay(sb, er, shieldSub, facing, moving, isTwoHanded);
+                    DrawStaticOffWeaponOverlay(sb, er, offWeaponSub, facing, moving, isTwoHanded);
                 }
                 else
                 {
@@ -1475,30 +1337,208 @@ private sealed class RemotePlayerState
                 }
             }
         }
+    }
 
-        // === Фаза 2: имена + HP-бары ПОВЕРХ всех спрайтов ===
+    private int ComputeAnimFrame(SpriteAnimation anim, bool isLocal, DateTime? deathAnimStart, bool useAttackAnim, bool mainAttackActive, DateTime offAttackStart, DateTime mainAttackStart, string playerName)
+    {
+        if (deathAnimStart.HasValue)
+        {
+            float elapsed = (float)(DateTime.UtcNow - deathAnimStart.Value).TotalSeconds;
+            int frame = Math.Min((int)(elapsed / anim.FrameDuration), anim.FrameCount - 1);
+            if (isLocal) _deathFrame = frame;
+            return frame;
+        }
+        if (useAttackAnim)
+        {
+            DateTime animStart = mainAttackActive ? mainAttackStart : offAttackStart;
+            float elapsed = (float)(DateTime.UtcNow - animStart).TotalSeconds;
+            float totalAnimDur = anim.FrameDuration * anim.FrameCount;
+            int atkFrame = Math.Min((int)(elapsed / anim.FrameDuration), anim.FrameCount - 1);
+            if (elapsed >= totalAnimDur)
+            {
+                if (isLocal)
+                {
+                    if (_mainAttackActive) _mainAttackActive = false;
+                    if (_offAttackActive) _offAttackActive = false;
+                }
+                else if (_remotePlayers.TryGetValue(playerName, out var rpClear))
+                {
+                    rpClear.MainAttackActive = false;
+                    rpClear.OffAttackActive = false;
+                }
+            }
+            return atkFrame;
+        }
+        return (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / anim.FrameDuration) % anim.FrameCount;
+    }
+
+    private void DrawWeaponOverlay(SpriteBatch sb, Rectangle er, string weaponSub, string facing, bool moving, bool mainAttackActive, bool offAttackActive, DateTime mainAttackStart, DateTime offAttackStart, bool isLocal, bool isTwoHanded)
+    {
+        if (string.IsNullOrEmpty(weaponSub)) return;
+        SpriteAnimation? weaponAnim = null;
+        bool useWeaponSwing = false;
+        if (mainAttackActive)
+        {
+            weaponAnim = weaponSub == "bow"
+                ? SpriteCache.GetWeaponRangeAttackAnimation(weaponSub, facing)
+                : SpriteCache.GetWeaponAttackAnimation(weaponSub, facing);
+            if (weaponAnim != null) useWeaponSwing = true;
+            else weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
+        }
+        else if (offAttackActive)
+        {
+            weaponAnim = SpriteCache.GetOffHandWeaponSecondAttackAnimation(weaponSub, facing);
+            if (weaponAnim != null) useWeaponSwing = true;
+            if (weaponAnim == null) weaponAnim = SpriteCache.GetOffHandWeaponAttackAnimation(weaponSub, facing);
+            if (weaponAnim != null) useWeaponSwing = true;
+            if (weaponAnim == null) weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
+        }
+        else
+            weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
+        if (isLocal && _weaponLogOnce) { Logger.Debug($"WeaponOverlay: subtype={weaponSub} facing={facing} anim={(weaponAnim != null ? "OK" : "NULL")}"); _weaponLogOnce = false; }
+        if (weaponAnim == null) return;
+        int wFrame;
+        if (useWeaponSwing)
+        {
+            DateTime swingStart = mainAttackActive ? mainAttackStart : offAttackStart;
+            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
+            wFrame = Math.Min((int)(elapsed / weaponAnim.FrameDuration), weaponAnim.FrameCount - 1);
+        }
+        else
+            wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+        sb.Draw(weaponAnim.Sheet, er, weaponAnim.GetSourceRect(wFrame), Color.White);
+    }
+
+    private void DrawShieldOverlay(SpriteBatch sb, Rectangle er, string shieldSub, string facing, bool moving, bool mainAttackActive, DateTime mainAttackStart, bool isTwoHanded)
+    {
+        if (isTwoHanded || string.IsNullOrEmpty(shieldSub)) return;
+        SpriteAnimation? shieldAnim;
+        bool useShieldAttack = false;
+        if (mainAttackActive)
+        {
+            shieldAnim = SpriteCache.GetShieldAttackAnimation(facing);
+            if (shieldAnim != null) useShieldAttack = true;
+            else shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
+        }
+        else
+            shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
+        if (shieldAnim == null) return;
+        int sFrame;
+        if (useShieldAttack)
+        {
+            float elapsed = (float)(DateTime.UtcNow - mainAttackStart).TotalSeconds;
+            sFrame = Math.Min((int)(elapsed / shieldAnim.FrameDuration), shieldAnim.FrameCount - 1);
+        }
+        else
+            sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
+        sb.Draw(shieldAnim.Sheet, er, shieldAnim.GetSourceRect(sFrame), Color.White);
+    }
+
+    private void DrawOffWeaponOverlay(SpriteBatch sb, Rectangle er, string offWeaponSub, string facing, bool moving, bool offAttackActive, bool mainAttackActive, DateTime mainAttackStart, DateTime offAttackStart, string weaponSub, bool isTwoHanded)
+    {
+        if (isTwoHanded || string.IsNullOrEmpty(offWeaponSub)) return;
+        SpriteAnimation? offAnim = null;
+        bool useOffSwing = false;
+        if (offAttackActive)
+        {
+            bool noMainWeapon = string.IsNullOrEmpty(weaponSub);
+            if (noMainWeapon)
+            {
+                offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
+                if (offAnim != null) useOffSwing = true;
+                if (offAnim == null) offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
+                if (offAnim != null) useOffSwing = true;
+                if (offAnim == null) offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
+            }
+            else
+            {
+                offAnim = SpriteCache.GetWeaponSecondAttackAnimation(offWeaponSub, facing);
+                if (offAnim != null) useOffSwing = true;
+                if (offAnim == null) offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
+                if (offAnim != null) useOffSwing = true;
+                if (offAnim == null) offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
+            }
+        }
+        else if (mainAttackActive)
+        {
+            bool mainIsRanged = weaponSub == "bow" || weaponSub == "staff";
+            if (mainIsRanged)
+                offAnim = SpriteCache.GetWeaponAttackAnimation(offWeaponSub, facing);
+            else
+            {
+                offAnim = SpriteCache.GetOffHandWeaponAttackAnimation(offWeaponSub, facing);
+                if (offAnim != null) useOffSwing = true;
+                if (offAnim == null) offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
+            }
+        }
+        else
+            offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
+        if (offAnim == null) return;
+        int offFrame;
+        if (useOffSwing)
+        {
+            DateTime swingStart = offAttackActive ? offAttackStart : mainAttackStart;
+            float elapsed = (float)(DateTime.UtcNow - swingStart).TotalSeconds;
+            offFrame = Math.Min((int)(elapsed / offAnim.FrameDuration), offAnim.FrameCount - 1);
+        }
+        else
+            offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
+        sb.Draw(offAnim.Sheet, er, offAnim.GetSourceRect(offFrame), Color.White);
+    }
+
+    private void DrawStaticWeaponOverlay(SpriteBatch sb, Rectangle er, string weaponSub, string facing, bool moving, bool isTwoHanded)
+    {
+        if (string.IsNullOrEmpty(weaponSub)) return;
+        SpriteAnimation? weaponAnim = SpriteCache.GetWeaponAnimation(weaponSub, facing, moving);
+        if (weaponAnim != null)
+        {
+            int wFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / weaponAnim.FrameDuration) % weaponAnim.FrameCount;
+            sb.Draw(weaponAnim.Sheet, er, weaponAnim.GetSourceRect(wFrame), Color.White);
+        }
+    }
+
+    private void DrawStaticShieldOverlay(SpriteBatch sb, Rectangle er, string shieldSub, string facing, bool moving, bool isTwoHanded)
+    {
+        if (isTwoHanded || string.IsNullOrEmpty(shieldSub)) return;
+        SpriteAnimation? shieldAnim = SpriteCache.GetShieldAnimation(facing, moving);
+        if (shieldAnim != null)
+        {
+            int sFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / shieldAnim.FrameDuration) % shieldAnim.FrameCount;
+            sb.Draw(shieldAnim.Sheet, er, shieldAnim.GetSourceRect(sFrame), Color.White);
+        }
+    }
+
+    private void DrawStaticOffWeaponOverlay(SpriteBatch sb, Rectangle er, string offWeaponSub, string facing, bool moving, bool isTwoHanded)
+    {
+        if (isTwoHanded || string.IsNullOrEmpty(offWeaponSub)) return;
+        SpriteAnimation? offAnim = SpriteCache.GetOffHandWeaponAnimation(offWeaponSub, facing, moving);
+        if (offAnim != null)
+        {
+            int offFrame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / offAnim.FrameDuration) % offAnim.FrameCount;
+            sb.Draw(offAnim.Sheet, er, offAnim.GetSourceRect(offFrame), Color.White);
+        }
+    }
+
+    private void DrawLabelsAndHP(SpriteBatch sb, SpriteFont fontSmall, WorldMap map, int startX, int startY, int endX, int endY)
+    {
         foreach (var m in map.Monsters)
         {
             (float X, float Y) v; lock (_stateLock) { if (!_visPos.TryGetValue($"monster:{m.Id}", out v)) continue; }
             int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
             if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
             float py = _gridOY + (v.Y - startY) * _cellH;
-            float centerX = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
+            float cx = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
 
-            // Имя + уровень монстра
             string mname = $"{m.Name} [{m.Level}]";
             var mnameSize = fontSmall.MeasureString(mname);
             float mny = py - 26;
-            sb.DrawString(fontSmall, mname, new Vector2(centerX - mnameSize.X / 2 + 1, mny + 1), Color.Black);
-            sb.DrawString(fontSmall, mname, new Vector2(centerX - mnameSize.X / 2, mny), Color.White);
+            sb.DrawString(fontSmall, mname, new Vector2(cx - mnameSize.X / 2 + 1, mny + 1), Color.Black);
+            sb.DrawString(fontSmall, mname, new Vector2(cx - mnameSize.X / 2, mny), Color.White);
 
-            // HP bar под именем
             if (m.MaxHealth > 0)
             {
-                float barW = 34;
-                float barH = 3;
-                float barX = centerX - barW / 2;
-                float barY = py - 8;
+                float barW = 34, barH = 3;
+                float barX = cx - barW / 2, barY = py - 8;
                 float hpPct = Math.Clamp((float)m.Health / m.MaxHealth, 0f, 1f);
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)barW, (int)barH), new Color(40, 10, 10));
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)(barW * hpPct), (int)barH), new Color(180, 40, 40));
@@ -1511,7 +1551,7 @@ private sealed class RemotePlayerState
             int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
             if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
             float py = _gridOY + (v.Y - startY) * _cellH;
-            float centerX = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
+            float cx = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
 
             Color groupColor = new Color(110, 230, 130);
             Color pvpEnemyColor = new Color(220, 60, 60);
@@ -1520,30 +1560,25 @@ private sealed class RemotePlayerState
                 : (_partyMemberNames.Contains(p.Name) ? groupColor
                     : (map.PvPEnabled ? pvpEnemyColor : Color.LightGray));
 
-            // Имя + уровень
             string nick = $"{p.Name} [{p.Level}]";
             var nickSize = fontSmall.MeasureString(nick);
             float ny = py - 26;
-            sb.DrawString(fontSmall, nick, new Vector2(centerX - nickSize.X / 2 + 1, ny + 1), Color.Black);
-            sb.DrawString(fontSmall, nick, new Vector2(centerX - nickSize.X / 2, ny), nickColor);
+            sb.DrawString(fontSmall, nick, new Vector2(cx - nickSize.X / 2 + 1, ny + 1), Color.Black);
+            sb.DrawString(fontSmall, nick, new Vector2(cx - nickSize.X / 2, ny), nickColor);
 
-            // HP bar под именем
             if (p.MaxHealth > 0)
             {
-                float barW = 34;
-                float barH = 3;
-                float barX = centerX - barW / 2;
-                float barY = py - 8;
+                float barW = 34, barH = 3;
+                float barX = cx - barW / 2, barY = py - 8;
                 float hpPct = Math.Clamp((float)p.Health / p.MaxHealth, 0f, 1f);
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)barW, (int)barH), new Color(40, 10, 10));
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)barX, (int)barY, (int)(barW * hpPct), (int)barH), new Color(180, 40, 40));
             }
         }
+    }
 
-        // Снаряды
-        ProjectileRenderer.Draw(sb, startX, startY, _gridOX, _gridOY, _cellW, _cellH);
-
-        // Всплывающий текст
+    private void DrawFloatingTexts(SpriteBatch sb, SpriteFont font, int startX, int startY)
+    {
         lock (_stateLock)
         {
             for (int i = _floatingTexts.Count - 1; i >= 0; i--)
@@ -1559,8 +1594,6 @@ private sealed class RemotePlayerState
                 var c = new Color(ft.Color.R, ft.Color.G, ft.Color.B, (byte)alpha);
                 Vector2 origin = font.MeasureString(ft.Text) / 2f;
                 float scale = ft.Scale;
-                // Чёрная обводка (8 смещённых копий) для чёткости и читаемости
-                // поверх любого фона — стандартный приём ММОРПГ для всплывающего текста.
                 var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.9f));
                 float o = 1.2f * scale;
                 sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
@@ -1571,57 +1604,53 @@ private sealed class RemotePlayerState
                 sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
                 sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                // Цветной текст поверх обводки
                 sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
             }
         }
+    }
 
-        // Превью тайла под курсором (предполагаемое перемещение)
-        if (_hoverTileX >= 0 && _hoverTileY >= 0)
+    private void DrawHoverTile(SpriteBatch sb)
+    {
+        if (_hoverTileX < 0 || _hoverTileY < 0) return;
+        if (_hoverTileX < _viewStartX || _hoverTileX > _viewEndX || _hoverTileY < _viewStartY || _hoverTileY > _viewEndY) return;
+        float tx = _gridOX + (_hoverTileX - _viewStartX) * _cellW;
+        float ty = _gridOY + (_hoverTileY - _viewStartY) * _cellH;
+        (Color fill, Color border) = _hoverCursorType switch
         {
-            if (_hoverTileX >= _viewStartX && _hoverTileX <= _viewEndX && _hoverTileY >= _viewStartY && _hoverTileY <= _viewEndY)
-            {
-                float tx = _gridOX + (_hoverTileX - _viewStartX) * _cellW;
-                float ty = _gridOY + (_hoverTileY - _viewStartY) * _cellH;
+            "attack" => (new Color(60, 18, 18, 8), new Color(160, 50, 50, 40)),
+            "player" => (new Color(18, 55, 25, 8), new Color(50, 200, 65, 40)),
+            "talk" or "harvest" => (new Color(18, 55, 25, 8), new Color(50, 140, 65, 40)),
+            "portal" => (new Color(25, 40, 70, 8), new Color(65, 100, 170, 40)),
+            "loot" => (new Color(43, 43, 43, 8), new Color(110, 110, 110, 40)),
+            _ => (new Color(65, 60, 25, 8), new Color(170, 155, 60, 40))
+        };
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
+        DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
+    }
 
-                (                Color fill, Color border) = _hoverCursorType switch
-                {
-                    "attack" => (new Color(60, 18, 18, 8), new Color(160, 50, 50, 40)),
-                    "player" => (new Color(18, 55, 25, 8), new Color(50, 200, 65, 40)),
-                    "talk" or "harvest" => (new Color(18, 55, 25, 8), new Color(50, 140, 65, 40)),
-                    "portal" => (new Color(25, 40, 70, 8), new Color(65, 100, 170, 40)),
-                    "loot" => (new Color(43, 43, 43, 8), new Color(110, 110, 110, 40)),
-                    _ => (new Color(65, 60, 25, 8), new Color(170, 155, 60, 40))
-                };
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, (int)_cellW, (int)_cellH), fill);
-                DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, border, 1);
-            }
-        }
-
-        // Выделение
-        if (_selectedEntityType != null)
+    private void DrawSelectionHighlight(SpriteBatch sb, WorldMap map, int startX, int startY, int endX, int endY)
+    {
+        if (_selectedEntityType == null) return;
+        int hx = _selectedEntityX, hy = _selectedEntityY;
+        string? hkey = null;
+        if (_selectedEntityType == "monster" && _selectedEntityId != null) hkey = $"monster:{_selectedEntityId}";
+        else if (_selectedEntityType == "player" && _selectedEntityName != null) hkey = $"player:{_selectedEntityName}";
+        if (_selectedEntityType == "merchant" && map.Merchant != null) { hx = map.Merchant.X; hy = map.Merchant.Y; }
+        else if (_selectedEntityType == "board" && map.Board != null) { hx = map.Board.X; hy = map.Board.Y; }
+        if (hkey != null) { lock (_stateLock) { if (_visPos.TryGetValue(hkey, out var hv)) { hx = (int)Math.Round(hv.X); hy = (int)Math.Round(hv.Y); } } }
+        if (hx >= startX && hx <= endX && hy >= startY && hy <= endY)
         {
-            int hx = _selectedEntityX, hy = _selectedEntityY;
-            string? hkey = null;
-            if (_selectedEntityType == "monster" && _selectedEntityId != null) hkey = $"monster:{_selectedEntityId}";
-            else if (_selectedEntityType == "player" && _selectedEntityName != null) hkey = $"player:{_selectedEntityName}";
-            if (_selectedEntityType == "merchant" && map.Merchant != null) { hx = map.Merchant.X; hy = map.Merchant.Y; }
-            else if (_selectedEntityType == "board" && map.Board != null) { hx = map.Board.X; hy = map.Board.Y; }
-            if (hkey != null) { lock (_stateLock) { if (_visPos.TryGetValue(hkey, out var hv)) { hx = (int)Math.Round(hv.X); hy = (int)Math.Round(hv.Y); } } }
-            if (hx >= startX && hx <= endX && hy >= startY && hy <= endY)
+            float tx = _gridOX + (hx - startX) * _cellW;
+            float ty = _gridOY + (hy - startY) * _cellH;
+            Color hc = _selectedEntityType switch
             {
-                float tx = _gridOX + (hx - startX) * _cellW;
-                float ty = _gridOY + (hy - startY) * _cellH;
-                 Color hc = _selectedEntityType switch
-                 {
-                     "monster" => Color.Red,
-                     "player" when _currentMap?.PvPEnabled == true => Color.Red,
-                     "move" => new Color(220, 200, 80),
-                     "corpse" => Color.Gray,
-                     _ => Color.LimeGreen
-                 };
-                DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, hc, 2);
-            }
+                "monster" => Color.Red,
+                "player" when _currentMap?.PvPEnabled == true => Color.Red,
+                "move" => new Color(220, 200, 80),
+                "corpse" => Color.Gray,
+                _ => Color.LimeGreen
+            };
+            DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, hc, 2);
         }
     }
 

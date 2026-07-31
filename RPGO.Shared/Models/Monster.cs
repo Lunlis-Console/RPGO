@@ -79,14 +79,21 @@ public class Monster : ICombatant
     public int MoveIntervalMs { get; set; } = 1500;
     public DateTime LastMoveTime { get; set; } = DateTime.MinValue;
 
-    // Таблица урона: playerId → суммарный урон по этому монстру
-    public Dictionary<Guid, int> DamageTracker { get; set; } = new();
+    // Таблица урона: playerId → суммарный урон по этому монстру (потокобезопасная)
+    public System.Collections.Concurrent.ConcurrentDictionary<Guid, int> DamageTracker { get; set; } = new();
 
     // Манекен
     public bool IsMannequin { get; set; }
 
-    // Активные дебаффы
+    // Активные дебаффы (потокобезопасный доступ через DebuffsLock)
     public List<ActiveDebuff> ActiveDebuffs { get; set; } = new();
+    public object DebuffsLock { get; } = new();
+
+    /// <summary>Возвращает снимок списка дебаффов (потокобезопасно).</summary>
+    public List<ActiveDebuff> GetDebuffsSnapshot()
+    {
+        lock (DebuffsLock) return new List<ActiveDebuff>(ActiveDebuffs);
+    }
 }
 
 public class MonsterPosition

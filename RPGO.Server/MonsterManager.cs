@@ -185,10 +185,11 @@ public class MonsterManager
         foreach (var m in monsters)
         {
             if (m.IsMannequin) continue;
-            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Stun)) continue;
-            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Root)) continue;
+            var debuffs = m.GetDebuffsSnapshot();
+            if (debuffs.Any(d => d.Type == DebuffType.Stun)) continue;
+            if (debuffs.Any(d => d.Type == DebuffType.Root)) continue;
 
-            double slow = 1.0 + m.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+            double slow = 1.0 + debuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
             int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
 
             // === LEASH: моб возвращается на спавн ===
@@ -367,10 +368,11 @@ public class MonsterManager
         foreach (var m in monsters)
         {
             if (m.IsMannequin) continue;
-            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Stun)) continue;
-            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Root)) continue;
+            var debuffs = m.GetDebuffsSnapshot();
+            if (debuffs.Any(d => d.Type == DebuffType.Stun)) continue;
+            if (debuffs.Any(d => d.Type == DebuffType.Root)) continue;
 
-            double slow = 1.0 + m.ActiveDebuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
+            double slow = 1.0 + debuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
             int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
 
             if (m.ReturningToSpawn)
@@ -637,7 +639,7 @@ public class MonsterManager
             mon.Health -= attackerDamage;
             mon.LastDamagedTime = DateTime.UtcNow;
             if (attacker is Player pl)
-                mon.DamageTracker[pl.Id] = mon.DamageTracker.GetValueOrDefault(pl.Id) + attackerDamage;
+                mon.DamageTracker.AddOrUpdate(pl.Id, attackerDamage, (k, old) => old + attackerDamage);
         }
         bool targetDead = defender.Health <= 0;
 
@@ -696,7 +698,7 @@ public class MonsterManager
             dmg = Math.Max(Balance.MinDamage, dmg);
             monster.Health -= dmg;
             monster.LastDamagedTime = DateTime.UtcNow;
-            monster.DamageTracker[attacker.Id] = monster.DamageTracker.GetValueOrDefault(attacker.Id) + dmg;
+            monster.DamageTracker.AddOrUpdate(attacker.Id, dmg, (k, old) => old + dmg);
         }
     }
 

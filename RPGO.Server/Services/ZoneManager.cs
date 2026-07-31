@@ -62,6 +62,9 @@ public class ZoneManager
     public List<WorldPortal> GetPortalsForZone(string zoneId)
         => _portalsByZone.TryGetValue(zoneId, out var list) ? list : new List<WorldPortal>();
 
+    public IReadOnlyDictionary<string, List<WorldPortal>> GetAllPortalsByZone()
+        => _portalsByZone;
+
     /// <summary>
     /// Получить GameMap для зоны (создаёт дефолтную если зоны нет в БД).
     /// </summary>

@@ -67,7 +67,7 @@ public class SelectTargetHandler : BaseHandler
                 TargetMaxHp = target.MaxHealth,
                 TargetX = target.X,
                 TargetY = target.Y,
-                TargetDebuffs = target.ActiveDebuffs.Select(d => new
+                TargetDebuffs = target.GetDebuffsSnapshot().Select(d => new
                 {
                     Type = d.Type.ToString(),
                     d.DisplayName,

@@ -50,7 +50,7 @@ public class AllocateAttributeHandler : BaseHandler
 
         player.AttributePoints--;
         Log.Debug($"{player.Name} повысил {attrName} (+1). Очков: {player.AttributePoints}");
-        DatabaseManager.SavePlayerProgress(player);
+        Svc.Persistence.EnqueueSave(player);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",

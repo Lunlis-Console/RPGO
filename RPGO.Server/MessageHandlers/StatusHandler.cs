@@ -56,7 +56,7 @@ public class StatusHandler : BaseHandler
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 IsDualWielding = player.Equipment.IsDualWielding(),
                 Breakdown = BuildBreakdown(player),
-                ActiveDebuffs = player.ActiveDebuffs.Select(d => new
+                ActiveDebuffs = player.GetDebuffsSnapshot().Select(d => new
                 {
                     Type = d.Type.ToString(),
                     d.DisplayName,

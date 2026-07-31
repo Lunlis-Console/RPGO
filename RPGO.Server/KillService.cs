@@ -128,7 +128,7 @@ public class KillService
     private async Task ResolveSoloKill(
         Player killer,
         Monster monster,
-        Dictionary<Guid, int> damageTracker)
+        IDictionary<Guid, int> damageTracker)
     {
         if (_hub == null) return;
         var topContributor = damageTracker.OrderByDescending(kvp => kvp.Value).FirstOrDefault();

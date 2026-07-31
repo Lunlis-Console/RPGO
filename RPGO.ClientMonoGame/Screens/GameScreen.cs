@@ -75,8 +75,6 @@ public class GameScreen : IScreen
             _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
             if (map.TileData != null && map.TileData.Length > 0)
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
-            else
-                _mapRenderer.SetTileData(null, 0, 0);
             foreach (var p in map.Players)
             {
                 if (p.Name == client.PlayerName) continue;
@@ -89,6 +87,10 @@ public class GameScreen : IScreen
             _hudRenderer.UpdateZone(zoneName, pvp);
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
+        };
+        client.TileDataReceived += (data, w, h, tilesetId, tileSize) =>
+        {
+            _mapRenderer.SetTileData(data, w, h, tilesetId, tileSize);
         };
         client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {

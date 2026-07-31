@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -11,6 +12,12 @@ public sealed class GameServer : INetworkHub
 {
     private readonly GameWorld _world;
     private GameServices _svc = null!;
+    private List<NpcPosition>? _npcCache;
+
+    // Zone-level dirty tracking: only broadcast to clients in zones that changed
+    private readonly ConcurrentDictionary<string, byte> _dirtyZones = new();
+
+    public void MarkZoneDirty(string zoneId) => _dirtyZones[zoneId] = 0;
 
     public GameServer(GameWorld world)
     {
@@ -19,6 +26,16 @@ public sealed class GameServer : INetworkHub
 
     public void SetServices(GameServices svc) => _svc = svc;
 
+    public void LoadNpcCache()
+    {
+        var svc = _svc;
+        _npcCache = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
+        {
+            Id = n.Id, Name = n.Name, Type = n.Type, X = n.X, Y = n.Y,
+            HasDialogue = svc?.Dialogue.GetTree(n.Id) != null
+        }).ToList();
+    }
+
     public async Task BroadcastMapAsync()
     {
         var svc = _svc;
@@ -26,16 +43,14 @@ public sealed class GameServer : INetworkHub
             .Where(c => c.Player != null).ToList();
 
         var allMonsters = svc.Monsters.GetMonsterPositions();
-        // Добавляем монстров инстансов
-        var instanceMonsters = svc.Instances.GetAllMonstersPositions();
-        allMonsters.AddRange(instanceMonsters);
+        allMonsters.AddRange(svc.Instances.GetAllMonstersPositions());
         var allCollectibles = svc.Collectibles.GetPositions();
         var allCorpses = svc.Corpses.GetCorpsePositions();
-        var allNpcs = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
-        {
-            Id = n.Id, Name = n.Name, Type = n.Type, X = n.X, Y = n.Y,
-            HasDialogue = svc.Dialogue.GetTree(n.Id) != null
-        }).ToList();
+        var allNpcs = _npcCache ?? new List<NpcPosition>();
+        var allHazards = svc.World.GetHazardsSnapshot();
+        var allPlayers = clientsCopy.Where(c => c.Player != null)
+            .Select(c => c.Player!).ToList();
+
         var merchant = new MerchantPosition
         {
             X = svc.Merchant.MerchantX,
@@ -44,60 +59,83 @@ public sealed class GameServer : INetworkHub
         };
         var board = svc.Quests.Board;
 
+        // Группировка по зонам (один раз, а не на клиента)
+        var monstersByZone = allMonsters.GroupBy(m => m.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var collectiblesByZone = allCollectibles.GroupBy(c => c.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var corpsesByZone = allCorpses.GroupBy(c => c.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var hazardsByZone = allHazards.GroupBy(h => h.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var playersByZone = allPlayers.GroupBy(p => p.CurrentZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var portalsByZone = svc.Zones.GetAllPortalsByZone();
+
+        var sendTasks = new List<Task>(clientsCopy.Count);
+        bool hasDirtyZones = !_dirtyZones.IsEmpty;
+
         foreach (var client in clientsCopy)
         {
             var player = client.Player!;
             string zoneId = player.CurrentZoneId;
+
+            // Skip clients in zones with no changes (unless first send)
+            if (hasDirtyZones && !_dirtyZones.ContainsKey(zoneId) && client.TileDataSent)
+                continue;
+
             var zone = svc.Zones.GetZone(zoneId);
             var zoneMap = svc.Zones.GetOrCreateMap(zoneId);
             int viewRadius = zoneMap.ViewRadius;
             bool isPvp = zone?.PvpEnabled ?? false;
 
-            var nearbyMonsters = allMonsters.Where(m =>
-                m.ZoneId == zoneId &&
+            if (!monstersByZone.TryGetValue(zoneId, out var zoneMonsters)) zoneMonsters = new();
+            if (!collectiblesByZone.TryGetValue(zoneId, out var zoneCollectibles)) zoneCollectibles = new();
+            if (!corpsesByZone.TryGetValue(zoneId, out var zoneCorpses)) zoneCorpses = new();
+            if (!hazardsByZone.TryGetValue(zoneId, out var zoneHazards)) zoneHazards = new();
+            if (!playersByZone.TryGetValue(zoneId, out var zonePlayers)) zonePlayers = new();
+            if (!portalsByZone.TryGetValue(zoneId, out var zonePortals)) zonePortals = new();
+
+            var nearbyMonsters = zoneMonsters.Where(m =>
                 Math.Abs(m.X - player.X) <= viewRadius &&
                 Math.Abs(m.Y - player.Y) <= viewRadius
             ).ToList();
 
-            var nearbyCollectibles = allCollectibles.Where(c =>
-                c.ZoneId == zoneId &&
+            var nearbyCollectibles = zoneCollectibles.Where(c =>
                 Math.Abs(c.X - player.X) <= viewRadius &&
                 Math.Abs(c.Y - player.Y) <= viewRadius
             ).ToList();
 
-            var nearbyCorpses = allCorpses.Where(c =>
-                c.ZoneId == zoneId &&
+            var nearbyCorpses = zoneCorpses.Where(c =>
                 Math.Abs(c.X - player.X) <= viewRadius &&
                 Math.Abs(c.Y - player.Y) <= viewRadius
             ).ToList();
 
-            var sameZonePlayers = clientsCopy
-                .Where(c => c.Player != null && c.Player.CurrentZoneId == zoneId)
-                .Select(c => new PlayerPosition
+            var sameZonePlayers = zonePlayers
+                .Select(p => new PlayerPosition
                 {
-                    Id = c.Player!.Id,
-                    Name = c.Player!.Name,
-                    X = c.Player!.X,
-                    Y = c.Player!.Y,
-                    Level = c.Player!.Level,
-                    Health = c.Player!.Health,
-                    MaxHealth = c.Player!.MaxHealth,
-                    Facing = c.Player!.Facing,
-                    WeaponSubtype = c.Player!.Equipment.Slots.TryGetValue("rhand", out var rh) ? (rh?.WeaponSubtype ?? "") : "",
-                    OffWeaponSubtype = c.Player!.Equipment.Slots.TryGetValue("lhand", out var lh) ? (lh?.WeaponSubtype ?? "") : "",
-                    ShieldSubtype = (c.Player!.Equipment.Slots.TryGetValue("lhand", out var lsh) && lsh != null && lsh.Type == "shield" && !Equipment.IsCasterOffhand(lsh)) ? "shield" : "",
-                    IsTwoHanded = c.Player!.Equipment.Slots.TryGetValue("rhand", out var rh2) && rh2 != null && rh2.TwoHanded,
-                    IsDead = c.Player.IsDead
+                    Id = p.Id,
+                    Name = p.Name,
+                    X = p.X,
+                    Y = p.Y,
+                    Level = p.Level,
+                    Health = p.Health,
+                    MaxHealth = p.MaxHealth,
+                    Facing = p.Facing,
+                    WeaponSubtype = p.Equipment.Slots.TryGetValue("rhand", out var rh) ? (rh?.WeaponSubtype ?? "") : "",
+                    OffWeaponSubtype = p.Equipment.Slots.TryGetValue("lhand", out var lh) ? (lh?.WeaponSubtype ?? "") : "",
+                    ShieldSubtype = (p.Equipment.Slots.TryGetValue("lhand", out var lsh) && lsh != null && lsh.Type == "shield" && !Equipment.IsCasterOffhand(lsh)) ? "shield" : "",
+                    IsTwoHanded = p.Equipment.Slots.TryGetValue("rhand", out var rh2) && rh2 != null && rh2.TwoHanded,
+                    IsDead = p.IsDead
                 }).ToList();
 
-            var portals = svc.Zones.GetPortalsForZone(zoneId)
+            var portals = zonePortals
                 .Select(p => new PortalPosition { X = p.FromX, Y = p.FromY, TargetZone = p.ToZone })
                 .ToList();
 
-            var nearbyHazards = svc.World.GetHazardsSnapshot()
-                .Where(h => h.ZoneId == zoneId &&
-                    Math.Abs(h.X - player.X) <= viewRadius &&
-                    Math.Abs(h.Y - player.Y) <= viewRadius)
+            var nearbyHazards = zoneHazards
+                .Where(h => Math.Abs(h.X - player.X) <= viewRadius &&
+                            Math.Abs(h.Y - player.Y) <= viewRadius)
                 .Select(h => new HazardPosition
                 {
                     Id = h.Id,
@@ -130,13 +168,13 @@ public sealed class GameServer : INetworkHub
                 PvPEnabled = isPvp,
                 Portals = portals,
                 TileMapId = zoneId,
-                TileData = zoneMap.GetTiles(),
+                TileData = client.TileDataSent ? null : zoneMap.GetTiles(),
                 TileWidth = zoneId == "main" ? 64 : 32,
                 TileHeight = zoneId == "main" ? 64 : 32,
                 TilesetId = zoneId == "main" ? "Tilemap-test" : zoneId
             };
+            client.TileDataSent = true;
 
-            // Данные инстанса: выход, сундук, таймер
             if (zoneId.StartsWith("instance:"))
             {
                 var inst = svc.Instances.FindInstanceByZoneId(zoneId);
@@ -158,12 +196,21 @@ public sealed class GameServer : INetworkHub
                 }
             }
 
-            await SendToClient(client, new GameMessage
+            sendTasks.Add(SendToClientSafe(client, new GameMessage
             {
                 Type = "map_update",
                 Data = mapData
-            });
+            }));
         }
+
+        await Task.WhenAll(sendTasks);
+        _dirtyZones.Clear();
+    }
+
+    private async Task SendToClientSafe(ClientConnection client, GameMessage msg)
+    {
+        try { await SendToClient(client, msg); }
+        catch { /* client disconnected — ignore */ }
     }
 
     private string? GetQuestIndicator(string npcId, Player player)
@@ -337,7 +384,7 @@ public sealed class GameServer : INetworkHub
                 WeaponDamageType = player.Equipment.GetWeaponDamageType(),
                 WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
                 Breakdown = BuildBreakdown(player),
-                ActiveDebuffs = player.ActiveDebuffs.Select(d => new
+                ActiveDebuffs = player.GetDebuffsSnapshot().Select(d => new
                 {
                     Type = d.Type.ToString(),
                     d.DisplayName,
@@ -630,6 +677,8 @@ public sealed class GameServer : INetworkHub
     public async Task SendZoneTransition(ClientConnection connection, Player player)
     {
         var zone = _svc.Zones.GetZone(player.CurrentZoneId);
+        var zoneMap = _svc.Zones.GetOrCreateMap(player.CurrentZoneId);
+        connection.TileDataSent = false;
         await SendToClient(connection, new GameMessage
         {
             Type = "zone_transition",
@@ -639,7 +688,11 @@ public sealed class GameServer : INetworkHub
                 ZoneName = zone?.Name ?? player.CurrentZoneId,
                 X = player.X,
                 Y = player.Y,
-                PvPEnabled = zone?.PvpEnabled ?? false
+                PvPEnabled = zone?.PvpEnabled ?? false,
+                TileData = zoneMap.GetTiles(),
+                TileWidth = player.CurrentZoneId == "main" ? 64 : 32,
+                TileHeight = player.CurrentZoneId == "main" ? 64 : 32,
+                TilesetId = player.CurrentZoneId == "main" ? "Tilemap-test" : player.CurrentZoneId
             }
         });
     }

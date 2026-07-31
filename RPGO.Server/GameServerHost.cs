@@ -1,10 +1,12 @@
+using System.Diagnostics;
 using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
 /// <summary>
-/// Тонкий координатор фоновых циклов. Вся логика вынесена в CombatService / InteractionService.
+/// Единый game loop: одна задача с Stopwatch, диспатч по интервалам.
+/// Заменяет 12 фоновых циклов на один.
 /// </summary>
 public class GameServerHost
 {
@@ -18,19 +20,7 @@ public class GameServerHost
 
     public void StartAsync()
     {
-        var ct = _cts.Token;
-        Task.Run(() => _svc.Combat.RunCombatLoop(ct), ct);
-        Task.Run(() => _svc.Combat.RunMonsterAttackLoop(ct), ct);
-        Task.Run(() => _svc.Combat.RunDeathTimerLoop(ct), ct);
-        Task.Run(() => _svc.Combat.RunHazardTickLoop(ct), ct);
-        Task.Run(() => _svc.Interactions.RunMovePathLoop(ct), ct);
-        Task.Run(() => RunMonsterWanderLoop(ct), ct);
-        Task.Run(() => RunRegenLoop(ct), ct);
-        Task.Run(() => RunDebuffTickLoop(ct), ct);
-        Task.Run(() => RunCorpseCleanupLoop(ct), ct);
-        Task.Run(() => _svc.Projectiles.RunTick(ct), ct);
-        Task.Run(() => RunSessionCleanupLoop(ct), ct);
-        Task.Run(() => RunInstanceTickLoop(ct), ct);
+        Task.Run(() => RunUnifiedLoop(_cts.Token), _cts.Token);
     }
 
     public void Stop()
@@ -39,180 +29,215 @@ public class GameServerHost
         _cts.Dispose();
     }
 
-    private async Task RunMonsterWanderLoop(CancellationToken ct)
+    private async Task RunUnifiedLoop(CancellationToken ct)
     {
+        var sw = Stopwatch.StartNew();
+        long lastProjectile = 0;
+        long lastCombat = 0, lastMovePath = 0;
+        long lastMonsterAttack = 0, lastDeathTimer = 0, lastMonsterWander = 0;
+        long lastHazard = 0, lastDebuff = 0, lastInstance = 0;
+        long lastRegen = 0, lastCorpse = 0, lastSession = 0;
+
         while (!ct.IsCancellationRequested)
         {
-            try
-            {
-                await Task.Delay(Balance.LoopMonsterWanderMs / 3, ct);
-                bool moved = _svc.Monsters.WanderStep();
-                if (moved)
-                    await _svc.Hub.BroadcastMapAsync();
-            }
+            try { await Task.Delay(50, ct); }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла блуждания монстров", ex); }
+
+            long now = sw.ElapsedMilliseconds;
+
+            // 50ms — projectiles
+            if (now - lastProjectile >= Balance.ProjectileTickMs)
+            {
+                lastProjectile = now;
+                try { await _svc.Projectiles.Tick(); }
+                catch (Exception ex) { Log.Error("[Tick] Projectile", ex); }
+            }
+
+            // 200ms — combat + movement
+            if (now - lastCombat >= Balance.LoopCombatMs)
+            {
+                lastCombat = now;
+                try { await _svc.Combat.CombatTick(); }
+                catch (Exception ex) { Log.Error("[Tick] Combat", ex); }
+            }
+            if (now - lastMovePath >= Balance.LoopMovePathMs)
+            {
+                lastMovePath = now;
+                try { await _svc.Interactions.Tick(); }
+                catch (Exception ex) { Log.Error("[Tick] MovePath", ex); }
+            }
+
+            // 500ms — monster attacks, death timers, monster wander
+            if (now - lastMonsterAttack >= Balance.LoopMonsterAttackMs)
+            {
+                lastMonsterAttack = now;
+                try { await _svc.Combat.MonsterAttackTick(); }
+                catch (Exception ex) { Log.Error("[Tick] MonsterAttack", ex); }
+            }
+            if (now - lastDeathTimer >= 500)
+            {
+                lastDeathTimer = now;
+                try { await _svc.Combat.DeathTimerTick(); }
+                catch (Exception ex) { Log.Error("[Tick] DeathTimer", ex); }
+            }
+            if (now - lastMonsterWander >= Balance.LoopMonsterWanderMs)
+            {
+                lastMonsterWander = now;
+                try
+                {
+                    bool moved = _svc.Monsters.WanderStep();
+                    if (moved) await _svc.Hub.BroadcastMapAsync();
+                }
+                catch (Exception ex) { Log.Error("[Tick] MonsterWander", ex); }
+            }
+
+            // 1000ms — hazards, debuffs, instances
+            if (now - lastHazard >= Balance.DebuffTickMs)
+            {
+                lastHazard = now;
+                try { await _svc.Hazard.Tick(); }
+                catch (Exception ex) { Log.Error("[Tick] Hazard", ex); }
+            }
+            if (now - lastDebuff >= Balance.DebuffTickMs)
+            {
+                lastDebuff = now;
+                try { await DebuffTick(); }
+                catch (Exception ex) { Log.Error("[Tick] Debuff", ex); }
+            }
+            if (now - lastInstance >= 1000)
+            {
+                lastInstance = now;
+                try { await _svc.Instances.TickAsync(); }
+                catch (Exception ex) { Log.Error("[Tick] Instance", ex); }
+            }
+
+            // 5000ms — regen
+            if (now - lastRegen >= Balance.PlayerRegenOutOfCombatTickMs)
+            {
+                lastRegen = now;
+                try { await RegenTick(); }
+                catch (Exception ex) { Log.Error("[Tick] Regen", ex); }
+            }
+
+            // 30s — corpse cleanup
+            if (now - lastCorpse >= 30_000)
+            {
+                lastCorpse = now;
+                try
+                {
+                    _svc.Corpses.CleanupExpired();
+                    _svc.Monsters.SpawnOneMonsterPublic();
+                    await _svc.Hub.BroadcastMapAsync();
+                }
+                catch (Exception ex) { Log.Error("[Tick] CorpseCleanup", ex); }
+            }
+
+            // 60s — session cleanup
+            if (now - lastSession >= 60_000)
+            {
+                lastSession = now;
+                try { SessionManager.Cleanup(); }
+                catch (Exception ex) { Log.Error("[Tick] SessionCleanup", ex); }
+            }
         }
     }
 
-    private async Task RunRegenLoop(CancellationToken ct)
+    private async Task DebuffTick()
+    {
+        foreach (var pl in _svc.World.GetPlayersSnapshot())
+        {
+            if (pl.IsDead) continue;
+            bool dualWieldChanged = _svc.Debuffs.CheckDualWieldBuff(pl);
+            bool hasDebuffs = pl.GetDebuffsSnapshot().Count > 0;
+            if (hasDebuffs)
+                _svc.Debuffs.TickDebuffs(pl);
+            if (dualWieldChanged || hasDebuffs)
+            {
+                var conn = _svc.World.FindClientByPlayer(pl);
+                if (conn != null) await _svc.Hub.SendStatusAsync(conn, pl);
+            }
+        }
+        foreach (var mon in _svc.World.GetMonstersSnapshot())
+        {
+            if (mon.GetDebuffsSnapshot().Count > 0)
+            {
+                _svc.Debuffs.TickDebuffs(mon);
+                await _svc.Combat.SendTargetDebuffUpdateAsync(mon);
+            }
+        }
+    }
+
+    private async Task RegenTick()
     {
         const int inCombatDelayMs = Balance.PlayerRegenInCombatDelayMs;
         const int outOfCombatHeal = Balance.PlayerRegenOutOfCombatHeal;
-        const int outOfCombatTickMs = Balance.PlayerRegenOutOfCombatTickMs;
         const double inCombatFraction = Balance.PlayerRegenInCombatFraction;
         const int inCombatTickMs = Balance.PlayerRegenInCombatTickMs;
+        const int outOfCombatTickMs = Balance.PlayerRegenOutOfCombatTickMs;
 
-        while (!ct.IsCancellationRequested)
+        var now = DateTime.UtcNow;
+
+        foreach (var pl in _svc.World.GetPlayersSnapshot())
         {
-            try
+            if (pl.IsDead) continue;
+
+            bool plInCombat = (now - pl.LastDamagedTime).TotalMilliseconds < inCombatDelayMs;
+            int tick = plInCombat ? inCombatTickMs : outOfCombatTickMs;
+
+            if ((now - pl.LastRegenTime).TotalMilliseconds >= tick)
             {
-                await Task.Delay(outOfCombatTickMs, ct);
-                var now = DateTime.UtcNow;
-
-                foreach (var pl in _svc.World.GetPlayersSnapshot())
+                int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
+                int heal = 0;
+                if (pl.Health < maxHp)
                 {
-                    if (pl.IsDead) continue;
-
-                    bool plInCombat = (now - pl.LastDamagedTime).TotalMilliseconds < inCombatDelayMs;
-                    int tick = plInCombat ? inCombatTickMs : outOfCombatTickMs;
-
-                    if ((now - pl.LastRegenTime).TotalMilliseconds >= tick)
-                    {
-                        int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
-                        int heal = 0;
-                        if (pl.Health < maxHp)
-                        {
-                            heal = plInCombat
-                                ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction))
-                                : outOfCombatHeal;
-                            pl.Health = Math.Min(maxHp, pl.Health + heal);
-                        }
-
-                        int maxMana = pl.MaxMana;
-                        int manaTick = 0;
-                        if (pl.Mana < maxMana)
-                        {
-                            manaTick = plInCombat
-                                ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction))
-                                : Balance.ManaRegenOutOfCombat;
-                            pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
-                        }
-
-                        pl.LastRegenTime = now;
-
-                        var conn = _svc.World.FindClientByPlayer(pl);
-                        if (conn != null)
-                        {
-                            if (heal > 0)
-                            {
-                                var healMsg = new GameMessage
-                                {
-                                    Type = "heal",
-                                    Data = new { Target = "player", PlayerName = pl.Name, X = pl.X, Y = pl.Y, Amount = heal }
-                                };
-                                await _svc.Hub.SendToClient(conn, healMsg);
-                                await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, healMsg, pl);
-                            }
-                            if (manaTick > 0)
-                            {
-                                var manaMsg = new GameMessage
-                                {
-                                    Type = "mana_regen",
-                                    Data = new { X = pl.X, Y = pl.Y, Amount = manaTick }
-                                };
-                                await _svc.Hub.SendToClient(conn, manaMsg);
-                                await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, manaMsg, pl);
-                            }
-                            await _svc.Hub.SendStatusAsync(conn, pl);
-                        }
-                        await _svc.Party.SendUpdateForAsync(pl);
-                    }
+                    heal = plInCombat
+                        ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction))
+                        : outOfCombatHeal;
+                    pl.Health = Math.Min(maxHp, pl.Health + heal);
                 }
 
-                _svc.Monsters.RegenStep();
-                await _svc.Hub.BroadcastMapAsync();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла регенерации", ex); }
-        }
-    }
-
-    private async Task RunDebuffTickLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(Balance.DebuffTickMs, ct);
-                foreach (var pl in _svc.World.GetPlayersSnapshot())
+                int maxMana = pl.MaxMana;
+                int manaTick = 0;
+                if (pl.Mana < maxMana)
                 {
-                    if (pl.IsDead) continue;
-                    bool dualWieldChanged = _svc.Debuffs.CheckDualWieldBuff(pl);
-                    bool hasDebuffs = pl.ActiveDebuffs.Count > 0;
-                    if (hasDebuffs)
-                        _svc.Debuffs.TickDebuffs(pl);
-                    if (dualWieldChanged || hasDebuffs)
-                    {
-                        var conn = _svc.World.FindClientByPlayer(pl);
-                        if (conn != null) await _svc.Hub.SendStatusAsync(conn, pl);
-                    }
+                    manaTick = plInCombat
+                        ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction))
+                        : Balance.ManaRegenOutOfCombat;
+                    pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
                 }
-                foreach (var mon in _svc.World.GetMonstersSnapshot())
+
+                pl.LastRegenTime = now;
+
+                var conn = _svc.World.FindClientByPlayer(pl);
+                if (conn != null)
                 {
-                    if (mon.ActiveDebuffs.Count > 0)
+                    if (heal > 0)
                     {
-                        _svc.Debuffs.TickDebuffs(mon);
-                        await _svc.Combat.SendTargetDebuffUpdateAsync(mon);
+                        var healMsg = new GameMessage
+                        {
+                            Type = "heal",
+                            Data = new { Target = "player", PlayerName = pl.Name, X = pl.X, Y = pl.Y, Amount = heal }
+                        };
+                        await _svc.Hub.SendToClient(conn, healMsg);
+                        await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, healMsg, pl);
                     }
+                    if (manaTick > 0)
+                    {
+                        var manaMsg = new GameMessage
+                        {
+                            Type = "mana_regen",
+                            Data = new { X = pl.X, Y = pl.Y, Amount = manaTick }
+                        };
+                        await _svc.Hub.SendToClient(conn, manaMsg);
+                        await _svc.Hub.SendDamageNearbyAsync(pl.X, pl.Y, manaMsg, pl);
+                    }
+                    await _svc.Hub.SendStatusAsync(conn, pl);
                 }
+                await _svc.Party.SendUpdateForAsync(pl);
             }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла дебаффов", ex); }
         }
-    }
 
-    private async Task RunCorpseCleanupLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(30_000, ct);
-                _svc.Corpses.CleanupExpired();
-                _svc.Monsters.SpawnOneMonsterPublic();
-                await _svc.Hub.BroadcastMapAsync();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла очистки трупов", ex); }
-        }
-    }
-
-    private static async Task RunSessionCleanupLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(60_000, ct);
-                SessionManager.Cleanup();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла очистки сессий", ex); }
-        }
-    }
-
-    private async Task RunInstanceTickLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(1000, ct);
-                await _svc.Instances.TickAsync();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Log.Error("Ошибка цикла инстансов", ex); }
-        }
+        _svc.Monsters.RegenStep();
+        await _svc.Hub.BroadcastMapAsync();
     }
 }

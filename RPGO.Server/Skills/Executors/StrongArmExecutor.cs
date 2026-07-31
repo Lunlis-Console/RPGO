@@ -39,7 +39,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
             monster.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
-            monster.DamageTracker[pl.Id] = monster.DamageTracker.GetValueOrDefault(pl.Id) + hitDmg;
+            monster.DamageTracker.AddOrUpdate(pl.Id, hitDmg, (k, old) => old + hitDmg);
 
             if (hitDmg > 0 && rng.Next(Balance.ChanceRollMax) < Balance.StunChanceOnHit)
             {

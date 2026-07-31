@@ -37,7 +37,7 @@ public class InventorySortHandler : BaseHandler
                 foreach (var it in remaining)
                     if (!sorted.Contains(it)) sorted.Add(it);
                 player.Inventory = sorted;
-                DatabaseManager.SavePlayerProgress(player);
+                Svc.Persistence.EnqueueSave(player);
                 await SendInventoryAndStatus(connection, player);
             }
         }

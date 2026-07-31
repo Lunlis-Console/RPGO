@@ -26,7 +26,7 @@ public class ResetSkillsHandler : BaseHandler
         player.SkillPoints = player.Level / 2;
 
         Log.Info($"{player.Name} сбросил навыки. Возвращено {player.SkillPoints} очков.");
-        DatabaseManager.SavePlayerProgress(player);
+        Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
