@@ -446,7 +446,7 @@ public sealed class GameClient
                         int x = manaEl.TryGetProperty("X", out var mxp) ? mxp.GetInt32() : 0;
                         int y = manaEl.TryGetProperty("Y", out var myp) ? myp.GetInt32() : 0;
                         Logger.Debug($"FLT mana_regen argb={0xFF60A0FFu:X8} text=+{amount}");
-                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount + " MP", 0xFF60A0FFu, false));
+                        Ui(() => FloatingTextReceived?.Invoke(x, y, "+" + amount, 0xFF60A0FFu, false));
                     }
                     break;
 
