@@ -266,12 +266,12 @@ public class StatusWindow : GameWindow
             DrawText(sb, attr.Value.ToString(), cx + 130, ry + 3, StatColor);
             DrawText(sb, attr.Desc, cx + 175, ry + 3, new Color(120, 160, 120));
 
-            if (_data.AttributePoints > 0)
-            {
-                var btnRect = new Rectangle(cx + cw - BtnW, ry + 2, BtnW, BtnH);
-                _attrBtnRects[i] = btnRect;
-                DrawButtonHover(sb, "+", btnRect, mouse, AttrBtnBg);
-            }
+             if (_data.AttributePoints > 0 && attr.Value < 50)
+             {
+                 var btnRect = new Rectangle(cx + cw - BtnW, ry + 2, BtnW, BtnH);
+                 _attrBtnRects[i] = btnRect;
+                 DrawButtonHover(sb, "+", btnRect, mouse, AttrBtnBg);
+             }
             cy += RowH + 2;
         }
 

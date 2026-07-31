@@ -18,6 +18,25 @@ public class AllocateAttributeHandler : BaseHandler
         if (attrName == null || player.AttributePoints <= 0) return;
 
         bool valid = true;
+        int beforeVal = 0;
+        switch (attrName)
+        {
+            case "strength": beforeVal = player.Strength; break;
+            case "endurance": beforeVal = player.Endurance; break;
+            case "agility": beforeVal = player.Agility; break;
+            case "cunning": beforeVal = player.Cunning; break;
+            case "intellect": beforeVal = player.Intellect; break;
+            case "wisdom": beforeVal = player.Wisdom; break;
+            default: valid = false; break;
+        }
+
+        if (!valid) return;
+        if (beforeVal >= 50)
+        {
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{attrName} уже достиг максимума (50)!");
+            return;
+        }
+
         switch (attrName)
         {
             case "strength": player.Strength++; break;
@@ -26,10 +45,7 @@ public class AllocateAttributeHandler : BaseHandler
             case "cunning": player.Cunning++; break;
             case "intellect": player.Intellect++; break;
             case "wisdom": player.Wisdom++; break;
-            default: valid = false; break;
         }
-
-        if (!valid) return;
 
         player.AttributePoints--;
         Log.Debug($"{player.Name} повысил {attrName} (+1). Очков: {player.AttributePoints}");
