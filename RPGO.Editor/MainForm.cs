@@ -18,25 +18,7 @@ public partial class MainForm : Form
     private TabPage _worldTab = null!;
     private TabPage _merchantTab = null!;
     private TabPage _animTab = null!;
-    private TabPage _mapTab = null!;
     private TabPage _accountsTab = null!;
-
-    // Map editor
-    private Panel _mapCanvas = null!;
-    private ComboBox _tileTypeCombo = null!;
-    private NumericUpDown _mapWidthNumeric = null!;
-    private NumericUpDown _mapHeightNumeric = null!;
-    private Button _mapBrushBtn = null!;
-    private Button _mapEraserBtn = null!;
-    private Button _mapFillBtn = null!;
-    private Button _mapSaveBtn = null!;
-    private Label _mapStatus = null!;
-    private byte[]? _currentTileMap;
-    private int _mapTileWidth = 100;
-    private int _mapTileHeight = 100;
-    private byte _currentTileType = 0;
-    private string _currentTool = "brush";
-    private bool _isPainting = false;
 
     private DataGridView _itemsGrid = null!;
     private DataGridView _monstersGrid = null!;
@@ -247,7 +229,6 @@ public partial class MainForm : Form
         _tabs.TabPages.Add(_questsTab);
         _tabs.TabPages.Add(_worldTab);
         _tabs.TabPages.Add(_merchantTab);
-        _tabs.TabPages.Add(_mapTab = BuildMapTab());
         _tabs.TabPages.Add(BuildAnimationsTab());
         _animTab = _tabs.TabPages[^1];
 
@@ -429,7 +410,6 @@ public partial class MainForm : Form
         LoadWorld();
         LoadMerchantStockEditor();
         LoadAccounts();
-        LoadTileMap();
     }
 
     private void LoadMonsterRefs() => _monsterRefs = LoadRefs("SELECT id, name FROM monsters ORDER BY id");
@@ -941,7 +921,6 @@ public partial class MainForm : Form
         else if (idx == _tabs.TabPages.IndexOf(_merchantTab)) SaveMerchantStockEditor();
         else if (idx == _tabs.TabPages.IndexOf(_accountsTab)) SaveAccounts();
         else if (idx == _tabs.TabPages.IndexOf(_animTab)) SaveAnimations();
-        else if (idx == _tabs.TabPages.IndexOf(_mapTab)) SaveTileMap();
     }
 
     private void SaveItems()
@@ -1734,249 +1713,6 @@ public partial class MainForm : Form
             _healBox.Enabled = t is "consumable" or "trophy" or "weapon" or "twohand";
         }
     }
-
-    // === MAP EDITOR ===    // === MAP EDITOR ===
-
-private TabPage BuildMapTab()
-    {
-        var tab = new TabPage("Карта");
-        var panel = new Panel { Dock = DockStyle.Fill };
-
-        var topBar = new Panel { Dock = DockStyle.Top, Height = 36, Padding = new Padding(6, 4, 6, 4) };
-
-        var sizeLabel = new Label { Text = "Размер:", Dock = DockStyle.Left, Width = 50, TextAlign = ContentAlignment.MiddleRight };
-        _mapWidthNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100 };
-        var xLabel = new Label { Text = "x", Dock = DockStyle.Left, Width = 15, TextAlign = ContentAlignment.MiddleCenter };
-        _mapHeightNumeric = new NumericUpDown { Dock = DockStyle.Left, Width = 50, Minimum = 10, Maximum = 200, Value = 100 };
-
-        _mapBrushBtn = MakeSmallButton("Кисть", SystemColors.ControlDark);
-        _mapBrushBtn.Click += (s, e) => { _currentTool = "brush"; UpdateToolButtons(); };
-        _mapEraserBtn = MakeSmallButton("Ластик", SystemColors.ControlDarkDark);
-        _mapEraserBtn.Click += (s, e) => { _currentTool = "eraser"; UpdateToolButtons(); };
-        _mapFillBtn = MakeSmallButton("Заливка", SystemColors.ControlDark);
-        _mapFillBtn.Click += (s, e) => { _currentTool = "fill"; UpdateToolButtons(); };
-
-        var toolLabel = new Label { Text = "Инструмент:", Dock = DockStyle.Left, Width = 70, TextAlign = ContentAlignment.MiddleRight };
-
-        _mapSaveBtn = MakeSmallButton("Сохранить карту", SystemColors.ControlDark);
-        _mapSaveBtn.Click += (s, e) => SaveTileMap();
-
-        topBar.Controls.Add(_mapSaveBtn);
-        topBar.Controls.Add(_mapFillBtn);
-        topBar.Controls.Add(_mapEraserBtn);
-        topBar.Controls.Add(_mapBrushBtn);
-        topBar.Controls.Add(toolLabel);
-        topBar.Controls.Add(_mapHeightNumeric);
-        topBar.Controls.Add(xLabel);
-        topBar.Controls.Add(_mapWidthNumeric);
-        topBar.Controls.Add(sizeLabel);
-
-        var midPanel = new Panel { Dock = DockStyle.Top, Height = 30, Padding = new Padding(6, 4, 6, 4) };
-        var tileLabel = new Label { Text = "Тайл:", Dock = DockStyle.Left, Width = 50, TextAlign = ContentAlignment.MiddleRight };
-        _tileTypeCombo = new ComboBox
-        {
-            Dock = DockStyle.Left,
-            Width = 180,
-            DropDownStyle = ComboBoxStyle.DropDownList,
-        };
-        _tileTypeCombo.Items.AddRange(Enum.GetNames<TileType>());
-        _tileTypeCombo.SelectedIndex = 0;
-        _tileTypeCombo.SelectedIndexChanged += (s, e) =>
-        {
-            if (Enum.TryParse<TileType>(_tileTypeCombo.SelectedItem?.ToString(), out var tt))
-                _currentTileType = (byte)tt;
-        };
-        midPanel.Controls.Add(_tileTypeCombo);
-        midPanel.Controls.Add(tileLabel);
-
-        _mapCanvas = new Panel
-        {
-            Dock = DockStyle.Fill,
-            BackColor = Color.FromArgb(20, 22, 28),
-            BorderStyle = BorderStyle.FixedSingle
-        };
-        _mapCanvas.Paint += MapCanvas_Paint;
-        _mapCanvas.MouseDown += MapCanvas_MouseDown;
-        _mapCanvas.MouseMove += MapCanvas_MouseMove;
-        _mapCanvas.MouseUp += MapCanvas_MouseUp;
-        _mapCanvas.MouseEnter += (s, e) => _mapCanvas.Focus();
-
-        _mapStatus = new Label
-        {
-            Dock = DockStyle.Bottom,
-            Height = 22,
-            Text = "Карта: готово",
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0)
-        };
-
-        panel.Controls.Add(_mapCanvas);
-        panel.Controls.Add(midPanel);
-        panel.Controls.Add(topBar);
-        panel.Controls.Add(_mapStatus);
-        tab.Controls.Add(panel);
-        return tab;
-    }
-
-    private void UpdateToolButtons()
-    {
-        _mapBrushBtn.BackColor = _currentTool == "brush" ? SystemColors.ControlDark : SystemColors.Control;
-        _mapEraserBtn.BackColor = _currentTool == "eraser" ? SystemColors.ControlDarkDark : SystemColors.Control;
-        _mapFillBtn.BackColor = _currentTool == "fill" ? SystemColors.ControlDark : SystemColors.Control;
-    }
-
-    private void MapCanvas_Paint(object? sender, PaintEventArgs e)
-    {
-        if (_currentTileMap == null) return;
-        int tw = Math.Max(1, _mapCanvas.Width / _mapTileWidth);
-        int th = Math.Max(1, _mapCanvas.Height / _mapTileHeight);
-
-        for (int y = 0; y < _mapTileHeight; y++)
-        {
-            for (int x = 0; x < _mapTileWidth; x++)
-            {
-                byte tile = _currentTileMap[y * _mapTileWidth + x];
-                Color color = tile switch
-                {
-                    0 => Color.FromArgb(76, 153, 0),
-                    1 => Color.FromArgb(194, 178, 128),
-                    2 => Color.FromArgb(30, 100, 180),
-                    3 => Color.FromArgb(128, 128, 128),
-                    4 => Color.FromArgb(80, 80, 80),
-                    5 => Color.FromArgb(20, 60, 140),
-                    6 => Color.FromArgb(139, 119, 101),
-                    7 => Color.FromArgb(220, 220, 230),
-                    8 => Color.FromArgb(200, 60, 20),
-                    _ => Color.DarkSlateGray};
-                var rect = new Rectangle(x * tw, y * th, tw, th);
-                e.Graphics.FillRectangle(new SolidBrush(color), rect);
-                e.Graphics.DrawRectangle(new Pen(Color.FromArgb(50, 55, 70)), rect);
-            }
-        }
-    }
-
-    private void MapCanvas_MouseDown(object? sender, MouseEventArgs e)
-    {
-        if (_currentTileMap == null) return;
-        _isPainting = true;
-        PaintTileAt(e.Location);
-    }
-
-    private void MapCanvas_MouseMove(object? sender, MouseEventArgs e)
-    {
-        if (!_isPainting || _currentTileMap == null) return;
-        if (e.Button != MouseButtons.Left) return;
-        PaintTileAt(e.Location);
-    }
-
-    private void MapCanvas_MouseUp(object? sender, MouseEventArgs e)
-    {
-        _isPainting = false;
-    }
-
-    private void PaintTileAt(Point loc)
-    {
-        if (_currentTileMap == null) return;
-        int tw = Math.Max(1, _mapCanvas.Width / _mapTileWidth);
-        int th = Math.Max(1, _mapCanvas.Height / _mapTileHeight);
-
-        int tx = loc.X / tw;
-        int ty = loc.Y / th;
-        if (tx < 0 || ty < 0 || tx >= _mapTileWidth || ty >= _mapTileHeight) return;
-
-        if (_currentTool == "eraser")
-            _currentTileMap[ty * _mapTileWidth + tx] = 0;
-        else if (_currentTool == "fill")
-            FloodFill(_currentTileMap, _mapTileWidth, _mapTileHeight, tx, ty, _currentTileMap[ty * _mapTileWidth + tx], _currentTileType);
-        else
-            _currentTileMap[ty * _mapTileWidth + tx] = _currentTileType;
-
-        _mapCanvas.Invalidate();
-    }
-
-    private static void FloodFill(byte[] map, int w, int h, int x, int y, byte target, byte replacement)
-    {
-        if (target == replacement) return;
-        if (x < 0 || y < 0 || x >= w || y >= h) return;
-        if (map[y * w + x] != target) return;
-        map[y * w + x] = replacement;
-        FloodFill(map, w, h, x - 1, y, target, replacement);
-        FloodFill(map, w, h, x + 1, y, target, replacement);
-        FloodFill(map, w, h, x, y - 1, target, replacement);
-        FloodFill(map, w, h, x, y + 1, target, replacement);
-    }
-
-    private void LoadTileMap()
-    {
-        try
-        {
-            using var conn = new SqliteConnection("Data Source=" + _dbFile);
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT width, height, tile_size, tileset_id, tiles FROM tile_maps WHERE zone_id = 'main' LIMIT 1";
-            using var reader = cmd.ExecuteReader();
-            if (reader.Read())
-            {
-                _mapTileWidth = reader.GetInt32(0);
-                _mapTileHeight = reader.GetInt32(1);
-                byte[] tiles = (byte[])reader.GetValue(4);
-                _currentTileMap = tiles;
-                _mapWidthNumeric.Value = Math.Min(_mapTileWidth, (decimal)_mapWidthNumeric.Maximum);
-                _mapHeightNumeric.Value = Math.Min(_mapTileHeight, (decimal)_mapHeightNumeric.Maximum);
-                SetMapStatus("Карта загружена: " + _mapTileWidth + "x" + _mapTileHeight);
-            }
-            else
-            {
-                _mapTileWidth = (int)_mapWidthNumeric.Value;
-                _mapTileHeight = (int)_mapHeightNumeric.Value;
-                _currentTileMap = new byte[_mapTileWidth * _mapTileHeight];
-                SetMapStatus("Новая пустая карта");
-            }
-        }
-        catch (Exception ex)
-        {
-            SetMapStatus("Ошибка загрузки: " + ex.Message);
-            _mapTileWidth = (int)_mapWidthNumeric.Value;
-            _mapTileHeight = (int)_mapHeightNumeric.Value;
-            _currentTileMap = new byte[_mapTileWidth * _mapTileHeight];
-        }
-        _mapCanvas.Invalidate();
-    }
-
-    private void SaveTileMap()
-    {
-        if (_currentTileMap == null) { SetMapStatus("Нечего сохранять"); return; }
-        try
-        {
-            _mapTileWidth = (int)_mapWidthNumeric.Value;
-            _mapTileHeight = (int)_mapHeightNumeric.Value;
-            if (_currentTileMap.Length != _mapTileWidth * _mapTileHeight)
-            {
-                Array.Resize(ref _currentTileMap, _mapTileWidth * _mapTileHeight);
-            }
-            using var conn = new SqliteConnection("Data Source=" + _dbFile);
-            conn.Open();
-            using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM tile_maps WHERE zone_id = 'main'"; del.ExecuteNonQuery(); }
-            using (var cmd = conn.CreateCommand())
-            {
-                cmd.CommandText = "INSERT INTO tile_maps (id, zone_id, width, height, tile_size, tileset_id, tiles) VALUES ($id, $zone, $w, $h, $ts, $tset, $tiles)";
-                cmd.Parameters.AddWithValue("$id", "main");
-                cmd.Parameters.AddWithValue("$zone", "main");
-                cmd.Parameters.AddWithValue("$w", _mapTileWidth);
-                cmd.Parameters.AddWithValue("$h", _mapTileHeight);
-                cmd.Parameters.AddWithValue("$ts", 32);
-                cmd.Parameters.AddWithValue("$tset", "default");
-                cmd.Parameters.AddWithValue("$tiles", _currentTileMap);
-                cmd.ExecuteNonQuery();
-            }
-            transaction.Commit();
-            SetMapStatus("Карта сохранена: " + _mapTileWidth + "x" + _mapTileHeight);
-        }
-        catch (Exception ex) { SetMapStatus("Ошибка сохранения: " + ex.Message); }
-    }
-
-    private void SetMapStatus(string text) => _mapStatus.Text = "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + text;
 
     // === HELPERS ===
 
