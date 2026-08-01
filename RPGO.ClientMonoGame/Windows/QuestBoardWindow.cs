@@ -262,6 +262,21 @@ public sealed class QuestBoardWindow : GameWindow
         DrawText(sb, "Закрыть", btnX + (btnW - (int)font.MeasureString("Закрыть").X) / 2, btnY + (btnH - (int)font.MeasureString("Закрыть").Y) / 2, Color.White);
     }
 
+    private static string? GetChainText(QuestInfo q)
+    {
+        if (string.IsNullOrEmpty(q.ChainId)) return null;
+        return q.Step > 0 ? $"Сюжет: {q.ChainId} · Шаг {q.Step}" : $"Сюжет: {q.ChainId}";
+    }
+
+    private static string? GetRequirementText(QuestInfo q)
+    {
+        string req = "";
+        if (q.MinLevel > 1) req += $"ур. {q.MinLevel}";
+        if (!string.IsNullOrEmpty(q.PrerequisiteQuestId))
+            req += (req.Length > 0 ? ", " : "") + $"предвар.: {q.PrerequisiteQuestId}";
+        return req.Length > 0 ? $"Требования: {req}" : null;
+    }
+
     private int GetCardHeight(QuestInfo q, int availableWidth, SpriteFont font)
     {
         int innerW = availableWidth - CardPadX * 2 - BarWidth - 4;
@@ -269,6 +284,8 @@ public sealed class QuestBoardWindow : GameWindow
         h += LineHeight;   // заголовок
         h += LineHeight;   // статус
         h += MeasureWrappedText(q.Description ?? "", innerW, font).H; // описание
+        if (GetChainText(q) != null) h += LineHeight;
+        if (GetRequirementText(q) != null) h += LineHeight;
         h += 10 + LineHeight + CardPadY; // прогресс-бар + текст
         return h;
     }
@@ -338,6 +355,21 @@ public sealed class QuestBoardWindow : GameWindow
 
         string rewards = $"Опыт: {q.XpReward}  |  Золото: {q.GoldReward}";
         DrawText(sb, rewards, textX, textY, TextProgress);
+        textY += LineHeight;
+
+        string? chain = GetChainText(q);
+        if (chain != null)
+        {
+            DrawText(sb, chain, textX, textY, new Color(200, 170, 110));
+            textY += LineHeight;
+        }
+
+        string? req = GetRequirementText(q);
+        if (req != null)
+        {
+            DrawText(sb, req, textX, textY, TextMuted);
+            textY += LineHeight;
+        }
 
         int btnW = 80;
         int btnH = 20;
@@ -373,6 +405,20 @@ public sealed class QuestBoardWindow : GameWindow
         int descH = MeasureWrappedText(q.Description ?? "", innerW, font).H;
         DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, TextDesc, font);
         textY += descH;
+
+        string? chain = GetChainText(q);
+        if (chain != null)
+        {
+            DrawText(sb, chain, textX, textY, new Color(200, 170, 110));
+            textY += LineHeight;
+        }
+
+        string? req = GetRequirementText(q);
+        if (req != null)
+        {
+            DrawText(sb, req, textX, textY, TextMuted);
+            textY += LineHeight;
+        }
 
         // Прогресс-бар
         int barW = innerW;

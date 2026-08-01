@@ -29,6 +29,9 @@ public partial class MainForm : Form
 
     private List<(string Id, string Name)> _monsterRefs = new();
     private List<(string Id, string Name)> _collectibleRefs = new();
+    private List<(string Id, string Name)> _npcRefs = new();
+    private List<(string Id, string Name)> _questRefs = new();
+    private List<(string Id, string Name)> _rewardItemRefs = new();
     private int _worldWidth = 100;
     private int _worldHeight = 100;
     private ComboBox _itemTypeSelector = null!;
@@ -171,6 +174,9 @@ public partial class MainForm : Form
         _worldGrid.AllowUserToAddRows = true;
         _worldGrid.AllowUserToDeleteRows = true;
         worldPanel.Controls.Add(_worldGrid);
+        var dialogBtn = MakeSaveButton("Редактор диалогов NPC...");
+        dialogBtn.Click += (s, e) => OpenDialogueEditor();
+        worldPanel.Controls.Add(dialogBtn);
         var worldBtn = MakeSaveButton("Сохранить NPC и мир");
         worldBtn.Click += (s, e) => SaveWorld();
         worldPanel.Controls.Add(worldBtn);
@@ -403,6 +409,9 @@ public partial class MainForm : Form
 
         LoadMonsterRefs();
         LoadCollectibleRefs();
+        LoadNpcRefs();
+        LoadQuestRefs();
+        LoadRewardItemRefs();
         LoadItems();
         LoadMonsters();
         LoadLoot();
@@ -414,6 +423,9 @@ public partial class MainForm : Form
 
     private void LoadMonsterRefs() => _monsterRefs = LoadRefs("SELECT id, name FROM monsters ORDER BY id");
     private void LoadCollectibleRefs() => _collectibleRefs = LoadRefs("SELECT id, name FROM items WHERE type='collectible' ORDER BY id");
+    private void LoadNpcRefs() => _npcRefs = LoadRefs("SELECT id, name FROM npcs ORDER BY id");
+    private void LoadQuestRefs() => _questRefs = LoadRefs("SELECT id, title FROM quests_def ORDER BY id");
+    private void LoadRewardItemRefs() => _rewardItemRefs = LoadRefs("SELECT id, name FROM items WHERE type <> 'collectible' ORDER BY id");
 
     private List<(string Id, string Name)> LoadRefs(string query)
     {
@@ -568,23 +580,38 @@ public partial class MainForm : Form
         dt.Columns.Add("type", typeof(string));
         dt.Columns.Add("monster", typeof(string));
         dt.Columns.Add("item", typeof(string));
+        dt.Columns.Add("npc", typeof(string));
         dt.Columns.Add("target", typeof(string));
         dt.Columns.Add("xp_reward", typeof(string));
         dt.Columns.Add("gold_reward", typeof(string));
+        dt.Columns.Add("chain_id", typeof(string));
+        dt.Columns.Add("step", typeof(string));
+        dt.Columns.Add("prereq", typeof(string));
+        dt.Columns.Add("min_level", typeof(string));
+        dt.Columns.Add("item_reward", typeof(string));
+        dt.Columns.Add("item_reward_count", typeof(string));
 
         using var conn = new SqliteConnection($"Data Source={_dbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target, xp_reward, gold_reward FROM quests_def ORDER BY id";
+        cmd.CommandText = @"SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target,
+                xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count
+            FROM quests_def ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
             string mid = reader.IsDBNull(4) ? "" : reader.GetString(4);
             string iid = reader.IsDBNull(5) ? "" : reader.GetString(5);
+            string nid = reader.IsDBNull(6) ? "" : reader.GetString(6);
+            string ch = reader.IsDBNull(10) ? "" : reader.GetString(10);
+            string pr = reader.IsDBNull(12) ? "" : reader.GetString(12);
+            string rid = reader.IsDBNull(14) ? "" : reader.GetString(14);
             dt.Rows.Add(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                NameById(_monsterRefs, mid), NameById(_collectibleRefs, iid),
-                reader.GetInt32(6).ToString(), reader.GetInt32(7).ToString(), reader.GetInt32(8).ToString());
+                NameById(_monsterRefs, mid), NameById(_collectibleRefs, iid), NameById(_npcRefs, nid),
+                reader.GetInt32(7).ToString(), reader.GetInt32(8).ToString(), reader.GetInt32(9).ToString(),
+                ch, reader.GetInt32(11).ToString(), pr, reader.GetInt32(13).ToString(),
+                NameById(_rewardItemRefs, rid), reader.GetInt32(15).ToString());
         }
         _questsGrid.DataSource = dt;
     }
@@ -600,18 +627,35 @@ public partial class MainForm : Form
         AddText("id", "ID");
         AddText("title", "Название");
         AddText("description", "Описание");
-        AddText("type", "Тип (kill/collect)");
         _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
-            DataPropertyName = "monster", HeaderText = "Монстр (цель)", Name = "monster",
+            DataPropertyName = "type", HeaderText = "Тип", Name = "type",
+            Items = { "kill", "collect", "talk", "travel", "use" }
+        });
+        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = "monster", HeaderText = "Монстр (kill)", Name = "monster",
             DataSource = _monsterRefs.Select(r => r.Name).ToList()});
         _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
-            DataPropertyName = "item", HeaderText = "Предмет (цель)", Name = "item",
+            DataPropertyName = "item", HeaderText = "Предмет (collect)", Name = "item",
             DataSource = _collectibleRefs.Select(r => r.Name).ToList()});
+        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = "npc", HeaderText = "NPC (talk)", Name = "npc",
+            DataSource = _npcRefs.Select(r => r.Name).ToList()});
         AddText("target", "Кол-во");
         AddText("xp_reward", "Опыт");
         AddText("gold_reward", "Золото");
+        AddText("chain_id", "Цепочка");
+        AddText("step", "Шаг");
+        AddText("prereq", "Предусловие (ID)");
+        AddText("min_level", "Мин. ур.");
+        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = "item_reward", HeaderText = "Награда (предмет)", Name = "item_reward",
+            DataSource = _rewardItemRefs.Select(r => r.Name).ToList()});
+        AddText("item_reward_count", "Награда (кол-во)");
     }
 
     // === WORLD ===
@@ -647,7 +691,7 @@ public partial class MainForm : Form
         _worldGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
             Name = "type", HeaderText = "Тип", DataPropertyName = "type",
-            Items = { "merchant", "board" }
+            Items = { "merchant", "board", "npc", "instance_portal" }
         });
         _worldGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "x", HeaderText = "X", DataPropertyName = "x" });
         _worldGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "y", HeaderText = "Y", DataPropertyName = "y" });
@@ -1076,18 +1120,26 @@ public partial class MainForm : Form
                 string type = row["type"]?.ToString() ?? "kill";
                 string monsterId = type == "kill" ? IdByName(_monsterRefs, row["monster"]?.ToString() ?? "") : "";
                 string itemId = type == "collect" ? IdByName(_collectibleRefs, row["item"]?.ToString() ?? "") : "";
+                string npcId = type == "talk" ? IdByName(_npcRefs, row["npc"]?.ToString() ?? "") : "";
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target, xp_reward, gold_reward)
-                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tg,$xp,$g)";
+                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count)
+                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$t", row["title"] ?? "");
                 cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
                 cmd.Parameters.AddWithValue("$ty", type);
                 cmd.Parameters.AddWithValue("$tm", monsterId);
                 cmd.Parameters.AddWithValue("$ti", itemId);
+                cmd.Parameters.AddWithValue("$tn", npcId);
                 cmd.Parameters.AddWithValue("$tg", ToInt(row["target"]));
                 cmd.Parameters.AddWithValue("$xp", ToInt(row["xp_reward"]));
                 cmd.Parameters.AddWithValue("$g", ToInt(row["gold_reward"]));
+                cmd.Parameters.AddWithValue("$ch", row["chain_id"] ?? "");
+                cmd.Parameters.AddWithValue("$st", ToInt(row["step"]));
+                cmd.Parameters.AddWithValue("$pr", row["prereq"] ?? "");
+                cmd.Parameters.AddWithValue("$ml", ToInt(row["min_level"]));
+                cmd.Parameters.AddWithValue("$ri", IdByName(_rewardItemRefs, row["item_reward"]?.ToString() ?? ""));
+                cmd.Parameters.AddWithValue("$rc", ToInt(row["item_reward_count"]));
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -1714,23 +1766,58 @@ public partial class MainForm : Form
         }
     }
 
+    private void OpenDialogueEditor()
+    {
+        using var dlg = new NpcDialogueEditorForm(_dbFile);
+        dlg.ShowDialog(this);
+    }
+
     // === HELPERS ===
 
     private void SaveNpcsLocal(List<NpcRecord> npcs)
     {
+        // Сохраняем существующие data (JSON диалогов), чтобы не затирать их при перезаписи.
+        var dataMap = new Dictionary<string, string>();
+        using (var readConn = new SqliteConnection($"Data Source={_dbFile}"))
+        {
+            readConn.Open();
+            using var cmd = readConn.CreateCommand();
+            cmd.CommandText = "SELECT id, data FROM npcs";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (!reader.IsDBNull(1)) dataMap[reader.GetString(0)] = reader.GetString(1);
+            }
+        }
+
         using var conn = new SqliteConnection($"Data Source={_dbFile}");
         conn.Open();
         using var transaction = conn.BeginTransaction();
-        using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM npcs"; del.ExecuteNonQuery(); }
+
+        // Удаляем NPC, которых больше нет в таблице.
+        if (npcs.Count == 0)
+        {
+            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM npcs"; del.ExecuteNonQuery(); }
+        }
+        else
+        {
+            var ids = string.Join(",", npcs.Select(n => "'" + n.Id.Replace("'", "''") + "'"));
+            using var del = conn.CreateCommand();
+            del.CommandText = $"DELETE FROM npcs WHERE id NOT IN ({ids})";
+            del.ExecuteNonQuery();
+        }
+
         foreach (var n in npcs)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = "INSERT INTO npcs (id, name, type, x, y, data) VALUES ($id,$n,$t,$x,$y,NULL)";
+            cmd.CommandText = @"INSERT INTO npcs (id, name, type, x, y, data) VALUES ($id,$n,$t,$x,$y,$d)
+                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, x = excluded.x, y = excluded.y";
             cmd.Parameters.AddWithValue("$id", n.Id);
             cmd.Parameters.AddWithValue("$n", n.Name);
             cmd.Parameters.AddWithValue("$t", n.Type);
             cmd.Parameters.AddWithValue("$x", n.X);
             cmd.Parameters.AddWithValue("$y", n.Y);
+            cmd.Parameters.AddWithValue("$d", dataMap.TryGetValue(n.Id, out var data) ? (object)data : DBNull.Value);
             cmd.ExecuteNonQuery();
         }
         transaction.Commit();

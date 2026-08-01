@@ -196,6 +196,7 @@ public sealed class QuestLogWindow : GameWindow
         int h = CardPadY * 2;
         h += LineHeight;        // заголовок
         h += LineHeight;        // статус
+        if (GetChainText(q) != null) h += LineHeight; // сюжет
         h += MeasureWrappedText(q.Description ?? "", innerW, font).H; // описание
         h += LineHeight;        // цель
         h += LineHeight;        // прогресс
@@ -211,10 +212,18 @@ public sealed class QuestLogWindow : GameWindow
             "kill" => "Убить",
             "collect" => "Собрать",
             "talk" => "Поговорить",
+            "travel" => "Отправиться",
+            "use" => "Использовать",
             "explore" => "Исследовать",
             _ => "Выполнить"
         };
         return $"{verb}: {q.Target}";
+    }
+
+    private static string? GetChainText(QuestInfo q)
+    {
+        if (string.IsNullOrEmpty(q.ChainId)) return null;
+        return q.Step > 0 ? $"Сюжет: {q.ChainId} · Шаг {q.Step}" : $"Сюжет: {q.ChainId}";
     }
 
     private static (int W, int H) MeasureWrappedText(string text, int maxW, SpriteFont font)
@@ -300,7 +309,14 @@ public sealed class QuestLogWindow : GameWindow
         DrawText(sb, stateText, textX, textY, accent);
         textY += LineHeight;
 
-        DrawWrappedText(sb, q.Description ?? "", textX, y + CardPadY + LineHeight * 2, innerW, TextDesc, font);
+        string? chain = GetChainText(q);
+        if (chain != null)
+        {
+            DrawText(sb, chain, textX, textY, new Color(200, 170, 110));
+            textY += LineHeight;
+        }
+
+        DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, TextDesc, font);
 
         // Нижняя зона: цель, прогресс, награда (без наложения), кнопка «Отказаться» отдельно
         int btnH = 20;
