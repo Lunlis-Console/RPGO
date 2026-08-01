@@ -207,6 +207,7 @@ internal static class AccountRepository
             }
 
             QuestRepository.Save(connection, player.Name, player.ActiveQuests);
+            QuestRepository.SaveCompleted(connection, player.Name, player.CompletedQuestIds);
 
             txn.Commit();
         }
@@ -343,6 +344,7 @@ internal static class AccountRepository
                 Inventory = InventoryRepository.GetForPlayer(playerName, equipIds),
                 Equipment = InventoryRepository.LoadEquipment(connection, playerName),
                 ActiveQuests = QuestRepository.Load(connection, playerName),
+                CompletedQuestIds = QuestRepository.LoadCompleted(connection, playerName),
                 HotbarSlots = LoadHotbar(reader.GetString(20))
             }
         };

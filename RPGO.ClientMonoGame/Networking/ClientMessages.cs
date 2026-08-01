@@ -179,6 +179,10 @@ public sealed class QuestInfo
     public int GoldReward { get; set; }
     public int Current { get; set; }
     public bool Completed { get; set; }
+    public string? ChainId { get; set; }
+    public int Step { get; set; }
+    public string? PrerequisiteQuestId { get; set; }
+    public int MinLevel { get; set; }
 }
 
 public sealed class BreakdownData

@@ -145,7 +145,11 @@ public class InteractionService
                             player.Dialogue.Start(npcId, startNode);
                             var tree = _svc.Dialogue.GetTree(npcId);
                             if (tree != null)
+                            {
                                 await _svc.Dialogue.SendNode(client, player, tree, startNode);
+                                _svc.Quests.IncrementTalkProgress(player, npcId);
+                                await _svc.Hub.SendQuestLog(client, player);
+                            }
                         }
                         else
                         {

@@ -31,46 +31,21 @@ public class CompleteQuestHandler : BaseHandler
             return;
         }
 
-        var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == questId);
-        var def = Svc.Quests.FindQuest(questId);
-        if (prog == null || def == null)
+        var result = Svc.Quests.CompleteQuest(player, questId);
+        if (!result.Success)
         {
-            await SendError(connection, ErrorCodes.QuestNotActive, "У вас нет этого задания.");
+            string code = result.ErrorKind == 1 ? ErrorCodes.QuestNotActive : ErrorCodes.QuestNotCompleted;
+            await SendError(connection, code, result.Message);
             return;
         }
 
-        if (!prog.Completed)
-        {
-            await SendError(connection, ErrorCodes.QuestNotCompleted, $"Задание ещё не выполнено ({prog.Current}/{def.Target}).");
-            return;
-        }
-
-        // Списываем предметы, нужные для сдачи квеста (collect)
-        if (def.Type == "collect" && !string.IsNullOrEmpty(def.TargetItemId))
-        {
-            var records = player.Inventory.Where(i => i.TemplateId == def.TargetItemId || i.Id == def.TargetItemId).ToList();
-            int available = records.Sum(i => i.Quantity);
-            int toRemove = Math.Min(def.Target, available);
-            foreach (var rec in records)
-            {
-                if (toRemove <= 0) break;
-                int take = Math.Min(toRemove, rec.Quantity);
-                InventoryHelper.RemoveFromRecord(player, rec.Id, take);
-                toRemove -= take;
-            }
-        }
-
-        player.ActiveQuests.Remove(prog);
-        player.Experience += def.XpReward;
-        player.Gold += def.GoldReward;
-        Log.Info($"{player.Name} сдал задание {def.Title}: +{def.XpReward} XP, +{def.GoldReward} золота");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Задание выполнено! {def.Title}. Награда: +{def.XpReward} опыта, +{def.GoldReward} золота." }
+            Data = new { Name = "Система", Text = result.Message }
         });
 
-        if (player.TryLevelUp())
+        if (result.LeveledUp)
         {
             string skillMsg = player.Level % 2 == 0 ? $" +1 очко навыков." : "";
             Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов{skillMsg}");

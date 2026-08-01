@@ -22,14 +22,36 @@ public static class Log
             .CreateLogger();
     }
 
-    public static void Info(string message) => _logger.Information(message);
-    public static void Warn(string message) => _logger.Warning(message);
+    // Ленивый fallback: если Init() не вызывался (например, в юнит-тестах) — пишем в консоль.
+    private static Serilog.ILogger Logger
+    {
+        get
+        {
+            if (_logger == null)
+            {
+                lock (typeof(Log))
+                {
+                    if (_logger == null)
+                    {
+                        _logger = new LoggerConfiguration()
+                            .MinimumLevel.Debug()
+                            .WriteTo.Console()
+                            .CreateLogger();
+                    }
+                }
+            }
+            return _logger;
+        }
+    }
+
+    public static void Info(string message) => Logger.Information(message);
+    public static void Warn(string message) => Logger.Warning(message);
     public static void Error(string message, Exception? ex = null)
     {
         if (ex != null)
-            _logger.Error(ex, message);
+            Logger.Error(ex, message);
         else
-            _logger.Error(message);
+            Logger.Error(message);
     }
-    public static void Debug(string message) => _logger.Debug(message);
+    public static void Debug(string message) => Logger.Debug(message);
 }

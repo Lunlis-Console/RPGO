@@ -189,6 +189,8 @@ public class DialogueManager
         if (condition.StartsWith("quest_complete:"))
         {
             string qid = condition["quest_complete:".Length..];
+            // Выполнен: либо в истории (сдан), либо в активных с флагом Completed (готов к сдаче)
+            if (player.CompletedQuestIds.Contains(qid)) return true;
             return player.ActiveQuests.Any(q => q.QuestId == qid && q.Completed);
         }
         if (condition.StartsWith("quest_not_active:"))
@@ -212,9 +214,9 @@ public class DialogueManager
         {
             string qid = action["accept_quest:".Length..];
             var def = _quests.FindQuest(qid);
-            if (def != null && !player.ActiveQuests.Any(q => q.QuestId == qid))
+            if (def != null && _quests.CanTakeQuest(player, def))
             {
-                player.ActiveQuests.Add(new QuestProgress { QuestId = qid });
+                _quests.TakeQuest(player, def);
                 await _hub.SendQuestLog(client, player);
                 await Program.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
             }
@@ -222,18 +224,11 @@ public class DialogueManager
         else if (action.StartsWith("complete_quest:"))
         {
             string qid = action["complete_quest:".Length..];
-            var def = _quests.FindQuest(qid);
-            var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == qid);
-            if (def != null && prog != null && prog.Completed)
+            var result = _quests.CompleteQuest(player, qid);
+            if (result.Success)
             {
-                player.Experience += def.XpReward;
-                player.Gold += def.GoldReward;
-                player.ActiveQuests.Remove(prog);
-                if (player.TryLevelUp())
-                    Log.Info($"{player.Name} повысил уровень до {player.Level}!");
                 await _hub.SendQuestLog(client, player);
-                await Program.ChatTo(client, ChatChannel.System, "Система",
-                    $"Задание выполнено: {def.Title}! +{def.XpReward}XP, +{def.GoldReward} зол.");
+                await Program.ChatTo(client, ChatChannel.System, "Система", result.Message);
                 await _hub.SendStatusAsync(client, player);
                 await CloseDialogue(client, player);
                 return true;

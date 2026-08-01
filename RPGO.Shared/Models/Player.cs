@@ -27,6 +27,9 @@ public class Player : ICombatant
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
 
+    // История выполненных квестов (для цепочек и условий диалогов)
+    public List<string> CompletedQuestIds { get; set; } = new();
+
     // Первичные атрибуты (качаются с уровнем)
     public int Strength { get; set; } = 1;   // +физ.атака, +крит урон
     public int Endurance { get; set; } = 1;  // +MaxHP, +сопротивление физ.эффектам

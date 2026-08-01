@@ -18,6 +18,7 @@ public static class ErrorCodes
     public const string QuestNotFound = "QUEST_NOT_FOUND";
     public const string QuestNotActive = "QUEST_NOT_ACTIVE";
     public const string QuestNotCompleted = "QUEST_NOT_COMPLETED";
+    public const string QuestNotAvailable = "QUEST_NOT_AVAILABLE";
     public const string InventoryFull = "INVENTORY_FULL";
     public const string InvalidRequest = "INVALID_REQUEST";
     public const string NotInCombat = "NOT_IN_COMBAT";

@@ -121,6 +121,7 @@ public class AuthService
                             Inventory = account.PlayerData.Inventory,
                             Equipment = account.PlayerData.Equipment,
                             ActiveQuests = account.PlayerData.ActiveQuests,
+                            CompletedQuestIds = account.PlayerData.CompletedQuestIds,
                             HotbarSlots = account.PlayerData.HotbarSlots,
                             SkillPoints = account.PlayerData.SkillPoints,
                             LearnedSkills = account.PlayerData.LearnedSkills,

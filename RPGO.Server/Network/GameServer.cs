@@ -231,7 +231,9 @@ public sealed class GameServer : INetworkHub
             var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
             if (prog == null)
             {
-                result = "available";
+                // «!» — квест можно взять (предусловия цепочки выполнены)
+                if (result == null && svc.Quests.CanTakeQuest(player, def))
+                    result = "available";
             }
             else if (prog.Completed && result != "available")
             {
@@ -270,9 +272,10 @@ public sealed class GameServer : INetworkHub
             Type = "quest_log",
             Data = new
             {
-                Available = svc.Quests.GetAvailableQuests().Select(d => new
+                Available = svc.Quests.GetAvailableQuests(player).Select(d => new
                 {
-                    QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward
+                    QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward,
+                    d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel
                 }).ToList(),
                 Active = quests
             }

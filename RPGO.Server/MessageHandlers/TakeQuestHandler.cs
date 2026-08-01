@@ -44,11 +44,27 @@ public class TakeQuestHandler : BaseHandler
             return;
         }
 
-        int currentProgress = 0;
-        if (def.Type == "collect" && !string.IsNullOrEmpty(def.TargetItemId))
-            currentProgress = player.Inventory.Count(i => i.Id == def.TargetItemId);
-        bool alreadyCompleted = currentProgress >= def.Target;
-        player.ActiveQuests.Add(new QuestProgress { QuestId = def.Id, Current = currentProgress, Completed = alreadyCompleted });
+        if (!Svc.Quests.CanTakeQuest(player, def))
+        {
+            if (player.Level < def.MinLevel)
+            {
+                await SendError(connection, ErrorCodes.QuestNotAvailable, $"Это задание требует {def.MinLevel} уровня.");
+                return;
+            }
+            if (!string.IsNullOrEmpty(def.PrerequisiteQuestId) &&
+                !player.CompletedQuestIds.Contains(def.PrerequisiteQuestId))
+            {
+                await SendError(connection, ErrorCodes.QuestNotAvailable, "Сначала выполните предыдущее задание цепочки.");
+                return;
+            }
+            await SendError(connection, ErrorCodes.QuestNotAvailable, "Это задание сейчас недоступно.");
+            return;
+        }
+
+        Svc.Quests.TakeQuest(player, def);
+        var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
+        int currentProgress = prog?.Current ?? 0;
+        bool alreadyCompleted = prog?.Completed ?? false;
         Log.Info($"{player.Name} взял задание: {def.Title} (прогресс: {currentProgress}/{def.Target})");
 
         if (alreadyCompleted)
