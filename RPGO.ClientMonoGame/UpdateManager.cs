@@ -31,6 +31,9 @@ public static class UpdateManager
     {
         try
         {
+            if (!File.Exists(VersionFile))
+                return false; // dev-сборка без version.json: авто-апдейт не запускаем
+
             string ip = SettingsManager.Load().ServerIp;
             if (string.IsNullOrWhiteSpace(ip))
                 return false;
