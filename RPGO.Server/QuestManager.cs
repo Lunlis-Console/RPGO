@@ -20,15 +20,30 @@ public class QuestManager
 
     private List<QuestDefinition> _quests = new();
 
+    private int? _tiledX;
+    private int? _tiledY;
+
     public QuestManager(GameWorld world)
     {
         _world = world;
     }
 
+    /// <summary>Позиция доски заданий из Tiled-карты (приоритет над БД).</summary>
+    public void SetTiledPosition(int x, int y)
+    {
+        _tiledX = x;
+        _tiledY = y;
+    }
+
     public void Initialize()
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "board");
-        if (npc != null)
+        if (_tiledX.HasValue && _tiledY.HasValue)
+        {
+            BoardX = _tiledX.Value;
+            BoardY = _tiledY.Value;
+        }
+        else if (npc != null)
         {
             BoardX = npc.X;
             BoardY = npc.Y;

@@ -1,4 +1,5 @@
 using RPGGame.Server.Repositories;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
@@ -15,6 +16,7 @@ public class ZoneManager
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
     private readonly Dictionary<string, (int TileWidth, string TilesetId)> _tileConfig = new();
+    private readonly Dictionary<string, List<TiledNpc>> _tiledNpcs = new();
     private GameMap? _mainMap;
 
     public IReadOnlyDictionary<string, Zone> Zones => _zones;
@@ -130,6 +132,29 @@ public class ZoneManager
 
     public (int TileWidth, string TilesetId) GetTileConfig(string zoneId)
         => _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : (32, zoneId);
+
+    /// <summary>
+    /// Регистрирует позиции NPC, размещённые в Tiled-карте зоны. Позиции NPC берутся
+    /// из Tiled, а контент (имена, диалоги, данные) — из таблицы npcs по id (name объекта).
+    /// </summary>
+    public void RegisterTiledNpcs(string zoneId, IEnumerable<TiledNpc> npcs)
+    {
+        var list = npcs.ToList();
+        _tiledNpcs[zoneId] = list;
+        if (list.Count > 0)
+            Log.Info($"Зарегистрировано NPC из Tiled в зоне '{zoneId}': {list.Count}");
+    }
+
+    public List<TiledNpc> GetTiledNpcs(string zoneId)
+        => _tiledNpcs.TryGetValue(zoneId, out var list) ? list : new List<TiledNpc>();
+
+    public IReadOnlyList<TiledNpc> GetAllTiledNpcs()
+    {
+        var all = new List<TiledNpc>();
+        foreach (var list in _tiledNpcs.Values)
+            all.AddRange(list);
+        return all;
+    }
 
     /// <summary>
     /// Создаёт (или заменяет) GameMap зоны нужного размера из Tiled-карты.

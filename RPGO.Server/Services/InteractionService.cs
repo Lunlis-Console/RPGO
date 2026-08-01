@@ -114,40 +114,27 @@ public class InteractionService
 
             case "npc":
                 {
-                    // Проверка: может это стражник инстанса?
-                    var npcList = DatabaseManager.LoadNpcs();
-                    var portalNpc = npcList.FirstOrDefault(n => n.X == player.Interaction.X && n.Y == player.Interaction.Y && n.Type == "instance_portal");
-                    if (portalNpc != null)
+                    // Портал инстанса размещается в Tiled, привязка к шаблону — в InstanceManager
+                    var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
+                    if (portal != null)
                     {
-                        var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
-                        if (portal != null)
-                        {
-                            await _svc.Instances.TryEnter(player, portal.InstanceTemplateId, client);
-                            break;
-                        }
+                        await _svc.Instances.TryEnter(player, portal.InstanceTemplateId, client);
+                        break;
                     }
 
                     if (player.Dialogue.IsActive) break;
-                    string? npcId = null;
-                    foreach (var n in npcList)
+                    var npc = _svc.Hub.FindNpcAt(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
+                    if (npc != null)
                     {
-                        if (n.X == player.Interaction.X && n.Y == player.Interaction.Y)
-                        {
-                            npcId = n.Id;
-                            break;
-                        }
-                    }
-                    if (npcId != null)
-                    {
-                        var startNode = _svc.Dialogue.GetStartNodeId(npcId);
+                        var startNode = _svc.Dialogue.GetStartNodeId(npc.Id);
                         if (startNode != null)
                         {
-                            player.Dialogue.Start(npcId, startNode);
-                            var tree = _svc.Dialogue.GetTree(npcId);
+                            player.Dialogue.Start(npc.Id, startNode);
+                            var tree = _svc.Dialogue.GetTree(npc.Id);
                             if (tree != null)
                             {
                                 await _svc.Dialogue.SendNode(client, player, tree, startNode);
-                                _svc.Quests.IncrementTalkProgress(player, npcId);
+                                _svc.Quests.IncrementTalkProgress(player, npc.Id);
                                 await _svc.Hub.SendQuestLog(client, player);
                             }
                         }

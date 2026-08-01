@@ -16,12 +16,22 @@ public class MonsterManager
     private readonly object _respawnLock = new();
     private readonly List<(int X, int Y, string TemplateId, DateTime RespawnAt)> _pendingRespawns = new();
 
+    private int? _mannequinX;
+    private int? _mannequinY;
+
     public MonsterManager(GameWorld world)
     {
         _world = world;
     }
 
     public void SetServices(GameServices svc) => _svc = svc;
+
+    /// <summary>Позиция манекена из Tiled-карты (type="dummy"), приоритет над офсетом от торговца.</summary>
+    public void SetMannequinPosition(int x, int y)
+    {
+        _mannequinX = x;
+        _mannequinY = y;
+    }
 
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
     {
@@ -49,11 +59,14 @@ public class MonsterManager
     public List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
         => _world.DrainMonsterAttacks();
 
-    public void Initialize(List<TiledSpawn>? spawns = null)
+    public void Initialize(List<TiledSpawn>? spawns = null, int? mannequinX = null, int? mannequinY = null)
     {
         _world.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
         _world.ClearMonsters();
         lock (_respawnLock) _pendingRespawns.Clear();
+
+        if (mannequinX.HasValue && mannequinY.HasValue)
+            SetMannequinPosition(mannequinX.Value, mannequinY.Value);
 
         if (spawns != null && spawns.Count > 0)
         {
@@ -133,8 +146,17 @@ public class MonsterManager
 
     public void SpawnMannequin()
     {
-        int mx = _world.Map.MerchantX + Balance.MannequinOffsetX;
-        int my = _world.Map.MerchantY + Balance.MannequinOffsetY;
+        int mx, my;
+        if (_mannequinX.HasValue && _mannequinY.HasValue)
+        {
+            mx = _mannequinX.Value;
+            my = _mannequinY.Value;
+        }
+        else
+        {
+            mx = _world.Map.MerchantX + Balance.MannequinOffsetX;
+            my = _world.Map.MerchantY + Balance.MannequinOffsetY;
+        }
         mx = Math.Clamp(mx, 0, _world.Map.Width - 1);
         my = Math.Clamp(my, 0, _world.Map.Height - 1);
 

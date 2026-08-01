@@ -58,12 +58,21 @@ public class TiledTileset
 /// <summary>Точка спавна из Tiled: координата в тайлах + имя сущности (шаблон монстра / коллекционка).</summary>
 public record TiledSpawn(int X, int Y, string Name, string Type);
 
+/// <summary>Позиция NPC из Tiled: координата в тайлах, имя (id записи npcs или instance_template_id) и тип.</summary>
+public record TiledNpc(int X, int Y, string Name, string Type, string ZoneId);
+
 public static class TiledMapLoader
 {
     private const uint FlippedHorizontally = 0x80000000;
     private const uint FlippedVertically = 0x40000000;
     private const uint FlippedDiagonally = 0x20000000;
     private const uint GidMask = 0x1FFFFFFF;
+
+    /// <summary>Типы Tiled-объектов, относящиеся к NPC/спец-объектам, а не к спавнам монстров.</summary>
+    private static readonly HashSet<string> NonSpawnTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "portal", "npc", "merchant", "board", "instance_portal", "dummy"
+    };
 
     public static TiledMapData Load(string jsonPath)
     {
@@ -176,8 +185,8 @@ public static class TiledMapLoader
 
             foreach (var obj in layer.Objects)
             {
-                // Порталы обрабатываются отдельно (ExtractPortals), а не как точки спавна
-                if (string.Equals(obj.Type, "portal", StringComparison.OrdinalIgnoreCase))
+                // Порталы и NPC-объекты обрабатываются отдельно (ExtractPortals / ExtractNpcs), а не как точки спавна
+                if (NonSpawnTypes.Contains(obj.Type ?? ""))
                     continue;
 
                 if (string.IsNullOrEmpty(obj.Name) && string.IsNullOrEmpty(obj.Type))
@@ -204,9 +213,7 @@ public static class TiledMapLoader
     }
 
     /// <summary>Портал из Tiled: позиция в текущей зоне + целевая зона и координаты.</summary>
-    public record TiledPortal(int X, int Y, string ToZone, int ToX, int ToY);
-
-    /// <summary>
+    public record TiledPortal(int X, int Y, string ToZone, int ToX, int ToY);    /// <summary>
     /// Извлекает порталы из object-слоёв. Объект считается порталом, если type == "portal":
     /// name — id целевой зоны, свойства to_x/to_y — координаты в ней (иначе спавн целевой зоны).
     /// </summary>
@@ -256,6 +263,49 @@ public static class TiledMapLoader
                 }
 
                 result.Add(new TiledPortal(fromX, fromY, toZone, toX, toY));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Извлекает позиции NPC из object-слоёв. NPC-объектом считается объект с типом
+    /// из NonSpawnTypes (npc/merchant/board/instance_portal/dummy): name — id записи npcs
+    /// (для instance_portal — id шаблона инстанса). Для point-объекта берётся его
+    /// координата, для прямоугольника — центр.
+    /// </summary>
+    public static List<TiledNpc> ExtractNpcs(TiledMapData map, string zoneId)
+    {
+        var result = new List<TiledNpc>();
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return result;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (string.Equals(obj.Type, "portal", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!NonSpawnTypes.Contains(obj.Type ?? ""))
+                    continue;
+
+                int tx, ty;
+                if (obj.Point)
+                {
+                    tx = (int)Math.Floor(obj.X / map.TileWidth);
+                    ty = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    tx = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    ty = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
+                result.Add(new TiledNpc(tx, ty, obj.Name ?? "", obj.Type ?? "", zoneId));
             }
         }
         return result;

@@ -83,6 +83,49 @@ public class InstanceManager
     public InstancePortal? FindPortal(string zone, int x, int y)
         => _portalLookup.TryGetValue((zone, x, y), out var p) ? p : null;
 
+    /// <summary>
+    /// Применяет позиции порталов инстансов из Tiled-карт (type="instance_portal",
+    /// name = id шаблона инстанса). Позиция входа/выхода берётся из Tiled, а связь
+    /// шаблон → зона выхода остаётся из БД (instance_portals).
+    /// </summary>
+    public void ApplyTiledPortals(IEnumerable<TiledNpc> tiledObjects)
+    {
+        int applied = 0;
+        foreach (var tp in tiledObjects)
+        {
+            if (!string.Equals(tp.Type, "instance_portal", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (string.IsNullOrEmpty(tp.Name)) continue;
+
+            var existing = _portals.FirstOrDefault(p => p.InstanceTemplateId == tp.Name);
+            if (existing != null)
+            {
+                _portalLookup.Remove((existing.FromZone, existing.FromX, existing.FromY));
+                existing.FromZone = tp.ZoneId;
+                existing.FromX = tp.X;
+                existing.FromY = tp.Y;
+                _portalLookup[(tp.ZoneId, tp.X, tp.Y)] = existing;
+            }
+            else
+            {
+                var portal = new InstancePortal
+                {
+                    Id = $"tiled_portal_{tp.Name}",
+                    FromZone = tp.ZoneId,
+                    FromX = tp.X,
+                    FromY = tp.Y,
+                    InstanceTemplateId = tp.Name
+                };
+                _portals.Add(portal);
+                _portalLookup[(tp.ZoneId, tp.X, tp.Y)] = portal;
+            }
+            applied++;
+        }
+
+        if (applied > 0)
+            Log.Info($"Применено позиций порталов инстансов из Tiled: {applied}");
+    }
+
     public InstancePortal? FindPortalForTemplate(string templateId)
         => _portals.FirstOrDefault(p => p.InstanceTemplateId == templateId);
 

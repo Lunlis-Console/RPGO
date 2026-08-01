@@ -667,16 +667,14 @@ public partial class MainForm : Form
         dt.Columns.Add("id", typeof(string));
         dt.Columns.Add("name", typeof(string));
         dt.Columns.Add("type", typeof(string));
-        dt.Columns.Add("x", typeof(string));
-        dt.Columns.Add("y", typeof(string));
 
         using var conn = new SqliteConnection($"Data Source={_dbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, type, x, y FROM npcs ORDER BY id";
+        cmd.CommandText = "SELECT id, name, type FROM npcs ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
-            dt.Rows.Add(reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetInt32(3).ToString(), reader.GetInt32(4).ToString());
+            dt.Rows.Add(reader.GetString(0), reader.GetString(1), reader.GetString(2));
         _worldGrid.DataSource = dt;
         _worldWidth = GetWorldConfigInt("width", 100);
         _worldHeight = GetWorldConfigInt("height", 100);
@@ -693,8 +691,6 @@ public partial class MainForm : Form
             Name = "type", HeaderText = "Тип", DataPropertyName = "type",
             Items = { "merchant", "board", "npc", "instance_portal" }
         });
-        _worldGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "x", HeaderText = "X", DataPropertyName = "x" });
-        _worldGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "y", HeaderText = "Y", DataPropertyName = "y" });
     }
 
     // === MERCHANT ===
@@ -1165,7 +1161,7 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type)) continue;
                 if (string.IsNullOrWhiteSpace(id)) id = "N" + (maxNum + 1).ToString("D4");
                 if (id.StartsWith("N") && int.TryParse(id.Substring(1), out int n) && n > maxNum) maxNum = n;
-                npcs.Add(new NpcRecord { Id = id, Name = name, Type = type, X = ToInt(CellStr(row, "x")), Y = ToInt(CellStr(row, "y")) });
+                npcs.Add(new NpcRecord { Id = id, Name = name, Type = type });
             }
             SaveNpcsLocal(npcs);
             using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
@@ -1810,13 +1806,11 @@ public partial class MainForm : Form
         foreach (var n in npcs)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO npcs (id, name, type, x, y, data) VALUES ($id,$n,$t,$x,$y,$d)
-                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, x = excluded.x, y = excluded.y";
+            cmd.CommandText = @"INSERT INTO npcs (id, name, type, data) VALUES ($id,$n,$t,$d)
+                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type";
             cmd.Parameters.AddWithValue("$id", n.Id);
             cmd.Parameters.AddWithValue("$n", n.Name);
             cmd.Parameters.AddWithValue("$t", n.Type);
-            cmd.Parameters.AddWithValue("$x", n.X);
-            cmd.Parameters.AddWithValue("$y", n.Y);
             cmd.Parameters.AddWithValue("$d", dataMap.TryGetValue(n.Id, out var data) ? (object)data : DBNull.Value);
             cmd.ExecuteNonQuery();
         }
@@ -1891,7 +1885,5 @@ public partial class MainForm : Form
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public string Type { get; set; } = "";
-        public int X { get; set; }
-        public int Y { get; set; }
     }
 }

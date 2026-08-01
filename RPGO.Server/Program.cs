@@ -50,9 +50,6 @@ partial class Program
         zones.SetMainMap(world.Map); // main-зона = карта мира (тайлы + препятствия)
 
         Log.Info("Загрузка данных (предметы, квесты, зоны)...");
-        merchant.Initialize();
-        quests.Initialize();
-        dialogue.LoadAll();
         loot.LoadFromDatabase();
         zones.LoadAll();
 
@@ -67,6 +64,19 @@ partial class Program
         {
             Log.Error("Ошибка загрузки Tiled-карт", ex);
         }
+
+        // Позиции торговца, доски заданий и манекена берутся из Tiled-карт (контент — из БД)
+        var tiledNpcs = zones.GetAllTiledNpcs();
+        var merchantTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
+        if (merchantTiled != null) merchant.SetTiledPosition(merchantTiled.X, merchantTiled.Y);
+        var boardTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "board", StringComparison.OrdinalIgnoreCase));
+        if (boardTiled != null) quests.SetTiledPosition(boardTiled.X, boardTiled.Y);
+        var dummyTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "dummy", StringComparison.OrdinalIgnoreCase));
+        if (dummyTiled != null) monsters.SetMannequinPosition(dummyTiled.X, dummyTiled.Y);
+
+        merchant.Initialize();
+        quests.Initialize();
+        dialogue.LoadAll();
 
         Log.Info("Загрузка монстров...");
         monsters.Initialize(spawns);
@@ -95,6 +105,7 @@ partial class Program
         var auth = new AuthService(servicesLazy);
         var instances = new InstanceManager(servicesLazy);
         instances.LoadAll();
+        instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
         var persistence = new PersistenceService();
 
         // Единственное создание GameServices
@@ -296,6 +307,10 @@ partial class Program
         zones.SetTileConfig(zoneId, tiledMap.TileWidth, tilesetId);
 
         var spawns = TiledMapLoader.ExtractSpawns(tiledMap);
+
+        var tiledNpcs = TiledMapLoader.ExtractNpcs(tiledMap, zoneId);
+        if (tiledNpcs.Count > 0)
+            zones.RegisterTiledNpcs(zoneId, tiledNpcs);
 
         var tiledPortals = TiledMapLoader.ExtractPortals(tiledMap, toZone =>
         {

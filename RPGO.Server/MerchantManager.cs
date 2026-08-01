@@ -20,15 +20,30 @@ public class MerchantManager
 
     public List<Item> ShopItems { get; private set; } = new();
 
+    private int? _tiledX;
+    private int? _tiledY;
+
     public MerchantManager(GameWorld world)
     {
         _world = world;
     }
 
+    /// <summary>Позиция торговца из Tiled-карты (приоритет над БД).</summary>
+    public void SetTiledPosition(int x, int y)
+    {
+        _tiledX = x;
+        _tiledY = y;
+    }
+
     public void Initialize()
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "merchant");
-        if (npc != null)
+        if (_tiledX.HasValue && _tiledY.HasValue)
+        {
+            MerchantX = _tiledX.Value;
+            MerchantY = _tiledY.Value;
+        }
+        else if (npc != null)
         {
             MerchantX = npc.X;
             MerchantY = npc.Y;

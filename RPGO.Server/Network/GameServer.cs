@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -28,12 +29,88 @@ public sealed class GameServer : INetworkHub
 
     public void LoadNpcCache()
     {
-        var svc = _svc;
-        _npcCache = DatabaseManager.LoadNpcs().Select(n => new NpcPosition
+        _npcCache = BuildNpcCache(_svc);
+    }
+
+    /// <summary>
+    /// Объединяет контент NPC из БД (имена, типы, диалоги) с позициями из Tiled-карт.
+    /// Позиция берётся из Tiled-объекта (name = id записи npcs), иначе из БД как fallback.
+    /// </summary>
+    public static List<NpcPosition> BuildNpcCache(GameServices svc)
+    {
+        var result = new List<NpcPosition>();
+        if (svc == null) return result;
+
+        var tiled = svc.Zones.GetAllTiledNpcs();
+        var tiledById = new Dictionary<string, TiledNpc>(StringComparer.OrdinalIgnoreCase);
+        foreach (var t in tiled)
+            if (!string.IsNullOrEmpty(t.Name) && !tiledById.ContainsKey(t.Name))
+                tiledById[t.Name] = t;
+
+        var tiledPortals = tiled
+            .Where(t => string.Equals(t.Type, "instance_portal", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        var dbNpcs = DatabaseManager.LoadNpcs();
+        foreach (var n in dbNpcs)
         {
-            Id = n.Id, Name = n.Name, Type = n.Type, X = n.X, Y = n.Y,
-            HasDialogue = svc?.Dialogue.GetTree(n.Id) != null
-        }).ToList();
+            TiledNpc? tiledNpc = null;
+            if (string.Equals(n.Type, "instance_portal", StringComparison.OrdinalIgnoreCase))
+                tiledNpc = tiledPortals.FirstOrDefault(); // позиция портала из Tiled (name там — id шаблона)
+            else
+                tiledById.TryGetValue(n.Id, out tiledNpc);
+
+            result.Add(new NpcPosition
+            {
+                Id = n.Id,
+                Name = n.Name,
+                Type = n.Type,
+                X = tiledNpc?.X ?? n.X,
+                Y = tiledNpc?.Y ?? n.Y,
+                ZoneId = tiledNpc?.ZoneId ?? "main",
+                HasDialogue = svc.Dialogue.GetTree(n.Id) != null
+            });
+        }
+
+        // Tiled-объекты без записи в БД (например, instance_portal без NPC-стражника)
+        foreach (var t in tiled)
+        {
+            if (string.IsNullOrEmpty(t.Name)) continue;
+            if (string.Equals(t.Type, "dummy", StringComparison.OrdinalIgnoreCase)) continue;
+
+            bool matched = string.Equals(t.Type, "instance_portal", StringComparison.OrdinalIgnoreCase)
+                ? dbNpcs.Any(n => string.Equals(n.Type, "instance_portal", StringComparison.OrdinalIgnoreCase))
+                : result.Any(r => string.Equals(r.Id, t.Name, StringComparison.OrdinalIgnoreCase));
+            if (matched) continue;
+
+            if (string.Equals(t.Type, "instance_portal", StringComparison.OrdinalIgnoreCase))
+            {
+                var template = svc.Instances.FindTemplate(t.Name);
+                result.Add(new NpcPosition
+                {
+                    Id = "portal_" + t.Name,
+                    Name = template?.Name ?? "Вход в подземелье",
+                    Type = "instance_portal",
+                    X = t.X,
+                    Y = t.Y,
+                    ZoneId = t.ZoneId,
+                    HasDialogue = false
+                });
+            }
+            else
+            {
+                Log.Warn($"Tiled-объект NPC '{t.Name}' (type={t.Type}) не найден в таблице npcs — пропущен");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Поиск NPC в кеше по зоне и позиции (позиции берутся из Tiled).</summary>
+    public NpcPosition? FindNpcAt(string zoneId, int x, int y)
+    {
+        var cache = _npcCache;
+        return cache?.FirstOrDefault(n => n.ZoneId == zoneId && n.X == x && n.Y == y);
     }
 
     public async Task BroadcastMapAsync()
@@ -71,6 +148,8 @@ public sealed class GameServer : INetworkHub
         var playersByZone = allPlayers.GroupBy(p => p.CurrentZoneId)
             .ToDictionary(g => g.Key, g => g.ToList());
         var portalsByZone = svc.Zones.GetAllPortalsByZone();
+        var npcsByZone = allNpcs.GroupBy(n => n.ZoneId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         var sendTasks = new List<Task>(clientsCopy.Count);
         bool hasDirtyZones = !_dirtyZones.IsEmpty;
@@ -95,6 +174,7 @@ public sealed class GameServer : INetworkHub
             if (!hazardsByZone.TryGetValue(zoneId, out var zoneHazards)) zoneHazards = new();
             if (!playersByZone.TryGetValue(zoneId, out var zonePlayers)) zonePlayers = new();
             if (!portalsByZone.TryGetValue(zoneId, out var zonePortals)) zonePortals = new();
+            if (!npcsByZone.TryGetValue(zoneId, out var zoneNpcs)) zoneNpcs = new();
 
             var nearbyMonsters = zoneMonsters.Where(m =>
                 Math.Abs(m.X - player.X) <= viewRadius &&
@@ -164,7 +244,7 @@ public sealed class GameServer : INetworkHub
                 Corpses = nearbyCorpses,
                 Hazards = nearbyHazards,
                 Npcs = !zoneId.StartsWith("instance:")
-                    ? allNpcs.Where(n =>
+                    ? zoneNpcs.Where(n =>
                         Math.Abs(n.X - player.X) <= viewRadius &&
                         Math.Abs(n.Y - player.Y) <= viewRadius
                       ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
