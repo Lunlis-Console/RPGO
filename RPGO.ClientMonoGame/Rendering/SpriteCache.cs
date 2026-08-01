@@ -342,6 +342,7 @@ public static class SpriteCache
             if (entries == null) return;
 
             string animDir = Path.Combine(contentRoot, "Animations");
+            var sheetCache = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
             foreach (var e in entries)
             {
                 if (string.IsNullOrWhiteSpace(e?.Key) || string.IsNullOrWhiteSpace(e.Sheet)) continue;
@@ -351,8 +352,12 @@ public static class SpriteCache
                 if (!File.Exists(sheetPath)) { Logger.Info($"SpriteCache: sheet not found '{sheetPath}' for '{e.Key}'"); continue; }
                 try
                 {
-                    using var stream = File.OpenRead(sheetPath);
-                    var tex = Texture2D.FromStream(_device, stream);
+                    if (!sheetCache.TryGetValue(sheetPath, out var tex))
+                    {
+                        using var stream = File.OpenRead(sheetPath);
+                        tex = Texture2D.FromStream(_device, stream);
+                        sheetCache[sheetPath] = tex;
+                    }
                     int cols = Math.Max(1, e.Cols);
                     int rows = Math.Max(1, e.Rows);
                     int fw = tex.Width / cols;
