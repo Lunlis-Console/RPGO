@@ -10,7 +10,7 @@ internal static class MonsterRepository
         lock (Db.Lock)
         {
             var result = new List<MonsterTemplate>();
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT id, name, tier, health, xp_reward, gold_reward, symbol, strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance, block_chance, parry_chance, shield_defense FROM monsters";
             using var reader = cmd.ExecuteReader();

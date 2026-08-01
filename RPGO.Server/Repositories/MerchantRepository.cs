@@ -7,7 +7,7 @@ internal static class MerchantRepository
         lock (Db.Lock)
         {
             var result = new List<string>();
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT item_id FROM merchant_stock WHERE npc_id = $npc ORDER BY item_id";
             cmd.Parameters.AddWithValue("$npc", npcId);
@@ -22,7 +22,7 @@ internal static class MerchantRepository
     {
         lock (Db.Lock)
         {
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             using var transaction = connection.BeginTransaction();
             using (var del = connection.CreateCommand())
             {

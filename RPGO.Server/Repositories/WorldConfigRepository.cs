@@ -8,7 +8,7 @@ internal static class WorldConfigRepository
         {
             try
             {
-                using var connection = Db.Open();
+                using var connection = Db.OpenContent();
                 var cmd = connection.CreateCommand();
                 cmd.CommandText = "SELECT value FROM world_config WHERE key = $k";
                 cmd.Parameters.AddWithValue("$k", key);

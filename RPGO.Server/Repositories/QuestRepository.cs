@@ -10,7 +10,7 @@ internal static class QuestRepository
         lock (Db.Lock)
         {
             var result = new List<QuestDefinition>();
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count FROM quests_def";
             using var reader = cmd.ExecuteReader();

@@ -7,14 +7,14 @@ internal static class NpcRepository
 {
     internal static void SaveSingle(string id, string name, string type, int x, int y, string? data)
     {
-        using var conn = Db.Open();
+        using var conn = Db.OpenContent();
         Upsert(conn, id, name, type, x, y, data);
     }
 
     internal static List<NpcRecord> LoadAll()
     {
         var list = new List<NpcRecord>();
-        using var conn = Db.Open();
+        using var conn = Db.OpenContent();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name, type, x, y, data FROM npcs ORDER BY id";
         using var reader = cmd.ExecuteReader();
@@ -35,7 +35,7 @@ internal static class NpcRepository
 
     internal static void SaveAll(List<NpcRecord> npcs)
     {
-        using var conn = Db.Open();
+        using var conn = Db.OpenContent();
         using var transaction = conn.BeginTransaction();
         using (var del = conn.CreateCommand())
         {

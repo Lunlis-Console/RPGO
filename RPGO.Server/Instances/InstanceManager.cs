@@ -28,7 +28,7 @@ public class InstanceManager
         _portals.Clear();
         _portalLookup.Clear();
 
-        using var conn = Db.Open();
+        using var conn = Db.OpenContent();
         // Загрузка шаблонов
         var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name, zone_id, time_limit_seconds, spawn_x, spawn_y, boss_monster_id, chest_x, chest_y, exit_x, exit_y, corridor_length, corridor_width FROM instance_templates";
@@ -287,7 +287,7 @@ public class InstanceManager
     /// <summary>Спавн монстров из шаблона.</summary>
     private void SpawnMonsters(ActiveInstance instance, InstanceTemplate template)
     {
-        using var conn = Db.Open();
+        using var conn = Db.OpenContent();
         var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT monster_template_id, x, y, is_boss FROM instance_spawns WHERE instance_template_id = $id ORDER BY y";
         cmd.Parameters.AddWithValue("$id", template.Id);

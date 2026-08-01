@@ -73,7 +73,7 @@ internal static class InventoryRepository
             var result = new List<Item>();
             foreach (var item in items)
             {
-                SyncItemFromTemplate(connection, item);
+                SyncItemFromTemplate(item);
                 item.MaxStack = Balance.MaxStackForType(item.Type);
 
                 if (item.MaxStack <= 1 && item.Quantity > 1)
@@ -265,7 +265,7 @@ internal static class InventoryRepository
                 var item = System.Text.Json.JsonSerializer.Deserialize<Item>(json);
                 if (item != null)
                 {
-                    SyncItemFromTemplate(connection, item);
+                    SyncItemFromTemplate(item);
                     equipment[slot] = item;
                     continue;
                 }
@@ -331,14 +331,15 @@ internal static class InventoryRepository
                 DamageMax = reader.GetInt32(27),
                 AttackRange = reader.IsDBNull(28) ? 1 : reader.GetInt32(28)
             };
-            return SyncItemFromTemplate(connection, item);
+            return SyncItemFromTemplate(item);
         }
         return null;
     }
 
-    internal static Item SyncItemFromTemplate(SqliteConnection connection, Item item)
+    internal static Item SyncItemFromTemplate(Item item)
     {
         if (string.IsNullOrEmpty(item.TemplateId)) return item;
+        using var connection = Db.OpenContent();
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT defense, value, max_health_bonus, heal_amount, restore_mana, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,

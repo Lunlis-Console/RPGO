@@ -9,7 +9,7 @@ internal static class ZoneRepository
     {
         lock (Db.Lock)
         {
-            using var conn = Db.Open();
+            using var conn = Db.OpenContent();
             var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT id, name, width, height, spawn_x, spawn_y, pvp_enabled FROM zones";
             var zones = new List<Zone>();
@@ -35,7 +35,7 @@ internal static class ZoneRepository
     {
         lock (Db.Lock)
         {
-            using var conn = Db.Open();
+            using var conn = Db.OpenContent();
             var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT id, from_zone, from_x, from_y, to_zone, to_x, to_y FROM world_portals";
             var portals = new List<WorldPortal>();

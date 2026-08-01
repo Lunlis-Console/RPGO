@@ -2,6 +2,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using RPGGame.Shared;
 using RPGGame.Shared.Migrations;
 using RPGGame.Shared.Models;
 
@@ -10,6 +11,7 @@ namespace RPGGame.Editor;
 public partial class MainForm : Form
 {
     private readonly string _dbFile;
+    private readonly string _contentDbFile;
     private TabControl _tabs = null!;
     private TabPage _itemsTab = null!;
     private TabPage _monstersTab = null!;
@@ -61,6 +63,7 @@ public partial class MainForm : Form
     public MainForm(string dbFile)
     {
         _dbFile = dbFile;
+        _contentDbFile = Path.Combine(Path.GetDirectoryName(dbFile) ?? ".", "content.db");
         Text = "Редактор RPGO — " + Path.GetFileName(dbFile);
         Size = new Size(1200, 720);
         MinimumSize = new Size(900, 500);
@@ -380,7 +383,7 @@ public partial class MainForm : Form
         _merchantStockList.Items.Clear();
 
         var items = new List<(string Id, string Name, string Type)>();
-        using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+        using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
         {
             conn.Open();
             using var cmd = conn.CreateCommand();
@@ -407,6 +410,12 @@ public partial class MainForm : Form
         var connStr = $"Data Source={_dbFile}";
         DbMigrationRunner.RunMigrations(connStr);
 
+        bool contentExisted = File.Exists(_contentDbFile);
+        var contentConnStr = $"Data Source={_contentDbFile}";
+        DbMigrationRunner.RunMigrations(contentConnStr);
+        if (!contentExisted)
+            ContentDbSeeder.CopyContentFromRuntimeIfNew(contentConnStr, _dbFile);
+
         LoadMonsterRefs();
         LoadCollectibleRefs();
         LoadNpcRefs();
@@ -430,7 +439,7 @@ public partial class MainForm : Form
     private List<(string Id, string Name)> LoadRefs(string query)
     {
         var list = new List<(string, string)>();
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = query;
@@ -443,7 +452,7 @@ public partial class MainForm : Form
     private DataTable LoadTable(string query)
     {
         var dt = new DataTable();
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = query;
@@ -548,7 +557,7 @@ public partial class MainForm : Form
         dt.Columns.Add("value", typeof(int));
         dt.Columns.Add("drop_chance", typeof(int));
 
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"SELECT l.monster_id, l.name, l.description, l.value, l.drop_chance, m.name
@@ -591,7 +600,7 @@ public partial class MainForm : Form
         dt.Columns.Add("item_reward", typeof(string));
         dt.Columns.Add("item_reward_count", typeof(string));
 
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target,
@@ -668,7 +677,7 @@ public partial class MainForm : Form
         dt.Columns.Add("name", typeof(string));
         dt.Columns.Add("type", typeof(string));
 
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id, name, type FROM npcs ORDER BY id";
@@ -703,7 +712,7 @@ public partial class MainForm : Form
             var stock = new HashSet<string>();
             if (merchantId != null)
             {
-                using var conn = new SqliteConnection($"Data Source={_dbFile}");
+                using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
                 conn.Open();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT item_id FROM merchant_stock WHERE npc_id = $npc";
@@ -714,7 +723,7 @@ public partial class MainForm : Form
 
             _merchantStockList.Items.Clear();
             var items = new List<(string Id, string Name, string Type)>();
-            using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+            using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
             {
                 conn.Open();
                 using var cmd = conn.CreateCommand();
@@ -970,7 +979,7 @@ public partial class MainForm : Form
             _itemsGrid.EndEdit();
             var dt = (DataTable)_itemsGrid.DataSource;
             EnsureId(dt, "I");
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM items"; del.ExecuteNonQuery(); }
@@ -1024,7 +1033,7 @@ public partial class MainForm : Form
             _monstersGrid.EndEdit();
             var dt = (DataTable)_monstersGrid.DataSource;
             EnsureId(dt, "M");
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM monsters"; del.ExecuteNonQuery(); }
@@ -1070,7 +1079,7 @@ public partial class MainForm : Form
             _lootGrid.EndEdit();
             var dt = (DataTable)_lootGrid.DataSource!;
             var monsterNameToId = _monsterRefs.ToDictionary(r => r.Name, r => r.Id);
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM loot_tables"; del.ExecuteNonQuery(); }
@@ -1105,7 +1114,7 @@ public partial class MainForm : Form
             _questsGrid.EndEdit();
             var dt = (DataTable)_questsGrid.DataSource;
             EnsureId(dt, "Q");
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM quests_def"; del.ExecuteNonQuery(); }
@@ -1164,7 +1173,7 @@ public partial class MainForm : Form
                 npcs.Add(new NpcRecord { Id = id, Name = name, Type = type });
             }
             SaveNpcsLocal(npcs);
-            using (var conn = new SqliteConnection($"Data Source={_dbFile}"))
+            using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
             {
                 conn.Open();
                 foreach (var kvp in new[] { ("width", _worldWidth), ("height", _worldHeight) })
@@ -1195,7 +1204,7 @@ public partial class MainForm : Form
                 int sep = text.IndexOf("  —  ");
                 if (sep > 0) selected.Add(text.Substring(0, sep).Trim());
             }
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM merchant_stock WHERE npc_id = $npc"; del.Parameters.AddWithValue("$npc", merchantId); del.ExecuteNonQuery(); }
@@ -1764,7 +1773,7 @@ public partial class MainForm : Form
 
     private void OpenDialogueEditor()
     {
-        using var dlg = new NpcDialogueEditorForm(_dbFile);
+        using var dlg = new NpcDialogueEditorForm(_contentDbFile);
         dlg.ShowDialog(this);
     }
 
@@ -1774,7 +1783,7 @@ public partial class MainForm : Form
     {
         // Сохраняем существующие data (JSON диалогов), чтобы не затирать их при перезаписи.
         var dataMap = new Dictionary<string, string>();
-        using (var readConn = new SqliteConnection($"Data Source={_dbFile}"))
+        using (var readConn = new SqliteConnection($"Data Source={_contentDbFile}"))
         {
             readConn.Open();
             using var cmd = readConn.CreateCommand();
@@ -1786,7 +1795,7 @@ public partial class MainForm : Form
             }
         }
 
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var transaction = conn.BeginTransaction();
 
@@ -1842,7 +1851,7 @@ public partial class MainForm : Form
     {
         try
         {
-            using var conn = new SqliteConnection($"Data Source={_dbFile}");
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
             conn.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "SELECT value FROM world_config WHERE key = $k";
@@ -1855,7 +1864,7 @@ public partial class MainForm : Form
 
     private string? GetMerchantNpcId()
     {
-        using var conn = new SqliteConnection($"Data Source={_dbFile}");
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT id FROM npcs WHERE type = 'merchant' LIMIT 1";

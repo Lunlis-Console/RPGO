@@ -36,7 +36,7 @@ internal static class SkillRepository
             return _cache;
 
         var result = new List<Skill>();
-        using var connection = Db.Open();
+        using var connection = Db.OpenContent();
         var cmd = connection.CreateCommand();
         cmd.CommandText = @"SELECT id, name, description, type, mp_cost, cooldown_ms, damage_multiplier, min_level, skill_point_cost, parent_id, tier, cast_time_ms, max_rank
             FROM skills";

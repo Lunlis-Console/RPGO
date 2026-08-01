@@ -9,7 +9,7 @@ internal static class ItemRepository
         lock (Db.Lock)
         {
             var result = new List<Item>();
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT id, name, type, value, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
@@ -68,7 +68,7 @@ internal static class ItemRepository
     {
         lock (Db.Lock)
         {
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = @"SELECT id, name, type, value, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
                 bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,

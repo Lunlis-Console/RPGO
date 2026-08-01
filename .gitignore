@@ -31,3 +31,4 @@ CopilotIndices/
 ## Local database
 *.db
 *.db-journal
+!content.db

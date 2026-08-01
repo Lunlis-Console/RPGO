@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Migrations;
 using RPGGame.Server.Repositories;
@@ -15,6 +16,12 @@ public static class DatabaseManager
     public static void Initialize()
     {
         DbMigrationRunner.RunMigrations(Db.ConnectionString);
+
+        bool contentExisted = File.Exists(Db.ContentPath);
+        DbMigrationRunner.RunMigrations(Db.ContentConnectionString);
+        if (!contentExisted)
+            ContentDbSeeder.CopyContentFromRuntimeIfNew(Db.ContentConnectionString, Db.RuntimePath);
+
         Log.Info("База данных инициализирована");
         MigrateFromJsonIfNeeded();
     }

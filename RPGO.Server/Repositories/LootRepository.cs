@@ -9,7 +9,7 @@ internal static class LootRepository
         lock (Db.Lock)
         {
             var result = new List<LootEntry>();
-            using var connection = Db.Open();
+            using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
             cmd.CommandText = "SELECT id, monster_id, name, description, value, drop_chance FROM loot_tables ORDER BY monster_id, id";
             using var reader = cmd.ExecuteReader();
