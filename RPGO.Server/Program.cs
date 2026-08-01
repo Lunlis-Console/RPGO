@@ -311,7 +311,12 @@ partial class Program
             gameMap.AddObstacle(ox, oy);
 
         string tilesetId = tiledMap.Tilesets.Count > 0 ? tiledMap.Tilesets[0].Name : zoneId;
-        zones.SetTileConfig(zoneId, tiledMap.TileWidth, tilesetId);
+        var objectLayer = TiledMapLoader.ExtractObjectLayer(tiledMap);
+        var objectTileset = TiledMapLoader.GetObjectLayerTileset(tiledMap);
+        zones.SetTileConfig(zoneId, tiledMap.TileWidth, tilesetId,
+            objectTileset?.Name, objectTileset?.TileWidth ?? 0);
+        if (objectLayer != null)
+            gameMap.SetObjectTiles(objectLayer);
 
         var spawns = TiledMapLoader.ExtractSpawns(tiledMap);
 

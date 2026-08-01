@@ -17,8 +17,6 @@ public class HudRenderer
     private PartyInfo? _party;
     private EntityInfo? _selectedEntity;
     private List<DebuffInfo>? _targetDebuffs;
-    private bool _pvpEnabled;
-    private string _zoneName = "";
     private double? _instanceExpiresAtUtcMs;
 
     // Хитбоксы иконок дебаффов для тултипа
@@ -42,12 +40,6 @@ public class HudRenderer
 
     public void UpdateStatus(StatusData status) => _status = status;
     public bool InCombat => _inCombat;
-
-    public void UpdateZone(string zoneName, bool pvpEnabled)
-    {
-        _zoneName = zoneName;
-        _pvpEnabled = pvpEnabled;
-    }
 
     public void UpdateInstanceTimer(double? expiresAtUtcMs)
     {
@@ -714,14 +706,7 @@ public class HudRenderer
     public void DrawZoneIndicator(SpriteBatch sb, int screenW)
     {
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null || string.IsNullOrEmpty(_zoneName)) return;
-
-        string label = _pvpEnabled ? $"[PvP] {_zoneName}" : _zoneName;
-        Color color = _pvpEnabled ? new Color(220, 60, 60) : new Color(120, 180, 220);
-        var sz = font.MeasureString(label);
-        int x = (int)((screenW - sz.X) / 2);
-        int y = 4;
-        sb.DrawString(font, label, new Vector2(x, y), color);
+        if (font == null) return;
 
         if (_instanceExpiresAtUtcMs.HasValue && _instanceExpiresAtUtcMs > 0)
         {
@@ -734,7 +719,7 @@ public class HudRenderer
             string timer = $"Осталось {min:D2}:{sec:D2}";
             var tsz = font.MeasureString(timer);
             int tx = (int)((screenW - tsz.X) / 2);
-            int ty = y + (int)sz.Y + 2;
+            int ty = 4;
             Color tc = totalSec < 60 ? new Color(220, 60, 60) : new Color(255, 200, 80);
             sb.DrawString(font, timer, new Vector2(tx, ty), tc);
         }

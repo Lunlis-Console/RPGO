@@ -96,8 +96,8 @@ public class InputManager
         if (mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released)
         {
             // Координаты и размеры карты должны совпадать с GameScreen.Draw:
-            // карта растянута на весь экран под топбаром.
-            int topH = 40;
+            // карта растянута на весь экран.
+            int topH = 0;
             int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
             int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
             int offsetX = 0;
@@ -116,7 +116,7 @@ public class InputManager
     {
         if (mouse.RightButton == ButtonState.Pressed && prevMouse.RightButton == ButtonState.Released)
         {
-            int topH = 40;
+            int topH = 0;
             int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
             int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
             int offsetX = 0;

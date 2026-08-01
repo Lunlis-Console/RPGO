@@ -197,6 +197,17 @@ internal static class ClientMessageHandlerRegistry
                         if (!string.IsNullOrEmpty(ob64))
                             c.RaiseObstacleDataReceived(Convert.FromBase64String(ob64), w, h);
                     }
+
+                    if (ztEl.TryGetProperty("ObjectData", out var objEl) && objEl.ValueKind == JsonValueKind.String)
+                    {
+                        string? obj64 = objEl.GetString();
+                        if (!string.IsNullOrEmpty(obj64))
+                        {
+                            string objectTilesetId = ztEl.TryGetProperty("ObjectTilesetId", out var otsEl) ? otsEl.GetString() ?? "" : "";
+                            int objectTileSize = ztEl.TryGetProperty("ObjectTileWidth", out var otwEl) ? otwEl.GetInt32() : tw;
+                            c.RaiseObjectLayerDataReceived(Convert.FromBase64String(obj64), w, h, objectTilesetId, objectTileSize);
+                        }
+                    }
                 }
             }
         }

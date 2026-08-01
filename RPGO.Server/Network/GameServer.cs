@@ -258,7 +258,10 @@ public sealed class GameServer : INetworkHub
                 ObstacleData = client.TileDataSent ? null : zoneMap.GetObstacleData(),
                 TileWidth = svc.Zones.GetTileConfig(zoneId).TileWidth,
                 TileHeight = svc.Zones.GetTileConfig(zoneId).TileWidth,
-                TilesetId = svc.Zones.GetTileConfig(zoneId).TilesetId
+                TilesetId = svc.Zones.GetTileConfig(zoneId).TilesetId,
+                ObjectData = client.TileDataSent ? null : zoneMap.GetObjectTiles(),
+                ObjectTilesetId = svc.Zones.GetTileConfig(zoneId).ObjectTilesetId,
+                ObjectTileWidth = svc.Zones.GetTileConfig(zoneId).ObjectTileWidth
             };
             client.TileDataSent = true;
 
@@ -787,7 +790,10 @@ public sealed class GameServer : INetworkHub
                 ObstacleData = zoneMap.GetObstacleData(),
                 TileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
                 TileHeight = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
-                TilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).TilesetId
+                TilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).TilesetId,
+                ObjectData = zoneMap.GetObjectTiles(),
+                ObjectTilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).ObjectTilesetId,
+                ObjectTileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).ObjectTileWidth
             }
         });
     }

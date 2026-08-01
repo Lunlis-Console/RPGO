@@ -34,28 +34,6 @@ internal class GameHudRenderer
         _map = map;
     }
 
-    internal void DrawTopBar(SpriteBatch sb, int w, int h, GameMain game)
-    {
-        sb.Draw(SpriteCache.Pixel, new Rectangle(0, 0, w, h), new Color(220, 225, 235));
-
-        var font = SpriteCache.Font;
-        if (font == null) return;
-
-        var client = game.Client;
-        string status = client.IsConnected ? "Подключено" : "Отключено";
-        Color statusColor = client.IsConnected ? Color.LimeGreen : Color.Red;
-
-        sb.DrawString(font, "IP:", new Vector2(10, 10), Color.Black);
-        sb.DrawString(font, "127.0.0.1", new Vector2(40, 10), Color.Black);
-        sb.DrawString(font, status, new Vector2(200, 10), statusColor);
-
-        if (client.Status != null)
-        {
-            var info = $"Золото: {client.Status.Gold}  |  ATK {client.Status.PhysAttack}  DEF {client.Status.Defense}";
-            sb.DrawString(font, info, new Vector2(350, 10), new Color(60, 60, 70));
-        }
-    }
-
     internal void DrawQuestTracker(SpriteBatch sb, int screenW, List<QuestInfo> activeQuests)
     {
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
@@ -78,7 +56,7 @@ internal class GameHudRenderer
         maxW = Math.Min(maxW, maxTextW);
         int boxW = maxW + pad * 2;
         int boxX = screenW - boxW - 12;
-        int boxY = 48 + 30;
+        int boxY = MinimapRenderer.PanelTop + MinimapRenderer.Size + 10;
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, blockH), new Color(20, 22, 30, 200));
         sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, 2), new Color(90, 95, 115));

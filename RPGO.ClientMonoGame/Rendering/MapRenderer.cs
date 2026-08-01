@@ -42,6 +42,21 @@ public class MapRenderer
     private int _obstacleWidth;
     private int _obstacleHeight;
 
+    private byte[]? _objectData;
+    private int _objectMapWidth;
+    private int _objectMapHeight;
+    private string _objectTilesetId = "";
+    private int _objectTileSize = 32;
+
+    public void SetObjectLayerData(byte[]? data, int width, int height, string tilesetId = "", int tileSize = 32)
+    {
+        _objectData = data;
+        _objectMapWidth = width;
+        _objectMapHeight = height;
+        _objectTilesetId = tilesetId;
+        _objectTileSize = Math.Max(1, tileSize);
+    }
+
     public void SetTileData(byte[]? data, int width, int height, string tilesetId = "", int tileSize = 32)
     {
         _tileData = data;
@@ -97,6 +112,8 @@ public class MapRenderer
     private float _camX = 50f;
     private float _camY = 50f;
     private DateTime _lastFrameTime = DateTime.UtcNow;
+
+    public (int X, int Y) CameraCenter => ((int)Math.Floor(_camX), (int)Math.Floor(_camY));
 
     // Базовые размеры клеток (квадратные, как тайлы в тайлсете 32x32)
     private const float BaseCellW = 22f;
@@ -393,6 +410,17 @@ private sealed class RemotePlayerState
     }
     public int GetPlayerX() => GetCenterX();
     public int GetPlayerY() => GetCenterY();
+
+    /// <summary>Видимая область главной карты (в координатах карты) — для рамки на миникарте.</summary>
+    public Rectangle GetViewBounds()
+    {
+        lock (_stateLock)
+        {
+            return new Rectangle(_viewStartX, _viewStartY,
+                Math.Max(0, _viewEndX - _viewStartX + 1),
+                Math.Max(0, _viewEndY - _viewStartY + 1));
+        }
+    }
 
     public void SetMap(WorldMap map)
     {
@@ -938,10 +966,10 @@ private sealed class RemotePlayerState
         DrawPathDots(sb, map, me);
         DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
         DrawDeathMarkers(sb);
+        DrawObjectLayer(sb, offsetX, offsetY, areaW, areaH);
         int viewH = _viewEndY - _viewStartY + 1;
         int legendY = (int)(_gridOY + viewH * _cellH + 4);
         DrawLegend(sb, font, fontSmall, offsetX, legendY);
-        DrawCoordinates(sb, font, offsetX, offsetY, areaW, centerX, centerY);
     }
 
     private void UpdateVisualInterpolation(WorldMap map)
@@ -1071,6 +1099,45 @@ private sealed class RemotePlayerState
         }
     }
 
+    /// <summary>
+    /// Рисует слой объектов (деревья и т.п.) поверх всех сущностей. 0 — прозрачная клетка.
+    /// </summary>
+    private void DrawObjectLayer(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
+    {
+        if (_objectData == null || _objectMapWidth <= 0 || _objectMapHeight <= 0) return;
+        if (string.IsNullOrEmpty(_objectTilesetId)) return;
+
+        Texture2D? tex = SpriteCache.GetTileset(_objectTilesetId, _objectTileSize, out int cols, out int rows);
+        if (tex == null) return;
+
+        int tilePxW = (int)Math.Ceiling(_cellW);
+        int tilePxH = (int)Math.Ceiling(_cellH);
+        int viewW = _viewEndX - _viewStartX + 1;
+        int viewH = _viewEndY - _viewStartY + 1;
+
+        for (int y = -1; y <= viewH + 1; y++)
+        {
+            float ty = _gridOY + y * _cellH;
+            if (ty > offsetY + areaH) continue;
+            for (int x = -1; x <= viewW + 1; x++)
+            {
+                float tx = _gridOX + x * _cellW;
+                if (tx > offsetX + areaW) continue;
+                int mx = _viewStartX + x;
+                int my = _viewStartY + y;
+                if (mx < 0 || my < 0 || mx >= _objectMapWidth || my >= _objectMapHeight) continue;
+                byte tileId = _objectData[my * _objectMapWidth + mx];
+                if (tileId == 0) continue; // пустая клетка — ничего не рисуем
+
+                int tCol = (tileId - 1) % cols;
+                int tRow = (tileId - 1) / cols;
+                if (tRow >= rows || tCol >= cols) continue;
+                var src = new Rectangle(tCol * _objectTileSize, tRow * _objectTileSize, _objectTileSize, _objectTileSize);
+                sb.Draw(tex, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), src, Color.White);
+            }
+        }
+    }
+
     private void DrawPortalsAndObjects(SpriteBatch sb, WorldMap map)
     {
         if (map.Portals != null)
@@ -1172,20 +1239,6 @@ private sealed class RemotePlayerState
                     sb.Draw(ashes, new Vector2(ax - ashes.Width / 2f, ay - ashes.Height / 2f), Color.White);
             }
         }
-    }
-
-    private void DrawCoordinates(SpriteBatch sb, SpriteFont font, float offsetX, float offsetY, float areaW, int centerX, int centerY)
-    {
-        string coordText = $"КАРТА [{centerX}, {centerY}]";
-        var coordSize = font.MeasureString(coordText);
-        int pad = 6;
-        int boxW = (int)coordSize.X + pad * 2;
-        int boxH = (int)coordSize.Y + pad * 2;
-        int boxX = (int)(offsetX + areaW - boxW - 8);
-        int boxY = (int)(offsetY + 4);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, boxH), new Color(35, 37, 45, 210));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(boxX, boxY, boxW, 2), new Color(90, 95, 115));
-        sb.DrawString(font, coordText, new Vector2(boxX + pad, boxY + pad), new Color(160, 200, 255));
     }
 
     private void DrawEntities(SpriteBatch sb, SpriteFont font, SpriteFont fontSmall, float offsetX, float offsetY, int startX, int startY, int endX, int endY, PlayerPosition? me)

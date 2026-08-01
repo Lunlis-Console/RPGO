@@ -80,6 +80,18 @@ public class AuthService
                             return false;
                         }
 
+                        var existingSession = _svc.World.GetConnectionByPlayerName(account.PlayerName);
+                        if (existingSession != null)
+                        {
+                            await hub.SendToClient(connection, new GameMessage
+                            {
+                                Type = "auth_response",
+                                Data = new { Success = false, Message = "Этот аккаунт уже в игре. Выйдите из другого клиента и повторите вход." }
+                            });
+                            Log.Info($"Попытка повторного входа: {account.Login} ({account.PlayerName}) уже в игре ({existingSession.Endpoint})");
+                            return false;
+                        }
+
                         int spawnX, spawnY;
                         string zoneId = account.PlayerData.CurrentZoneId;
                         if (account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)

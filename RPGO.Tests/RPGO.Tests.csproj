@@ -25,4 +25,8 @@
     <ProjectReference Include="..\RPGO.Server\RPGO.Server.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\RPGO.ClientMonoGame\Content\wordlmap.tmj" Link="wordlmap.tmj" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

@@ -133,6 +133,61 @@ public static class TiledMapLoader
         return tiles;
     }
 
+    /// <summary>Имя тайлового слоя «объекты поверх карты» (деревья, камни и т.п.).</summary>
+    public static readonly string ObjectLayerName = "Объекты на карте";
+
+    /// <summary>
+    /// Извлекает слой объектов (тайлы, рисуемые поверх сущностей, например деревья).
+    /// Кодировка та же, что у слоя земли: 0 — пусто, 1..254 — локальный индекс тайла + 1,
+    /// 255 — вне тайлсета. Возвращает null, если слоя нет.
+    /// </summary>
+    public static byte[]? ExtractObjectLayer(TiledMapData map)
+    {
+        var layer = map.Layers.FirstOrDefault(l =>
+            l.Visible &&
+            string.Equals(l.Type, "tilelayer", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(l.Name, ObjectLayerName, StringComparison.OrdinalIgnoreCase));
+        if (layer == null) return null;
+
+        int count = layer.Width * layer.Height;
+        var tiles = new byte[count];
+        for (int i = 0; i < count && i < layer.Data.Count; i++)
+        {
+            uint rawTile = (uint)(layer.Data[i] & 0xFFFFFFFF) & GidMask;
+            if (rawTile == 0) continue;
+
+            var ts = FindTileset(map, rawTile);
+            if (ts == null) continue;
+
+            int localId = (int)(rawTile - ts.FirstGid);
+            tiles[i] = localId >= 254 ? (byte)255 : (byte)(localId + 1);
+        }
+        return tiles;
+    }
+
+    /// <summary>
+    /// Тайлсет слоя объектов (второй тайлсет карты, напр. Tileset-Tree). null — слоя нет.
+    /// </summary>
+    public static TiledTileset? GetObjectLayerTileset(TiledMapData map)
+    {
+        if (map.Layers.All(l =>
+            !(string.Equals(l.Type, "tilelayer", StringComparison.OrdinalIgnoreCase) &&
+              string.Equals(l.Name, ObjectLayerName, StringComparison.OrdinalIgnoreCase))))
+            return null;
+        return map.Tilesets.Count > 1 ? map.Tilesets[1] : null;
+    }
+
+    private static TiledTileset? FindTileset(TiledMapData map, uint gid)
+    {
+        TiledTileset? best = null;
+        foreach (var ts in map.Tilesets)
+        {
+            if (gid >= (uint)ts.FirstGid && (best == null || ts.FirstGid > best.FirstGid))
+                best = ts;
+        }
+        return best;
+    }
+
     /// <summary>
     /// Извлекает препятствия из object-слоёв (objectgroup): каждый прямоугольник
     /// превращается в набор тайловых координат, перекрываемых этим прямоугольником.

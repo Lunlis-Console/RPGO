@@ -35,6 +35,11 @@ public class WorldMap
     public int TileWidth { get; set; } = 32;
     public int TileHeight { get; set; } = 32;
     public string? TilesetId { get; set; }
+
+    // Слой объектов (деревья и т.п.), рисуется поверх сущностей
+    public byte[]? ObjectData { get; set; }
+    public string? ObjectTilesetId { get; set; }
+    public int ObjectTileWidth { get; set; }
 }
 
 public class PlayerPosition

@@ -27,6 +27,9 @@ public sealed class GameMap
     /// <summary>Тайл-карта: плоский массив tileType по [y * Width + x]. null — карта не загружена.</summary>
     private byte[]? _tiles;
 
+    /// <summary>Слой объектов (деревья и т.п.), рисуется поверх сущностей. null — слоя нет.</summary>
+    private byte[]? _objectTiles;
+
     public GameMap(int width, int height)
     {
         Width = width;
@@ -53,6 +56,15 @@ public sealed class GameMap
         if (_tiles == null || x < 0 || y < 0 || x >= Width || y >= Height) return;
         _tiles[y * Width + x] = tileType;
     }
+
+    public void SetObjectTiles(byte[]? tiles)
+    {
+        if (tiles != null && tiles.Length != Width * Height)
+            throw new ArgumentException($"Object tile array length {tiles.Length} != {Width * Height}");
+        _objectTiles = tiles;
+    }
+
+    public byte[]? GetObjectTiles() => _objectTiles;
 
     public void AddObstacle(int x, int y) => _obstacles.Add((x, y));
 
@@ -223,7 +235,7 @@ public sealed class GameWorld
 
     public ClientConnection? GetConnectionByPlayerName(string playerName)
     {
-        lock (_lock) return _clients.FirstOrDefault(c => c.Player?.Name == playerName);
+        lock (_lock) return _clients.FirstOrDefault(c => c.Player?.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase) == true);
     }
 
     public ClientConnection? FindClientByPlayer(Player player)

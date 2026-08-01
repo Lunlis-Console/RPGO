@@ -4,6 +4,9 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server;
 
+/// <summary>Тайл-конфигурация зоны для клиентского рендера.</summary>
+public record TileConfig(int TileWidth, string TilesetId, string? ObjectTilesetId, int ObjectTileWidth);
+
 /// <summary>
 /// Менеджер зон: загружает зоны и порталы из БД, предоставляет GameMap для каждой зоны.
 /// </summary>
@@ -15,7 +18,7 @@ public class ZoneManager
     private readonly List<WorldPortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
-    private readonly Dictionary<string, (int TileWidth, string TilesetId)> _tileConfig = new();
+    private readonly Dictionary<string, TileConfig> _tileConfig = new();
     private readonly Dictionary<string, List<TiledNpc>> _tiledNpcs = new();
     private GameMap? _mainMap;
 
@@ -126,12 +129,13 @@ public class ZoneManager
     /// <summary>
     /// Тайл-конфигурация зоны для рендера на клиенте (размер тайла + id тайлсета).
     /// Задаётся при загрузке Tiled-карты. По умолчанию — 32px и тайлсет по имени зоны (инстансы).
+    /// objectTilesetId/objectTileWidth задают слой объектов (деревья), если он есть.
     /// </summary>
-    public void SetTileConfig(string zoneId, int tileWidth, string tilesetId)
-        => _tileConfig[zoneId] = (tileWidth, tilesetId);
+    public void SetTileConfig(string zoneId, int tileWidth, string tilesetId, string? objectTilesetId = null, int objectTileWidth = 0)
+        => _tileConfig[zoneId] = new TileConfig(tileWidth, tilesetId, objectTilesetId, objectTileWidth);
 
-    public (int TileWidth, string TilesetId) GetTileConfig(string zoneId)
-        => _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : (32, zoneId);
+    public TileConfig GetTileConfig(string zoneId)
+        => _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : new TileConfig(32, zoneId, null, 0);
 
     /// <summary>
     /// Регистрирует позиции NPC, размещённые в Tiled-карте зоны. Позиции NPC берутся

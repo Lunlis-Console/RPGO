@@ -14,6 +14,7 @@ namespace RPGGame.ClientMonoGame.Screens;
 public class GameScreen : IScreen
 {
     private readonly MapRenderer _mapRenderer;
+    private readonly MinimapRenderer _minimap = new();
     private readonly HudRenderer _hudRenderer;
     private readonly ChatRenderer _chatRenderer;
     private readonly InputManager _inputManager;
@@ -71,12 +72,24 @@ public class GameScreen : IScreen
             _mapRenderer.SetMap(map);
             _mapRenderer.SetPlayerName(client.PlayerName);
             _mapRenderer.SetPlayerLevel(client.PlayerLevel);
-            _hudRenderer.UpdateZone(map.ZoneName, map.PvPEnabled);
+            _minimap.SetPlayerName(client.PlayerName);
+            _minimap.SetMap(map);
             _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
             if (map.TileData != null && map.TileData.Length > 0)
+            {
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
+                _minimap.SetTileData(map.TileData, map.Width, map.Height);
+            }
             if (map.ObstacleData != null && map.ObstacleData.Length > 0)
+            {
                 _mapRenderer.SetObstacleData(map.ObstacleData, map.Width, map.Height);
+                _minimap.SetObstacleData(map.ObstacleData, map.Width, map.Height);
+            }
+            if (map.ObjectData != null && map.ObjectData.Length > 0)
+            {
+                _mapRenderer.SetObjectLayerData(map.ObjectData, map.Width, map.Height,
+                    map.ObjectTilesetId ?? "", map.ObjectTileWidth > 0 ? map.ObjectTileWidth : map.TileWidth);
+            }
             foreach (var p in map.Players)
             {
                 if (p.Name == client.PlayerName) continue;
@@ -86,17 +99,22 @@ public class GameScreen : IScreen
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
-            _hudRenderer.UpdateZone(zoneName, pvp);
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
         };
         client.TileDataReceived += (data, w, h, tilesetId, tileSize) =>
         {
             _mapRenderer.SetTileData(data, w, h, tilesetId, tileSize);
+            _minimap.SetTileData(data, w, h);
         };
         client.ObstacleDataReceived += (data, w, h) =>
         {
             _mapRenderer.SetObstacleData(data, w, h);
+            _minimap.SetObstacleData(data, w, h);
+        };
+        client.ObjectLayerDataReceived += (data, w, h, tilesetId, tileSize) =>
+        {
+            _mapRenderer.SetObjectLayerData(data, w, h, tilesetId, tileSize);
         };
         client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
@@ -212,6 +230,7 @@ public class GameScreen : IScreen
                 .Where(m => !string.Equals(m.Name, myName, StringComparison.OrdinalIgnoreCase))
                 .Select(m => m.Name).ToList();
             _mapRenderer.SetPartyMembers(groupNames);
+            _minimap.SetPartyMembers(groupNames);
             var myId = GameMain.Instance!.Client.PlayerId;
             if (_lastPartyMemberCount == 0 && party.Members.Count >= 2)
                 _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа сформирована!");
@@ -230,6 +249,7 @@ public class GameScreen : IScreen
             _lastPartyMemberIds.Clear();
             _hudRenderer.ClearParty();
             _mapRenderer.SetPartyMembers(Array.Empty<string>());
+            _minimap.SetPartyMembers(Array.Empty<string>());
         };
         client.PartyInviteReceived += (inviterName, _) =>
         {
@@ -848,22 +868,25 @@ public class GameScreen : IScreen
         bool overHotbar = _input.HitHotbarSlot(mouse.X, mouse.Y, game) >= 0;
         bool overIconBar = _hudDraw.IconRects.Length > 0 && _hudDraw.IconRects.Any(r => r.Contains(mouse.X, mouse.Y));
 
-        if (!mouseOverAnyWindow && !overHotbar)
+        var mmRect = _minimap.GetPanelRect(game.Graphics.PreferredBackBufferWidth);
+        bool overMinimap = mmRect.Contains(mouse.X, mouse.Y);
+
+        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
         {
             int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
             if (scroll != 0) _mapRenderer.ChangeZoom(scroll > 0 ? 0.15f : -0.15f);
         }
-        if (!mouseOverAnyWindow && !overHotbar)
+        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
             _inputManager.HandleMapClick(mouse, _input.PrevMouse, _mapRenderer);
-        if (!mouseOverAnyWindow && !overHotbar)
+        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
             _inputManager.HandleMapRightClick(mouse, _input.PrevMouse, _mapRenderer);
 
         // Compute cursor type for current frame
         {
             int w2 = game.Graphics.PreferredBackBufferWidth;
             int h2 = game.Graphics.PreferredBackBufferHeight;
-            int topH2 = 40;
-            bool overMap = !mouseOverAnyWindow && !overHotbar && !overIconBar && mouse.Y >= topH2;
+            int topH2 = 0;
+            bool overMap = !mouseOverAnyWindow && !overHotbar && !overIconBar && !overMinimap && mouse.Y >= topH2;
             string ct = "main";
             if (overMap)
             {
@@ -888,11 +911,13 @@ public class GameScreen : IScreen
 
         int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
         int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
-        int topH = 40;
+        int topH = 0;
 
-        _hudDraw.DrawTopBar(spriteBatch, w, h, GameMain.Instance!);
         _mapRenderer.Draw(spriteBatch, 0, topH, w, h - topH);
         _mapRenderer.DrawSkillEffects(spriteBatch, 0, topH, w, h - topH);
+        _minimap.SetViewBounds(_mapRenderer.GetViewBounds());
+        var mmCenter = _mapRenderer.CameraCenter;
+        _minimap.Draw(spriteBatch, _minimap.GetPanelRect(w), mmCenter.X, mmCenter.Y);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
         _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
         float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + 60 + 4, w - 16);
