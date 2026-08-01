@@ -111,24 +111,27 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
             }
         };
-        client.PlayerAttackPerformed += (hand, skillId) =>
+        client.PlayerAttackPerformed += (hand, skillId, targetX, targetY) =>
         {
             _mapRenderer.TriggerAttack(hand);
             if (skillId != null)
             {
-                float mx, my;
                 if (SkillEffectManager.IsOnPlayer(skillId))
                 {
-                    mx = _mapRenderer.GetPlayerX();
-                    my = _mapRenderer.GetPlayerY();
+                    SkillEffectManager.Spawn(skillId, _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
+                }
+                else if (targetX.HasValue && targetY.HasValue)
+                {
+                    SkillEffectManager.Spawn(skillId, targetX.Value, targetY.Value);
                 }
                 else
                 {
                     var sel = _mapRenderer.GetSelectedMapPos();
-                    if (sel.HasValue) { mx = sel.Value.X; my = sel.Value.Y; }
-                    else { mx = _mapRenderer.GetPlayerX(); my = _mapRenderer.GetPlayerY(); }
+                    if (sel.HasValue)
+                        SkillEffectManager.Spawn(skillId, sel.Value.X, sel.Value.Y);
+                    else
+                        SkillEffectManager.Spawn(skillId, _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
                 }
-                SkillEffectManager.Spawn(skillId, mx, my);
             }
         };
         client.RemotePlayerAttack += (playerName, hand, skillId, targetX, targetY, buffDurationMs) =>

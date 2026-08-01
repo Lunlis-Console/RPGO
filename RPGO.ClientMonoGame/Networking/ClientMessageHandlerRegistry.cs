@@ -650,7 +650,7 @@ internal static class ClientMessageHandlerRegistry
             if (!string.IsNullOrEmpty(playerName) && playerName != c.PlayerName)
                 c.RaiseRemotePlayerAttack(playerName, hand, skillId, targetX, targetY, buffDurationMs);
             else
-                c.RaisePlayerAttackPerformed(hand, skillId);
+                c.RaisePlayerAttackPerformed(hand, skillId, targetX, targetY);
         }
     }
 
