@@ -186,4 +186,66 @@ public class CombatTests
         // Защитник-игрок не получает урон напрямую через этот метод (PvP-применение — отдельно)
         Assert.Equal(100, defender.Health);
     }
+
+    [Fact]
+    public void SpawnMannequins_CreatesDistinctMonstersAtEachPosition()
+    {
+        var world = new GameWorld(100, 100);
+        var monsters = new MonsterManager(world);
+        monsters.AddMannequinPosition(50, 50);
+        monsters.AddMannequinPosition(52, 50);
+        monsters.AddMannequinPosition(54, 50);
+        monsters.SpawnMannequins();
+
+        var spawned = monsters.GetAllMonsters().Where(m => m.IsMannequin).ToList();
+        Assert.Equal(3, spawned.Count);
+        // Каждый манекен — отдельный объект с уникальным Id и своей позицией
+        Assert.Equal(3, spawned.Select(m => m.Id).Distinct().Count());
+        Assert.Equal(3, spawned.Select(m => (m.X, m.Y)).Distinct().Count());
+    }
+
+    [Fact]
+    public void Mannequin_SpawnsAsRegularMonsterFromTemplate()
+    {
+        var world = new GameWorld(100, 100);
+        world.SetMonsterTemplates(new List<MonsterTemplate>
+        {
+            new() { Id = "MANNEQUIN", Name = "Манекен", Tier = 1, Health = 10000, XpReward = 0, GoldReward = 0, Symbol = 'D', Endurance = 10 }
+        });
+        var monsters = new MonsterManager(world);
+        monsters.AddMannequinPosition(50, 50);
+        monsters.SpawnMannequins();
+
+        var spawned = monsters.GetAllMonsters().Where(m => m.IsMannequin).ToList();
+        Assert.Single(spawned);
+        var m = spawned[0];
+        // Статы берутся из шаблона content.db, как у обычного моба
+        Assert.Equal("MANNEQUIN", m.TemplateId);
+        Assert.Equal("Манекен", m.Name);
+        Assert.Equal(10000, m.MaxHealth);
+        // Манекен не ходит, не атакует и не даёт наград
+        Assert.Equal(0, m.WanderRadius);
+        Assert.Equal(0, m.AggroRange);
+        Assert.Equal(0, m.XpReward);
+        Assert.Equal(0, m.GoldReward);
+    }
+
+    [Fact]
+    public void DamagingOneMannequin_DoesNotAffectOthers()
+    {
+        var world = new GameWorld(100, 100);
+        var monsters = new MonsterManager(world);
+        monsters.AddMannequinPosition(50, 50);
+        monsters.AddMannequinPosition(52, 50);
+        monsters.SpawnMannequins();
+
+        var spawned = monsters.GetAllMonsters().Where(m => m.IsMannequin).ToList();
+        Assert.Equal(2, spawned.Count);
+        int full = Balance.MannequinHealth;
+
+        spawned[0].Health -= 500;
+
+        Assert.Equal(full - 500, spawned[0].Health);
+        Assert.Equal(full, spawned[1].Health);
+    }
 }

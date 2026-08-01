@@ -75,8 +75,8 @@ partial class Program
         if (merchantTiled != null) merchant.SetTiledPosition(merchantTiled.X, merchantTiled.Y);
         var boardTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "board", StringComparison.OrdinalIgnoreCase));
         if (boardTiled != null) quests.SetTiledPosition(boardTiled.X, boardTiled.Y);
-        var dummyTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "dummy", StringComparison.OrdinalIgnoreCase));
-        if (dummyTiled != null) monsters.SetMannequinPosition(dummyTiled.X, dummyTiled.Y);
+        foreach (var dummyTiled in tiledNpcs.Where(n => string.Equals(n.Type, "dummy", StringComparison.OrdinalIgnoreCase)))
+            monsters.AddMannequinPosition(dummyTiled.X, dummyTiled.Y);
 
         merchant.Initialize();
         quests.Initialize();

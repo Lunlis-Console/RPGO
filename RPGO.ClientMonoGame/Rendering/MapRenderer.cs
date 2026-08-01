@@ -1152,9 +1152,7 @@ private sealed class RemotePlayerState
                     float pty = _gridOY + (py - _viewStartY) * _cellH;
                     if (portalTex != null)
                     {
-                        float cx = ptx + (_cellW - portalTex.Width) / 2f;
-                        float cy = pty + (_cellH - portalTex.Height) / 2f;
-                        sb.Draw(portalTex, new Rectangle((int)cx, (int)cy, portalTex.Width, portalTex.Height), Color.White);
+                        sb.Draw(portalTex, new Rectangle((int)ptx - 2, (int)pty - 2, (int)_cellW + 4, (int)_cellH + 4), Color.White);
                     }
                     else
                     {

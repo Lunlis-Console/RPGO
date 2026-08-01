@@ -16,8 +16,7 @@ public class MonsterManager
     private readonly object _respawnLock = new();
     private readonly List<(int X, int Y, string TemplateId, DateTime RespawnAt)> _pendingRespawns = new();
 
-    private int? _mannequinX;
-    private int? _mannequinY;
+    private readonly List<(int X, int Y)> _mannequinPositions = new();
 
     public MonsterManager(GameWorld world)
     {
@@ -26,11 +25,10 @@ public class MonsterManager
 
     public void SetServices(GameServices svc) => _svc = svc;
 
-    /// <summary>Позиция манекена из Tiled-карты (type="dummy"), приоритет над офсетом от торговца.</summary>
-    public void SetMannequinPosition(int x, int y)
+    /// <summary>Позиции манекенов из Tiled-карты (type="dummy"), приоритет над офсетом от торговца.</summary>
+    public void AddMannequinPosition(int x, int y)
     {
-        _mannequinX = x;
-        _mannequinY = y;
+        _mannequinPositions.Add((x, y));
     }
 
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
@@ -59,14 +57,11 @@ public class MonsterManager
     public List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
         => _world.DrainMonsterAttacks();
 
-    public void Initialize(List<TiledSpawn>? spawns = null, int? mannequinX = null, int? mannequinY = null)
+    public void Initialize(List<TiledSpawn>? spawns = null)
     {
         _world.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
         _world.ClearMonsters();
         lock (_respawnLock) _pendingRespawns.Clear();
-
-        if (mannequinX.HasValue && mannequinY.HasValue)
-            SetMannequinPosition(mannequinX.Value, mannequinY.Value);
 
         if (spawns != null && spawns.Count > 0)
         {
@@ -81,7 +76,7 @@ public class MonsterManager
             Log.Warn("Точки спавна монстров не заданы в Tiled — мир запущен без монстров");
         }
 
-        SpawnMannequin();
+        SpawnMannequins();
     }
 
     /// <summary>Спавн монстра по точке из Tiled (точный шаблон, без масштабирования от дистанции).</summary>
@@ -144,44 +139,59 @@ public class MonsterManager
         return monster;
     }
 
-    public void SpawnMannequin()
+    public void SpawnMannequins()
     {
-        int mx, my;
-        if (_mannequinX.HasValue && _mannequinY.HasValue)
+        if (_mannequinPositions.Count > 0)
         {
-            mx = _mannequinX.Value;
-            my = _mannequinY.Value;
+            foreach (var (x, y) in _mannequinPositions)
+                AddMannequinAt(Math.Clamp(x, 0, _world.Map.Width - 1), Math.Clamp(y, 0, _world.Map.Height - 1));
+            return;
+        }
+        AddMannequinAt(Math.Clamp(_world.Map.MerchantX + Balance.MannequinOffsetX, 0, _world.Map.Width - 1),
+            Math.Clamp(_world.Map.MerchantY + Balance.MannequinOffsetY, 0, _world.Map.Height - 1));
+    }
+
+    private void AddMannequinAt(int mx, int my)
+    {
+        var template = _world.GetMonsterTemplates().FirstOrDefault(t => t.Id == "MANNEQUIN");
+        Monster mannequin;
+        if (template != null)
+        {
+            // Манекен создаётся как обычный моб по шаблону из content.db.
+            mannequin = CreateMonster(template, mx, my, 1.0);
+            mannequin.IsMannequin = true;
+            mannequin.AggroRange = 0;
+            mannequin.WanderRadius = 0;
+            mannequin.XpReward = 0;
+            mannequin.GoldReward = 0;
+            mannequin.MoveIntervalMs = 999999;
         }
         else
         {
-            mx = _world.Map.MerchantX + Balance.MannequinOffsetX;
-            my = _world.Map.MerchantY + Balance.MannequinOffsetY;
+            // Запасной вариант: шаблон MANNEQUIN не найден в БД (старая БД до миграции 1030).
+            mannequin = new Monster
+            {
+                Name = "Манекен",
+                TemplateId = "MANNEQUIN",
+                X = mx,
+                Y = my,
+                SpawnX = mx,
+                SpawnY = my,
+                WanderRadius = 0,
+                Health = Balance.MannequinHealth,
+                MaxHealth = Balance.MannequinHealth,
+                XpReward = 0,
+                GoldReward = 0,
+                Symbol = 'D',
+                Level = 1,
+                Endurance = 10,
+                MoveIntervalMs = 999999,
+                IsMannequin = true,
+                AggroRange = 0,
+                CritChance = 0,
+                EvadeChance = 0,
+            };
         }
-        mx = Math.Clamp(mx, 0, _world.Map.Width - 1);
-        my = Math.Clamp(my, 0, _world.Map.Height - 1);
-
-        var mannequin = new Monster
-        {
-            Name = "Манекен",
-            TemplateId = "MANNEQUIN",
-            X = mx,
-            Y = my,
-            SpawnX = mx,
-            SpawnY = my,
-            WanderRadius = 0,
-            Health = Balance.MannequinHealth,
-            MaxHealth = Balance.MannequinHealth,
-            XpReward = 0,
-            GoldReward = 0,
-            Symbol = 'D',
-            Level = 1,
-            Endurance = 10,
-            MoveIntervalMs = 999999,
-            IsMannequin = true,
-            AggroRange = 0,
-            CritChance = 0,
-            EvadeChance = 0,
-        };
         _world.AddMonster(mannequin);
     }
 
