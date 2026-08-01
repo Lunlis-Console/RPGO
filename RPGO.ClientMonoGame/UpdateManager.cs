@@ -16,6 +16,9 @@ public static class UpdateManager
     private const int Port = 7777;
 
     public static string BaseDir => AppDomain.CurrentDomain.BaseDirectory;
+
+    /// <summary>Локальная версия клиента из version.json (пусто, если файла нет).</summary>
+    public static string LocalVersion => ReadLocalVersion();
     private static string VersionFile => Path.Combine(BaseDir, "version.json");
     private static string UpdateDir => Path.Combine(BaseDir, "update");
     private static string StagingDir => Path.Combine(UpdateDir, "staging");

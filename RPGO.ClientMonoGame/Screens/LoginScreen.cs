@@ -281,6 +281,11 @@ public class LoginScreen : IScreen
         spriteBatch.DrawString(font, "Enter — быстрый вход  |  Tab — переключение полей  |  «Тестовый аккаунт» — test/123",
             new Vector2(centerX - 320, startY + 285), Color.Gray);
 
+        // Версия клиента
+        var version = UpdateManager.LocalVersion;
+        if (!string.IsNullOrEmpty(version))
+            spriteBatch.DrawString(font, $"v{version}", new Vector2(12, h - 24), Color.Gray);
+
         // Иконка настроек (правый верхний угол)
         var settingsIcon = SpriteCache.GetIconSettings();
         spriteBatch.Draw(SpriteCache.Pixel, _settingsIconRect, new Color(40, 42, 56));
