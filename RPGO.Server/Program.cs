@@ -29,6 +29,10 @@ partial class Program
         DatabaseManager.Initialize();
         DatabaseManager.CreateTestAccountIfNeeded();
 
+        Log.Info("Загрузка манифеста клиента (обновления)...");
+        var clientBuild = new ClientBuildService();
+        clientBuild.Initialize();
+
         Log.Info("Создание игрового мира...");
         var world = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
 
@@ -111,7 +115,7 @@ partial class Program
         // Единственное создание GameServices
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, pvp, hazard, interactions, auth, zones, instances, persistence);
+            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild);
 
         hub.SetServices(Services);
         monsters.SetServices(Services);
@@ -168,6 +172,9 @@ partial class Program
                     Log.Info($"Отключение клиента: {connection.Endpoint}");
                     return;
                 }
+
+                if (await Services.ClientBuild.HandleUnauthenticatedAsync(connection, message, Services.Hub))
+                    continue;
 
                 authenticated = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
             }

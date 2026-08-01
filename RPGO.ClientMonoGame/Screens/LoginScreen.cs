@@ -28,6 +28,7 @@ public class LoginScreen : IScreen
     public LoginScreen()
     {
         Array.Copy(_defaults, _values, 4);
+        _values[0] = SettingsManager.Load().ServerIp;
         RebuildLayout();
 
         var client = GameMain.Instance?.Client;
@@ -141,6 +142,7 @@ public class LoginScreen : IScreen
                 bool ok = await network.ConnectAsync(ip, 7777);
                 if (ok)
                 {
+                    SaveServerIp(ip);
                     _statusMessage = "Подключено";
                     _statusColor = Color.LimeGreen;
                 }
@@ -161,6 +163,7 @@ public class LoginScreen : IScreen
                         _statusColor = Color.Red;
                         return;
                     }
+                    SaveServerIp(ip);
                 }
                 client.Authenticate(_values[1], _values[2]);
                 _statusMessage = "Авторизация...";
@@ -177,6 +180,7 @@ public class LoginScreen : IScreen
                         _statusColor = Color.Red;
                         return;
                     }
+                    SaveServerIp(ip);
                 }
                 await client.SendAsync("register", new
                 {
@@ -202,6 +206,7 @@ public class LoginScreen : IScreen
                         _statusColor = Color.Red;
                         return;
                     }
+                    SaveServerIp(ip);
                 }
                 client.Authenticate(_values[1], _values[2]);
                 _statusMessage = "Авторизация (test)...";
@@ -296,6 +301,17 @@ public class LoginScreen : IScreen
 
     private static void DrawBorder(SpriteBatch sb, Rectangle rect, Color color, int thickness = 1)
         => UIHelper.DrawRectOutline(sb, rect, color, thickness);
+
+    private static void SaveServerIp(string ip)
+    {
+        try
+        {
+            var settings = SettingsManager.Load();
+            settings.ServerIp = ip;
+            settings.Save();
+        }
+        catch { /* ignore */ }
+    }
 
     public void Dispose()
     {

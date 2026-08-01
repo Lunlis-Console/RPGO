@@ -1,5 +1,6 @@
 using RPGGame.Server.Instances;
 using RPGGame.Server.Network;
+using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -34,6 +35,7 @@ public sealed class GameServices
     public ZoneManager Zones { get; }
     public InstanceManager Instances { get; }
     public PersistenceService Persistence { get; }
+    public ClientBuildService ClientBuild { get; }
 
     public GameServices(
         GameWorld world,
@@ -58,7 +60,8 @@ public sealed class GameServices
         AuthService auth,
         ZoneManager zones,
         InstanceManager instances,
-        PersistenceService persistence)
+        PersistenceService persistence,
+        ClientBuildService clientBuild)
     {
         World = world;
         Hub = hub;
@@ -83,6 +86,7 @@ public sealed class GameServices
         Zones = zones;
         Instances = instances;
         Persistence = persistence;
+        ClientBuild = clientBuild;
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)

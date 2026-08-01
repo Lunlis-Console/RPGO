@@ -21,6 +21,10 @@ game.db-journal
 .DocumentLayout*.json
 .DocumentLayout*.backup.json
 
+## Distribution builds
+dist/
+RPGO.Server/client_build/
+
 ## Rider / Copilot caches
 .idea/
 CopilotIndices/

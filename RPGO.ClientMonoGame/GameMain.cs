@@ -65,6 +65,18 @@ public class GameMain : Game
 
     protected override void Initialize()
     {
+        // Стартовая проверка обновлений (до показа логина): сравнение версии с сервером,
+        // при наличии обновления — скачивание и перезапуск.
+        Window.Title = "Проверка обновлений...";
+        bool updateApplied = UpdateManager.RunStartupCheck();
+        if (updateApplied)
+        {
+            UpdateManager.RestartToApply();
+            Environment.Exit(0);
+            return;
+        }
+        Window.Title = "RPGO — MonoGame клиент";
+
         // Инициализация GameClient с колбэком для UI-потока
         Client.Initialize(() => { });
 
