@@ -23,8 +23,10 @@ public static class MailManager
         if (goldAmount > MaxGoldPerMail)
             return (0, $"Максимум {MaxGoldPerMail} золота за письмо.");
 
-        subject = (subject ?? "").Trim().Substring(0, Math.Min(subject.Length, MaxSubjectLength));
-        body = (body ?? "").Trim().Substring(0, Math.Min(body.Length, MaxBodyLength));
+        string trimmedSubject = (subject ?? "").Trim();
+        subject = trimmedSubject.Substring(0, Math.Min(trimmedSubject.Length, MaxSubjectLength));
+        string trimmedBody = (body ?? "").Trim();
+        body = trimmedBody.Substring(0, Math.Min(trimmedBody.Length, MaxBodyLength));
 
         if (goldAmount > 0)
         {

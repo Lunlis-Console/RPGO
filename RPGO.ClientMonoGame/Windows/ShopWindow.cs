@@ -63,7 +63,7 @@ public class ShopWindow : GameWindow
         if (isFull)
         {
             _merchantName = data.MerchantName ?? "Торговец";
-            _items = data.Items;
+            _items = data.Items ?? new List<Item>();
             _discount = data.Discount;
         }
         if (data.Buyback is { Count: >= 0 })

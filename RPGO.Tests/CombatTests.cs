@@ -14,7 +14,7 @@ public class CombatTests
         var debuffs = new DebuffManager();
         var quests = new QuestManager(world);
         var merchant = new MerchantManager(world);
-        Program.Services = new GameServices(world, null!, _monsters,
+        var svc = new GameServices(world, null!, _monsters,
             new LootManager(world), new CorpseManager(),
             quests, merchant,
             new CollectibleManager(world), new TradeManager(),
@@ -22,6 +22,8 @@ public class CombatTests
             new ProjectileManager(world), new KillService(world),
             new PathfindingService(world, merchant, quests), debuffs,
             combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!);
+        _monsters.SetServices(svc);
+        Program.Services = svc;
     }
     private static Monster CreateMonster(int level, int str, int sta, int agi, double evade, double crit, int hp)
         => new()

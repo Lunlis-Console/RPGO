@@ -1028,7 +1028,7 @@ private sealed class RemotePlayerState
                     int mx = _viewStartX + x;
                     int my = _viewStartY + y;
                     if (mx < 0 || my < 0 || mx >= _tileMapWidth || my >= _tileMapHeight) continue;
-                    byte tileId = _tileData[my * _tileMapWidth + mx];
+                    byte tileId = _tileData![my * _tileMapWidth + mx];
                     if (tileId == 0)
                     {
                         sb.Draw(grass, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), Color.White);
