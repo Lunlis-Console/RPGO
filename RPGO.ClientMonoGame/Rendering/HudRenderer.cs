@@ -13,6 +13,7 @@ public class HudRenderer
     private StatusData? _status;
     private bool _inCombat;
     private string? _targetName;
+    private string? _targetId;
     private int _targetHp, _targetMaxHp;
     private PartyInfo? _party;
     private EntityInfo? _selectedEntity;
@@ -46,9 +47,9 @@ public class HudRenderer
         _instanceExpiresAtUtcMs = expiresAtUtcMs;
     }
 
-    public void UpdateCombatState(bool inCombat, string? targetName, int hp, int maxHp)
+    public void UpdateCombatState(bool inCombat, string? targetName, int hp, int maxHp, string? targetId)
     {
-        _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp;
+        _inCombat = inCombat; _targetName = targetName; _targetHp = hp; _targetMaxHp = maxHp; _targetId = targetId;
     }
     public void ClearTarget() { _selectedEntity = null; _targetDebuffs = null; }
     public void UpdateParty(PartyInfo party)
@@ -653,17 +654,27 @@ public class HudRenderer
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
 
-        // Источник данных: боевая цель (в приоритете) либо выбранная сущность (мирный режим)
+        // Источник данных: боевая цель (в приоритете) либо выбранная сущность.
+        // Если игрок выбрал мышью другого моба/игрока — показываем выбранного,
+        // боевая цель остаётся источником для текущего таргета боя.
         string? name = null;
         int hp = 0, maxHp = 0;
-        if (_inCombat && !string.IsNullOrEmpty(_targetName))
+        var sel = _selectedEntity;
+        bool selIsTarget = sel != null && (sel.Type is "monster" or "player");
+        bool selIsCombatTarget = selIsTarget && sel != null && sel.Id != null && sel.Id == _targetId;
+        if (selIsTarget && !selIsCombatTarget)
+        {
+            name = sel!.Name;
+            hp = sel.Hp; maxHp = sel.MaxHp;
+        }
+        else if (_inCombat && !string.IsNullOrEmpty(_targetName))
         {
             name = _targetName; hp = _targetHp; maxHp = _targetMaxHp;
         }
-        else if (_selectedEntity != null && _selectedEntity.Type != "move")
+        else if (sel != null && sel.Type != "move")
         {
-            name = _selectedEntity.Name;
-            hp = _selectedEntity.Hp; maxHp = _selectedEntity.MaxHp;
+            name = sel.Name;
+            hp = sel.Hp; maxHp = sel.MaxHp;
         }
         if (string.IsNullOrEmpty(name)) return;
 

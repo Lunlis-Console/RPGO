@@ -126,9 +126,9 @@ public class GameScreen : IScreen
             Logger.Debug($"FLT screen argb={argb:X8} -> rgb=({color.R},{color.G},{color.B}) text={text}");
             _mapRenderer.SpawnFloatingText(x, y, text, color, isCrit);
         };
-        client.CombatStateUpdated += (inCombat, targetName, hp, maxHp) =>
+        client.CombatStateUpdated += (inCombat, targetName, hp, maxHp, targetId) =>
         {
-            _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp);
+            _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp, targetId);
             if (!inCombat)
             {
                 _mapRenderer.ClearSelection();

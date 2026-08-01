@@ -413,9 +413,10 @@ internal static class ClientMessageHandlerRegistry
         {
             bool inCombat = cs.TryGetProperty("InCombat", out var ic2) && ic2.GetBoolean();
             string? tName = cs.TryGetProperty("TargetName", out var tn) ? tn.GetString() : null;
+            string? tId = cs.TryGetProperty("TargetId", out var ti) ? ti.GetString() : null;
             int tHp = cs.TryGetProperty("TargetHp", out var th) ? th.GetInt32() : 0;
             int tMaxHp = cs.TryGetProperty("TargetMaxHp", out var tmh) ? tmh.GetInt32() : 0;
-            c.RaiseCombatStateUpdated(inCombat, tName, tHp, tMaxHp);
+            c.RaiseCombatStateUpdated(inCombat, tName, tHp, tMaxHp, tId);
             if (!inCombat)
             {
                 c.RaiseTargetDebuffsUpdated(null);

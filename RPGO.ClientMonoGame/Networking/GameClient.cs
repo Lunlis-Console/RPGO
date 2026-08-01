@@ -71,7 +71,7 @@ public sealed class GameClient
     public event Action<bool, string>? FriendResultReceived;
 
     // HUD
-    public event Action<bool, string?, int, int>? CombatStateUpdated;
+    public event Action<bool, string?, int, int, string?>? CombatStateUpdated;
     public event Action<List<DebuffInfo>?>? TargetDebuffsUpdated;
     public event Action<PartyInfo>? PartyUpdated;
     public event Action? PartyDisbanded;
@@ -147,7 +147,7 @@ public sealed class GameClient
     internal void RaiseDialogueClosed() => Ui(() => DialogueClosed?.Invoke());
     internal void RaiseFloatingText(int x, int y, string text, uint color, bool crit) => Ui(() => FloatingTextReceived?.Invoke(x, y, text, color, crit));
     internal void RaisePlayerDeath(int lostGold) => Ui(() => PlayerDeathReceived?.Invoke(lostGold));
-    internal void RaiseCombatStateUpdated(bool inCombat, string? targetName, int targetHp, int targetMaxHp) => Ui(() => CombatStateUpdated?.Invoke(inCombat, targetName, targetHp, targetMaxHp));
+    internal void RaiseCombatStateUpdated(bool inCombat, string? targetName, int targetHp, int targetMaxHp, string? targetId) => Ui(() => CombatStateUpdated?.Invoke(inCombat, targetName, targetHp, targetMaxHp, targetId));
     internal void RaiseTargetDebuffsUpdated(List<DebuffInfo>? debuffs) => Ui(() => TargetDebuffsUpdated?.Invoke(debuffs));
     internal void RaiseTargetCleared(string reason) => Ui(() => TargetCleared?.Invoke(reason));
     internal void RaisePartyUpdated(PartyInfo party) => Ui(() => PartyUpdated?.Invoke(party));
