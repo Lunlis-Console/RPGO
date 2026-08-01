@@ -23,6 +23,13 @@ public static class UpdateManager
     private static string UpdateDir => Path.Combine(BaseDir, "update");
     private static string StagingDir => Path.Combine(UpdateDir, "staging");
 
+    /// <summary>Результат проверки обновлений.</summary>
+    public sealed class UpdateCheckResult
+    {
+        public bool RestartRequired { get; init; }
+        public string Message { get; init; } = "";
+    }
+
     /// <summary>
     /// Проверяет обновления на старте. Возвращает true, если нужно перезапуститься
     /// (обновление применено в staging).
@@ -39,12 +46,82 @@ public static class UpdateManager
                 return false;
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            return CheckAndApplyAsync(ip, cts.Token).GetAwaiter().GetResult();
+            return CheckForUpdatesAsync(ip, cts.Token).GetAwaiter().GetResult().RestartRequired;
         }
         catch (Exception ex)
         {
             Logger.Warn($"[Update] Стартовая проверка пропущена: {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Ручная проверка обновлений против сервера по указанному IP.
+    /// Возвращает понятное сообщение о результате (и флаг необходимости перезапуска).
+    /// </summary>
+    public static async Task<UpdateCheckResult> CheckForUpdatesAsync(string ip, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ip))
+            return new UpdateCheckResult { Message = "Введите IP сервера" };
+
+        string localVersion = ReadLocalVersion();
+        try
+        {
+            using var client = new TcpClient { NoDelay = true };
+            await client.ConnectAsync(ip, Port, ct);
+            var stream = client.GetStream();
+
+            await Send(stream, new GameMessage { Type = "update_check", Data = new UpdateCheckRequest { Version = localVersion } });
+
+            var infoMsg = await Receive(stream, ct);
+            var info = Deserialize<UpdateInfo>(infoMsg?.Data);
+            if (info == null || info.Files == null || info.Files.Count == 0)
+                return new UpdateCheckResult { Message = "Сервер не отдал список обновлений (на сервере нет client_build)" };
+
+            if (string.IsNullOrEmpty(localVersion))
+                return new UpdateCheckResult
+                {
+                    Message = $"Dev-сборка: version.json отсутствует, авто-обновление отключено (сервер раздаёт v{info.Version})"
+                };
+
+            if (string.Equals(info.Version, localVersion, StringComparison.OrdinalIgnoreCase))
+                return new UpdateCheckResult { Message = $"Обновление не требуется — версия актуальна (v{localVersion})" };
+
+            Logger.Info($"[Update] Найдено обновление: v{localVersion} -> v{info.Version}");
+
+            var toFetch = new List<UpdateFileEntry>();
+            foreach (var entry in info.Files)
+            {
+                if (string.IsNullOrEmpty(entry.Path)) continue;
+                string localPath = Path.Combine(BaseDir, entry.Path);
+                if (!File.Exists(localPath) || !HashMatches(localPath, entry.Sha256))
+                    toFetch.Add(entry);
+            }
+
+            if (toFetch.Count == 0)
+            {
+                Logger.Info($"[Update] Файлы идентичны — просто обновляю версию до {info.Version}");
+                WriteVersionFile(info.Version);
+                return new UpdateCheckResult { Message = $"Файлы актуальны — версия обновлена до v{info.Version}" };
+            }
+
+            Logger.Info($"[Update] Скачиваю {toFetch.Count} файлов...");
+            Directory.CreateDirectory(StagingDir);
+            foreach (var entry in toFetch)
+                await DownloadFileAsync(stream, entry, ct);
+
+            WriteVersionFile(Path.Combine(UpdateDir, "version.json"), info.Version);
+            WriteApplyScript();
+            return new UpdateCheckResult { RestartRequired = true, Message = $"Обновление до v{info.Version} готово — перезапуск..." };
+        }
+        catch (OperationCanceledException)
+        {
+            return new UpdateCheckResult { Message = "Ошибка: таймаут проверки обновлений" };
+        }
+        catch (Exception ex)
+        {
+            Logger.Warn($"[Update] Ошибка проверки: {ex.Message}");
+            return new UpdateCheckResult { Message = $"Ошибка: {ex.Message}" };
         }
     }
 
@@ -69,51 +146,6 @@ public static class UpdateManager
         {
             Logger.Error("[Update] Не удалось запустить apply.cmd", ex);
         }
-    }
-
-    private static async Task<bool> CheckAndApplyAsync(string ip, CancellationToken ct)
-    {
-        using var client = new TcpClient { NoDelay = true };
-        await client.ConnectAsync(ip, Port, ct);
-        var stream = client.GetStream();
-
-        string localVersion = ReadLocalVersion();
-        await Send(stream, new GameMessage { Type = "update_check", Data = new UpdateCheckRequest { Version = localVersion } });
-
-        var infoMsg = await Receive(stream, ct);
-        var info = Deserialize<UpdateInfo>(infoMsg?.Data);
-        if (info == null || info.Files == null || info.Files.Count == 0)
-            return false;
-
-        if (string.Equals(info.Version, localVersion, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        Logger.Info($"[Update] Найдено обновление: v{localVersion} -> v{info.Version}");
-
-        var toFetch = new List<UpdateFileEntry>();
-        foreach (var entry in info.Files)
-        {
-            if (string.IsNullOrEmpty(entry.Path)) continue;
-            string localPath = Path.Combine(BaseDir, entry.Path);
-            if (!File.Exists(localPath) || !HashMatches(localPath, entry.Sha256))
-                toFetch.Add(entry);
-        }
-
-        if (toFetch.Count == 0)
-        {
-            Logger.Info($"[Update] Файлы идентичны — просто обновляю версию до {info.Version}");
-            WriteVersionFile(info.Version);
-            return false;
-        }
-
-        Logger.Info($"[Update] Скачиваю {toFetch.Count} файлов...");
-        Directory.CreateDirectory(StagingDir);
-        foreach (var entry in toFetch)
-            await DownloadFileAsync(stream, entry, ct);
-
-        WriteVersionFile(Path.Combine(UpdateDir, "version.json"), info.Version);
-        WriteApplyScript();
-        return true;
     }
 
     private static async Task DownloadFileAsync(NetworkStream stream, UpdateFileEntry entry, CancellationToken ct)

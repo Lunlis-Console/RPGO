@@ -16,8 +16,8 @@ public class LoginScreen : IScreen
     private Color _statusColor = Color.Red;
     private string _systemMessage = "";
 
-    private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тестовый аккаунт" };
-    private Rectangle[] _buttonRects = new Rectangle[4];
+    private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тестовый аккаунт", "Проверить обновления" };
+    private Rectangle[] _buttonRects = new Rectangle[5];
     private Rectangle[] _fieldRects = new Rectangle[4];
 
     private KeyboardState _prevKeyboard;
@@ -59,7 +59,8 @@ public class LoginScreen : IScreen
         _buttonRects[0] = new Rectangle(centerX + 160, startY, 130, 30);
         _buttonRects[1] = new Rectangle(centerX + 160, startY + 38, 130, 30);
         _buttonRects[2] = new Rectangle(centerX + 160, startY + 76, 130, 30);
-        _buttonRects[3] = new Rectangle(centerX + 160, startY + 116, 130, 30);
+        _buttonRects[3] = new Rectangle(centerX + 160, startY + 114, 130, 30);
+        _buttonRects[4] = new Rectangle(centerX + 160, startY + 152, 130, 30);
 
         int iconSize = 36;
         _settingsIconRect = new Rectangle(w - iconSize - 12, 12, iconSize, iconSize);
@@ -107,7 +108,7 @@ public class LoginScreen : IScreen
             }
 
             // Клик по кнопкам
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 if (_buttonRects[i].Contains(mouse.X, mouse.Y))
                     HandleButton(i);
@@ -212,6 +213,19 @@ public class LoginScreen : IScreen
                 _statusMessage = "Авторизация (test)...";
                 _statusColor = Color.Yellow;
                 break;
+
+            case 4: // Проверить обновления
+                _statusMessage = "Проверка обновлений...";
+                _statusColor = Color.Yellow;
+                var upd = await UpdateManager.CheckForUpdatesAsync(ip);
+                _statusMessage = upd.Message;
+                _statusColor = upd.Message.StartsWith("Ошибка", StringComparison.Ordinal) ? Color.Red : Color.LimeGreen;
+                if (upd.RestartRequired)
+                {
+                    UpdateManager.RestartToApply();
+                    Environment.Exit(0);
+                }
+                break;
         }
     }
 
@@ -257,9 +271,9 @@ public class LoginScreen : IScreen
         }
 
         // Кнопки
-        var btnBgColors = new[] { new Color(0, 120, 215), new Color(0, 180, 100), new Color(255, 170, 0), new Color(150, 80, 200) };
+        var btnBgColors = new[] { new Color(0, 120, 215), new Color(0, 180, 100), new Color(255, 170, 0), new Color(150, 80, 200), new Color(0, 150, 190) };
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 5; i++)
         {
             spriteBatch.Draw(SpriteCache.Pixel, _buttonRects[i], btnBgColors[i]);
             DrawBorder(spriteBatch, _buttonRects[i], Color.White);

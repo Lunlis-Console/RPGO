@@ -41,7 +41,8 @@ public class NetworkManager
         try
         {
             _client = new TcpClient { NoDelay = true };
-            await _client.ConnectAsync(ip, port);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await _client.ConnectAsync(ip, port, cts.Token);
             _stream = _client.GetStream();
 
             _isConnected = true;
