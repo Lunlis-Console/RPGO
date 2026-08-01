@@ -20,6 +20,19 @@ public class TiledLayer
     public int Height { get; set; }
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
+    public bool Visible { get; set; } = true;
+    public List<TiledObject> Objects { get; set; } = new();
+}
+
+public class TiledObject
+{
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Width { get; set; }
+    public double Height { get; set; }
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "";
+    public bool Point { get; set; }
 }
 
 public class TiledTileset
@@ -34,6 +47,9 @@ public class TiledTileset
     public int TileHeight { get; set; }
     public string Name { get; set; } = "";
 }
+
+/// <summary>Точка спавна из Tiled: координата в тайлах + имя сущности (шаблон монстра / коллекционка).</summary>
+public record TiledSpawn(int X, int Y, string Name, string Type);
 
 public static class TiledMapLoader
 {
@@ -99,6 +115,81 @@ public static class TiledMapLoader
         }
 
         return tiles;
+    }
+
+    /// <summary>
+    /// Извлекает препятствия из object-слоёв (objectgroup): каждый прямоугольник
+    /// превращается в набор тайловых координат, перекрываемых этим прямоугольником.
+    /// </summary>
+    public static List<(int X, int Y)> ExtractObstacles(TiledMapData map)
+    {
+        var obstacles = new List<(int X, int Y)>();
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return obstacles;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (obj.Point || obj.Width <= 0 || obj.Height <= 0) continue;
+                // Именованные объекты — это точки спавна, а не препятствия
+                if (!string.IsNullOrEmpty(obj.Name) || !string.IsNullOrEmpty(obj.Type)) continue;
+
+                int x0 = (int)Math.Floor(obj.X / map.TileWidth);
+                int y0 = (int)Math.Floor(obj.Y / map.TileHeight);
+                int x1 = (int)Math.Ceiling((obj.X + obj.Width) / map.TileWidth);
+                int y1 = (int)Math.Ceiling((obj.Y + obj.Height) / map.TileHeight);
+
+                for (int ty = y0; ty < y1; ty++)
+                for (int tx = x0; tx < x1; tx++)
+                {
+                    if (tx >= 0 && ty >= 0 && tx < map.Width && ty < map.Height)
+                        obstacles.Add((tx, ty));
+                }
+            }
+        }
+        return obstacles;
+    }
+
+    /// <summary>
+    /// Извлекает точки спавна из object-слоёв. Точкой считается объект с заполненным
+    /// name (или type): для point-объекта берётся его координата, для прямоугольника — центр.
+    /// </summary>
+    public static List<TiledSpawn> ExtractSpawns(TiledMapData map)
+    {
+        var result = new List<TiledSpawn>();
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return result;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (string.IsNullOrEmpty(obj.Name) && string.IsNullOrEmpty(obj.Type))
+                    continue;
+
+                int tx, ty;
+                if (obj.Point)
+                {
+                    tx = (int)Math.Floor(obj.X / map.TileWidth);
+                    ty = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    tx = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    ty = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
+                result.Add(new TiledSpawn(tx, ty, obj.Name ?? "", obj.Type ?? ""));
+            }
+        }
+        return result;
     }
 
     public static string GetTilesetPngPath(TiledMapData map, string baseDir)

@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using RPGGame.Server.Services;
 
 namespace RPGGame.Server;
 
@@ -10,6 +11,10 @@ public class MonsterManager
 {
     private readonly GameWorld _world;
     private GameServices _svc = null!;
+
+    // Очередь респавна убитых монстров: каждый монстр привязан к своей точке спавна.
+    private readonly object _respawnLock = new();
+    private readonly List<(int X, int Y, string TemplateId, DateTime RespawnAt)> _pendingRespawns = new();
 
     public MonsterManager(GameWorld world)
     {
@@ -44,37 +49,51 @@ public class MonsterManager
     public List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
         => _world.DrainMonsterAttacks();
 
-    public void Initialize()
+    public void Initialize(List<TiledSpawn>? spawns = null)
     {
         _world.SetMonsterTemplates(DatabaseManager.LoadMonsterTemplates());
         _world.ClearMonsters();
-        SpawnMonsters(Balance.MonsterSpawnCount);
+        lock (_respawnLock) _pendingRespawns.Clear();
+
+        if (spawns != null && spawns.Count > 0)
+        {
+            int spawned = 0;
+            foreach (var s in spawns)
+                if (SpawnNamedMonster(s.X, s.Y, s.Name))
+                    spawned++;
+            Log.Info($"Спавн монстров из точек: {spawned}/{spawns.Count}");
+        }
+        else
+        {
+            Log.Warn("Точки спавна монстров не заданы в Tiled — мир запущен без монстров");
+        }
+
         SpawnMannequin();
     }
 
-    public void SpawnMonsters(int count)
+    /// <summary>Спавн монстра по точке из Tiled (точный шаблон, без масштабирования от дистанции).</summary>
+    private bool SpawnNamedMonster(int x, int y, string name)
     {
-        for (int i = 0; i < count; i++)
-            SpawnOneMonster();
+        if (_world.Map.IsObstacle(x, y))
+        {
+            Log.Warn($"Точка спавна монстра '{name}' на непроходимой клетке ({x},{y}), пропускаю");
+            return false;
+        }
+
+        var template = _world.GetMonsterTemplates()
+            .FirstOrDefault(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (template == null)
+        {
+            Log.Warn($"Точка спавна: шаблон монстра '{name}' не найден, пропускаю");
+            return false;
+        }
+
+        _world.AddMonster(CreateMonster(template, x, y, 1.0));
+        return true;
     }
 
-    private void SpawnOneMonster()
+    private Monster CreateMonster(MonsterTemplate template, int x, int y, double mult)
     {
-        int x, y;
-        int attempts = 0;
-        do
-        {
-            x = _world.NextRandom(0, _world.Map.Width);
-            y = _world.NextRandom(0, _world.Map.Height);
-            attempts++;
-        } while ((IsOccupied(x, y) || IsNearMerchant(x, y)) && attempts < Balance.SpawnMaxAttempts);
-
-        if (attempts >= Balance.SpawnMaxAttempts) return;
-
-        int dist = GetDistance(x, y);
-        var template = PickTemplateByDistance(dist);
-        double mult = 1.0 + dist * Balance.SpawnDifficultyPerDist;
-
         int health = (int)(template.Health * mult);
         int xp = (int)(template.XpReward * mult);
         int gold = (int)(template.GoldReward * mult);
@@ -109,7 +128,7 @@ public class MonsterManager
         monster.BlockChance = template.BlockChance;
         monster.ParryChance = template.ParryChance;
         monster.ShieldDefense = template.ShieldDefense;
-        _world.AddMonster(monster);
+        return monster;
     }
 
     public void SpawnMannequin()
@@ -144,17 +163,6 @@ public class MonsterManager
         _world.AddMonster(mannequin);
     }
 
-    public void SpawnOneMonsterPublic() => SpawnOneMonster();
-
-    private MonsterTemplate PickTemplateByDistance(int dist)
-    {
-        int tier = Balance.MonsterTierByDistance(dist);
-        var templates = _world.GetMonsterTemplates();
-        var pool = templates.Where(t => t.Tier == tier).ToList();
-        if (pool.Count == 0) pool = templates;
-        return pool[_world.NextRandom(0, pool.Count)];
-    }
-
     private int GetDistance(int x, int y)
     {
         int dx = x - _world.Map.MerchantX;
@@ -164,15 +172,54 @@ public class MonsterManager
 
     private bool IsNearMerchant(int x, int y) => GetDistance(x, y) < Balance.SpawnSafeRadiusFromMerchant;
 
-    public void RespawnMonster(Monster dead)
-    {
-        _world.RemoveMonster(dead);
-        SpawnOneMonster();
-    }
-
+    /// <summary>Удаляет монстра и ставит его в очередь респавна на своей точке спавна.</summary>
     public void RemoveMonster(Monster monster)
     {
         _world.RemoveMonster(monster);
+        if (monster.IsMannequin) return;
+        lock (_respawnLock)
+            _pendingRespawns.Add((monster.SpawnX, monster.SpawnY, monster.TemplateId, DateTime.UtcNow.AddMilliseconds(Balance.MonsterRespawnDelayMs)));
+    }
+
+    /// <summary>Вызывается из игрового тика: респавнит убитых монстров на их точках.</summary>
+    public void TickRespawns()
+    {
+        var now = DateTime.UtcNow;
+        List<(int X, int Y, string TemplateId)> due = new();
+        lock (_respawnLock)
+        {
+            for (int i = _pendingRespawns.Count - 1; i >= 0; i--)
+            {
+                if (_pendingRespawns[i].RespawnAt <= now)
+                {
+                    due.Add((_pendingRespawns[i].X, _pendingRespawns[i].Y, _pendingRespawns[i].TemplateId));
+                    _pendingRespawns.RemoveAt(i);
+                }
+            }
+        }
+
+        foreach (var d in due)
+            RespawnAtPoint(d.X, d.Y, d.TemplateId);
+    }
+
+    private void RespawnAtPoint(int x, int y, string templateId)
+    {
+        if (_world.Map.IsObstacle(x, y))
+        {
+            // Точка временно занята препятствием — попробуем позже
+            lock (_respawnLock)
+                _pendingRespawns.Add((x, y, templateId, DateTime.UtcNow.AddMilliseconds(Balance.MonsterRespawnDelayMs)));
+            return;
+        }
+
+        var template = _world.GetMonsterTemplates().FirstOrDefault(t => t.Id == templateId);
+        if (template == null)
+        {
+            Log.Warn($"Респавн: шаблон монстра '{templateId}' не найден, пропускаю");
+            return;
+        }
+
+        _world.AddMonster(CreateMonster(template, x, y, 1.0));
     }
 
     public bool WanderStep()
@@ -489,15 +536,13 @@ public class MonsterManager
         int nx = m.X + dx;
         int ny = m.Y + dy;
         if (nx < 0 || nx >= _world.Map.Width || ny < 0 || ny >= _world.Map.Height) return false;
+        if (_world.Map.IsObstacle(nx, ny)) return false;
         if (Math.Abs(nx - m.SpawnX) > m.WanderRadius || Math.Abs(ny - m.SpawnY) > m.WanderRadius) return false;
         if (IsNearMerchant(nx, ny)) return false;
         m.X = nx;
         m.Y = ny;
         return true;
     }
-
-    private bool IsOccupied(int x, int y)
-        => _world.GetMonstersSnapshot().Any(m => m.X == x && m.Y == y);
 
     private bool IsOccupiedByMonster(int x, int y)
         => _world.FindMonsterAt(x, y) != null;

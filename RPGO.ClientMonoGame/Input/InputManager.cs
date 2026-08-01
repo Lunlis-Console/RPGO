@@ -91,42 +91,6 @@ public class InputManager
         }
     }
 
-    private TimeSpan _lastMoveSent;
-
-    // Последнее направление взгляда игрока ("down" | "up" | "left" | "right").
-    public string Facing { get; private set; } = "down";
-
-    public void HandleMovement(KeyboardState keyboard, KeyboardState prevKeyboard, GameClient client, MapRenderer mapRenderer)
-    {
-        int dx = 0, dy = 0;
-        if (keyboard.IsKeyDown(Keys.W) || keyboard.IsKeyDown(Keys.Up)) dy = -1;
-        if (keyboard.IsKeyDown(Keys.S) || keyboard.IsKeyDown(Keys.Down)) dy = 1;
-        if (keyboard.IsKeyDown(Keys.A) || keyboard.IsKeyDown(Keys.Left)) dx = -1;
-        if (keyboard.IsKeyDown(Keys.D) || keyboard.IsKeyDown(Keys.Right)) dx = 1;
-
-        if (dx == 0 && dy == 0) return;
-
-        // Обновляем направление взгляда по последнему нажатию (приоритет по горизонтали).
-        if (dx < 0) Facing = "left";
-        else if (dx > 0) Facing = "right";
-        else if (dy < 0) Facing = "up";
-        else Facing = "down";
-
-        // Непрерывное движение при удержании клавиши с учётом серверного интервала
-        int intervalMs = client.Status?.MoveIntervalMs ?? 500;
-        var now = DateTime.UtcNow.TimeOfDay;
-        if ((now - _lastMoveSent).TotalMilliseconds < intervalMs) return;
-        _lastMoveSent = now;
-
-        if (client.Status != null)
-        {
-            int targetX = client.Status.X + dx;
-            int targetY = client.Status.Y + dy;
-            Logger.Action($"Движение: ({targetX}, {targetY})");
-            _ = client.SendAsync("move_to", new { X = targetX, Y = targetY });
-        }
-    }
-
     public void HandleMapClick(MouseState mouse, MouseState prevMouse, MapRenderer mapRenderer)
     {
         if (mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released)

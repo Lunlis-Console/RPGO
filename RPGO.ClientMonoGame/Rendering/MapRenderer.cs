@@ -36,6 +36,10 @@ public class MapRenderer
     private string _tilesetId = "";
     private int _tileSize = 32;
 
+    private byte[]? _obstacleData;
+    private int _obstacleWidth;
+    private int _obstacleHeight;
+
     public void SetTileData(byte[]? data, int width, int height, string tilesetId = "", int tileSize = 32)
     {
         _tileData = data;
@@ -43,6 +47,21 @@ public class MapRenderer
         _tileMapHeight = height;
         _tilesetId = tilesetId;
         _tileSize = tileSize;
+    }
+
+    public void SetObstacleData(byte[]? data, int width, int height)
+    {
+        _obstacleData = data;
+        _obstacleWidth = width;
+        _obstacleHeight = height;
+    }
+
+    /// <summary>Непроходима ли клетка (данные препятствий с сервера).</summary>
+    public bool IsBlocked(int x, int y)
+    {
+        if (_obstacleData == null) return false;
+        if (x < 0 || y < 0 || x >= _obstacleWidth || y >= _obstacleHeight) return false;
+        return _obstacleData[y * _obstacleWidth + x] != 0;
     }
     private readonly List<FloatingText> _floatingTexts = new();
     private static readonly Random _rng = new();
@@ -630,6 +649,7 @@ private sealed class RemotePlayerState
 
     private void HandleEmptyCellRightClick(int mapX, int mapY)
     {
+        if (IsBlocked(mapX, mapY)) return;
         ClearSelection();
         _selectedEntityType = "move";
         _selectedEntityName = "Точка назначения";
@@ -676,7 +696,7 @@ private sealed class RemotePlayerState
             return ct;
         }
 
-        ct = "moving";
+        ct = IsBlocked(mapX, mapY) ? "blockmoving" : "moving";
         _hoverCursorType = ct;
         return ct;
     }
@@ -695,6 +715,7 @@ private sealed class RemotePlayerState
 
     private void HandleEmptyCellClick(int mapX, int mapY)
     {
+        if (IsBlocked(mapX, mapY)) return;
         ClearSelection();
         _selectedEntityType = "move";
         _selectedEntityName = "Точка назначения";
@@ -1041,7 +1062,7 @@ private sealed class RemotePlayerState
         if (_moveTargetX < 0 || _moveTargetY < 0 || me == null) return;
         int mx = map.Merchant?.X ?? -1, my = map.Merchant?.Y ?? -1;
         int bx = map.Board?.X ?? -1, by = map.Board?.Y ?? -1;
-        var pathDots = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height);
+        var pathDots = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height, IsBlocked);
         if (pathDots.Count == 0 && (me.X != _moveTargetX || me.Y != _moveTargetY)) { _moveTargetX = _moveTargetY = -1; return; }
         if (me.X == _moveTargetX && me.Y == _moveTargetY) { _moveTargetX = _moveTargetY = -1; return; }
         var pathColor = new Color(220, 200, 80, 180);

@@ -47,6 +47,7 @@ partial class Program
         var dialogue = new DialogueManager(world, quests, merchant);
         var pathfinding = new PathfindingService(world, merchant, quests);
         var zones = new ZoneManager();
+        zones.SetMainMap(world.Map); // main-зона = карта мира (тайлы + препятствия)
 
         Log.Info("Загрузка данных (предметы, квесты, зоны)...");
         merchant.Initialize();
@@ -56,6 +57,7 @@ partial class Program
         zones.LoadAll();
 
         Log.Info("Загрузка Tiled-карты...");
+        List<TiledSpawn>? spawns = null;
         try
         {
             string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", "wordlmap.tmj");
@@ -65,7 +67,11 @@ partial class Program
                 var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
                 var gameMap = zones.GetOrCreateMap("main");
                 gameMap.SetTiles(tileData);
-                Log.Info($"Tiled-карта загружена: {tiledMap.Width}x{tiledMap.Height}, тайлов: {tileData.Length}");
+                var obstacles = TiledMapLoader.ExtractObstacles(tiledMap);
+                foreach (var (ox, oy) in obstacles)
+                    gameMap.AddObstacle(ox, oy);
+                spawns = TiledMapLoader.ExtractSpawns(tiledMap);
+                Log.Info($"Tiled-карта загружена: {tiledMap.Width}x{tiledMap.Height}, тайлов: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}");
             }
             else
             {
@@ -78,8 +84,8 @@ partial class Program
         }
 
         Log.Info("Загрузка монстров...");
-        monsters.Initialize();
-        collectibles.Initialize();
+        monsters.Initialize(spawns);
+        collectibles.Initialize(spawns);
 
         // Создаём сетевой хаб
         var hub = new GameServer(world);

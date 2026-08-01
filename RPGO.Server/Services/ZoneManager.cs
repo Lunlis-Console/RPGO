@@ -14,9 +14,16 @@ public class ZoneManager
     private readonly List<WorldPortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
+    private GameMap? _mainMap;
 
     public IReadOnlyDictionary<string, Zone> Zones => _zones;
     public IReadOnlyList<WorldPortal> Portals => _portals;
+
+    /// <summary>
+    /// Главная зона использует карту мира (GameWorld.Map): тайлы и препятствия
+    /// должны быть общими для рендера, патфайндинга и движения.
+    /// </summary>
+    public void SetMainMap(GameMap map) => _mainMap = map;
 
     public void LoadAll()
     {
@@ -31,6 +38,9 @@ public class ZoneManager
             _zones[zone.Id] = zone;
             _maps[zone.Id] = new GameMap(zone.Width, zone.Height);
         }
+
+        if (_mainMap != null)
+            _maps["main"] = _mainMap;
 
         foreach (var portal in ZoneRepository.LoadPortals())
         {

@@ -75,6 +75,8 @@ public class GameScreen : IScreen
             _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
             if (map.TileData != null && map.TileData.Length > 0)
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
+            if (map.ObstacleData != null && map.ObstacleData.Length > 0)
+                _mapRenderer.SetObstacleData(map.ObstacleData, map.Width, map.Height);
             foreach (var p in map.Players)
             {
                 if (p.Name == client.PlayerName) continue;
@@ -91,6 +93,10 @@ public class GameScreen : IScreen
         client.TileDataReceived += (data, w, h, tilesetId, tileSize) =>
         {
             _mapRenderer.SetTileData(data, w, h, tilesetId, tileSize);
+        };
+        client.ObstacleDataReceived += (data, w, h) =>
+        {
+            _mapRenderer.SetObstacleData(data, w, h);
         };
         client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
@@ -817,8 +823,6 @@ public class GameScreen : IScreen
                 _questLogWindow, _socialWindow, _settingsWindow);
         if (!_chatRenderer.IsTyping && !mailTyping)
             _inputManager.HandleHotbarKeys(keyboard, _input.PrevKeyboard);
-        if (!_chatRenderer.IsTyping && !mailTyping)
-            _inputManager.HandleMovement(keyboard, _input.PrevKeyboard, client, _mapRenderer);
 
         // Icon clicks
         bool clickedIcon = false;

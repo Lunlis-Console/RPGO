@@ -26,7 +26,6 @@ public static class MessageHandlerRegistry
         Register("reconnect", new ReconnectHandler(svc));
         Register("say", new ChatHandler(svc));
         Register("status", new StatusHandler(svc));
-        Register("move_direction", new MoveDirectionHandler(svc));
         Register("move_to", new MoveToHandler(svc));
         Register("inventory_request", new InventoryRequestHandler(svc));
         Register("equip", new EquipHandler(svc));

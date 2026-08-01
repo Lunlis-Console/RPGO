@@ -58,6 +58,21 @@ public sealed class GameMap
 
     public bool IsObstacle(int x, int y) => _obstacles.Contains((x, y));
 
+    /// <summary>
+    /// Плоский массив Width*Height: 1 — клетка непроходима, 0 — свободна.
+    /// Отправляется клиенту для отрисовки курсора «нельзя идти».
+    /// </summary>
+    public byte[] GetObstacleData()
+    {
+        var data = new byte[Width * Height];
+        foreach (var (x, y) in _obstacles)
+        {
+            if (x >= 0 && y >= 0 && x < Width && y < Height)
+                data[y * Width + x] = 1;
+        }
+        return data;
+    }
+
     public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
 
     /// <summary>Радиус видимости сущностей вокруг игрока.</summary>

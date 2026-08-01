@@ -31,6 +31,7 @@ public class WorldMap
     // Тайл-карта
     public string? TileMapId { get; set; }
     public byte[]? TileData { get; set; }
+    public byte[]? ObstacleData { get; set; }
     public int TileWidth { get; set; } = 32;
     public int TileHeight { get; set; } = 32;
     public string? TilesetId { get; set; }

@@ -169,6 +169,7 @@ public sealed class GameServer : INetworkHub
                 Portals = portals,
                 TileMapId = zoneId,
                 TileData = client.TileDataSent ? null : zoneMap.GetTiles(),
+                ObstacleData = client.TileDataSent ? null : zoneMap.GetObstacleData(),
                 TileWidth = zoneId == "main" ? 64 : 32,
                 TileHeight = zoneId == "main" ? 64 : 32,
                 TilesetId = zoneId == "main" ? "World-Tilemap" : zoneId
@@ -690,6 +691,7 @@ public sealed class GameServer : INetworkHub
                 Y = player.Y,
                 PvPEnabled = zone?.PvpEnabled ?? false,
                 TileData = zoneMap.GetTiles(),
+                ObstacleData = zoneMap.GetObstacleData(),
                 TileWidth = player.CurrentZoneId == "main" ? 64 : 32,
                 TileHeight = player.CurrentZoneId == "main" ? 64 : 32,
                 TilesetId = player.CurrentZoneId == "main" ? "World-Tilemap" : player.CurrentZoneId

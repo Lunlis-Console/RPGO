@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using RPGGame.Server.Services;
 
 namespace RPGGame.Server;
 
@@ -45,13 +46,46 @@ public class CollectibleManager
         _world = world;
     }
 
-    public void Initialize()
+    public void Initialize(List<TiledSpawn>? spawns = null)
     {
         _world.ClearCollectibles();
-        foreach (var template in _templates)
+
+        if (spawns != null && spawns.Count > 0)
         {
-            for (int i = 0; i < template.Count; i++)
-                SpawnOne(template.Name, template.ItemName, template.Symbol, "main");
+            int spawned = 0;
+            foreach (var s in spawns)
+            {
+                var tpl = _templates.FirstOrDefault(t => string.Equals(t.Name, s.Name, StringComparison.OrdinalIgnoreCase));
+                if (tpl.ItemName == null)
+                    continue; // не коллекционка (имя не совпало)
+
+                if (_world.Map.IsObstacle(s.X, s.Y))
+                {
+                    Log.Warn($"Точка спавна '{s.Name}' на непроходимой клетке ({s.X},{s.Y}), пропускаю");
+                    continue;
+                }
+
+                _world.AddCollectible(new Collectible
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Name = tpl.Name,
+                    ItemName = tpl.ItemName,
+                    Symbol = tpl.Symbol,
+                    X = s.X,
+                    Y = s.Y,
+                    ZoneId = "main"
+                });
+                spawned++;
+            }
+            Log.Info($"Спавн коллекционок из точек: {spawned}");
+        }
+        else
+        {
+            foreach (var template in _templates)
+            {
+                for (int i = 0; i < template.Count; i++)
+                    SpawnOne(template.Name, template.ItemName, template.Symbol, "main");
+            }
         }
     }
 
@@ -66,7 +100,7 @@ public class CollectibleManager
             x = _world.NextRandom(0, mapW);
             y = _world.NextRandom(0, mapH);
             attempts++;
-        } while (IsOccupied(x, y, zoneId) && attempts < Balance.SpawnMaxAttempts);
+        } while ((IsOccupied(x, y, zoneId) || _world.Map.IsObstacle(x, y)) && attempts < Balance.SpawnMaxAttempts);
 
         if (attempts >= Balance.SpawnMaxAttempts) return;
 

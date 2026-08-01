@@ -37,6 +37,7 @@ public class GameServerHost
         long lastMonsterAttack = 0, lastDeathTimer = 0, lastMonsterWander = 0;
         long lastHazard = 0, lastDebuff = 0, lastInstance = 0;
         long lastRegen = 0, lastCorpse = 0, lastSession = 0;
+        long lastRespawn = 0;
 
         while (!ct.IsCancellationRequested)
         {
@@ -110,6 +111,12 @@ public class GameServerHost
                 try { await _svc.Instances.TickAsync(); }
                 catch (Exception ex) { Log.Error("[Tick] Instance", ex); }
             }
+            if (now - lastRespawn >= 1000)
+            {
+                lastRespawn = now;
+                try { _svc.Monsters.TickRespawns(); }
+                catch (Exception ex) { Log.Error("[Tick] MonsterRespawn", ex); }
+            }
 
             // 5000ms — regen
             if (now - lastRegen >= Balance.PlayerRegenOutOfCombatTickMs)
@@ -126,7 +133,6 @@ public class GameServerHost
                 try
                 {
                     _svc.Corpses.CleanupExpired();
-                    _svc.Monsters.SpawnOneMonsterPublic();
                     await _svc.Hub.BroadcastMapAsync();
                 }
                 catch (Exception ex) { Log.Error("[Tick] CorpseCleanup", ex); }
