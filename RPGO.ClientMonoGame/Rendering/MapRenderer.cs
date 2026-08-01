@@ -28,6 +28,7 @@ public class MapRenderer
     // Визуальная интерполяция
     private readonly Dictionary<string, (float X, float Y)> _visPos = new();
     private readonly Dictionary<string, (int X, int Y)> _visTarget = new();
+    private readonly Dictionary<string, int> _visMoveMs = new();
     private readonly object _stateLock = new();
     private DateTime _lastVisTime = DateTime.UtcNow;
 
@@ -947,11 +948,17 @@ private sealed class RemotePlayerState
     {
         var liveKeys = new HashSet<string>();
         foreach (var p in map.Players) { var k = $"player:{p.Name}"; SetVisTarget(k, p.X, p.Y); liveKeys.Add(k); }
-        foreach (var m in map.Monsters) { var k = $"monster:{m.Id}"; SetVisTarget(k, m.X, m.Y); liveKeys.Add(k); }
+        foreach (var m in map.Monsters)
+        {
+            var k = $"monster:{m.Id}";
+            SetVisTarget(k, m.X, m.Y);
+            _visMoveMs[k] = m.MoveIntervalMs > 0 ? m.MoveIntervalMs : 500;
+            liveKeys.Add(k);
+        }
         lock (_stateLock)
         {
             foreach (var k in _visTarget.Keys.ToList())
-                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); }
+                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); _visMoveMs.Remove(k); }
         }
         AdvanceVisPositions();
     }
@@ -1812,8 +1819,19 @@ private sealed class RemotePlayerState
                     _remoteMoving[pname] = dist > 0.05f;
                 }
 
-                if (dist <= step || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
-                else { float inv = step / dist; _visPos[key] = (v.X + dx * inv, v.Y + dy * inv); }
+                // Монстры двигаются каждый со своей скоростью + свой случайный сдвиг фазы,
+                // чтобы группы не шагали синхронно.
+                float stepHere = step;
+                if (key.StartsWith("monster:"))
+                {
+                    int moveMs = _visMoveMs.TryGetValue(key, out int mm) && mm > 0 ? mm : 500;
+                    int h = StringComparer.Ordinal.GetHashCode(key) & 0x7fffffff;
+                    moveMs = (int)(moveMs * (0.55 + 0.9 * (h % 100) / 100.0));
+                    stepHere = Math.Max(0.0001f, 1000f / Math.Max(60, moveMs) * dt);
+                }
+
+                if (dist <= stepHere || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
+                else { float inv = stepHere / dist; _visPos[key] = (v.X + dx * inv, v.Y + dy * inv); }
             }
         }
     }

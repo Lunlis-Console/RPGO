@@ -606,7 +606,8 @@ public class MonsterManager
             Symbol = m.Symbol,
             Level = m.Level,
             IsMannequin = m.IsMannequin,
-            ZoneId = m.ZoneId
+            ZoneId = m.ZoneId,
+            MoveIntervalMs = m.MoveIntervalMs
         }).ToList();
     }
 

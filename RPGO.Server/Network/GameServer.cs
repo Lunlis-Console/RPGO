@@ -311,8 +311,9 @@ public sealed class GameServer : INetworkHub
             var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
             if (prog == null)
             {
-                // «!» — квест можно взять (предусловия цепочки выполнены)
-                if (result == null && svc.Quests.CanTakeQuest(player, def))
+                // «!» — квест можно взять (предусловия цепочки выполнены, и NPC реально его выдаёт)
+                if (result == null && svc.Quests.CanTakeQuest(player, def) &&
+                    svc.Dialogue.OffersQuest(npcId, def.Id))
                     result = "available";
             }
             else if (prog.Completed && result != "available")

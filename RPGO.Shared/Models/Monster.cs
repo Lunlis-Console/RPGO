@@ -109,4 +109,5 @@ public class MonsterPosition
     public int Level { get; set; }
     public bool IsMannequin { get; set; }
     public string ZoneId { get; set; } = "main";
+    public int MoveIntervalMs { get; set; }
 }

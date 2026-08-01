@@ -55,6 +55,20 @@ public class DialogueManager
         return tree.Nodes.ContainsKey("greeting") ? "greeting" : tree.Nodes.Keys.FirstOrDefault();
     }
 
+    /// <summary>Есть ли в диалоге NPC вариант «взять задание» для указанного квеста.</summary>
+    public bool OffersQuest(string npcId, string questId)
+    {
+        var tree = GetTree(npcId);
+        if (tree == null) return false;
+        string action = "accept_quest:" + questId;
+        foreach (var node in tree.Nodes.Values)
+            foreach (var c in node.Choices)
+                if (!string.IsNullOrEmpty(c.Action) &&
+                    string.Equals(c.Action, action, StringComparison.OrdinalIgnoreCase))
+                    return true;
+        return false;
+    }
+
     public async Task HandleChoice(ClientConnection client, Player player, int choiceIndex)
     {
         if (_hub == null) return;
@@ -151,6 +165,8 @@ public class DialogueManager
                 _quests.TakeQuest(player, def);
                 await _hub.SendQuestLog(client, player);
                 await Program.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
+                _hub.MarkZoneDirty(player.CurrentZoneId);
+                await _hub.BroadcastMapAsync();
             }
         }
         else if (action.StartsWith("complete_quest:"))
@@ -162,6 +178,8 @@ public class DialogueManager
                 await _hub.SendQuestLog(client, player);
                 await Program.ChatTo(client, ChatChannel.System, "Система", result.Message);
                 await _hub.SendStatusAsync(client, player);
+                _hub.MarkZoneDirty(player.CurrentZoneId);
+                await _hub.BroadcastMapAsync();
                 await CloseDialogue(client, player);
                 return true;
             }

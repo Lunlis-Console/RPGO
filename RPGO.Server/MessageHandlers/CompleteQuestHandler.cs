@@ -54,5 +54,7 @@ public class CompleteQuestHandler : BaseHandler
 
         await SendQuestLog(connection, player);
         await SendInventoryAndStatus(connection, player);
+        Hub.MarkZoneDirty(player.CurrentZoneId);
+        await BroadcastMapAsync();
     }
 }

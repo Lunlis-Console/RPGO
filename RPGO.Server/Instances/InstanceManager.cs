@@ -489,7 +489,8 @@ public class InstanceManager
                         MaxHealth = m.MaxHealth,
                         Symbol = m.Symbol,
                         ZoneId = m.ZoneId,
-                        Level = m.Level
+                        Level = m.Level,
+                        MoveIntervalMs = m.MoveIntervalMs
                     });
                 }
             }
