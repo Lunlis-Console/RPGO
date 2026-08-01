@@ -100,6 +100,7 @@ public class PortalPosition
     public int X { get; set; }
     public int Y { get; set; }
     public string TargetZone { get; set; } = "";
+    public string TargetZoneName { get; set; } = "";
 }
 
 public class ChestPosition

@@ -20,6 +20,7 @@ public class MapRenderer
     private string? _selectedEntityName;
     private int _selectedEntityX, _selectedEntityY;
     private string? _selectedEntityId;
+    private string? _selectedEntityInfo;
     private int _moveTargetX = -1, _moveTargetY = -1;
     private int _hoverTileX = -1, _hoverTileY = -1;
     private string _hoverCursorType = "";
@@ -61,7 +62,9 @@ public class MapRenderer
     {
         if (_obstacleData == null) return false;
         if (x < 0 || y < 0 || x >= _obstacleWidth || y >= _obstacleHeight) return false;
-        return _obstacleData[y * _obstacleWidth + x] != 0;
+        int idx = y * _obstacleWidth + x;
+        if (idx < 0 || idx >= _obstacleData.Length) return false;
+        return _obstacleData[idx] != 0;
     }
     private readonly List<FloatingText> _floatingTexts = new();
     private static readonly Random _rng = new();
@@ -543,7 +546,8 @@ private sealed class RemotePlayerState
             Name = _selectedEntityName ?? "",
             X = _selectedEntityX,
             Y = _selectedEntityY,
-            Id = _selectedEntityId
+            Id = _selectedEntityId,
+            Info = _selectedEntityInfo
         };
     }
 
@@ -574,6 +578,7 @@ private sealed class RemotePlayerState
         _selectedEntityX = mapX;
         _selectedEntityY = mapY;
         _selectedEntityId = entity.Id;
+        _selectedEntityInfo = entity.Info;
         // Запоминаем клетку назначения для отрисовки пути (вейпоинта)
         // не только для пустой клетки ("move"), но и для целей действия
         // (монстр/труп/предмет) — чтобы путь рисовался и при движении к цели.
@@ -589,7 +594,8 @@ private sealed class RemotePlayerState
         {
             Type = _selectedEntityType, Name = _selectedEntityName ?? "",
             Level = 0, Hp = 0, MaxHp = 0,
-            X = _selectedEntityX, Y = _selectedEntityY, Id = _selectedEntityId
+            X = _selectedEntityX, Y = _selectedEntityY, Id = _selectedEntityId,
+            Info = _selectedEntityInfo
         };
     }
 
@@ -604,6 +610,13 @@ private sealed class RemotePlayerState
         _gridOX -= subCellX;
         _gridOY -= subCellY;
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
+
+        var portalInfo = GetPortalSelection(mapX, mapY);
+        if (portalInfo != null)
+        {
+            HandleSingleEntityClick(portalInfo, mapX, mapY);
+            return;
+        }
 
         var entitiesOnCell = GetEntitiesAt(mapX, mapY);
         if (entitiesOnCell.Count == 0)
@@ -713,6 +726,42 @@ private sealed class RemotePlayerState
         return new List<EntityInfo>();
     }
 
+    private EntityInfo? GetPortalSelection(int mapX, int mapY)
+    {
+        var map = _currentMap;
+        if (map == null) return null;
+        if (map.Portals != null)
+        {
+            var portal = map.Portals.FirstOrDefault(p => p.X == mapX && p.Y == mapY);
+            if (portal != null)
+            {
+                return new EntityInfo
+                {
+                    Type = "portal",
+                    Name = "Портал",
+                    X = mapX,
+                    Y = mapY,
+                    Id = portal.TargetZone,
+                    Info = string.IsNullOrEmpty(portal.TargetZoneName) ? portal.TargetZone : portal.TargetZoneName
+                };
+            }
+        }
+        if (map.InstanceExitPortal != null && map.InstanceExitPortal.X == mapX && map.InstanceExitPortal.Y == mapY)
+        {
+            var exit = map.InstanceExitPortal;
+            return new EntityInfo
+            {
+                Type = "portal",
+                Name = "Выход из подземелья",
+                X = mapX,
+                Y = mapY,
+                Id = "instance_exit",
+                Info = string.IsNullOrEmpty(exit.TargetZoneName) ? "Главный мир" : exit.TargetZoneName
+            };
+        }
+        return null;
+    }
+
     private void HandleEmptyCellClick(int mapX, int mapY)
     {
         if (IsBlocked(mapX, mapY)) return;
@@ -739,6 +788,7 @@ private sealed class RemotePlayerState
     {
         _selectedEntityType = null; _selectedEntityName = null;
         _selectedEntityX = _selectedEntityY = 0; _selectedEntityId = null;
+        _selectedEntityInfo = null;
         _moveTargetX = _moveTargetY = -1;
         SelectionChanged?.Invoke(null);
     }

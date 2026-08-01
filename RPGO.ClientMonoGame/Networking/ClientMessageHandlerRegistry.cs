@@ -179,17 +179,23 @@ internal static class ClientMessageHandlerRegistry
                 if (!string.IsNullOrEmpty(b64))
                 {
                     byte[] tileData = Convert.FromBase64String(b64);
+                    // Размер карты в клетках (Width/Height) — если сервер его не прислал,
+                    // откатываемся на размеры тайла (старые серверы).
+                    int mapW = ztEl.TryGetProperty("Width", out var wEl) ? wEl.GetInt32() : 0;
+                    int mapH = ztEl.TryGetProperty("Height", out var hEl) ? hEl.GetInt32() : 0;
                     int tw = ztEl.TryGetProperty("TileWidth", out var twEl) ? twEl.GetInt32() : 32;
                     int th = ztEl.TryGetProperty("TileHeight", out var thEl) ? thEl.GetInt32() : 32;
                     string tilesetId = ztEl.TryGetProperty("TilesetId", out var tsEl) ? tsEl.GetString() ?? zoneId : zoneId;
                     int tileSize = ztEl.TryGetProperty("TileSize", out var tszEl) ? tszEl.GetInt32() : 32;
-                    c.RaiseTileDataReceived(tileData, tw, th, tilesetId, tileSize);
+                    int w = mapW > 0 ? mapW : tw;
+                    int h = mapH > 0 ? mapH : th;
+                    c.RaiseTileDataReceived(tileData, w, h, tilesetId, tileSize);
 
                     if (ztEl.TryGetProperty("ObstacleData", out var odEl) && odEl.ValueKind == JsonValueKind.String)
                     {
                         string? ob64 = odEl.GetString();
                         if (!string.IsNullOrEmpty(ob64))
-                            c.RaiseObstacleDataReceived(Convert.FromBase64String(ob64), tw, th);
+                            c.RaiseObstacleDataReceived(Convert.FromBase64String(ob64), w, h);
                     }
                 }
             }

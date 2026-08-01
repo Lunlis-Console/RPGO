@@ -10,4 +10,5 @@ public sealed class EntityInfo
     public int X { get; set; }
     public int Y { get; set; }
     public string? Id { get; set; }
+    public string? Info { get; set; }
 }

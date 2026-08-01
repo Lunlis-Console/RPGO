@@ -179,13 +179,20 @@ public class HudRenderer
         {
             "monster" => "Монстр", "merchant" => "Торговец", "npc" => "NPC",
             "collectible" => "Собираемый", "board" => "Доска заданий",
-            "player" => "Игрок", _ => _selectedEntity.Type
+            "player" => "Игрок", "portal" => "Портал", _ => _selectedEntity.Type
         };
         string lvl = _selectedEntity.Level > 0 ? $" (Ур. {_selectedEntity.Level})" : "";
         sb.DrawString(font, _selectedEntity.Name + lvl, new Vector2(x + 8, curY), Color.White);
         curY += 14;
         sb.DrawString(fontSmall, typeStr, new Vector2(x + 8, curY), new Color(100, 100, 110));
         curY += 16;
+
+        // Портал: куда ведёт
+        if (_selectedEntity.Type == "portal" && !string.IsNullOrEmpty(_selectedEntity.Info))
+        {
+            sb.DrawString(fontSmall, $"Ведёт: {_selectedEntity.Info}", new Vector2(x + 8, curY), new Color(120, 160, 255));
+            curY += 18;
+        }
 
         // HP bar цели
         if (_selectedEntity.MaxHp > 0)
@@ -204,6 +211,7 @@ public class HudRenderer
             "merchant" => "Открыть магазин",
             "board" => "Квесты",
             "collectible" => "Собрать",
+            "portal" => "Наступите на портал",
             _ => "Взаимодействовать"
         };
         var interactRect = new Rectangle((int)(x + 4), (int)(h - 40), (int)(w - 8), 36);
@@ -678,6 +686,14 @@ public class HudRenderer
         // Имя цели с уровнем
         var nameSize = font.MeasureString(displayName);
         sb.DrawString(font, displayName, new Vector2(barX + (barW - nameSize.X) / 2, barY - 16), Color.White);
+
+        // Портал: куда ведёт
+        if (_selectedEntity?.Type == "portal" && !string.IsNullOrEmpty(_selectedEntity.Info))
+        {
+            string destText = $"Ведёт: {_selectedEntity.Info}";
+            var destSize = font.MeasureString(destText);
+            sb.DrawString(font, destText, new Vector2(barX + (barW - destSize.X) / 2, barY - 16 - font.LineSpacing - 2), new Color(120, 200, 255));
+        }
 
         // Фон полосы
         sb.Draw(SpriteCache.Pixel, new Rectangle(barX, barY, barW, barH), new Color(40, 20, 20));

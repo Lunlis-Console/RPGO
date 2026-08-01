@@ -130,7 +130,13 @@ public sealed class GameServer : INetworkHub
                 }).ToList();
 
             var portals = zonePortals
-                .Select(p => new PortalPosition { X = p.FromX, Y = p.FromY, TargetZone = p.ToZone })
+                .Select(p => new PortalPosition
+                {
+                    X = p.FromX,
+                    Y = p.FromY,
+                    TargetZone = p.ToZone,
+                    TargetZoneName = svc.Zones.GetZone(p.ToZone)?.Name ?? p.ToZone
+                })
                 .ToList();
 
             var nearbyHazards = zoneHazards
@@ -185,7 +191,8 @@ public sealed class GameServer : INetworkHub
                     {
                         X = inst.Template.ExitX + inst.OffsetX,
                         Y = inst.Template.ExitY + inst.OffsetY,
-                        TargetZone = ""
+                        TargetZone = "",
+                        TargetZoneName = svc.Zones.GetZone("main")?.Name ?? "Главный мир"
                     };
                     mapData.InstanceChest = new ChestPosition
                     {
@@ -690,6 +697,8 @@ public sealed class GameServer : INetworkHub
                 X = player.X,
                 Y = player.Y,
                 PvPEnabled = zone?.PvpEnabled ?? false,
+                Width = zoneMap.Width,
+                Height = zoneMap.Height,
                 TileData = zoneMap.GetTiles(),
                 ObstacleData = zoneMap.GetObstacleData(),
                 TileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
