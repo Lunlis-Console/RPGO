@@ -92,7 +92,7 @@ public static class SpriteCache
             "snake", "skelet", "sand", "rat", "ork", "misc", "lich",
              "grass", "ashes", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
-            "trader", "quest_desk", "maneken",
+            "trader", "quest_desk", "maneken", "portal",
             "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status", "icon_mail",
             "skill",
             "Idle_front", "Idle_back", "Idle_side_left", "Idle_side_right"
@@ -161,13 +161,22 @@ public static class SpriteCache
         if (_textures.ContainsKey(name)) return _textures[name];
         try
         {
+            // GetManifestResourceStream чувствителен к регистру, а файлы в Content\Sprites
+            // могут быть названы с заглавной буквы (например, Portal.png) — ищем без учёта регистра.
             var resName = $"RPGGame.ClientMonoGame.Content.Sprites.{name}.png";
             var asm = typeof(SpriteCache).Assembly;
-            using var stream = asm.GetManifestResourceStream(resName);
-            if (stream == null)
+            string? actualName = asm.GetManifestResourceNames()
+                .FirstOrDefault(r => string.Equals(r, resName, StringComparison.OrdinalIgnoreCase));
+            if (actualName == null)
             {
                 var names = string.Join(", ", asm.GetManifestResourceNames().Where(n => n.Contains("Sprites")));
-                Logger.Warn($"LoadTexture '{name}': resource stream is null. Available: [{names}]");
+                Logger.Warn($"LoadTexture '{name}': resource '{resName}' not found. Available: [{names}]");
+                return null;
+            }
+            using var stream = asm.GetManifestResourceStream(actualName);
+            if (stream == null)
+            {
+                Logger.Warn($"LoadTexture '{name}': resource stream is null ({actualName})");
                 return null;
             }
             var tex = Texture2D.FromStream(_device, stream);
@@ -245,6 +254,16 @@ public static class SpriteCache
 
     public static Texture2D? Get(string key) =>
         _textures.TryGetValue(key, out var tex) ? tex : null;
+
+    /// <summary>
+    /// Получает спрайт из Content.Sprites, загружая его при первом обращении,
+    /// если он не был загружен на старте (например, добавлен позже).
+    /// </summary>
+    public static Texture2D? GetSprite(string name)
+    {
+        if (_textures.TryGetValue(name, out var tex)) return tex;
+        return LoadTexture(name);
+    }
 
     public static Texture2D? GetMonsterSprite(string templateId) =>
         MonsterSpriteMap.TryGetValue(templateId, out var key) ? Get(key) : null;

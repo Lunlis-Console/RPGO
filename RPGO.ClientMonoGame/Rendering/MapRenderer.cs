@@ -1023,10 +1023,20 @@ private sealed class RemotePlayerState
                 int px = portal.X, py = portal.Y;
                 if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
                 {
+                    var portalTex = SpriteCache.GetSprite("portal");
                     float ptx = _gridOX + (px - _viewStartX) * _cellW;
                     float pty = _gridOY + (py - _viewStartY) * _cellH;
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(120, 60, 200, 180));
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(160, 100, 255, 200));
+                    if (portalTex != null)
+                    {
+                        float cx = ptx + (_cellW - portalTex.Width) / 2f;
+                        float cy = pty + (_cellH - portalTex.Height) / 2f;
+                        sb.Draw(portalTex, new Rectangle((int)cx, (int)cy, portalTex.Width, portalTex.Height), Color.White);
+                    }
+                    else
+                    {
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(120, 60, 200, 180));
+                        sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(160, 100, 255, 200));
+                    }
                 }
             }
         }
