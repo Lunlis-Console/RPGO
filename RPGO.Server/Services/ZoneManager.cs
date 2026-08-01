@@ -14,6 +14,7 @@ public class ZoneManager
     private readonly List<WorldPortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
+    private readonly Dictionary<string, (int TileWidth, string TilesetId)> _tileConfig = new();
     private GameMap? _mainMap;
 
     public IReadOnlyDictionary<string, Zone> Zones => _zones;
@@ -98,5 +99,59 @@ public class ZoneManager
     public void UnregisterInstanceZone(string zoneId)
     {
         _instanceMaps.Remove(zoneId);
+    }
+
+    /// <summary>
+    /// Регистрирует порталы, размещённые в Tiled-картах (добавляются поверх порталов из БД).
+    /// </summary>
+    public void RegisterTiledPortals(IEnumerable<WorldPortal> portals)
+    {
+        foreach (var portal in portals)
+        {
+            _portals.Add(portal);
+            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+
+            if (!_portalsByZone.ContainsKey(portal.FromZone))
+                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+            _portalsByZone[portal.FromZone].Add(portal);
+        }
+
+        var list = portals as IReadOnlyCollection<WorldPortal> ?? portals.ToList();
+        if (list.Count > 0)
+            Log.Info($"Зарегистрировано порталов из Tiled: {list.Count}");
+    }
+
+    /// <summary>
+    /// Тайл-конфигурация зоны для рендера на клиенте (размер тайла + id тайлсета).
+    /// Задаётся при загрузке Tiled-карты. По умолчанию — 32px и тайлсет по имени зоны (инстансы).
+    /// </summary>
+    public void SetTileConfig(string zoneId, int tileWidth, string tilesetId)
+        => _tileConfig[zoneId] = (tileWidth, tilesetId);
+
+    public (int TileWidth, string TilesetId) GetTileConfig(string zoneId)
+        => _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : (32, zoneId);
+
+    /// <summary>
+    /// Создаёт (или заменяет) GameMap зоны нужного размера из Tiled-карты.
+    /// Для главной зоны возвращает карту мира и требует совпадения размеров.
+    /// Обновляет ширину/высоту зоны в памяти под размер карты.
+    /// </summary>
+    public GameMap CreateOrReplaceMap(string zoneId, int width, int height)
+    {
+        if (zoneId == "main" && _mainMap != null)
+        {
+            if (_mainMap.Width != width || _mainMap.Height != height)
+                throw new InvalidOperationException($"Размер Tiled-карты {width}x{height} не совпадает с картой мира {_mainMap.Width}x{_mainMap.Height}");
+            return _mainMap;
+        }
+
+        var map = new GameMap(width, height);
+        _maps[zoneId] = map;
+        if (_zones.TryGetValue(zoneId, out var zone))
+        {
+            zone.Width = width;
+            zone.Height = height;
+        }
+        return map;
     }
 }

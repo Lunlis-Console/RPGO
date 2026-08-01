@@ -56,31 +56,16 @@ partial class Program
         loot.LoadFromDatabase();
         zones.LoadAll();
 
-        Log.Info("Загрузка Tiled-карты...");
+        Log.Info("Загрузка Tiled-карт...");
         List<TiledSpawn>? spawns = null;
         try
         {
-            string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", "wordlmap.tmj");
-            if (File.Exists(tiledPath))
-            {
-                var tiledMap = TiledMapLoader.Load(tiledPath);
-                var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
-                var gameMap = zones.GetOrCreateMap("main");
-                gameMap.SetTiles(tileData);
-                var obstacles = TiledMapLoader.ExtractObstacles(tiledMap);
-                foreach (var (ox, oy) in obstacles)
-                    gameMap.AddObstacle(ox, oy);
-                spawns = TiledMapLoader.ExtractSpawns(tiledMap);
-                Log.Info($"Tiled-карта загружена: {tiledMap.Width}x{tiledMap.Height}, тайлов: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}");
-            }
-            else
-            {
-                Log.Warn($"Tiled-карта не найдена: {tiledPath}");
-            }
+            spawns = LoadTiledZone(zones, "wordlmap.tmj", "main");
+            LoadTiledZone(zones, "arena_1.tmj", "arena");
         }
         catch (Exception ex)
         {
-            Log.Error("Ошибка загрузки Tiled-карты", ex);
+            Log.Error("Ошибка загрузки Tiled-карт", ex);
         }
 
         Log.Info("Загрузка монстров...");
@@ -283,6 +268,56 @@ partial class Program
     {
         if (conn == null) return;
         await Services.Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    /// <summary>
+    /// Загружает Tiled-карту (Content/{fileName}) и применяет её к зоне:
+    /// тайлы, препятствия, тайл-конфигурация и размер карты зоны.
+    /// </summary>
+    private static List<TiledSpawn>? LoadTiledZone(ZoneManager zones, string fileName, string zoneId)
+    {
+        string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
+        if (!File.Exists(tiledPath))
+        {
+            Log.Warn($"Tiled-карта не найдена: {tiledPath}");
+            return null;
+        }
+
+        var tiledMap = TiledMapLoader.Load(tiledPath);
+        var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
+        var gameMap = zones.CreateOrReplaceMap(zoneId, tiledMap.Width, tiledMap.Height);
+        gameMap.SetTiles(tileData);
+
+        var obstacles = TiledMapLoader.ExtractObstacles(tiledMap);
+        foreach (var (ox, oy) in obstacles)
+            gameMap.AddObstacle(ox, oy);
+
+        string tilesetId = tiledMap.Tilesets.Count > 0 ? tiledMap.Tilesets[0].Name : zoneId;
+        zones.SetTileConfig(zoneId, tiledMap.TileWidth, tilesetId);
+
+        var spawns = TiledMapLoader.ExtractSpawns(tiledMap);
+
+        var tiledPortals = TiledMapLoader.ExtractPortals(tiledMap, toZone =>
+        {
+            var targetZone = zones.GetZone(toZone);
+            return targetZone != null ? ((int X, int Y)?)(targetZone.SpawnX, targetZone.SpawnY) : null;
+        });
+        if (tiledPortals.Count > 0)
+        {
+            zones.RegisterTiledPortals(tiledPortals.Select(p => new WorldPortal
+            {
+                Id = $"tiled_{zoneId}_{p.X}_{p.Y}",
+                FromZone = zoneId,
+                FromX = p.X,
+                FromY = p.Y,
+                ToZone = p.ToZone,
+                ToX = p.ToX,
+                ToY = p.ToY
+            }));
+        }
+
+        Log.Info($"Tiled-карта {fileName} загружена в зону '{zoneId}': {tiledMap.Width}x{tiledMap.Height}, тайлов: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}, порталов: {tiledPortals.Count}");
+        return spawns;
     }
 
     private static List<string> GetLocalIPs()

@@ -33,6 +33,13 @@ public class TiledObject
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
     public bool Point { get; set; }
+    public List<TiledProperty> Properties { get; set; } = new();
+}
+
+public class TiledProperty
+{
+    public string Name { get; set; } = "";
+    public JsonElement Value { get; set; }
 }
 
 public class TiledTileset
@@ -169,6 +176,10 @@ public static class TiledMapLoader
 
             foreach (var obj in layer.Objects)
             {
+                // Порталы обрабатываются отдельно (ExtractPortals), а не как точки спавна
+                if (string.Equals(obj.Type, "portal", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 if (string.IsNullOrEmpty(obj.Name) && string.IsNullOrEmpty(obj.Type))
                     continue;
 
@@ -190,6 +201,79 @@ public static class TiledMapLoader
             }
         }
         return result;
+    }
+
+    /// <summary>Портал из Tiled: позиция в текущей зоне + целевая зона и координаты.</summary>
+    public record TiledPortal(int X, int Y, string ToZone, int ToX, int ToY);
+
+    /// <summary>
+    /// Извлекает порталы из object-слоёв. Объект считается порталом, если type == "portal":
+    /// name — id целевой зоны, свойства to_x/to_y — координаты в ней (иначе спавн целевой зоны).
+    /// </summary>
+    public static List<TiledPortal> ExtractPortals(TiledMapData map, Func<string, (int X, int Y)?>? spawnFallback = null)
+    {
+        var result = new List<TiledPortal>();
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return result;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (!string.Equals(obj.Type, "portal", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string toZone = obj.Name;
+                if (string.IsNullOrEmpty(toZone)) continue;
+
+                int fromX, fromY;
+                if (obj.Point)
+                {
+                    fromX = (int)Math.Floor(obj.X / map.TileWidth);
+                    fromY = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    fromX = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    fromY = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (fromX < 0 || fromY < 0 || fromX >= map.Width || fromY >= map.Height) continue;
+
+                int toX = GetPropertyInt(obj, "to_x") ?? 0;
+                int toY = GetPropertyInt(obj, "to_y") ?? 0;
+                if (toX == 0 && toY == 0 && spawnFallback != null)
+                {
+                    var spawn = spawnFallback(toZone);
+                    if (spawn != null)
+                    {
+                        toX = spawn.Value.X;
+                        toY = spawn.Value.Y;
+                    }
+                }
+
+                result.Add(new TiledPortal(fromX, fromY, toZone, toX, toY));
+            }
+        }
+        return result;
+    }
+
+    private static int? GetPropertyInt(TiledObject obj, string name)
+    {
+        foreach (var prop in obj.Properties)
+        {
+            if (!string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (prop.Value.ValueKind == JsonValueKind.Number)
+                return prop.Value.GetInt32();
+            if (prop.Value.ValueKind == JsonValueKind.String &&
+                int.TryParse(prop.Value.GetString(), out int parsed))
+                return parsed;
+            return null;
+        }
+        return null;
     }
 
     public static string GetTilesetPngPath(TiledMapData map, string baseDir)

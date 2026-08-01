@@ -274,9 +274,44 @@
          "visible":true,
          "x":0,
          "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":5,
+         "name":"\u041f\u043e\u0440\u0442\u0430\u043b\u044b",
+         "objects":[
+                {
+                 "height":0,
+                 "id":16,
+                 "name":"arena",
+                 "opacity":1,
+                 "point":true,
+                 "properties":[
+                        {
+                         "name":"to_x",
+                         "type":"int",
+                         "value":25
+                        }, 
+                        {
+                         "name":"to_y",
+                         "type":"int",
+                         "value":31
+                        }],
+                 "rotation":0,
+                 "type":"portal",
+                 "visible":true,
+                 "width":0,
+                 "x":3200,
+                 "y":2944
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
         }],
- "nextlayerid":5,
- "nextobjectid":16,
+ "nextlayerid":6,
+ "nextobjectid":17,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.2",

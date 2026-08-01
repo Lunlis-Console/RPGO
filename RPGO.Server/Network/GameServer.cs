@@ -170,9 +170,9 @@ public sealed class GameServer : INetworkHub
                 TileMapId = zoneId,
                 TileData = client.TileDataSent ? null : zoneMap.GetTiles(),
                 ObstacleData = client.TileDataSent ? null : zoneMap.GetObstacleData(),
-                TileWidth = zoneId == "main" ? 64 : 32,
-                TileHeight = zoneId == "main" ? 64 : 32,
-                TilesetId = zoneId == "main" ? "World-Tilemap" : zoneId
+                TileWidth = svc.Zones.GetTileConfig(zoneId).TileWidth,
+                TileHeight = svc.Zones.GetTileConfig(zoneId).TileWidth,
+                TilesetId = svc.Zones.GetTileConfig(zoneId).TilesetId
             };
             client.TileDataSent = true;
 
@@ -692,9 +692,9 @@ public sealed class GameServer : INetworkHub
                 PvPEnabled = zone?.PvpEnabled ?? false,
                 TileData = zoneMap.GetTiles(),
                 ObstacleData = zoneMap.GetObstacleData(),
-                TileWidth = player.CurrentZoneId == "main" ? 64 : 32,
-                TileHeight = player.CurrentZoneId == "main" ? 64 : 32,
-                TilesetId = player.CurrentZoneId == "main" ? "World-Tilemap" : player.CurrentZoneId
+                TileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
+                TileHeight = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
+                TilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).TilesetId
             }
         });
     }
