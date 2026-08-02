@@ -8,7 +8,7 @@ public static class MailRepository
     private const int MaxOutbox = 30;
 
     public static int Send(string sender, string recipient, string subject, string body,
-        int goldAmount, string itemId, string itemName, string itemType, int itemQuantity)
+        int goldAmount, List<MailAttachment> attachments)
     {
         lock (Db.Lock)
         {
@@ -29,24 +29,35 @@ public static class MailRepository
                 return -2; // sender outbox full
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO mail (sender_name, recipient_name, subject, body, gold_amount,
-                item_id, item_name, item_type, item_quantity, sent_at)
-                VALUES ($sender, $recipient, $subject, $body, $gold, $itemId, $itemName, $itemType, $itemQty, $sentAt)";
+            cmd.CommandText = @"INSERT INTO mail (sender_name, recipient_name, subject, body, gold_amount, sent_at)
+                VALUES ($sender, $recipient, $subject, $body, $gold, $sentAt)";
             cmd.Parameters.AddWithValue("$sender", sender);
             cmd.Parameters.AddWithValue("$recipient", recipient);
             cmd.Parameters.AddWithValue("$subject", subject);
             cmd.Parameters.AddWithValue("$body", body);
             cmd.Parameters.AddWithValue("$gold", goldAmount);
-            cmd.Parameters.AddWithValue("$itemId", itemId);
-            cmd.Parameters.AddWithValue("$itemName", itemName);
-            cmd.Parameters.AddWithValue("$itemType", itemType);
-            cmd.Parameters.AddWithValue("$itemQty", itemQuantity);
             cmd.Parameters.AddWithValue("$sentAt", DateTime.UtcNow.ToString("o"));
             cmd.ExecuteNonQuery();
 
             using var idCmd = conn.CreateCommand();
             idCmd.CommandText = "SELECT last_insert_rowid()";
-            return Convert.ToInt32(idCmd.ExecuteScalar());
+            int mailId = Convert.ToInt32(idCmd.ExecuteScalar());
+
+            foreach (var att in attachments)
+            {
+                if (att == null || string.IsNullOrEmpty(att.TemplateId) || att.Quantity <= 0) continue;
+                using var aCmd = conn.CreateCommand();
+                aCmd.CommandText = @"INSERT INTO mail_attachments (mail_id, template_id, name, type, quantity)
+                    VALUES ($mailId, $tid, $name, $type, $qty)";
+                aCmd.Parameters.AddWithValue("$mailId", mailId);
+                aCmd.Parameters.AddWithValue("$tid", att.TemplateId);
+                aCmd.Parameters.AddWithValue("$name", att.Name);
+                aCmd.Parameters.AddWithValue("$type", att.Type);
+                aCmd.Parameters.AddWithValue("$qty", att.Quantity);
+                aCmd.ExecuteNonQuery();
+            }
+
+            return mailId;
         }
     }
 
@@ -54,33 +65,37 @@ public static class MailRepository
     {
         using var conn = Db.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount,
-            item_id, item_name, item_type, item_quantity, sent_at, read_at, taken_at
+        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount, sent_at, read_at, taken_at
             FROM mail WHERE recipient_name = $name AND is_deleted_recipient = 0 ORDER BY id DESC";
         cmd.Parameters.AddWithValue("$name", playerName);
-        return ReadMailList(cmd);
+        var result = ReadMailList(cmd);
+        LoadAttachments(conn, result);
+        return result;
     }
 
     public static List<MailData> GetOutbox(string playerName)
     {
         using var conn = Db.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount,
-            item_id, item_name, item_type, item_quantity, sent_at, read_at, taken_at
+        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount, sent_at, read_at, taken_at
             FROM mail WHERE sender_name = $name AND is_deleted_sender = 0 ORDER BY id DESC";
         cmd.Parameters.AddWithValue("$name", playerName);
-        return ReadMailList(cmd);
+        var result = ReadMailList(cmd);
+        LoadAttachments(conn, result);
+        return result;
     }
 
     public static MailData? GetById(int id)
     {
         using var conn = Db.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount,
-            item_id, item_name, item_type, item_quantity, sent_at, read_at, taken_at
+        cmd.CommandText = @"SELECT id, sender_name, recipient_name, subject, body, gold_amount, sent_at, read_at, taken_at
             FROM mail WHERE id = $id";
         cmd.Parameters.AddWithValue("$id", id);
-        return ReadMailList(cmd).FirstOrDefault();
+        var result = ReadMailList(cmd);
+        if (result.Count == 0) return null;
+        LoadAttachments(conn, result);
+        return result[0];
     }
 
     public static void MarkRead(int id)
@@ -158,17 +173,49 @@ public static class MailRepository
                 Subject = reader.GetString(3),
                 Body = reader.GetString(4),
                 GoldAmount = reader.GetInt32(5),
-                ItemId = reader.GetString(6),
-                ItemName = reader.GetString(7),
-                ItemType = reader.GetString(8),
-                ItemQuantity = reader.GetInt32(9),
-                SentAt = reader.GetString(10),
-                ReadAt = reader.GetString(11),
-                TakenAt = reader.GetString(12)
+                SentAt = reader.GetString(6),
+                ReadAt = reader.GetString(7),
+                TakenAt = reader.GetString(8)
             });
         }
         return result;
     }
+
+    private static void LoadAttachments(SqliteConnection conn, List<MailData> mails)
+    {
+        if (mails.Count == 0) return;
+        var ids = mails.Select(m => m.Id).ToList();
+        string inClause = string.Join(",", ids.Select(_ => "?"));
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT mail_id, template_id, name, type, quantity FROM mail_attachments WHERE mail_id IN ({inClause}) ORDER BY id";
+        for (int i = 0; i < ids.Count; i++)
+            cmd.Parameters.AddWithValue("$p" + i, ids[i]);
+        using var reader = cmd.ExecuteReader();
+        var map = mails.ToDictionary(m => m.Id);
+        while (reader.Read())
+        {
+            int mailId = reader.GetInt32(0);
+            if (map.TryGetValue(mailId, out var mail))
+            {
+                mail.Attachments.Add(new MailAttachment
+                {
+                    TemplateId = reader.GetString(1),
+                    Name = reader.GetString(2),
+                    Type = reader.GetString(3),
+                    Quantity = reader.GetInt32(4)
+                });
+            }
+        }
+    }
+}
+
+public class MailAttachment
+{
+    public string TemplateId { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "";
+    public int Quantity { get; set; } = 1;
 }
 
 public class MailData
@@ -183,6 +230,7 @@ public class MailData
     public string ItemName { get; set; } = "";
     public string ItemType { get; set; } = "";
     public int ItemQuantity { get; set; }
+    public List<MailAttachment> Attachments { get; set; } = new();
     public string SentAt { get; set; } = "";
     public string ReadAt { get; set; } = "";
     public string TakenAt { get; set; } = "";

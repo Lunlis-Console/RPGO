@@ -43,6 +43,7 @@ public class GameScreen : IScreen
     private readonly DeathWindow _deathWindow = new();
     private readonly DialogueWindow _dialogueWindow = new();
     private readonly MailWindow _mailWindow = new();
+    private readonly MailAttachmentWindow _mailAttachmentWindow = new();
     private readonly StorageWindow _storageWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
@@ -656,6 +657,7 @@ public class GameScreen : IScreen
         _windows.Add(_deathWindow);
         _windows.Add(_dialogueWindow);
         _windows.Add(_mailWindow);
+        _windows.Add(_mailAttachmentWindow);
         _windows.Add(_storageWindow);
 
         // Mail events
@@ -667,9 +669,17 @@ public class GameScreen : IScreen
         {
             _ = client.SendAsync("mail", new { Action = "outbox" });
         };
-        _mailWindow.SendRequested += (recipient, subject, body, gold, itemId, itemQty) =>
+        _mailWindow.SendRequested += (recipient, subject, body, gold, attachments) =>
         {
-            _ = client.SendAsync("mail", new { Action = "send", RecipientName = recipient, Subject = subject, Body = body, GoldAmount = gold, ItemId = itemId, ItemQuantity = itemQty });
+            _ = client.SendAsync("mail", new
+            {
+                Action = "send",
+                RecipientName = recipient,
+                Subject = subject,
+                Body = body,
+                GoldAmount = gold,
+                Attachments = attachments.Select(a => new { a.TemplateId, a.Quantity }).ToList()
+            });
         };
         _mailWindow.ReadRequested += id =>
         {
@@ -683,13 +693,21 @@ public class GameScreen : IScreen
         {
             _ = client.SendAsync("mail", new { Action = "take", MailId = id });
         };
-        _mailWindow.InventoryRequested += () =>
+        _mailWindow.AttachmentRequested += () =>
         {
             var items = client.Inventory?.Items?
                 .Where(i => i.Type != "gold")
                 .ToList() ?? new();
-            _mailWindow.SetInventory(items);
+            _mailAttachmentWindow.Open(items, _mailWindow.ComposeAttachments);
+            GameInputHandler.CenterWindow(_mailAttachmentWindow, GameMain.Instance!);
+            _windows.BringToFront(_mailAttachmentWindow);
         };
+        _mailAttachmentWindow.ConfirmRequested += () =>
+        {
+            _mailWindow.SetComposeAttachments(_mailAttachmentWindow.Attachments);
+        };
+        _mailAttachmentWindow.RequestQuantity += (name, max, defaultQty, onConfirm) =>
+            _input.OpenQuantity(name, max, 0, onConfirm, false, _quantityDialog, GameMain.Instance!);
 
         // Dialogue events
         client.DialogueOpened += (npcId, speaker, text, choices) =>

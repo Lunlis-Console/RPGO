@@ -10,7 +10,7 @@ public static class MailManager
     private const int MaxGoldPerMail = 100000;
 
     public static (int Id, string Error) SendMail(Player sender, string recipient, string subject, string body,
-        int goldAmount, Item? attachment)
+        int goldAmount, List<Item>? attachments)
     {
         if (string.IsNullOrWhiteSpace(recipient))
             return (0, "Укажите получателя.");
@@ -35,29 +35,45 @@ public static class MailManager
             sender.Gold -= goldAmount;
         }
 
-        string itemId = "";
-        string itemName = "";
-        string itemType = "";
-        int itemQty = 0;
+        var removed = new List<Item>();
+        var attachmentRecords = new List<MailAttachment>();
 
-        if (attachment != null)
+        if (attachments != null)
         {
-            itemId = attachment.TemplateId;
-            itemName = attachment.Name;
-            itemType = attachment.Type;
-            itemQty = attachment.Quantity;
+            foreach (var att in attachments)
+            {
+                if (att == null || att.Quantity <= 0) continue;
+                if (string.IsNullOrEmpty(att.TemplateId))
+                    continue;
 
-            InventoryHelper.RemoveFromRecord(sender, attachment.Id, itemQty);
+                int available = InventoryHelper.CountByItem(sender, att);
+                if (available < att.Quantity)
+                {
+                    // Откат: вернуть золото и уже снятые предметы
+                    if (goldAmount > 0) sender.Gold += goldAmount;
+                    foreach (var r in removed) InventoryHelper.AddItem(sender, r);
+                    return (0, $"Недостаточно предметов «{att.Name}».");
+                }
+
+                InventoryHelper.RemoveQuantity(sender, att, att.Quantity);
+                removed.Add(att.Clone());
+                attachmentRecords.Add(new MailAttachment
+                {
+                    TemplateId = att.TemplateId,
+                    Name = att.Name,
+                    Type = att.Type,
+                    Quantity = att.Quantity
+                });
+            }
         }
 
         int id = MailRepository.Send(sender.Name, recipient, subject, body,
-            goldAmount, itemId, itemName, itemType, itemQty);
+            goldAmount, attachmentRecords);
 
         if (id < 0)
         {
             if (goldAmount > 0) sender.Gold += goldAmount;
-            if (attachment != null)
-                InventoryHelper.AddItem(sender, attachment);
+            foreach (var r in removed) InventoryHelper.AddItem(sender, r);
             return id == -1 ? (0, "Почта получателя заполнена.") : (0, "Ваша почта заполнена.");
         }
 
@@ -72,13 +88,14 @@ public static class MailManager
         if (mail.GoldAmount > 0)
             recipient.Gold += mail.GoldAmount;
 
-        if (!string.IsNullOrEmpty(mail.ItemId) && mail.ItemQuantity > 0)
+        foreach (var att in mail.Attachments)
         {
-            var item = DatabaseManager.GetItemTemplate(mail.ItemId);
+            if (string.IsNullOrEmpty(att.TemplateId) || att.Quantity <= 0) continue;
+            var item = DatabaseManager.GetItemTemplate(att.TemplateId);
             if (item != null)
             {
                 item.Id = Guid.NewGuid().ToString();
-                item.Quantity = mail.ItemQuantity;
+                item.Quantity = att.Quantity;
                 InventoryHelper.AddItem(recipient, item);
             }
         }

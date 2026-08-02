@@ -720,10 +720,7 @@ internal static class ClientMessageHandlerRegistry
                         Subject = mm.TryGetProperty("Subject", out var msu) ? msu.GetString() ?? "" : "",
                         Body = mm.TryGetProperty("Body", out var mb) ? mb.GetString() ?? "" : "",
                         GoldAmount = mm.TryGetProperty("GoldAmount", out var mg) ? mg.GetInt32() : 0,
-                        ItemId = mm.TryGetProperty("ItemId", out var mi) ? mi.GetString() ?? "" : "",
-                        ItemName = mm.TryGetProperty("ItemName", out var mnm) ? mnm.GetString() ?? "" : "",
-                        ItemType = mm.TryGetProperty("ItemType", out var mt) ? mt.GetString() ?? "" : "",
-                        ItemQuantity = mm.TryGetProperty("ItemQuantity", out var mq) ? mq.GetInt32() : 0,
+                        Attachments = ParseAttachments(mm),
                         SentAt = mm.TryGetProperty("SentAt", out var mst) ? mst.GetString() ?? "" : "",
                         ReadAt = mm.TryGetProperty("ReadAt", out var mrd) ? mrd.GetString() ?? "" : "",
                         TakenAt = mm.TryGetProperty("TakenAt", out var mtn) ? mtn.GetString() ?? "" : ""
@@ -747,16 +744,42 @@ internal static class ClientMessageHandlerRegistry
                 Subject = mdData.TryGetProperty("Subject", out var dsu) ? dsu.GetString() ?? "" : "",
                 Body = mdData.TryGetProperty("Body", out var db) ? db.GetString() ?? "" : "",
                 GoldAmount = mdData.TryGetProperty("GoldAmount", out var dg) ? dg.GetInt32() : 0,
-                ItemId = mdData.TryGetProperty("ItemId", out var di) ? di.GetString() ?? "" : "",
-                ItemName = mdData.TryGetProperty("ItemName", out var dn) ? dn.GetString() ?? "" : "",
-                ItemType = mdData.TryGetProperty("ItemType", out var dt) ? dt.GetString() ?? "" : "",
-                ItemQuantity = mdData.TryGetProperty("ItemQuantity", out var dq) ? dq.GetInt32() : 0,
+                Attachments = ParseAttachments(mdData),
                 SentAt = mdData.TryGetProperty("SentAt", out var dst) ? dst.GetString() ?? "" : "",
                 ReadAt = mdData.TryGetProperty("ReadAt", out var drd) ? drd.GetString() ?? "" : "",
                 TakenAt = mdData.TryGetProperty("TakenAt", out var dtn) ? dtn.GetString() ?? "" : ""
             };
             c.RaiseMailDetailReceived(msg);
         }
+    }
+
+    private static List<MailAttachment> ParseAttachments(JsonElement mailEl)
+    {
+        var result = new List<MailAttachment>();
+        if (mailEl.TryGetProperty("Attachments", out var atts) && atts.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var a in atts.EnumerateArray())
+            {
+                result.Add(new MailAttachment
+                {
+                    TemplateId = a.TryGetProperty("TemplateId", out var ti) ? ti.GetString() ?? "" : "",
+                    Name = a.TryGetProperty("Name", out var nm) ? nm.GetString() ?? "" : "",
+                    Type = a.TryGetProperty("Type", out var ty) ? ty.GetString() ?? "" : "",
+                    Quantity = a.TryGetProperty("Quantity", out var qq) ? qq.GetInt32() : 0
+                });
+            }
+        }
+        else if (mailEl.TryGetProperty("ItemId", out var iid) && !string.IsNullOrEmpty(iid.GetString()))
+        {
+            result.Add(new MailAttachment
+            {
+                TemplateId = iid.GetString() ?? "",
+                Name = mailEl.TryGetProperty("ItemName", out var inm) ? inm.GetString() ?? "" : "",
+                Type = mailEl.TryGetProperty("ItemType", out var ity) ? ity.GetString() ?? "" : "",
+                Quantity = mailEl.TryGetProperty("ItemQuantity", out var iqy) ? iqy.GetInt32() : 0
+            });
+        }
+        return result;
     }
 
     private static void HandleMailUnread(GameClient c, GameMessage m)

@@ -518,6 +518,7 @@ partial class Program
                     Log.Info("  bot trade <игрок>              — запросить обмен");
                     Log.Info("  bot trade_cancel               — прервать обмен");
                     Log.Info("  bot mail <игрок> <тема>        — отправить письмо");
+                    Log.Info("    [-- <tid>x<количество> ...]  — с несколькими вложениями (напр. -- I0002x2 I0501x1)");
                     Log.Info("  bot move <x> <y>               — переместиться");
                     Log.Info("  bot logout                     — выйти из игры");
                     Log.Info("  (приглашения в группу и запросы обмена бот принимает автоматически)");

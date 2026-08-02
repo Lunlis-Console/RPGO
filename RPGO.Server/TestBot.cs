@@ -233,15 +233,31 @@ public class TestBot : IDisposable
                 break;
 
             case "mail":
-                if (parts.Length < 3) { Log.Warn($"[Бот {Name}] bot mail <получатель> <тема>"); break; }
+                if (parts.Length < 3) { Log.Warn($"[Бот {Name}] bot mail <получатель> <тема> [-- <tid>x<количество> ...]"); break; }
                 int recipientEnd = cmd.IndexOf(' ', cmd.IndexOf(' ') + 1);
-                string subject = cmd.Substring(recipientEnd + 1).Trim();
+                string afterRecipient = cmd.Substring(recipientEnd + 1).Trim();
+                string subject = afterRecipient;
+                var attachments = new List<object>();
+                int sepIdx = afterRecipient.IndexOf("--", StringComparison.Ordinal);
+                if (sepIdx >= 0)
+                {
+                    subject = afterRecipient.Substring(0, sepIdx).Trim();
+                    string attSpec = afterRecipient.Substring(sepIdx + 2).Trim();
+                    foreach (var tok in attSpec.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        int xIdx = tok.IndexOf('x');
+                        if (xIdx <= 0 || xIdx == tok.Length - 1) continue;
+                        string tid = tok.Substring(0, xIdx);
+                        if (!int.TryParse(tok.Substring(xIdx + 1), out int qty) || qty <= 0) continue;
+                        attachments.Add(new { TemplateId = tid, Quantity = qty });
+                    }
+                }
                 await SendAsync(new GameMessage
                 {
                     Type = "mail",
-                    Data = new { Action = "send", RecipientName = parts[1], Subject = subject, Body = "", GoldAmount = 0, ItemId = "", ItemQuantity = 0 }
+                    Data = new { Action = "send", RecipientName = parts[1], Subject = subject, Body = "", GoldAmount = 0, Attachments = attachments }
                 });
-                Log.Info($"[Бот {Name}] Отправил письмо: {parts[1]}, тема «{subject}»");
+                Log.Info($"[Бот {Name}] Отправил письмо: {parts[1]}, тема «{subject}», вложений: {attachments.Count}");
                 break;
 
             case "move":

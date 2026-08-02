@@ -61,35 +61,46 @@ public class MailHandler : BaseHandler
         string body = el.TryGetProperty("Body", out var bd) ? (bd.GetString() ?? "") : "";
         int gold = el.TryGetProperty("GoldAmount", out var ga) ? ga.GetInt32() : 0;
 
-        Item? attachment = null;
-        string attachItemId = el.TryGetProperty("ItemId", out var ii) ? (ii.GetString() ?? "") : "";
-        int attachQty = el.TryGetProperty("ItemQuantity", out var iq) ? iq.GetInt32() : 0;
-
-        if (!string.IsNullOrEmpty(attachItemId) && attachQty > 0)
+        // Обратная совместимость: одиночное вложение полями ItemId/ItemQuantity
+        var attachments = new List<Item>();
+        if (el.TryGetProperty("Attachments", out var attEl) && attEl.ValueKind == JsonValueKind.Array)
         {
-            var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == attachItemId);
-            if (invItem == null)
+            foreach (var a in attEl.EnumerateArray())
             {
-                await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
-                return;
+                string tid = a.TryGetProperty("TemplateId", out var ti) ? (ti.GetString() ?? "") : "";
+                int qty = a.TryGetProperty("Quantity", out var qq) ? qq.GetInt32() : 0;
+                if (string.IsNullOrEmpty(tid) || qty <= 0) continue;
+
+                var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == tid);
+                if (invItem == null)
+                {
+                    await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
+                    return;
+                }
+                var proto = invItem.Clone();
+                proto.Quantity = qty;
+                attachments.Add(proto);
             }
-            if (invItem.Quantity < attachQty)
+        }
+        else
+        {
+            string attachItemId = el.TryGetProperty("ItemId", out var ii) ? (ii.GetString() ?? "") : "";
+            int attachQty = el.TryGetProperty("ItemQuantity", out var iq) ? iq.GetInt32() : 0;
+            if (!string.IsNullOrEmpty(attachItemId) && attachQty > 0)
             {
-                await SendError(connection, "mail_error", "Недостаточно предметов.");
-                return;
+                var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == attachItemId);
+                if (invItem == null)
+                {
+                    await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
+                    return;
+                }
+                var proto = invItem.Clone();
+                proto.Quantity = attachQty;
+                attachments.Add(proto);
             }
-            attachment = new Item
-            {
-                Id = invItem.Id,
-                TemplateId = invItem.TemplateId,
-                Name = invItem.Name,
-                Type = invItem.Type,
-                Quantity = attachQty,
-                Value = invItem.Value,
-            };
         }
 
-        var (id, error) = MailManager.SendMail(player, recipient, subject, body, gold, attachment);
+        var (id, error) = MailManager.SendMail(player, recipient, subject, body, gold, attachments);
         if (!string.IsNullOrEmpty(error))
         {
             await SendError(connection, "mail_error", error);
@@ -211,7 +222,11 @@ public class MailHandler : BaseHandler
     private static object MapMail(MailData m) => new
     {
         m.Id, m.SenderName, m.RecipientName, m.Subject, m.Body,
-        m.GoldAmount, m.ItemId, m.ItemName, m.ItemType, m.ItemQuantity,
-        m.SentAt, m.ReadAt, m.TakenAt
+        m.GoldAmount, m.SentAt, m.ReadAt, m.TakenAt,
+        ItemId = m.Attachments.FirstOrDefault()?.TemplateId ?? "",
+        ItemName = m.Attachments.FirstOrDefault()?.Name ?? "",
+        ItemType = m.Attachments.FirstOrDefault()?.Type ?? "",
+        ItemQuantity = m.Attachments.FirstOrDefault()?.Quantity ?? 0,
+        Attachments = m.Attachments.Select(a => new { a.TemplateId, a.Name, a.Type, a.Quantity }).ToList()
     };
 }
