@@ -22,6 +22,15 @@ public class GameMain : Game
     private ScreenManager _screens = null!;
     private KeyboardState _prevKb;
 
+    // Обрыв соединения: пишется из сетевого потока, обрабатывается в Update (главный поток).
+    private volatile string? _pendingDisconnectReason;
+
+    // Идёт переподключение: поверх игры рисуется оверлей, ввод заморожен.
+    private bool _reconnecting;
+
+    // Неудачное переподключение: пишется из сетевого потока, обрабатывается в Update.
+    private volatile bool _pendingReconnectFailed;
+
     public GameMain()
     {
         Instance = this;
@@ -86,12 +95,15 @@ public class GameMain : Game
         Network.Disconnected += () => Client.OnDisconnected("Соединение закрыто");
         Network.ConnectionLost += reason => Client.OnDisconnected(reason);
         Network.ReconnectStateReceived += state => Client.OnReconnectState(state);
+        Network.ReconnectStateReceived += state => { _reconnecting = false; };
+        Network.ReconnectFailed += OnReconnectFailed;
 
         _screens = new ScreenManager();
         _screens.ShowLogin();
 
         Client.WelcomeReceived += () => _screens.ShowGame();
         Client.SystemMessage += msg => Logger.Info($"System: {msg}");
+        Client.Disconnected += reason => _pendingDisconnectReason = reason;
 
         base.Initialize();
     }
@@ -120,6 +132,44 @@ public class GameMain : Game
         _screens.ShowLogin();
     }
 
+    /// <summary>
+    /// Обработка обрыва соединения во время игры: если есть сессия — показываем
+    /// оверлей «Переподключение...» и даём авто-reconnect шанс вернуть игрока в бой.
+    /// Без сессии (выход в меню) — сразу возвращаем к экрану входа.
+    /// </summary>
+    private void HandleConnectionLost(string reason)
+    {
+        if (!_screens.IsGameActive) return;
+        if (Network.IsConnected) return; // уже успели переподключиться
+
+        string msg = string.IsNullOrWhiteSpace(reason)
+            ? "Соединение с сервером потеряно"
+            : $"Соединение с сервером потеряно: {reason}";
+
+        if (Network.HasSession)
+        {
+            Logger.Warn($"{msg} — показываем оверлей переподключения");
+            _reconnecting = true;
+            return;
+        }
+
+        Logger.Warn(msg);
+        _screens.ShowLogin(msg);
+    }
+
+    /// <summary>
+    /// Авто-reconnect исчерпан (лимит времени или сервер отклонил сессию):
+    /// немедленно останавливаем попытки и сбрасываем сессию. Возврат к экрану
+    /// входа выполняется на главном потоке (Update), т.к. событие приходит
+    /// из сетевого потока.
+    /// </summary>
+    private void OnReconnectFailed()
+    {
+        _reconnecting = false;
+        try { Network.StopReconnect(); } catch { }
+        _pendingReconnectFailed = true;
+    }
+
     protected override void Update(GameTime gameTime)
     {
         var keyboard = Keyboard.GetState();
@@ -146,7 +196,31 @@ public class GameMain : Game
             // Esc больше не закрывает клиент (например, при вводе текста в чат)
         }
 
-        _screens.Update(gameTime, keyboard, mouse);
+        // Обрыв соединения: показываем оверлей переподключения (или возвращаем
+        // к экрану входа, если сессии нет). Обработка на главном потоке,
+        // чтобы не гонять смену экранов/оверлея из сетевого потока.
+        var pendingReason = _pendingDisconnectReason;
+        if (pendingReason != null)
+        {
+            _pendingDisconnectReason = null;
+            HandleConnectionLost(pendingReason);
+        }
+
+        // Неудачное переподключение: возврат к экрану входа (на главном потоке).
+        if (_pendingReconnectFailed)
+        {
+            _pendingReconnectFailed = false;
+            if (_screens.IsGameActive)
+            {
+                Logger.Warn("Переподключение не удалось, возврат к экрану входа");
+                _screens.ShowLogin("Соединение с сервером потеряно. Переподключение не удалось.");
+            }
+        }
+
+        // Пока идёт переподключение — игра заморожена под оверлеем:
+        // ввод не обрабатываем (нет случайных SendAsync на мёртвом соединении).
+        if (!_reconnecting)
+            _screens.Update(gameTime, keyboard, mouse);
 
         _prevKb = keyboard;
         base.Update(gameTime);
@@ -156,6 +230,26 @@ public class GameMain : Game
     {
         GraphicsDevice.Clear(new Color(24, 24, 32));
         _screens.Draw(gameTime, SpriteBatch);
+
+        // Оверлей «Переподключение...» поверх замороженной игры
+        if (_reconnecting)
+        {
+            int w = Graphics.PreferredBackBufferWidth;
+            int h = Graphics.PreferredBackBufferHeight;
+            SpriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+            SpriteBatch.Draw(SpriteCache.Pixel, new Rectangle(0, 0, w, h), new Color(0, 0, 0, 170));
+            var font = SpriteCache.Font;
+            if (font != null)
+            {
+                var title = "Переподключение...";
+                var hint = "Потеряно соединение с сервером. Попытка восстановить сеанс...";
+                var titleSize = font.MeasureString(title);
+                var hintSize = font.MeasureString(hint);
+                SpriteBatch.DrawString(font, title, new Vector2((w - titleSize.X) / 2, h / 2 - 40), Color.Gold);
+                SpriteBatch.DrawString(font, hint, new Vector2((w - hintSize.X) / 2, h / 2), Color.LightGray);
+            }
+            SpriteBatch.End();
+        }
 
         // Custom cursor поверх всех экранов
         {

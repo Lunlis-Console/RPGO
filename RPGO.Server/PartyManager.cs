@@ -92,6 +92,41 @@ public class PartyManager
         }
     }
 
+    /// <summary>
+    /// Выход из партии при отключении игрока: чистит слот, передаёт лидерство,
+    /// уведомляет оставшихся участников об изменении состава (или распускает группу).
+    /// </summary>
+    public async Task LeavePartyAsync(Player player)
+    {
+        PartyData? party;
+        lock (_lock)
+        {
+            if (!player.PartyId.HasValue) return;
+            if (!_parties.TryGetValue(player.PartyId.Value, out party)) return;
+
+            party.Members.Remove(player.Id);
+            player.PartyId = null;
+
+            if (party.LeaderId == player.Id && party.Members.Count > 0)
+            {
+                party.LeaderId = party.Members[0];
+                party.LeaderName = _world.TryGetPlayer(party.Members[0], out var newLeader) && newLeader != null
+                    ? newLeader.Name : party.LeaderName;
+            }
+        }
+
+        if (party == null) return;
+
+        if (party.Members.Count >= 2)
+        {
+            await SendPartyUpdateAsync(party);
+        }
+        else
+        {
+            await DisbandAndNotifyAsync(party.Id);
+        }
+    }
+
     public PartyData? GetParty(Guid partyId)
     {
         lock (_lock)

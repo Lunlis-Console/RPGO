@@ -88,6 +88,7 @@ public static class DatabaseManager
     public static void SetAdmin(string login, bool isAdmin) => AccountRepository.SetAdmin(login, isAdmin);
     public static void SetBanned(string login, bool isBanned, string reason) => AccountRepository.SetBanned(login, isBanned, reason);
     public static string? GetLoginByPlayerName(string playerName) => AccountRepository.GetLoginByPlayerName(playerName);
+    public static Account? GetAccountByPlayerName(string playerName) => AccountRepository.LoadByPlayerName(playerName);
 
     // === Inventory ===
     public static List<Item> GetInventory(string playerName) => InventoryRepository.GetForPlayer(playerName);

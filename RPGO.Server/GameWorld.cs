@@ -105,6 +105,11 @@ public sealed class GameWorld
     private readonly List<ClientConnection> _clients = new();
     private readonly object _lock = new();
 
+    // --- Перезвон при обрыве соединения: игрок остаётся в мире до конца окна ---
+    private static readonly TimeSpan ReconnectGrace = TimeSpan.FromSeconds(20);
+    private readonly List<(Player Player, DateTime ExpiresUtc)> _pendingReconnects = new();
+    private readonly object _pendingLock = new();
+
     // --- Монстры (отдельный лок, чтобы блуждание не блокировало игроков) ---
     private readonly List<Monster> _monsters = new();
     private readonly Dictionary<Guid, Monster> _monsterById = new();
@@ -247,6 +252,52 @@ public sealed class GameWorld
     {
         RemoveClient(connection);
         try { connection.Client.Close(); } catch { /* already closing */ }
+    }
+
+    // --- Отложенное удаление игрока при обрыве (окно переподключения) ---
+    /// <summary>
+    /// Помечает игрока как ожидающего переподключения: он остаётся в мире
+    /// (позиция, партия, инстанс) до конца grace-периода, чтобы успешный
+    /// реконнект прошёл без потери состояния.
+    /// </summary>
+    public void MarkPendingReconnect(Player player)
+    {
+        lock (_pendingLock)
+        {
+            _pendingReconnects.RemoveAll(p => ReferenceEquals(p.Player, player));
+            _pendingReconnects.Add((player, DateTime.UtcNow + ReconnectGrace));
+        }
+    }
+
+    /// <summary>
+    /// Снимает метку pending-реконнекта. Возвращает true, если игрок всё ещё
+    /// ожидал переподключения (значит, финализация дисконнекта — наша задача).
+    /// </summary>
+    public bool CancelPendingReconnect(Player player)
+    {
+        lock (_pendingLock) return _pendingReconnects.RemoveAll(p => ReferenceEquals(p.Player, player)) > 0;
+    }
+
+    public bool IsPlayerPendingReconnect(Player player)
+    {
+        lock (_pendingLock) return _pendingReconnects.Any(p => ReferenceEquals(p.Player, player));
+    }
+
+    /// <summary>
+    /// Возвращает игроков, чьё окно переподключения истекло, и снимает их метки.
+    /// </summary>
+    public List<Player> TakeExpiredPendingReconnects()
+    {
+        var now = DateTime.UtcNow;
+        lock (_pendingLock)
+        {
+            var expired = _pendingReconnects
+                .Where(p => p.ExpiresUtc <= now)
+                .Select(p => p.Player)
+                .ToList();
+            _pendingReconnects.RemoveAll(p => p.ExpiresUtc <= now);
+            return expired;
+        }
     }
 
     // --- Монстры ---

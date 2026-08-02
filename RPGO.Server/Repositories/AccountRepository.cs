@@ -292,6 +292,22 @@ internal static class AccountRepository
         transaction.Commit();
     }
 
+    /// <summary>
+    /// Загружает аккаунт по имени игрока (нужно для reconnect после перезапуска,
+    /// когда игрока ещё нет в мире).
+    /// </summary>
+    internal static Account? LoadByPlayerName(string playerName)
+    {
+        using var conn = Db.Open();
+        var loginCmd = conn.CreateCommand();
+        loginCmd.CommandText = "SELECT login FROM accounts WHERE player_name = $name";
+        loginCmd.Parameters.AddWithValue("$name", playerName);
+        var login = loginCmd.ExecuteScalar() as string;
+        if (login == null) return null;
+
+        return LoadFull(conn, login);
+    }
+
     internal static Account? LoadFull(SqliteConnection connection, string login)
     {
         var cmd = connection.CreateCommand();

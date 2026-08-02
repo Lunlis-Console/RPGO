@@ -21,7 +21,7 @@ public class ReconnectHandler : BaseHandler
             return;
         }
 
-        var playerName = SessionManager.ValidateAndConsume(req.Token);
+        var playerName = SessionManager.Validate(req.Token);
         if (playerName == null)
         {
             await SendToClient(connection, new GameMessage
@@ -48,13 +48,28 @@ public class ReconnectHandler : BaseHandler
         Player? loadedPlayer;
         if (!World.TryGetPlayerByName(playerName, out loadedPlayer) || loadedPlayer == null)
         {
-            await SendToClient(connection, new GameMessage
+            // После перезапуска сервера мир пуст — восстанавливаем игрока из БД.
+            var account = DatabaseManager.GetAccountByPlayerName(playerName);
+            if (account == null || account.IsBanned)
             {
-                Type = "reconnect_fail",
-                Data = new ReconnectResponse(false, "player_not_found", null)
-            });
-            return;
+                await SendToClient(connection, new GameMessage
+                {
+                    Type = "reconnect_fail",
+                    Data = new ReconnectResponse(false, "player_not_found", null)
+                });
+                return;
+            }
+
+            Log.Info($"[Reconnect] World empty, reloading {playerName} from DB");
+            loadedPlayer = PlayerFactory.FromAccount(account, Svc);
+            World.AddPlayer(loadedPlayer);
         }
+
+        // Игрок переподключился: снимаем метку pending, чтобы фоновый sweep
+        // не финализировал дисконнект, и выдаём свежий одноразовый токен.
+        World.CancelPendingReconnect(loadedPlayer);
+        SessionManager.Revoke(req.Token);
+        var newToken = SessionManager.CreateToken(playerName);
 
         connection.Player = loadedPlayer;
         connection.IsReconnecting = false;
@@ -63,13 +78,17 @@ public class ReconnectHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "reconnect_ok",
-            Data = new ReconnectResponse(true, null, state)
+            Data = new ReconnectResponse(true, null, state, newToken, loadedPlayer.Id)
         });
 
         await SendInventoryAndStatus(connection, loadedPlayer);
         await SendQuestLog(connection, loadedPlayer);
         await Hub.SendHotbar(connection, loadedPlayer);
         await Hub.SendSkills(connection);
+
+        // Сразу отправляем свежую карту (у нового соединения TileDataSent = false,
+        // поэтому клиент получит и тайлы, и сущности текущей зоны).
+        await Hub.BroadcastMapAsync();
 
         Log.Info($"[Reconnect] {playerName} reconnected successfully");
     }

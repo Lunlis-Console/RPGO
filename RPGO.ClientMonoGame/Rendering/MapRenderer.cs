@@ -22,6 +22,15 @@ public class MapRenderer
     private string? _selectedEntityId;
     private string? _selectedEntityInfo;
     private int _moveTargetX = -1, _moveTargetY = -1;
+
+    // Кэш маршрута до точки движения: BFS не пересчитывается каждый кадр,
+    // а только при смене цели/карты/клетки игрока.
+    private List<(int X, int Y)>? _cachedPath;
+    private int _cachedFromX = -1, _cachedFromY = -1;
+    private int _cachedTargetX = -1, _cachedTargetY = -1;
+    private int _cachedMerchantX = -1, _cachedMerchantY = -1;
+    private int _cachedBoardX = -1, _cachedBoardY = -1;
+    private byte[]? _cachedObstacleData;
     private int _hoverTileX = -1, _hoverTileY = -1;
     private string _hoverCursorType = "";
 
@@ -819,6 +828,7 @@ private sealed class RemotePlayerState
         _selectedEntityX = _selectedEntityY = 0; _selectedEntityId = null;
         _selectedEntityInfo = null;
         _moveTargetX = _moveTargetY = -1;
+        ClearPathCache();
         SelectionChanged?.Invoke(null);
     }
 
@@ -1194,11 +1204,28 @@ private sealed class RemotePlayerState
         if (_moveTargetX < 0 || _moveTargetY < 0 || me == null) return;
         int mx = map.Merchant?.X ?? -1, my = map.Merchant?.Y ?? -1;
         int bx = map.Board?.X ?? -1, by = map.Board?.Y ?? -1;
-        var pathDots = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height, IsBlocked);
-        if (pathDots.Count == 0 && (me.X != _moveTargetX || me.Y != _moveTargetY)) { _moveTargetX = _moveTargetY = -1; return; }
-        if (me.X == _moveTargetX && me.Y == _moveTargetY) { _moveTargetX = _moveTargetY = -1; return; }
+
+        // Пересчитываем маршрут только когда изменились входные данные BFS:
+        // цель движения, позиция торговца/доски, препятствия или клетка игрока.
+        if (_cachedPath == null
+            || _cachedTargetX != _moveTargetX || _cachedTargetY != _moveTargetY
+            || _cachedMerchantX != mx || _cachedMerchantY != my
+            || _cachedBoardX != bx || _cachedBoardY != by
+            || !ReferenceEquals(_cachedObstacleData, _obstacleData)
+            || _cachedFromX != me.X || _cachedFromY != me.Y)
+        {
+            _cachedPath = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height, IsBlocked);
+            _cachedFromX = me.X; _cachedFromY = me.Y;
+            _cachedTargetX = _moveTargetX; _cachedTargetY = _moveTargetY;
+            _cachedMerchantX = mx; _cachedMerchantY = my;
+            _cachedBoardX = bx; _cachedBoardY = by;
+            _cachedObstacleData = _obstacleData;
+        }
+
+        if (_cachedPath.Count == 0 && (me.X != _moveTargetX || me.Y != _moveTargetY)) { _moveTargetX = _moveTargetY = -1; ClearPathCache(); return; }
+        if (me.X == _moveTargetX && me.Y == _moveTargetY) { _moveTargetX = _moveTargetY = -1; ClearPathCache(); return; }
         var pathColor = new Color(220, 200, 80, 180);
-        foreach (var (px, py) in pathDots)
+        foreach (var (px, py) in _cachedPath)
         {
             if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
             {
@@ -1207,6 +1234,16 @@ private sealed class RemotePlayerState
                 sb.Draw(SpriteCache.Pixel, new Rectangle((int)dotX, (int)dotY, 6, 6), pathColor);
             }
         }
+    }
+
+    private void ClearPathCache()
+    {
+        _cachedPath = null;
+        _cachedFromX = _cachedFromY = -1;
+        _cachedTargetX = _cachedTargetY = -1;
+        _cachedMerchantX = _cachedMerchantY = -1;
+        _cachedBoardX = _cachedBoardY = -1;
+        _cachedObstacleData = null;
     }
 
     private void DrawDeathMarkers(SpriteBatch sb)

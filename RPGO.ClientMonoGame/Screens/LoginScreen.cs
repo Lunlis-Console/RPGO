@@ -25,11 +25,17 @@ public class LoginScreen : IScreen
 
     private Rectangle _settingsIconRect = Rectangle.Empty;
 
-    public LoginScreen()
+    public LoginScreen(string? statusMessage = null)
     {
         Array.Copy(_defaults, _values, 4);
         _values[0] = SettingsManager.Load().ServerIp;
         RebuildLayout();
+
+        if (!string.IsNullOrWhiteSpace(statusMessage))
+        {
+            _statusMessage = statusMessage;
+            _statusColor = Color.Red;
+        }
 
         var client = GameMain.Instance?.Client;
         if (client != null)

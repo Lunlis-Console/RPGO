@@ -12,10 +12,13 @@ public class ScreenManager
 
     public bool HasModal => _modal != null;
 
-    public void ShowLogin()
+    /// <summary>Активен ли сейчас игровой экран (для обработки обрыва соединения).</summary>
+    public bool IsGameActive => _current is GameScreen;
+
+    public void ShowLogin(string? statusMessage = null)
     {
         _current?.Dispose();
-        _current = new LoginScreen();
+        _current = new LoginScreen(statusMessage);
     }
 
     public void ShowGame()

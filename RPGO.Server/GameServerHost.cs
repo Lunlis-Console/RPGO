@@ -38,6 +38,7 @@ public class GameServerHost
         long lastHazard = 0, lastDebuff = 0, lastInstance = 0;
         long lastRegen = 0, lastCorpse = 0, lastSession = 0;
         long lastRespawn = 0;
+        long lastDisconnectSweep = 0;
 
         while (!ct.IsCancellationRequested)
         {
@@ -145,7 +146,42 @@ public class GameServerHost
                 try { SessionManager.Cleanup(); }
                 catch (Exception ex) { Log.Error("[Tick] SessionCleanup", ex); }
             }
+
+            // 2s — finalize pending disconnects whose reconnect window expired
+            if (now - lastDisconnectSweep >= 2000)
+            {
+                lastDisconnectSweep = now;
+                try { await FinalizeExpiredDisconnectsAsync(); }
+                catch (Exception ex) { Log.Error("[Tick] DisconnectSweep", ex); }
+            }
         }
+    }
+
+    private async Task FinalizeExpiredDisconnectsAsync()
+    {
+        foreach (var player in _svc.World.TakeExpiredPendingReconnects())
+        {
+            await FinalizeDisconnectAsync(player);
+        }
+    }
+
+    private async Task FinalizeDisconnectAsync(Player player)
+    {
+        // Все операции привязаны к идентичности старого объекта (Id/ссылка),
+        // поэтому при повторном входе нового игрока с тем же именем не затрагивают его.
+        var tradeSession = _svc.Trade.GetSession(player.Id);
+        if (tradeSession != null) _svc.Trade.CancelSession(tradeSession, "отключение клиента");
+        player.IsTrading = false;
+
+        await _svc.Party.LeavePartyAsync(player);
+
+        _svc.Instances.RemovePlayer(player);
+
+        _svc.World.RemovePlayer(player);
+        Log.Info($"Игрок {player.Name} покинул игру (окно переподключения истекло)");
+        await _svc.Hub.BroadcastMapAsync();
+
+        _svc.Persistence.EnqueueSave(player);
     }
 
     private async Task DebuffTick()

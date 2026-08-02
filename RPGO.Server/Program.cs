@@ -127,6 +127,23 @@ partial class Program
         hub.LoadNpcCache();
         persistence.Start();
 
+        // Heartbeat-сервис: автосейв онлайн-игроков (~60с) и отключение
+        // зависших соединений (пропуск 3 ping = 15с таймаут).
+        var heartbeat = new HeartbeatHandler(world, hub, persistence);
+        _ = heartbeat.StartAsync(CancellationToken.None);
+
+        // Graceful shutdown: сохранить прогресс при остановке сервера
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            ShutdownServer();
+        };
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            // Последний рубеж: сбрасываем несохранённых игроков при выходе процесса
+            try { Services?.Persistence.FlushNow(); } catch { }
+        };
+
         // Запуск фоновых задач
         _host = new GameServerHost(Services);
         _ = Task.Run(() => _host.StartAsync());
@@ -176,6 +193,16 @@ partial class Program
                 if (await Services.ClientBuild.HandleUnauthenticatedAsync(connection, message, Services.Hub))
                     continue;
 
+                // Переподключение приходит до авторизации: ReconnectHandler
+                // восстанавливает игрока и сам привязывает его к соединению.
+                if (message.Type == "reconnect")
+                {
+                    if (MessageHandlerRegistry.TryGet("reconnect", out var reconnectHandler))
+                        await reconnectHandler.Handle(connection, message, null);
+                    authenticated = connection.Player != null;
+                    continue;
+                }
+
                 authenticated = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
             }
 
@@ -203,15 +230,26 @@ partial class Program
                 if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "отключение клиента");
                 player.IsTrading = false;
 
-                // Удаляем игрока из инстанса, если он там
-                Services.Instances.RemovePlayer(player);
-
-                Services.World.RemovePlayer(player);
-                Services.World.RemoveClient(connection);
-                Log.Info($"Игрок {player.Name} покинул игру");
-                await Services.Hub.BroadcastMapAsync();
-
-                Services.Persistence.EnqueueSave(player);
+                bool stillInWorld = Services.World.TryGetPlayerByName(player.Name, out var wp)
+                    && ReferenceEquals(wp, player);
+                if (stillInWorld)
+                {
+                    // Обрыв соединения: игрок остаётся в мире (позиция, партия, инстанс),
+                    // чтобы успешное переподключение прошло без потери состояния.
+                    // Финальная очистка — фоновым sweep'ом после истечения окна.
+                    Services.World.MarkPendingReconnect(player);
+                    Services.World.RemoveClient(connection);
+                    Log.Info($"Игрок {player.Name} отключился (окно переподключения активно)");
+                }
+                else
+                {
+                    // Логаут: LogoutHandler уже удалил игрока из мира — чистим сразу.
+                    await Services.Party.LeavePartyAsync(player);
+                    Services.Instances.RemovePlayer(player);
+                    Services.Persistence.EnqueueSave(player);
+                    Log.Info($"Игрок {player.Name} вышел из игры (logout)");
+                    await Services.Hub.BroadcastMapAsync();
+                }
             }
 
             try { connection.Client.Close(); } catch (Exception ex) { Log.Warn($"Close client: {ex.Message}"); }
@@ -286,6 +324,32 @@ partial class Program
     {
         if (conn == null) return;
         await Services.Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    /// <summary>
+    /// Останавливает сервер: сохраняет всех онлайн-игроков и корректно
+    /// завершает фоновые задачи перед выходом из процесса.
+    /// </summary>
+    private static void ShutdownServer()
+    {
+        try
+        {
+            Log.Info("Остановка сервера: сохранение данных всех онлайн-игроков...");
+            foreach (var conn in Services.World.GetAllConnectionsSnapshot())
+            {
+                if (conn.Player == null) continue;
+                try { Services.Persistence.EnqueueSave(conn.Player); }
+                catch (Exception ex) { Log.Warn($"Ошибка сохранения {conn.Player.Name} при остановке: {ex.Message}"); }
+            }
+            _host?.Stop();
+            Services.Persistence.Stop();
+            Log.Info("Сервер остановлен. До свидания!");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Ошибка при остановке сервера", ex);
+        }
+        Environment.Exit(0);
     }
 
     /// <summary>

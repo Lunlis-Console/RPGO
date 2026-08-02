@@ -2,7 +2,7 @@ namespace RPGGame.Shared.Network;
 
 public record ReconnectRequest(Guid PlayerId, string Token, long LastSeq);
 
-public record ReconnectResponse(bool Success, string? Reason, PlayerState? Player);
+public record ReconnectResponse(bool Success, string? Reason, PlayerState? Player, string? Token = null, Guid? PlayerId = null);
 
 public record PlayerState(
     string Name,

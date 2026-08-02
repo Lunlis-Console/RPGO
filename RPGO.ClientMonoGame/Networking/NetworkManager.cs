@@ -11,6 +11,9 @@ public class NetworkManager
     private CancellationTokenSource? _cts;
     private Task? _receiveTask;
     private Task? _heartbeatTask;
+    private CancellationTokenSource? _reconnectCts;
+    // Single-flight: 1, если попытка переподключения уже выполняется.
+    private int _reconnectInProgress;
 
     private volatile bool _isConnected = false;
     private int _missedPongs = 0;
@@ -27,8 +30,18 @@ public class NetworkManager
     public event Action<string>? SystemMessage;
     public event Action<GameMessage>? MessageReceived;
     public event Action<PlayerState>? ReconnectStateReceived;
+    public event Action? ReconnectFailed;
+
+    /// <summary>Максимальное время попыток переподключения (после — возврат к экрану входа).
+    /// 30 секунд: даёт время перезапустить сервер и вернуться в игру.</summary>
+    public const int ReconnectTimeoutSeconds = 30;
+
+    private DateTime _reconnectDeadline;
 
     public bool IsConnected => _isConnected;
+
+    /// <summary>Есть ли активная сессия (токен переподключения), т.е. ожидается ли авто-reconnect.</summary>
+    public bool HasSession => !string.IsNullOrEmpty(_sessionToken);
 
     public async Task<bool> ConnectAsync(string ip, int port)
     {
@@ -40,6 +53,11 @@ public class NetworkManager
     {
         try
         {
+            // Закрываем предыдущее соединение/потоки перед новой попыткой,
+            // чтобы не копить осиротевшие сокеты и receive-loop'ы при ретраях.
+            try { _cts?.Cancel(); } catch { }
+            try { _client?.Close(); } catch { }
+
             _client = new TcpClient { NoDelay = true };
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             await _client.ConnectAsync(ip, port, cts.Token);
@@ -50,7 +68,7 @@ public class NetworkManager
             _lastPongTime = DateTime.UtcNow;
 
             _cts = new CancellationTokenSource();
-            _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token));
+            _receiveTask = Task.Run(() => ReceiveLoopAsync(_cts.Token, _stream));
             _heartbeatTask = Task.Run(() => HeartbeatLoopAsync(_cts.Token));
 
             Logger.Info($"Connected to {ip}:{port}");
@@ -65,13 +83,13 @@ public class NetworkManager
         }
     }
 
-    private async Task ReceiveLoopAsync(CancellationToken token)
+    private async Task ReceiveLoopAsync(CancellationToken token, NetworkStream stream)
     {
         try
         {
-            while (!token.IsCancellationRequested && _stream != null)
+            while (!token.IsCancellationRequested && stream != null)
             {
-                var message = await NetworkHelper.ReceiveAsync<GameMessage>(_stream, token);
+                var message = await NetworkHelper.ReceiveAsync<GameMessage>(stream, token);
                 if (message == null) break;
 
                 Logger.Debug($"<< recv {message.Type}");
@@ -92,7 +110,8 @@ public class NetworkManager
         finally
         {
             Logger.Warn("ReceiveLoop ended, handling disconnect");
-            HandleDisconnectAsync("Соединение разорвано").Wait();
+            try { HandleDisconnectAsync("Соединение разорвано", token, stream).Wait(); }
+            catch { }
         }
     }
 
@@ -114,7 +133,21 @@ public class NetworkManager
                 var response = message.Deserialize<ReconnectResponse>();
                 if (response?.Success == true && response.Player != null)
                 {
-                    _sessionToken = null;
+                    // Попытка переподключения завершена успешно: глобальный дедлайн
+                    // сбрасываем, чтобы следующий обрыв начал отсчёт заново.
+                    _reconnectDeadline = default;
+                    // После перезапуска сервера игрок был пересоздан — у него новый Id.
+                    if (response.PlayerId != null)
+                    {
+                        _playerId = response.PlayerId.Value;
+                        if (GameMain.Instance?.Client != null)
+                            GameMain.Instance.Client.PlayerId = response.PlayerId.Value;
+                    }
+                    // Сервер выдаёт свежий одноразовый токен для следующего реконнекта
+                    if (!string.IsNullOrEmpty(response.Token))
+                        SetSession(response.Token, _playerId);
+                    else
+                        _sessionToken = null;
                     ReconnectStateReceived?.Invoke(response.Player);
                 }
                 return true;
@@ -122,7 +155,10 @@ public class NetworkManager
             case "reconnect_fail":
                 var fail = message.Deserialize<ReconnectResponse>();
                 SystemMessage?.Invoke($"Реконнект не удался: {fail?.Reason ?? "unknown"}");
-                _ = StartReconnectAsync();
+                // Терминальная ошибка: сервер не принял старую сессию (токен истёк,
+                // игрок удалён из мира или неверный запрос). Повторные попытки с тем же
+                // токеном бессмысленны — сразу возвращаем игрока к экрану входа.
+                ReconnectFailed?.Invoke();
                 return true;
         }
         return false;
@@ -130,6 +166,7 @@ public class NetworkManager
 
     private async Task HeartbeatLoopAsync(CancellationToken token)
     {
+        var stream = _stream;
         while (!token.IsCancellationRequested)
         {
             await Task.Delay(5000, token);
@@ -148,7 +185,7 @@ public class NetworkManager
                     if (_missedPongs >= 3)
                     {
                         SystemMessage?.Invoke("Сервер не отвечает, переподключение...");
-                        await HandleDisconnectAsync("Таймаут сервера");
+                        await HandleDisconnectAsync("Таймаут сервера", token, stream);
                         break;
                     }
                 }
@@ -159,21 +196,27 @@ public class NetworkManager
                 _missedPongs++;
                 if (_missedPongs >= 3)
                 {
-                    await HandleDisconnectAsync("Ошибка отправки ping");
+                    await HandleDisconnectAsync("Ошибка отправки ping", token, stream);
                     break;
                 }
             }
         }
     }
 
-    private async Task HandleDisconnectAsync(string reason)
+    private async Task HandleDisconnectAsync(string reason, CancellationToken token, NetworkStream? stream)
     {
+        // Старый receive/heartbeat-loop после успешного реконнекта не должен «убивать»
+        // новое соединение: если это уже не текущее соединение — выходим.
+        if (!ReferenceEquals(stream, _stream)) return;
+        if (token != _cts?.Token) return;
+
         if (!_isConnected) return;
         _isConnected = false;
         Logger.Warn($"Disconnected: {reason}");
 
         ConnectionLost?.Invoke(reason);
-        Disconnected?.Invoke();
+        // Disconnected (без причины) уведомляем только в ручном Disconnect():
+        // здесь достаточно ConnectionLost с конкретной причиной.
 
         if (!string.IsNullOrEmpty(_sessionToken))
             await StartReconnectAsync();
@@ -181,26 +224,84 @@ public class NetworkManager
 
     private async Task StartReconnectAsync()
     {
-        int attempt = 0;
-        int delayMs = 1000;
+        if (string.IsNullOrEmpty(_sessionToken))
+            return;
 
-        while (attempt < 10)
+        // Single-flight: если попытка переподключения уже идёт (StartReconnectAsync
+        // вызывается и из receive-лупа, и из heartbeat, и из обработчиков сообщений),
+        // не запускаем вторую параллельно.
+        if (Interlocked.Exchange(ref _reconnectInProgress, 1) != 0)
+            return;
+
+        try
         {
-            attempt++;
-            SystemMessage?.Invoke($"Попытка переподключения {attempt}/10...");
+            // Глобальный дедлайн всей попытки переподключения: не сбрасывается при
+            // повторных вызовах (reconnect_fail → новый цикл), чтобы обрыв не мог
+            // удерживать игрока в оверлее переподключения бесконечно.
+            if (_reconnectDeadline == default)
+                _reconnectDeadline = DateTime.UtcNow.AddSeconds(ReconnectTimeoutSeconds);
 
-            if (await ConnectInternalAsync(_serverIp, 7777))
+            using var cts = new CancellationTokenSource();
+            _reconnectCts = cts;
+            int attempt = 0;
+            int delayMs = 1000;
+
+            while (attempt < 20 && !cts.IsCancellationRequested &&
+                   DateTime.UtcNow < _reconnectDeadline)
             {
-                var req = new ReconnectRequest(_playerId, _sessionToken ?? "", _lastPingSeq);
-                await SendAsync(new GameMessage { Type = "reconnect", Data = req });
-                return;
+                attempt++;
+                SystemMessage?.Invoke($"Попытка переподключения {attempt}...");
+
+                if (await ConnectInternalAsync(_serverIp, 7777))
+                {
+                    try
+                    {
+                        var req = new ReconnectRequest(_playerId, _sessionToken ?? "", _lastPingSeq);
+                        await SendAsync(new GameMessage { Type = "reconnect", Data = req });
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("[reconnect] send failed", ex);
+                        // Соединение поднялось, но запрос не ушёл — закрываем
+                        // и пробуем следующую попытку.
+                        try { _cts?.Cancel(); } catch { }
+                        try { _client?.Close(); } catch { }
+                        _isConnected = false;
+                    }
+                }
+
+                try { await Task.Delay(delayMs, cts.Token); }
+                catch (OperationCanceledException) { break; }
+                delayMs = Math.Min(delayMs * 2, 3000);
             }
 
-            await Task.Delay(delayMs);
-            delayMs = Math.Min(delayMs * 2, 30000);
+            if (!cts.IsCancellationRequested)
+            {
+                _reconnectDeadline = default;
+                SystemMessage?.Invoke("Не удалось переподключиться.");
+                ReconnectFailed?.Invoke();
+            }
         }
+        finally
+        {
+            _reconnectCts = null;
+            Interlocked.Exchange(ref _reconnectInProgress, 0);
+        }
+    }
 
-        SystemMessage?.Invoke("Не удалось переподключиться.");
+    /// <summary>
+    /// Отменяет фоновые попытки переподключения, закрывает соединение и сбрасывает
+    /// сессию (вызывается при возврате к экрану входа после неудачного reconnect).
+    /// </summary>
+    public void StopReconnect()
+    {
+        try { _reconnectCts?.Cancel(); } catch { }
+        _sessionToken = null;
+        _reconnectDeadline = default;
+        _isConnected = false;
+        try { _cts?.Cancel(); } catch { }
+        try { _client?.Close(); } catch { }
     }
 
     public async Task SendAsync(GameMessage message)
