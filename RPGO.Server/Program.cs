@@ -7,6 +7,7 @@ using RPGGame.Shared.Network;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text;
 
 namespace RPGGame.Server;
 
@@ -14,11 +15,13 @@ partial class Program
 {
     public static GameServices Services { get; internal set; } = null!;
     private static GameServerHost? _host;
+    private static TestBot? _testBot;
+    private static readonly object _botLock = new();
 
     public static double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
 
-    static async Task Main()
+    static async Task Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.InputEncoding = System.Text.Encoding.UTF8;
@@ -187,6 +190,13 @@ partial class Program
             Log.Info($"  {ip}");
         Log.Info("Ожидание подключения...");
 
+        // Серверная консоль: команды из stdin (бот, список игроков и т.п.)
+        if (args.Any(a => a.Equals("--bot", StringComparison.OrdinalIgnoreCase)))
+        {
+            StartTestBot();
+        }
+        _ = Task.Run(() => ServerConsoleLoop());
+
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
@@ -351,6 +361,197 @@ partial class Program
     {
         if (conn == null) return;
         await Services.Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    /// <summary>
+    /// Создаёт и запускает тестового бота (персонаж «Тест»). Вызывается при
+    /// старте с --bot, либо из консоли командой «bot start».
+    /// </summary>
+    private static void StartTestBot()
+    {
+        lock (_botLock)
+        {
+            if (_testBot != null)
+            {
+                Log.Warn("Тестовый бот уже запущен.");
+                return;
+            }
+
+            var bot = new TestBot("127.0.0.1", Balance.ServerPort, "test", "123", "Тест");
+            _testBot = bot;
+            _ = Task.Run(() => bot.StartAsync());
+            Log.Info("Тестовый бот запускается, логин: test / 123");
+        }
+    }
+
+    /// <summary>
+    /// Консоль сервера: читает команды из stdin (пока Serilog пишет в stdout —
+    /// они не конфликтуют) и исполняет их.
+    /// </summary>
+    private static async Task ServerConsoleLoop()
+    {
+        Log.Info("Серверная консоль: введите 'help' для списка команд.");
+
+        if (!ConsoleManager.IsInteractiveConsole())
+        {
+            // Ввод/вывод перенаправлены (например, запуск из скрипта) — используем
+            // обычный ReadLine, без ручного рендера.
+            ConsoleManager.InputActive = false;
+            while (true)
+            {
+                string? line;
+                try { line = await Task.Run(() => Console.ReadLine()); }
+                catch { break; }
+                if (line == null) break;
+
+                line = line.Trim();
+                if (line.Length == 0) continue;
+
+                try { await HandleServerCommand(line); }
+                catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
+            }
+            return;
+        }
+
+        ConsoleManager.InputActive = true;
+
+        var buffer = new StringBuilder();
+        while (true)
+        {
+            ConsoleKeyInfo key;
+            try { key = await Task.Run(() => Console.ReadKey(true)); }
+            catch (InvalidOperationException) { break; }
+            catch { break; }
+
+            if (key.Key == ConsoleKey.Enter)
+            {
+                ConsoleManager.SetInput("");
+                ConsoleManager.RenderInput();
+                string line = buffer.ToString().Trim();
+                buffer.Clear();
+
+                if (line.Length == 0) continue;
+                try { await HandleServerCommand(line); }
+                catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
+            }
+            else if (key.Key == ConsoleKey.Backspace)
+            {
+                if (buffer.Length > 0)
+                {
+                    buffer.Remove(buffer.Length - 1, 1);
+                    ConsoleManager.SetInput(buffer.ToString());
+                    ConsoleManager.RenderInput();
+                }
+            }
+            else if (key.Key == ConsoleKey.Escape)
+            {
+                buffer.Clear();
+                ConsoleManager.SetInput("");
+                ConsoleManager.RenderInput();
+            }
+            else if (!char.IsControl(key.KeyChar))
+            {
+                buffer.Append(key.KeyChar);
+                ConsoleManager.SetInput(buffer.ToString());
+                ConsoleManager.RenderInput();
+            }
+        }
+    }
+
+    private static async Task HandleServerCommand(string line)
+    {
+        var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string cmd = parts[0].ToLowerInvariant();
+
+        switch (cmd)
+        {
+            case "help":
+                Log.Info("Команды сервера:");
+                Log.Info("  players              — список онлайн-игроков");
+                Log.Info("  bot help             — команды тестового бота");
+                Log.Info("  bot start / bot stop — запустить/остановить бота на лету");
+                Log.Info("  stop                 — остановить сервер");
+                break;
+
+            case "players":
+                var online = Services.World.GetPlayersSnapshot();
+                if (online.Count == 0)
+                {
+                    Log.Info("Онлайн: никого");
+                }
+                else
+                {
+                    var desc = string.Join(", ", online.Select(p => $"{p.Name} (уровень {p.Level})"));
+                    Log.Info($"Онлайн ({online.Count}): {desc}");
+                }
+                break;
+
+            case "bot":
+                string sub = line.Length > 4 ? line.Substring(4).Trim() : "";
+                if (sub.Equals("start", StringComparison.OrdinalIgnoreCase))
+                {
+                    StartTestBot();
+                    return;
+                }
+                if (sub.Equals("stop", StringComparison.OrdinalIgnoreCase))
+                {
+                    TestBot? current;
+                    lock (_botLock) { current = _testBot; _testBot = null; }
+                    if (current == null)
+                    {
+                        Log.Warn("Тестовый бот не запущен.");
+                        return;
+                    }
+                    current.Stop();
+                    Log.Info("Тестовый бот остановлен.");
+                    return;
+                }
+                if (sub.Length == 0 || sub.Equals("help", StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Info("Команды бота (персонаж «Тест»):");
+                    Log.Info("  bot start                      — запустить бота (создать сессию)");
+                    Log.Info("  bot stop                       — остановить бота");
+                    Log.Info("  bot say <текст>                — сказать в локальный чат");
+                    Log.Info("  bot whisper <игрок> <текст>    — личное сообщение");
+                    Log.Info("  bot invite <игрок>             — пригласить в группу");
+                    Log.Info("  bot accept [игрок]             — принять приглашение в группу");
+                    Log.Info("  bot decline [игрок]            — отклонить приглашение");
+                    Log.Info("  bot trade <игрок>              — запросить обмен");
+                    Log.Info("  bot trade_accept [игрок]       — принять обмен");
+                    Log.Info("  bot trade_decline [игрок]      — отклонить обмен");
+                    Log.Info("  bot mail <игрок> <тема>        — отправить письмо");
+                    Log.Info("  bot move <x> <y>               — переместиться");
+                    Log.Info("  bot logout                     — выйти из игры");
+                    return;
+                }
+
+                TestBot? bot;
+                lock (_botLock) { bot = _testBot; }
+                if (bot == null)
+                {
+                    Log.Warn("Тестовый бот не запущен. Введите 'bot start'");
+                    return;
+                }
+                if (!bot.IsConnected)
+                {
+                    Log.Warn("Бот не подключён к серверу.");
+                    return;
+                }
+                bot.EnqueueCommand(sub);
+                break;
+
+            case "stop":
+            case "exit":
+            case "quit":
+                ShutdownServer();
+                break;
+
+            default:
+                Log.Warn($"Неизвестная команда: {cmd}. Введите 'help'");
+                break;
+        }
+
+        await Task.CompletedTask;
     }
 
     /// <summary>

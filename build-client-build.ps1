@@ -23,10 +23,10 @@ if (-not $Version) {
             $parts[2] = [int]$parts[2] + 1
             $Version = $parts -join '.'
         } else {
-            $Version = "1.0.0"
+            $Version = "0.1.0"
         }
     } else {
-        $Version = "1.0.0"
+        $Version = "0.1.0"
     }
 }
 Write-Host "Client version: $Version"

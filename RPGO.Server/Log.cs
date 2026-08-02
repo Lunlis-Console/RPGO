@@ -44,14 +44,14 @@ public static class Log
         }
     }
 
-    public static void Info(string message) => Logger.Information(message);
-    public static void Warn(string message) => Logger.Warning(message);
+    public static void Info(string message) => ConsoleManager.WriteLog(() => Logger.Information(message));
+    public static void Warn(string message) => ConsoleManager.WriteLog(() => Logger.Warning(message));
     public static void Error(string message, Exception? ex = null)
     {
         if (ex != null)
-            Logger.Error(ex, message);
+            ConsoleManager.WriteLog(() => Logger.Error(ex, message));
         else
-            Logger.Error(message);
+            ConsoleManager.WriteLog(() => Logger.Error(message));
     }
-    public static void Debug(string message) => Logger.Debug(message);
+    public static void Debug(string message) => ConsoleManager.WriteLog(() => Logger.Debug(message));
 }

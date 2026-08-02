@@ -727,7 +727,12 @@ namespace RPGGame.ClientMonoGame.Windows
             }
             DrawText(sb, goldDisplay, goldRect.X + 6, goldY, Color.White, font);
 
-            string goldLimit = $"/ {_myTotalGold}";
+            int myGoldLeft;
+            if (_goldInputActive && int.TryParse(_goldInputBuffer.ToString(), out int bufGold))
+                myGoldLeft = _myTotalGold - bufGold;
+            else
+                myGoldLeft = _myTotalGold - _myGoldOffer;
+            string goldLimit = $"/ {Math.Max(0, myGoldLeft)}";
             DrawText(sb, goldLimit, goldRect.Right + 6, goldY, new Color(160, 160, 170), font);
 
             int rightX = cx + halfW + 16;

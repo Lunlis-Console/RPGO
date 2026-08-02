@@ -5,7 +5,7 @@ namespace RPGGame.Server.Services;
 
 public static class MailManager
 {
-    private const int MaxSubjectLength = 50;
+    private const int MaxSubjectLength = 48;
     private const int MaxBodyLength = 200;
     private const int MaxGoldPerMail = 100000;
 

@@ -16,7 +16,7 @@ public class LoginScreen : IScreen
     private Color _statusColor = Color.Red;
     private string _systemMessage = "";
 
-    private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тестовый аккаунт", "Проверить обновления" };
+    private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тест. аккаунт", "Обновления" };
     private Rectangle[] _buttonRects = new Rectangle[5];
     private Rectangle[] _fieldRects = new Rectangle[4];
 

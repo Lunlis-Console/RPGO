@@ -71,6 +71,7 @@ public class MailWindow : GameWindow
     private const int RowH = 24;
     private const int FieldH = 22;
     private const int BtnH = 24;
+    private const int CounterH = 13;
 
     public MailWindow()
     {
@@ -220,6 +221,7 @@ public class MailWindow : GameWindow
                             _selectedTab = 2;
                             _composeRecipient = _selectedMail.SenderName;
                             _composeSubject = $"RE: {_selectedMail.Subject}";
+                            if (_composeSubject.Length > 48) _composeSubject = _composeSubject.Substring(0, 48);
                             _composeBody = "";
                             _composeGold = 0;
                             _composeItemId = "";
@@ -427,7 +429,7 @@ public class MailWindow : GameWindow
             }
             else if (vk == 0x20)
             {
-                if (_activeField < 3 && _fieldBuffer.Length < 200)
+                if (_activeField >= 0 && _activeField < 3 && _fieldBuffer.Length < GetFieldMaxLength(_activeField))
                     _fieldBuffer.Append(' ');
             }
             else if (vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x14 || vk == 0x09)
@@ -441,8 +443,7 @@ public class MailWindow : GameWindow
             }
             else
             {
-                int maxLen = _activeField == 2 ? 200 : 50;
-                if (_fieldBuffer.Length < maxLen && KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
+                if (_fieldBuffer.Length < GetFieldMaxLength(_activeField) && KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
                     _fieldBuffer.Append(ch);
             }
         }
@@ -461,6 +462,9 @@ public class MailWindow : GameWindow
         }
     }
 
+    private static int GetFieldMaxLength(int fieldIndex)
+        => fieldIndex == 2 ? 200 : fieldIndex == 1 ? 48 : 50;
+
     private Rectangle GetTabRect(int index)
     {
         int tabW = ContentW / 3;
@@ -473,11 +477,12 @@ public class MailWindow : GameWindow
         if (fieldIndex <= 1)
             y = ContentY + TabH + 4 + fieldIndex * (FieldH + 6);
         else if (fieldIndex == 2)
-            y = ContentY + TabH + 4 + 2 * (FieldH + 6);
+            y = ContentY + TabH + 4 + 2 * (FieldH + 6) + CounterH;
         else
-            y = ContentY + TabH + 4 + 2 * (FieldH + 6) + BodyFieldH + 6;
+            y = ContentY + TabH + 4 + 2 * (FieldH + 6) + CounterH + BodyFieldH + 6 + CounterH;
         int h = fieldIndex == 2 ? BodyFieldH : FieldH;
-        return new Rectangle(ContentX + 80, y, ContentW - 80, h);
+        int w = fieldIndex == 3 ? 140 : ContentW - 80;
+        return new Rectangle(ContentX + 80, y, w, h);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -670,7 +675,31 @@ public class MailWindow : GameWindow
             {
                 DrawText(sb, display, fr.X + 4, fr.Y + 3, Color.White, font);
             }
-            y += f == 2 ? BodyFieldH + 6 : FieldH + 6;
+
+            if (f == 3)
+            {
+                int myGold = GameMain.Instance!.Client.Inventory?.Gold ?? 0;
+                int entered = active && int.TryParse(_fieldBuffer.ToString(), out int b) ? b : _composeGold;
+                int remaining = Math.Max(0, myGold - entered);
+                string goldInfo = $"/ {remaining}";
+                DrawText(sb, goldInfo, fr.Right + 6, fr.Y + 3, new Color(160, 160, 170), font);
+            }
+
+            if (f == 1 || f == 2)
+            {
+                int cur = active ? _fieldBuffer.Length : display.Length;
+                int max = GetFieldMaxLength(f);
+                string counter = $"{cur}/{max}";
+                var cs = font.MeasureString(counter);
+                DrawText(sb, counter, fr.Right - (int)cs.X, fr.Bottom + 2, new Color(130, 130, 140), font);
+            }
+
+            y += f switch
+            {
+                1 => FieldH + 6 + CounterH,
+                2 => BodyFieldH + 6 + CounterH,
+                _ => FieldH + 6
+            };
         }
 
         var layout = GetComposeLayout();
