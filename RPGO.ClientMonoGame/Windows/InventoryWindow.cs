@@ -319,7 +319,14 @@ public class InventoryWindow : GameWindow
 
                     var item = _stacks[idx].item;
                     if (ShopMode)
-                        RequestSell(item, _stacks[idx].count);
+                    {
+                        // Shift+ПКМ — продать весь стак ячейки сразу, без диалога количества
+                        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+                        if (shift)
+                            SellItem?.Invoke(item.Id, _stacks[idx].count);
+                        else
+                            RequestSell(item, _stacks[idx].count);
+                    }
                     else if (EquipmentSlots.IsEquippableType(item.Type))
                         EquipItem?.Invoke(item.Id);
                     else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
