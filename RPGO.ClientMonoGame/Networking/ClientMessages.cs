@@ -103,6 +103,12 @@ public sealed class QuestLogData
     public List<QuestInfo>? Active { get; set; }
 }
 
+public sealed class StorageData
+{
+    public List<Item>? Items { get; set; }
+    public int Slots { get; set; }
+}
+
 public sealed class TradeOpenData
 {
     public string? SessionId { get; set; }

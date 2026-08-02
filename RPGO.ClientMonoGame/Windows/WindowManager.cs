@@ -91,7 +91,7 @@ public sealed class WindowManager
 
     public void Draw(GameTime gameTime, SpriteBatch sb)
     {
-        foreach (var w in _windows)
+        foreach (var w in _windows.ToList())
             w.Draw(sb);
     }
 }

@@ -100,6 +100,10 @@ public sealed class GameClient
     public event Action<string, string, int, List<LootItemInfo>, int>? LootReceived;
     public event Action? BoardOpened;
 
+    // Склад
+    public event Action<StorageData>? StorageOpened;
+    public event Action<StorageData>? StorageUpdated;
+
     // Смерть
     public bool IsDead { get; set; }
     public int DeathLostGold { get; set; }
@@ -158,6 +162,8 @@ public sealed class GameClient
     internal void RaiseHotbarUpdated(string?[] slots) => Ui(() => HotbarUpdated?.Invoke(slots));
     internal void RaiseLootReceived(string corpseId, string monsterName, int dmgPct, List<LootItemInfo> items, int gold) => Ui(() => LootReceived?.Invoke(corpseId, monsterName, dmgPct, items, gold));
     internal void RaiseBoardOpened() => Ui(() => BoardOpened?.Invoke());
+    internal void RaiseStorageOpened(StorageData data) => Ui(() => StorageOpened?.Invoke(data));
+    internal void RaiseStorageUpdated(StorageData data) => Ui(() => StorageUpdated?.Invoke(data));
     internal void RaiseFriendListUpdated(List<FriendInfo> friends) => Ui(() => FriendListUpdated?.Invoke(friends));
     internal void RaiseFriendResultReceived(bool ok, string msg) => Ui(() => FriendResultReceived?.Invoke(ok, msg));
     internal void RaiseAttackCooldownUpdated(string sid, int rem, int total) => Ui(() => AttackCooldownUpdated?.Invoke(sid, rem, total));

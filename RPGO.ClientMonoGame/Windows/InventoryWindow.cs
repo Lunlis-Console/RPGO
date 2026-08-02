@@ -142,13 +142,15 @@ public class InventoryWindow : GameWindow
             int qty = Math.Max(1, it.Quantity);
             if (IsStackable(it))
             {
-                int idx = result.FindIndex(s => SameItem(s.Item1, it));
-                if (idx >= 0)
+                // Каждая запись сервера — отдельный стек; разбиваем по MaxStack
+                // на случай записи с превышением лимита (10 + 2, а не один стек 12).
+                int cap = it.MaxStack > 1 ? it.MaxStack : 10;
+                while (qty > 0)
                 {
-                    result[idx] = (result[idx].Item1, result[idx].Item2 + qty);
-                    continue;
+                    int chunk = Math.Min(cap, qty);
+                    result.Add((it, chunk));
+                    qty -= chunk;
                 }
-                result.Add((it, qty));
             }
             else
             {
@@ -165,21 +167,20 @@ public class InventoryWindow : GameWindow
     private static bool IsStackable(Item it) =>
         it.Type is "consumable" or "collectible" or "trophy" or "material";
 
-    private static bool SameItem(Item a, Item b) =>
-        a.Name == b.Name && a.Type == b.Type &&
-        a.BonusPhysAttack == b.BonusPhysAttack && a.BonusDefense == b.BonusDefense &&
-        a.MaxHealthBonus == b.MaxHealthBonus && a.HealAmount == b.HealAmount && a.RestoreMana == b.RestoreMana &&
-        a.Value == b.Value && a.Description == b.Description;
-
-    public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
+    // При закрытии окна (любым способом) игрок ознакомился с новыми предметами —
+    // сбрасываем подсветку и бейдж на иконке инвентаря.
+    protected override void OnHidden()
     {
-        // При закрытии окна сбрасываем подсветку новых предметов
-        if (!Visible && _newNames.Count > 0)
+        base.OnHidden();
+        if (_newNames.Count > 0)
         {
             _newNames.Clear();
             NewItemCountChanged?.Invoke(0);
         }
+    }
 
+    public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
+    {
         if (!Visible || _data == null)
         {
             _prevMouse = mouse;
@@ -257,11 +258,11 @@ public class InventoryWindow : GameWindow
 
             if (_trashRect.Contains(mouse.X, mouse.Y))
             {
-                var item = _stacks[idx].item;
-                if (item.Quantity > 1 && item.MaxStack > 1)
-                    PendingDrop?.Invoke(item, item.Quantity);
+                var (item, count) = _stacks[idx];
+                if (count > 1 && item.MaxStack > 1)
+                    PendingDrop?.Invoke(item, count);
                 else
-                    _confirm = (item, item.Quantity);
+                    _confirm = (item, count);
             }
             else if (moved >= 6 && idx < _stacks.Count)
             {

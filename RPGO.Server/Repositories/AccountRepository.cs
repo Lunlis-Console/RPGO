@@ -137,7 +137,7 @@ internal static class AccountRepository
         }
     }
 
-    internal static void SavePlayerProgress(Player player)
+    internal static void SavePlayerProgress(Player player, List<Item>? storageItems = null)
     {
         lock (Db.Lock)
         {
@@ -208,6 +208,9 @@ internal static class AccountRepository
 
             QuestRepository.Save(connection, player.Name, player.ActiveQuests);
             QuestRepository.SaveCompleted(connection, player.Name, player.CompletedQuestIds);
+
+            if (storageItems != null)
+                StorageRepository.SaveAll(connection, player.Name, storageItems);
 
             txn.Commit();
         }

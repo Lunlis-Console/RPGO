@@ -76,5 +76,8 @@ public static class MessageHandlerRegistry
         Register("dialogue_choice", new DialogueChoiceHandler(svc));
         Register("mail", new MailHandler(svc));
         Register("player_facing", new PlayerFacingHandler(svc));
+        Register("storage_open", new StorageOpenHandler(svc));
+        Register("storage_deposit", new StorageDepositHandler(svc));
+        Register("storage_withdraw", new StorageWithdrawHandler(svc));
     }
 }

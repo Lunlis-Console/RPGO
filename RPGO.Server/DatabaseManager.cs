@@ -84,7 +84,7 @@ public static class DatabaseManager
     public static int GetAccountCount() => AccountRepository.GetCount();
     public static (bool Success, Account? Account) Register(string login, string password, string playerName) => AccountRepository.Register(login, password, playerName);
     public static (bool Success, Account? Account) Login(string login, string password) => AccountRepository.Login(login, password);
-    public static void SavePlayerProgress(Player player) => AccountRepository.SavePlayerProgress(player);
+    public static void SavePlayerProgress(Player player, List<Item>? storageItems = null) => AccountRepository.SavePlayerProgress(player, storageItems);
     public static void SetAdmin(string login, bool isAdmin) => AccountRepository.SetAdmin(login, isAdmin);
     public static void SetBanned(string login, bool isBanned, string reason) => AccountRepository.SetBanned(login, isBanned, reason);
     public static string? GetLoginByPlayerName(string playerName) => AccountRepository.GetLoginByPlayerName(playerName);

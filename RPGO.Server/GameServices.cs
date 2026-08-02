@@ -36,6 +36,7 @@ public sealed class GameServices
     public InstanceManager Instances { get; }
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
+    public StorageService Storage { get; }
 
     public GameServices(
         GameWorld world,
@@ -61,7 +62,8 @@ public sealed class GameServices
         ZoneManager zones,
         InstanceManager instances,
         PersistenceService persistence,
-        ClientBuildService clientBuild)
+        ClientBuildService clientBuild,
+        StorageService storage)
     {
         World = world;
         Hub = hub;
@@ -87,6 +89,7 @@ public sealed class GameServices
         Instances = instances;
         Persistence = persistence;
         ClientBuild = clientBuild;
+        Storage = storage;
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)

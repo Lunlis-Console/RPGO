@@ -484,6 +484,16 @@ private sealed class RemotePlayerState
             }
             list.Add(new EntityInfo { Type = "board", Name = "Доска заданий", X = map.Board.X, Y = map.Board.Y });
         }
+        if (map.StorageChest != null)
+        {
+            var key = (map.StorageChest.X, map.StorageChest.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "storage_chest", Name = "Склад", X = map.StorageChest.X, Y = map.StorageChest.Y });
+        }
         foreach (var c in map.Collectibles ?? Enumerable.Empty<CollectiblePosition>())
         {
             var key = (c.X, c.Y);
@@ -738,7 +748,7 @@ private sealed class RemotePlayerState
                 "monster" => "attack",
                 "corpse" => "loot",
                 "collectible" => "harvest",
-                "npc" or "merchant" or "board" => "talk",
+                "npc" or "merchant" or "board" or "storage_chest" => "talk",
                 "player" when _currentMap?.PvPEnabled == true => "attack",
                 "player" => "player",
                 _ => "main"
@@ -1188,13 +1198,25 @@ private sealed class RemotePlayerState
             int px = map.InstanceChest.X, py = map.InstanceChest.Y;
             if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
             {
-                float ptx = _gridOX + (px - _viewStartX) * _cellW;
-                float pty = _gridOY + (py - _viewStartY) * _cellH;
-                Color chestColor = map.InstanceChest.IsLocked
-                    ? new Color(120, 80, 40, 200) : new Color(220, 180, 50, 200);
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), chestColor);
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8),
-                    map.InstanceChest.IsLocked ? new Color(90, 60, 30, 200) : new Color(255, 215, 80, 220));
+                var chestSheet = SpriteCache.Get("chest_ss");
+                if (chestSheet != null)
+                {
+                    int frameIdx = map.InstanceChest.IsLocked ? 2 : 3;
+                    var srcRect = new Rectangle(frameIdx * 64, 0, 64, 64);
+                    float ptx = _gridOX + (px - _viewStartX) * _cellW;
+                    float pty = _gridOY + (py - _viewStartY) * _cellH;
+                    sb.Draw(chestSheet, new Rectangle((int)ptx - 2, (int)pty - 2, (int)_cellW + 4, (int)_cellH + 4), srcRect, Color.White);
+                }
+                else
+                {
+                    float ptx = _gridOX + (px - _viewStartX) * _cellW;
+                    float pty = _gridOY + (py - _viewStartY) * _cellH;
+                    Color chestColor = map.InstanceChest.IsLocked
+                        ? new Color(120, 80, 40, 200) : new Color(220, 180, 50, 200);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), chestColor);
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8),
+                        map.InstanceChest.IsLocked ? new Color(90, 60, 30, 200) : new Color(255, 215, 80, 220));
+                }
             }
         }
     }
@@ -1375,6 +1397,24 @@ private sealed class RemotePlayerState
             DrawStatic(sb, SpriteCache.GetCollectibleSprite(), cl.X, cl.Y, startX, startY, endX, endY, Color.White);
         foreach (var cp in map.Corpses ?? Enumerable.Empty<CorpsePosition>())
             DrawStatic(sb, SpriteCache.GetCorpseSprite(), cp.X, cp.Y, startX, startY, endX, endY, new Color(200, 200, 200));
+
+        // Сундук склада (кадр 0 = закрыт)
+        if (map.StorageChest != null && map.StorageChest.X >= startX && map.StorageChest.X <= endX
+            && map.StorageChest.Y >= startY && map.StorageChest.Y <= endY)
+        {
+            var chestSheet = SpriteCache.Get("chest_ss");
+            if (chestSheet != null)
+            {
+                var srcRect = new Rectangle(0, 0, 64, 64);
+                float px = _gridOX + (map.StorageChest.X - startX) * _cellW;
+                float py = _gridOY + (map.StorageChest.Y - startY) * _cellH;
+                sb.Draw(chestSheet, new Rectangle((int)px - 2, (int)py - 2, (int)_cellW + 4, (int)_cellH + 4), srcRect, Color.White);
+            }
+            else
+            {
+                DrawStatic(sb, null, map.StorageChest.X, map.StorageChest.Y, startX, startY, endX, endY, new Color(180, 140, 60, 200));
+            }
+        }
     }
 
     private void DrawMonsterSprites(SpriteBatch sb, SpriteFont font, WorldMap map, int startX, int startY, int endX, int endY)
@@ -1813,6 +1853,7 @@ private sealed class RemotePlayerState
         else if (_selectedEntityType == "player" && _selectedEntityName != null) hkey = $"player:{_selectedEntityName}";
         if (_selectedEntityType == "merchant" && map.Merchant != null) { hx = map.Merchant.X; hy = map.Merchant.Y; }
         else if (_selectedEntityType == "board" && map.Board != null) { hx = map.Board.X; hy = map.Board.Y; }
+        else if (_selectedEntityType == "storage_chest" && map.StorageChest != null) { hx = map.StorageChest.X; hy = map.StorageChest.Y; }
         if (hkey != null) { lock (_stateLock) { if (_visPos.TryGetValue(hkey, out var hv)) { hx = (int)Math.Round(hv.X); hy = (int)Math.Round(hv.Y); } } }
         if (hx >= startX && hx <= endX && hy >= startY && hy <= endY)
         {

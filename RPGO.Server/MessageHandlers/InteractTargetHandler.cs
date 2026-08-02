@@ -146,6 +146,7 @@ public class InteractTargetHandler : BaseHandler
             int nx = targetX + dx[i];
             int ny = targetY + dy[i];
             if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
+            if (World.Map.IsObstacle(nx, ny)) continue;
             if (nx == Svc.Merchant.MerchantX && ny == Svc.Merchant.MerchantY) continue;
             if (nx == Svc.Quests.BoardX && ny == Svc.Quests.BoardY) continue;
             if (Svc.Monsters.FindMonsterAt(nx, ny) != null) continue;

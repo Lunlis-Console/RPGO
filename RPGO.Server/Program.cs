@@ -111,11 +111,38 @@ partial class Program
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
         var persistence = new PersistenceService();
+        var storage = new StorageService(world, hub);
+
+        // Вычисляем позицию склада рядом с торговцем
+        int storageX = merchant.MerchantX + 1;
+        int storageY = merchant.MerchantY;
+        if (world.Map.IsObstacle(storageX, storageY))
+        {
+            // Ищем свободную клетку рядом с торговцем
+            int[] dx = { 0, 0, -1, 1, 1, -1, 1, -1 };
+            int[] dy = { -1, 1, 0, 0, -1, -1, 1, 1 };
+            storageX = merchant.MerchantX;
+            storageY = merchant.MerchantY;
+            for (int i = 0; i < 8; i++)
+            {
+                int nx = merchant.MerchantX + dx[i];
+                int ny = merchant.MerchantY + dy[i];
+                if (!world.Map.IsObstacle(nx, ny))
+                {
+                    storageX = nx;
+                    storageY = ny;
+                    break;
+                }
+            }
+        }
+        world.Map.AddObstacle(storageX, storageY);
+        storage.SetPosition(storageX, storageY);
+        Log.Info($"Склад размещён на ({storageX}, {storageY})");
 
         // Единственное создание GameServices
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild);
+            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage);
 
         hub.SetServices(Services);
         monsters.SetServices(Services);

@@ -65,6 +65,8 @@ internal static class ClientMessageHandlerRegistry
         ["mail_detail"] = HandleMailDetail,
         ["mail_unread"] = HandleMailUnread,
         ["mail_result"] = HandleMailResult,
+        ["storage_open"] = HandleStorageOpen,
+        ["storage_update"] = HandleStorageUpdate,
     };
 
     public static bool TryHandle(GameClient client, GameMessage message)
@@ -774,5 +776,19 @@ internal static class ClientMessageHandlerRegistry
             string err = mrData.TryGetProperty("Message", out var merr) ? merr.GetString() ?? "" : "";
             c.RaiseMailResultReceived(ok, err);
         }
+    }
+
+    private static void HandleStorageOpen(GameClient c, GameMessage m)
+    {
+        var data = m.Deserialize<StorageData>();
+        if (data != null)
+            c.RaiseStorageOpened(data);
+    }
+
+    private static void HandleStorageUpdate(GameClient c, GameMessage m)
+    {
+        var data = m.Deserialize<StorageData>();
+        if (data != null)
+            c.RaiseStorageUpdated(data);
     }
 }

@@ -122,6 +122,9 @@ public static class SpriteCache
         // Спрайт стрелы для снарядов
         LoadTexture("projectile_arrow", "RPGGame.ClientMonoGame.Content.Sprites.Skill_Animations.Arrow.png");
 
+        // Сундук склада/инстанса
+        LoadTexture("chest_ss", "RPGGame.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png");
+
         Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
     }
 

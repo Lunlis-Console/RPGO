@@ -24,6 +24,7 @@ public class WorldMap
     public List<PortalPosition> Portals { get; set; } = new();
     public PortalPosition? InstanceExitPortal { get; set; }
     public ChestPosition? InstanceChest { get; set; }
+    public ChestPosition? StorageChest { get; set; }
     public double? InstanceExpiresAtUtcMs { get; set; }
 
     public List<HazardPosition> Hazards { get; set; } = new();

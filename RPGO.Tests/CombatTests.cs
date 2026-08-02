@@ -21,7 +21,7 @@ public class CombatTests
             new DialogueManager(world, quests, merchant), new PartyManager(world),
             new ProjectileManager(world), new KillService(world),
             new PathfindingService(world, merchant, quests), debuffs,
-            combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!);
+            combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!, storage: null!);
         _monsters.SetServices(svc);
         Program.Services = svc;
     }

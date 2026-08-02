@@ -12,14 +12,30 @@ public class GameWindow
     public int Y { get; set; }
     public int Width { get; set; } = 400;
     public int Height { get; set; } = 500;
-    public bool Visible { get; set; }
     public bool IsModal { get; set; }
+
+    private bool _visible;
+    public bool Visible
+    {
+        get => _visible;
+        set
+        {
+            if (_visible == value) return;
+            _visible = value;
+            if (!value) OnHidden();
+        }
+    }
 
     // true, если окно в данный момент выполняет внутренний drag-n-drop
     public virtual bool IsDragging => false;
 
     // Вызывается при закрытии окна (клик по крестику)
     protected virtual void OnClose() { }
+
+    // Вызывается при любом скрытии окна (крестик, горячая клавиша, закрытие
+    // из другого окна) — позволяет сбросить временное состояние (например,
+    // подсветку новых предметов).
+    protected virtual void OnHidden() { }
 
     public bool Contains(Point p) => new Rectangle(X, Y, Width, Height).Contains(p);
 

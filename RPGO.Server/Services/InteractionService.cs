@@ -150,6 +150,10 @@ public class InteractionService
                 await _svc.Instances.TryOpenChest(player, client);
                 break;
 
+            case "storage_chest":
+                await _svc.Storage.OnPlayerInteractAsync(player);
+                break;
+
             case "collectible":
                 var lootItem = _svc.Collectibles.TryCollect(player.Interaction.X, player.Interaction.Y, player.CurrentZoneId);
                 if (lootItem != null)

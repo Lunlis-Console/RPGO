@@ -144,6 +144,7 @@ public static class Balance
     public const int HotbarSlots = 10;
     public const int DefaultMaxStack = 10;
     public const int UniqueItemMaxStack = 1;
+    public const int StorageSlots = 60;
 
     public static int MaxStackForType(string? type)
         => type == "consumable" || type == "collectible" || type == "trophy" || type == "material"

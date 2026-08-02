@@ -27,4 +27,6 @@ public static class ErrorCodes
     public const string NoFreeCell = "NO_FREE_CELL";
     public const string PathNotFound = "PATH_NOT_FOUND";
     public const string SkillNotFound = "SKILL_NOT_FOUND";
+    public const string NoSpace = "NO_SPACE";
+    public const string InvalidParameter = "INVALID_PARAMETER";
 }

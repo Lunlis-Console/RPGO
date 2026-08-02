@@ -43,6 +43,7 @@ public class GameScreen : IScreen
     private readonly DeathWindow _deathWindow = new();
     private readonly DialogueWindow _dialogueWindow = new();
     private readonly MailWindow _mailWindow = new();
+    private readonly StorageWindow _storageWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
@@ -293,6 +294,7 @@ public class GameScreen : IScreen
         {
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
+            _storageWindow.UpdateInventory(inv.Items);
             if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
             // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
@@ -647,6 +649,7 @@ public class GameScreen : IScreen
         _windows.Add(_deathWindow);
         _windows.Add(_dialogueWindow);
         _windows.Add(_mailWindow);
+        _windows.Add(_storageWindow);
 
         // Mail events
         _mailWindow.InboxRequested += () =>
@@ -756,6 +759,26 @@ public class GameScreen : IScreen
             _hudDraw.SetMailUnreadCount(count);
             _mailWindow.RefreshInboxIfOpen();
         };
+
+        // Storage events
+        client.StorageOpened += data =>
+        {
+            var invItems = client.Inventory?.Items ?? new List<Item>();
+            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
+            GameInputHandler.CenterWindow(_storageWindow, GameMain.Instance!);
+            _windows.BringToFront(_storageWindow);
+        };
+        client.StorageUpdated += data =>
+        {
+            var invItems = client.Inventory?.Items ?? new List<Item>();
+            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
+        };
+        _storageWindow.DepositItem += (id, qty) => _ = client.SendAsync("storage_deposit", new { ItemId = id, Quantity = qty });
+        _storageWindow.WithdrawItem += (id, qty) => _ = client.SendAsync("storage_withdraw", new { ItemId = id, Quantity = qty });
+        _storageWindow.PendingDeposit += (item, max) =>
+            _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+        _storageWindow.PendingWithdraw += (item, max) =>
+            _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_withdraw", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
     }
 
     private void ApplySettings()

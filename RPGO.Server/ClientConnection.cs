@@ -1,4 +1,5 @@
 using RPGGame.Shared.Models;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 
 namespace RPGGame.Server;
@@ -16,8 +17,13 @@ public class ClientConnection
     public bool IsReconnecting { get; set; } = false;
     public string? SessionToken { get; set; }
 
-    /// <summary>Tile data already sent for current zone — skip in subsequent map_updates.</summary>
-    public bool TileDataSent { get; set; }
+    // Тайлы отправляются один раз на зону в рамках соединения (а не один флаг на все зоны).
+    // Это исключает гонку: при смене зоны клиент всегда получит тайлы новой зоны,
+    // даже если конкурентный BroadcastMapAsync успел отправить map_update без тайлов.
+    private readonly ConcurrentDictionary<string, byte> _tilesSentZones = new();
+
+    public bool HasTilesSent(string zoneId) => _tilesSentZones.ContainsKey(zoneId);
+    public void MarkTilesSent(string zoneId) => _tilesSentZones[zoneId] = 0;
 
     public ClientConnection(TcpClient client)
     {

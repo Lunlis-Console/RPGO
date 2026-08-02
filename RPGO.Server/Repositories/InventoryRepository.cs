@@ -124,7 +124,7 @@ internal static class InventoryRepository
                 }
             }
 
-            return result;
+            return InventoryHelper.ConsolidateStackables(result);
         }
     }
 
@@ -132,14 +132,20 @@ internal static class InventoryRepository
     {
         int qty = Math.Max(1, item.Quantity);
 
-        if (!string.IsNullOrEmpty(item.TemplateId) && Balance.MaxStackForType(item.Type) > 1)
+        if (Balance.MaxStackForType(item.Type) > 1)
         {
+            // Стакаем по TemplateId, а если его нет — по паре (type, name)
+            // (зелья, трофеи, коллекционки хранятся без template_id).
             var find = connection.CreateCommand();
             find.CommandText = @"SELECT id, quantity FROM inventory
-                WHERE player_name = $name AND COALESCE(template_id,'') = $tid
+                WHERE player_name = $name
+                  AND ( (COALESCE(template_id,'') != '' AND COALESCE(template_id,'') = $tid)
+                     OR (COALESCE(template_id,'') = '' AND type = $itype AND name = $iname) )
                 ORDER BY quantity DESC LIMIT 1";
             find.Parameters.AddWithValue("$name", playerName);
             find.Parameters.AddWithValue("$tid", item.TemplateId);
+            find.Parameters.AddWithValue("$itype", item.Type);
+            find.Parameters.AddWithValue("$iname", item.Name);
             using var reader = find.ExecuteReader();
             if (reader.Read())
             {

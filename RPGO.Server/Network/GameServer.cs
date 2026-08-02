@@ -160,7 +160,7 @@ public sealed class GameServer : INetworkHub
             string zoneId = player.CurrentZoneId;
 
             // Skip clients in zones with no changes (unless first send)
-            if (hasDirtyZones && !_dirtyZones.ContainsKey(zoneId) && client.TileDataSent)
+            if (hasDirtyZones && !_dirtyZones.ContainsKey(zoneId) && client.HasTilesSent(zoneId))
                 continue;
 
             var zone = svc.Zones.GetZone(zoneId);
@@ -232,13 +232,19 @@ public sealed class GameServer : INetworkHub
                     ExpiresAtMs = new DateTimeOffset(h.ExpiresAt).ToUnixTimeMilliseconds()
                 }).ToList();
 
-            var mapData = new WorldMap
+            var             mapData = new WorldMap
             {
                 Width = zoneMap.Width,
                 Height = zoneMap.Height,
                 Players = sameZonePlayers,
                 Merchant = (zoneId == "main") ? merchant : null,
                 Board = (zoneId == "main") ? board : null,
+                StorageChest = (zoneId == "main") ? new ChestPosition
+                {
+                    X = svc.Storage.StorageX,
+                    Y = svc.Storage.StorageY,
+                    IsLocked = false
+                } : null,
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
                 Corpses = nearbyCorpses,
@@ -254,16 +260,16 @@ public sealed class GameServer : INetworkHub
                 PvPEnabled = isPvp,
                 Portals = portals,
                 TileMapId = zoneId,
-                TileData = client.TileDataSent ? null : zoneMap.GetTiles(),
-                ObstacleData = client.TileDataSent ? null : zoneMap.GetObstacleData(),
+                TileData = client.HasTilesSent(zoneId) ? null : zoneMap.GetTiles(),
+                ObstacleData = client.HasTilesSent(zoneId) ? null : zoneMap.GetObstacleData(),
                 TileWidth = svc.Zones.GetTileConfig(zoneId).TileWidth,
                 TileHeight = svc.Zones.GetTileConfig(zoneId).TileWidth,
                 TilesetId = svc.Zones.GetTileConfig(zoneId).TilesetId,
-                ObjectData = client.TileDataSent ? null : zoneMap.GetObjectTiles(),
+                ObjectData = client.HasTilesSent(zoneId) ? null : zoneMap.GetObjectTiles(),
                 ObjectTilesetId = svc.Zones.GetTileConfig(zoneId).ObjectTilesetId,
                 ObjectTileWidth = svc.Zones.GetTileConfig(zoneId).ObjectTileWidth
             };
-            client.TileDataSent = true;
+            client.MarkTilesSent(zoneId);
 
             if (zoneId.StartsWith("instance:"))
             {
@@ -773,7 +779,6 @@ public sealed class GameServer : INetworkHub
     {
         var zone = _svc.Zones.GetZone(player.CurrentZoneId);
         var zoneMap = _svc.Zones.GetOrCreateMap(player.CurrentZoneId);
-        connection.TileDataSent = false;
         await SendToClient(connection, new GameMessage
         {
             Type = "zone_transition",

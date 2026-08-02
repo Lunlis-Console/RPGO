@@ -86,8 +86,8 @@ public class ReconnectHandler : BaseHandler
         await Hub.SendHotbar(connection, loadedPlayer);
         await Hub.SendSkills(connection);
 
-        // Сразу отправляем свежую карту (у нового соединения TileDataSent = false,
-        // поэтому клиент получит и тайлы, и сущности текущей зоны).
+        // Сразу отправляем свежую карту (у нового соединения тайлы не отправлены
+        // ни для одной зоны, поэтому клиент получит и тайлы, и сущности текущей зоны).
         await Hub.BroadcastMapAsync();
 
         Log.Info($"[Reconnect] {playerName} reconnected successfully");
