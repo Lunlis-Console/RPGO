@@ -17,6 +17,13 @@ public class ClientConnection
     public bool IsReconnecting { get; set; } = false;
     public string? SessionToken { get; set; }
 
+    /// <summary>
+    /// Клиент получил приветствие (welcome/reconnect_ok). До этого момента
+    /// BroadcastMapAsync не должен слать map_update: иначе тайлы могут дойти
+    /// раньше создания GameScreen на клиенте и потеряться (баг «трава»).
+    /// </summary>
+    public bool WelcomeSent { get; set; }
+
     // Тайлы отправляются один раз на зону в рамках соединения (а не один флаг на все зоны).
     // Это исключает гонку: при смене зоны клиент всегда получит тайлы новой зоны,
     // даже если конкурентный BroadcastMapAsync успел отправить map_update без тайлов.

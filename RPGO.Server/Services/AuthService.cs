@@ -111,6 +111,10 @@ public class AuthService
                             Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name }
                         });
 
+                        // Только после welcome клиент создаёт GameScreen и подписывается
+                        // на MapUpdated — иначе первый map_update с тайлами будет потерян.
+                        connection.WelcomeSent = true;
+
                         Log.Info($"Игрок {player.Name} вошел в мир на позиции ({player.X}, {player.Y})");
                         await hub.BroadcastMapAsync();
                         await hub.SendQuestLog(connection, player);

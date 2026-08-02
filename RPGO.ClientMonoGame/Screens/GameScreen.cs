@@ -47,6 +47,8 @@ public class GameScreen : IScreen
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
+    private string? _tileRequestedZone;
+    private DateTime _tileRequestTime;
 
     public GameScreen()
     {
@@ -81,6 +83,10 @@ public class GameScreen : IScreen
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
                 _minimap.SetTileData(map.TileData, map.Width, map.Height);
             }
+            else if (!_mapRenderer.HasValidTiles(map.Width, map.Height))
+            {
+                RequestTilesIfNeeded(map);
+            }
             if (map.ObstacleData != null && map.ObstacleData.Length > 0)
             {
                 _mapRenderer.SetObstacleData(map.ObstacleData, map.Width, map.Height);
@@ -107,6 +113,7 @@ public class GameScreen : IScreen
         {
             _mapRenderer.SetTileData(data, w, h, tilesetId, tileSize);
             _minimap.SetTileData(data, w, h);
+            _tileRequestedZone = null; // тайлы получены — разрешаем повторный запрос при следующей проблеме
         };
         client.ObstacleDataReceived += (data, w, h) =>
         {
@@ -779,6 +786,22 @@ public class GameScreen : IScreen
             _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
         _storageWindow.PendingWithdraw += (item, max) =>
             _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_withdraw", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+    }
+
+    /// <summary>
+    /// Self-heal тайлов: если map_update пришёл без TileData и у рендера нет валидных
+    /// тайлов для текущей зоны (гонка при логине — первый map_update мог прийти до
+    /// создания GameScreen), запрашиваем тайлы у сервера. Повтор не чаще раза в 3 сек.
+    /// </summary>
+    private void RequestTilesIfNeeded(WorldMap map)
+    {
+        if (_mapRenderer.HasValidTiles(map.Width, map.Height)) return;
+        if (_tileRequestedZone == map.ZoneId && DateTime.UtcNow - _tileRequestTime < TimeSpan.FromSeconds(3))
+            return;
+        _tileRequestedZone = map.ZoneId;
+        _tileRequestTime = DateTime.UtcNow;
+        Logger.Info($"TileRequest: запрашиваю тайлы зоны '{map.ZoneId}' ({map.Width}x{map.Height})");
+        _ = GameMain.Instance!.Client.SendAsync("tile_request", null);
     }
 
     private void ApplySettings()

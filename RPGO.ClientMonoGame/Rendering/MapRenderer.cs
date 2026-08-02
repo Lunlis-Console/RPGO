@@ -75,6 +75,15 @@ public class MapRenderer
         _tileSize = tileSize;
     }
 
+    /// <summary>
+    /// Есть ли у рендера тайлы, подходящие под карту указанного размера.
+    /// Используется для self-heal: если тайлы текущей зоны не пришли (гонка
+    /// при логине), клиент запрашивает их повторно.
+    /// </summary>
+    public bool HasValidTiles(int width, int height)
+        => _tileData != null && _tileMapWidth == width && _tileMapHeight == height
+           && _tileData.Length == width * height;
+
     public void SetObstacleData(byte[]? data, int width, int height)
     {
         _obstacleData = data;

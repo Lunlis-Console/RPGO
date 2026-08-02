@@ -117,7 +117,7 @@ public sealed class GameServer : INetworkHub
     {
         var svc = _svc;
         List<ClientConnection> clientsCopy = _world.GetClientsSnapshot()
-            .Where(c => c.Player != null).ToList();
+            .Where(c => c.Player != null && c.WelcomeSent).ToList();
 
         var allMonsters = svc.Monsters.GetMonsterPositions();
         allMonsters.AddRange(svc.Instances.GetAllMonstersPositions());

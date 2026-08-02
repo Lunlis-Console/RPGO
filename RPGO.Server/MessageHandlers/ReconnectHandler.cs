@@ -73,6 +73,7 @@ public class ReconnectHandler : BaseHandler
 
         connection.Player = loadedPlayer;
         connection.IsReconnecting = false;
+        connection.WelcomeSent = true;
 
         var state = BuildPlayerState(loadedPlayer);
         await SendToClient(connection, new GameMessage
