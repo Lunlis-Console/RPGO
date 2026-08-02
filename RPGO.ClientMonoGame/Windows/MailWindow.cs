@@ -121,7 +121,12 @@ public class MailWindow : GameWindow
             .Select(g =>
             {
                 var first = g.First();
-                return new MailAttachment { TemplateId = first.TemplateId, Name = first.Name, Type = first.Type, Quantity = g.Sum(x => x.Quantity) };
+                return new MailAttachment
+                {
+                    TemplateId = first.TemplateId, Name = first.Name, Type = first.Type,
+                    Quantity = g.Sum(x => x.Quantity),
+                    WeaponSubtype = first.WeaponSubtype, HealAmount = first.HealAmount, RestoreMana = first.RestoreMana
+                };
             })
             .Where(a => a.Quantity > 0)
             .ToList();
@@ -776,6 +781,9 @@ public class MailAttachment
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
     public int Quantity { get; set; } = 1;
+    public string WeaponSubtype { get; set; } = "";
+    public int HealAmount { get; set; }
+    public int RestoreMana { get; set; }
 
     public MailAttachment Clone() => (MailAttachment)MemberwiseClone();
 }

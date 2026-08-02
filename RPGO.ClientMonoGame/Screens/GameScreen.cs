@@ -678,7 +678,10 @@ public class GameScreen : IScreen
                 Subject = subject,
                 Body = body,
                 GoldAmount = gold,
-                Attachments = attachments.Select(a => new { a.TemplateId, a.Quantity }).ToList()
+                Attachments = attachments.Select(a => new
+                {
+                    a.TemplateId, a.Quantity, a.WeaponSubtype, a.HealAmount, a.RestoreMana
+                }).ToList()
             });
         };
         _mailWindow.ReadRequested += id =>

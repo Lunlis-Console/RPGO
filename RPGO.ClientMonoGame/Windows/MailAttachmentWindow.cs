@@ -130,12 +130,15 @@ public class MailAttachmentWindow : GameWindow
                 TemplateId = a.Key,
                 Name = a.First().Name,
                 Type = a.First().Type,
-                Quantity = a.Sum(x => x.Quantity)
+                Quantity = a.Sum(x => x.Quantity),
+                WeaponSubtype = a.First().WeaponSubtype,
+                HealAmount = a.First().HealAmount,
+                RestoreMana = a.First().RestoreMana
             })
             .ToList();
     }
 
-    private void AddAttachment(string templateId, string name, string type, int qty)
+    private void AddAttachment(string templateId, string name, string type, int qty, Item? source = null)
     {
         int available = Available(templateId);
         qty = Math.Min(qty, available);
@@ -145,7 +148,13 @@ public class MailAttachmentWindow : GameWindow
         if (existing != null)
             existing.Quantity += qty;
         else
-            _attachments.Add(new MailAttachment { TemplateId = templateId, Name = name, Type = type, Quantity = qty });
+            _attachments.Add(new MailAttachment
+            {
+                TemplateId = templateId, Name = name, Type = type, Quantity = qty,
+                WeaponSubtype = source?.WeaponSubtype ?? "",
+                HealAmount = source?.HealAmount ?? 0,
+                RestoreMana = source?.RestoreMana ?? 0
+            });
     }
 
     private void RemoveAttachment(string templateId, int qty)
@@ -322,16 +331,16 @@ public class MailAttachmentWindow : GameWindow
 
         if (wholeStack)
         {
-            AddAttachment(item.TemplateId, item.Name, item.Type, available);
+            AddAttachment(item.TemplateId, item.Name, item.Type, available, item);
         }
         else if (IsStackable(item.Type) && available > 1)
         {
             RequestQuantity?.Invoke(item.Name, available, 1, qty =>
-                AddAttachment(item.TemplateId, item.Name, item.Type, Math.Min(qty, available)));
+                AddAttachment(item.TemplateId, item.Name, item.Type, Math.Min(qty, available), item));
         }
         else
         {
-            AddAttachment(item.TemplateId, item.Name, item.Type, 1);
+            AddAttachment(item.TemplateId, item.Name, item.Type, 1, item);
         }
     }
 
@@ -404,7 +413,11 @@ public class MailAttachmentWindow : GameWindow
     private Item? ToItem(MailAttachment? att)
     {
         if (att == null) return null;
-        return new Item { TemplateId = att.TemplateId, Name = att.Name, Type = att.Type, Quantity = att.Quantity };
+        return new Item
+        {
+            TemplateId = att.TemplateId, Name = att.Name, Type = att.Type, Quantity = att.Quantity,
+            WeaponSubtype = att.WeaponSubtype, HealAmount = att.HealAmount, RestoreMana = att.RestoreMana
+        };
     }
 
     private void DrawInvPanel(SpriteBatch sb, SpriteFont font, SpriteFont fontS)

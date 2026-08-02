@@ -765,7 +765,10 @@ internal static class ClientMessageHandlerRegistry
                     TemplateId = a.TryGetProperty("TemplateId", out var ti) ? ti.GetString() ?? "" : "",
                     Name = a.TryGetProperty("Name", out var nm) ? nm.GetString() ?? "" : "",
                     Type = a.TryGetProperty("Type", out var ty) ? ty.GetString() ?? "" : "",
-                    Quantity = a.TryGetProperty("Quantity", out var qq) ? qq.GetInt32() : 0
+                    Quantity = a.TryGetProperty("Quantity", out var qq) ? qq.GetInt32() : 0,
+                    WeaponSubtype = a.TryGetProperty("WeaponSubtype", out var ws) ? ws.GetString() ?? "" : "",
+                    HealAmount = a.TryGetProperty("HealAmount", out var ha) ? ha.GetInt32() : 0,
+                    RestoreMana = a.TryGetProperty("RestoreMana", out var rm) ? rm.GetInt32() : 0
                 });
             }
         }

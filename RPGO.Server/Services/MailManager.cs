@@ -62,7 +62,10 @@ public static class MailManager
                     TemplateId = att.TemplateId,
                     Name = att.Name,
                     Type = att.Type,
-                    Quantity = att.Quantity
+                    Quantity = att.Quantity,
+                    WeaponSubtype = att.WeaponSubtype ?? "",
+                    HealAmount = att.HealAmount,
+                    RestoreMana = att.RestoreMana
                 });
             }
         }

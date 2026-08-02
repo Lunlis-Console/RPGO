@@ -47,13 +47,16 @@ public static class MailRepository
             {
                 if (att == null || string.IsNullOrEmpty(att.TemplateId) || att.Quantity <= 0) continue;
                 using var aCmd = conn.CreateCommand();
-                aCmd.CommandText = @"INSERT INTO mail_attachments (mail_id, template_id, name, type, quantity)
-                    VALUES ($mailId, $tid, $name, $type, $qty)";
+                aCmd.CommandText = @"INSERT INTO mail_attachments (mail_id, template_id, name, type, quantity, weapon_subtype, heal_amount, restore_mana)
+                    VALUES ($mailId, $tid, $name, $type, $qty, $weaponSubtype, $healAmount, $restoreMana)";
                 aCmd.Parameters.AddWithValue("$mailId", mailId);
                 aCmd.Parameters.AddWithValue("$tid", att.TemplateId);
                 aCmd.Parameters.AddWithValue("$name", att.Name);
                 aCmd.Parameters.AddWithValue("$type", att.Type);
                 aCmd.Parameters.AddWithValue("$qty", att.Quantity);
+                aCmd.Parameters.AddWithValue("$weaponSubtype", att.WeaponSubtype);
+                aCmd.Parameters.AddWithValue("$healAmount", att.HealAmount);
+                aCmd.Parameters.AddWithValue("$restoreMana", att.RestoreMana);
                 aCmd.ExecuteNonQuery();
             }
 
@@ -185,10 +188,10 @@ public static class MailRepository
     {
         if (mails.Count == 0) return;
         var ids = mails.Select(m => m.Id).ToList();
-        string inClause = string.Join(",", ids.Select(_ => "?"));
+        string inClause = string.Join(",", ids.Select((_, i) => "$p" + i));
 
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"SELECT mail_id, template_id, name, type, quantity FROM mail_attachments WHERE mail_id IN ({inClause}) ORDER BY id";
+        cmd.CommandText = $"SELECT mail_id, template_id, name, type, quantity, weapon_subtype, heal_amount, restore_mana FROM mail_attachments WHERE mail_id IN ({inClause}) ORDER BY id";
         for (int i = 0; i < ids.Count; i++)
             cmd.Parameters.AddWithValue("$p" + i, ids[i]);
         using var reader = cmd.ExecuteReader();
@@ -203,7 +206,10 @@ public static class MailRepository
                     TemplateId = reader.GetString(1),
                     Name = reader.GetString(2),
                     Type = reader.GetString(3),
-                    Quantity = reader.GetInt32(4)
+                    Quantity = reader.GetInt32(4),
+                    WeaponSubtype = reader.GetString(5),
+                    HealAmount = reader.GetInt32(6),
+                    RestoreMana = reader.GetInt32(7)
                 });
             }
         }
@@ -216,6 +222,9 @@ public class MailAttachment
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
     public int Quantity { get; set; } = 1;
+    public string WeaponSubtype { get; set; } = "";
+    public int HealAmount { get; set; }
+    public int RestoreMana { get; set; }
 }
 
 public class MailData

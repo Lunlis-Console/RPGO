@@ -79,6 +79,9 @@ public class MailHandler : BaseHandler
                 }
                 var proto = invItem.Clone();
                 proto.Quantity = qty;
+                proto.WeaponSubtype = a.TryGetProperty("WeaponSubtype", out var ws) ? (ws.GetString() ?? "") : (invItem.WeaponSubtype ?? "");
+                proto.HealAmount = a.TryGetProperty("HealAmount", out var ha) ? ha.GetInt32() : invItem.HealAmount;
+                proto.RestoreMana = a.TryGetProperty("RestoreMana", out var rm) ? rm.GetInt32() : invItem.RestoreMana;
                 attachments.Add(proto);
             }
         }
@@ -88,15 +91,15 @@ public class MailHandler : BaseHandler
             int attachQty = el.TryGetProperty("ItemQuantity", out var iq) ? iq.GetInt32() : 0;
             if (!string.IsNullOrEmpty(attachItemId) && attachQty > 0)
             {
-                var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == attachItemId);
-                if (invItem == null)
-                {
-                    await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
-                    return;
-                }
-                var proto = invItem.Clone();
-                proto.Quantity = attachQty;
-                attachments.Add(proto);
+        var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == attachItemId);
+        if (invItem == null)
+        {
+            await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
+            return;
+        }
+        var proto = invItem.Clone();
+        proto.Quantity = attachQty;
+        attachments.Add(proto);
             }
         }
 
@@ -227,6 +230,10 @@ public class MailHandler : BaseHandler
         ItemName = m.Attachments.FirstOrDefault()?.Name ?? "",
         ItemType = m.Attachments.FirstOrDefault()?.Type ?? "",
         ItemQuantity = m.Attachments.FirstOrDefault()?.Quantity ?? 0,
-        Attachments = m.Attachments.Select(a => new { a.TemplateId, a.Name, a.Type, a.Quantity }).ToList()
+        Attachments = m.Attachments.Select(a => new
+        {
+            a.TemplateId, a.Name, a.Type, a.Quantity,
+            a.WeaponSubtype, a.HealAmount, a.RestoreMana
+        }).ToList()
     };
 }
