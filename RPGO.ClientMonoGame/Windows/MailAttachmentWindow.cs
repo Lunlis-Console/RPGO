@@ -75,6 +75,7 @@ public class MailAttachmentWindow : GameWindow
         Width = 680;
         Height = 560;
         Visible = false;
+        IsModal = true;
     }
 
     public void Open(List<Item> inventoryItems, List<MailAttachment> current)
