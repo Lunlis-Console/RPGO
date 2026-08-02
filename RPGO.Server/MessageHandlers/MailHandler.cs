@@ -38,8 +38,6 @@ public class MailHandler : BaseHandler
             Type = "mail_list",
             Data = new { Folder = "inbox", Mails = mails.Select(m => MapMail(m)).ToList() }
         });
-        int unread = MailRepository.CountUnread(player.Name);
-        await SendToClient(connection, new GameMessage { Type = "mail_unread", Data = new { Count = unread } });
     }
 
     private async Task HandleOutbox(ClientConnection connection, Player player)
@@ -146,8 +144,12 @@ public class MailHandler : BaseHandler
         if (mail == null) return;
         if (mail.SenderName != player.Name && mail.RecipientName != player.Name) return;
 
-        MailRepository.MarkRead(mailId);
-        mail.ReadAt = DateTime.UtcNow.ToString("o");
+        bool isRecipient = mail.RecipientName == player.Name;
+        if (isRecipient)
+        {
+            MailRepository.MarkRead(mailId);
+            mail.ReadAt = DateTime.UtcNow.ToString("o");
+        }
 
         await SendToClient(connection, new GameMessage
         {
@@ -155,8 +157,11 @@ public class MailHandler : BaseHandler
             Data = MapMail(mail)
         });
 
-        int unread = MailRepository.CountUnread(player.Name);
-        await SendToClient(connection, new GameMessage { Type = "mail_unread", Data = new { Count = unread } });
+        if (isRecipient)
+        {
+            int unread = MailRepository.CountUnread(player.Name);
+            await SendToClient(connection, new GameMessage { Type = "mail_unread", Data = new { Count = unread } });
+        }
     }
 
     private async Task HandleTake(ClientConnection connection, Player player, GameMessage message)
