@@ -514,14 +514,13 @@ partial class Program
                     Log.Info("  bot say <текст>                — сказать в локальный чат");
                     Log.Info("  bot whisper <игрок> <текст>    — личное сообщение");
                     Log.Info("  bot invite <игрок>             — пригласить в группу");
-                    Log.Info("  bot accept [игрок]             — принять приглашение в группу");
-                    Log.Info("  bot decline [игрок]            — отклонить приглашение");
+                    Log.Info("  bot leave                      — выйти из группы");
                     Log.Info("  bot trade <игрок>              — запросить обмен");
-                    Log.Info("  bot trade_accept [игрок]       — принять обмен");
-                    Log.Info("  bot trade_decline [игрок]      — отклонить обмен");
+                    Log.Info("  bot trade_cancel               — прервать обмен");
                     Log.Info("  bot mail <игрок> <тема>        — отправить письмо");
                     Log.Info("  bot move <x> <y>               — переместиться");
                     Log.Info("  bot logout                     — выйти из игры");
+                    Log.Info("  (приглашения в группу и запросы обмена бот принимает автоматически)");
                     return;
                 }
 

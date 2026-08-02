@@ -88,12 +88,12 @@ public class TestBot : IDisposable
                 break;
             }
             if (msg == null) break;
-            HandleMessage(msg);
+            await HandleMessage(msg);
         }
         Log.Info($"[Бот {Name}] Соединение закрыто");
     }
 
-    private void HandleMessage(GameMessage msg)
+    private async Task HandleMessage(GameMessage msg)
     {
         switch (msg.Type)
         {
@@ -102,11 +102,13 @@ public class TestBot : IDisposable
                 break;
             case "party_invite_received":
                 _lastPartyInviter = GetProp(msg.Data, "InviterName") ?? "";
-                Log.Info($"[Бот {Name}] Приглашение в группу от: {_lastPartyInviter} (bot accept — принять, bot decline — отклонить)");
+                Log.Info($"[Бот {Name}] Приглашение в группу от: {_lastPartyInviter} — принимаю автоматически");
+                await SendAsync(new GameMessage { Type = "party_accept", Data = new { InviterName = _lastPartyInviter } });
                 break;
             case "trade_request_received":
                 _lastTradeInviter = GetProp(msg.Data, "InviterName") ?? "";
-                Log.Info($"[Бот {Name}] Запрос обмена от: {_lastTradeInviter} (bot trade_accept / bot trade_decline)");
+                Log.Info($"[Бот {Name}] Запрос обмена от: {_lastTradeInviter} — принимаю автоматически");
+                await SendAsync(new GameMessage { Type = "trade_accept", Data = new { InviterName = _lastTradeInviter } });
                 break;
             case "mail_unread":
                 Log.Info($"[Бот {Name}] Непрочитанных писем: {GetProp(msg.Data, "Count") ?? "?"}");
@@ -200,6 +202,11 @@ public class TestBot : IDisposable
                 Log.Info($"[Бот {Name}] Отклонил приглашение от: {inviter}");
                 break;
 
+            case "leave":
+                await SendAsync(new GameMessage { Type = "party_leave" });
+                Log.Info($"[Бот {Name}] Вышел из группы");
+                break;
+
             case "trade":
                 if (parts.Length < 2) { Log.Warn($"[Бот {Name}] bot trade <игрок>"); break; }
                 await SendAsync(new GameMessage { Type = "trade_request", Data = new { TargetName = parts[1] } });
@@ -218,6 +225,11 @@ public class TestBot : IDisposable
                 if (trader.Length == 0) { Log.Warn($"[Бот {Name}] Нет активного запроса обмена"); break; }
                 await SendAsync(new GameMessage { Type = "trade_decline", Data = new { InviterName = trader } });
                 Log.Info($"[Бот {Name}] Отклонил обмен с: {trader}");
+                break;
+
+            case "trade_cancel":
+                await SendAsync(new GameMessage { Type = "trade_cancel" });
+                Log.Info($"[Бот {Name}] Прервал обмен");
                 break;
 
             case "mail":
