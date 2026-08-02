@@ -22,6 +22,7 @@ public class MapRenderer
     private string? _selectedEntityId;
     private string? _selectedEntityInfo;
     private int _moveTargetX = -1, _moveTargetY = -1;
+    private int _arriveX = -1, _arriveY = -1;
 
     // Кэш маршрута до точки движения: BFS не пересчитывается каждый кадр,
     // а только при смене цели/карты/клетки игрока.
@@ -37,9 +38,11 @@ public class MapRenderer
     // Визуальная интерполяция
     private readonly Dictionary<string, (float X, float Y)> _visPos = new();
     private readonly Dictionary<string, (int X, int Y)> _visTarget = new();
-    private readonly Dictionary<string, int> _visMoveMs = new();
     private readonly object _stateLock = new();
-    private DateTime _lastVisTime = DateTime.UtcNow;
+    private const float RenderDelayMinMs = 40f;
+    private const float RenderDelayBaseMs = 150f;
+    private sealed class VisSample { public float X; public float Y; public DateTime Time; }
+    private readonly Dictionary<string, List<VisSample>> _visHistory = new();
 
     private byte[]? _tileData;
     private int _tileMapWidth;
@@ -1009,13 +1012,20 @@ private sealed class RemotePlayerState
         {
             var k = $"monster:{m.Id}";
             SetVisTarget(k, m.X, m.Y);
-            _visMoveMs[k] = m.MoveIntervalMs > 0 ? m.MoveIntervalMs : 500;
             liveKeys.Add(k);
         }
         lock (_stateLock)
         {
             foreach (var k in _visTarget.Keys.ToList())
-                if (!liveKeys.Contains(k)) { _visTarget.Remove(k); _visPos.Remove(k); _visMoveMs.Remove(k); }
+            {
+                if (!liveKeys.Contains(k))
+                {
+                    _visTarget.Remove(k);
+                    _visPos.Remove(k);
+                    _visHistory.Remove(k);
+                    if (k.StartsWith("player:")) _remoteMoving.Remove(k.Substring(7));
+                }
+            }
         }
         AdvanceVisPositions();
     }
@@ -1501,9 +1511,7 @@ private sealed class RemotePlayerState
                 moving = _isMoving;
             else
             {
-                (int X, int Y) tgt = ((int)v.X, (int)v.Y);
-                lock (_stateLock) { _visTarget.TryGetValue($"player:{p.Name}", out tgt); }
-                moving = Math.Abs(tgt.X - v.X) > 0.05f || Math.Abs(tgt.Y - v.Y) > 0.05f;
+                lock (_stateLock) { _remoteMoving.TryGetValue(p.Name, out moving); }
             }
 
             DateTime? deathAnimStart = null;
@@ -1909,69 +1917,173 @@ private sealed class RemotePlayerState
     private void AdvanceVisPositions()
     {
         var now = DateTime.UtcNow;
-        float dt = (float)(now - _lastVisTime).TotalSeconds;
-        if (dt > 0.1f) dt = 0.1f;
-        _lastVisTime = now;
 
-        float visSpeed;
+        bool localArrived = false;
+        float localMoveMs = 0f;
+        WorldMap? map;
+        lock (_stateLock) { map = _currentMap; }
+        if (map != null)
+        {
+            var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
+            if (me != null)
+            {
+                if (_moveTargetX >= 0 && _moveTargetY >= 0)
+                {
+                    _arriveX = _moveTargetX;
+                    _arriveY = _moveTargetY;
+                }
+                localArrived = _arriveX >= 0 && _arriveY >= 0
+                    && me.X == _arriveX && me.Y == _arriveY;
+            }
+        }
         try
         {
             var st = GameMain.Instance?.Client.Status;
-            int moveMs = st?.MoveIntervalMs > 0 ? st.MoveIntervalMs : 500;
-            visSpeed = 1000f / moveMs;
+            if (st != null && st.MoveIntervalMs > 0) localMoveMs = st.MoveIntervalMs;
         }
-        catch
-        {
-            visSpeed = 2f;
-        }
-        float step = visSpeed * dt;
-        if (step < 0.0001f) step = 0.0001f;
+        catch { }
+
         _isMoving = false;
         lock (_stateLock)
         {
             foreach (var kv in _visTarget)
             {
-                var key = kv.Key; var tgt = kv.Value;
-                if (!_visPos.TryGetValue(key, out var v)) { _visPos[key] = (tgt.X, tgt.Y); continue; }
-                float dx = tgt.X - v.X, dy = tgt.Y - v.Y;
-                float dist = (float)Math.Sqrt(dx * dx + dy * dy);
-
-                if (key == $"player:{_playerName}")
+                var key = kv.Key;
+                if (!_visHistory.TryGetValue(key, out var hist) || hist.Count == 0)
                 {
-                    if (dist > 1.5f)
+                    _visPos[key] = (kv.Value.X, kv.Value.Y);
+                    continue;
+                }
+
+                bool isLocal = key == $"player:{_playerName}";
+                bool startedFromIdle = false;
+                if (isLocal && hist.Count >= 2)
+                {
+                    var pp = hist[hist.Count - 2];
+                    var cc = hist[hist.Count - 1];
+                    double gap = (cc.Time - pp.Time).TotalMilliseconds;
+                    double est = EstimateCadenceMs(key);
+                    startedFromIdle = gap > est * 1.5;
+                }
+                var (px, py) = ComputeVisualPos(hist, now, isLocal, localArrived, localMoveMs, startedFromIdle, out bool moving, out float vx, out float vy);
+
+                float tvx = kv.Value.X, tvy = kv.Value.Y;
+                float cdx = px - tvx, cdy = py - tvy;
+                float cdist = MathF.Sqrt(cdx * cdx + cdy * cdy);
+                const float MaxVisualDist = 0.5f;
+                if (cdist > MaxVisualDist)
+                {
+                    px = tvx + cdx / cdist * MaxVisualDist;
+                    py = tvy + cdy / cdist * MaxVisualDist;
+                }
+
+                _visPos[key] = (px, py);
+
+                if (isLocal)
+                {
+                    _isMoving = moving;
+                    if (moving && (vx != 0f || vy != 0f))
                     {
-                        _visPos[key] = (tgt.X, tgt.Y);
-                        _isMoving = false;
-                        continue;
-                    }
-                    if (dist > 0.0001f)
-                    {
-                        _isMoving = true;
-                        if (Math.Abs(dx) > Math.Abs(dy)) _localFacing = dx < 0 ? "left" : "right";
-                        else _localFacing = dy < 0 ? "up" : "down";
+                        if (Math.Abs(vx) > Math.Abs(vy)) _localFacing = vx < 0 ? "left" : "right";
+                        else _localFacing = vy < 0 ? "up" : "down";
                     }
                 }
                 else if (key.StartsWith("player:"))
                 {
-                    string pname = key.Substring(7);
-                    _remoteMoving[pname] = dist > 0.05f;
+                    _remoteMoving[key.Substring(7)] = moving;
                 }
-
-                // Монстры двигаются каждый со своей скоростью + свой случайный сдвиг фазы,
-                // чтобы группы не шагали синхронно.
-                float stepHere = step;
-                if (key.StartsWith("monster:"))
-                {
-                    int moveMs = _visMoveMs.TryGetValue(key, out int mm) && mm > 0 ? mm : 500;
-                    int h = StringComparer.Ordinal.GetHashCode(key) & 0x7fffffff;
-                    moveMs = (int)(moveMs * (0.55 + 0.9 * (h % 100) / 100.0));
-                    stepHere = Math.Max(0.0001f, 1000f / Math.Max(60, moveMs) * dt);
-                }
-
-                if (dist <= stepHere || dist < 0.001f) _visPos[key] = (tgt.X, tgt.Y);
-                else { float inv = stepHere / dist; _visPos[key] = (v.X + dx * inv, v.Y + dy * inv); }
             }
         }
+    }
+
+    private static (float X, float Y) ComputeVisualPos(List<VisSample> hist, DateTime now, bool isLocal, bool localArrived, float localMoveMs, bool startedFromIdle, out bool moving, out float vx, out float vy)
+    {
+        var last = hist[hist.Count - 1];
+        float lastX = last.X, lastY = last.Y;
+        moving = false;
+        vx = 0f;
+        vy = 0f;
+
+        if (hist.Count == 1)
+            return (lastX, lastY);
+
+        var prev = hist[hist.Count - 2];
+        double spanMs = (last.Time - prev.Time).TotalMilliseconds;
+        if (spanMs <= 0) spanMs = 1.0;
+        double cadence = Math.Clamp(spanMs, 60.0, 2000.0);
+        if (isLocal && localMoveMs > 0 && spanMs > localMoveMs * 3.0)
+            cadence = Math.Clamp(localMoveMs, 60.0, 2000.0);
+        double renderDelay = isLocal
+            ? Math.Clamp(cadence * 0.5, RenderDelayMinMs, RenderDelayBaseMs)
+            : Math.Clamp(cadence, RenderDelayMinMs, 2000.0);
+        double effSpan = Math.Min(spanMs, cadence);
+        double lastMs = (last.Time - DateTime.MinValue).TotalMilliseconds;
+        double rtMs = (now - DateTime.MinValue).TotalMilliseconds - renderDelay;
+
+        if (rtMs <= lastMs)
+        {
+            for (int i = hist.Count - 2; i >= 0; i--)
+            {
+                var a = hist[i];
+                var b = hist[i + 1];
+                double aMs = (a.Time - DateTime.MinValue).TotalMilliseconds;
+                double bMs = (b.Time - DateTime.MinValue).TotalMilliseconds;
+                if (i == hist.Count - 2 && bMs - aMs > effSpan)
+                    aMs = bMs - effSpan;
+                if (rtMs >= aMs && rtMs <= bMs)
+                {
+                    float t = (float)((rtMs - aMs) / (bMs - aMs));
+                    if (startedFromIdle && isLocal)
+                        t = t * t;
+                    float iax = b.X - a.X, iay = b.Y - a.Y;
+                    if (Math.Abs(iax) > 0.0001f || Math.Abs(iay) > 0.0001f)
+                    {
+                        double segMs = bMs - aMs;
+                        vx = (float)(iax / segMs);
+                        vy = (float)(iay / segMs);
+                        moving = true;
+                    }
+                    return (a.X + iax * t, a.Y + iay * t);
+                }
+            }
+            var first = hist[0];
+            return (first.X, first.Y);
+        }
+
+        vx = (float)((last.X - prev.X) / effSpan);
+        vy = (float)((last.Y - prev.Y) / effSpan);
+        if (vx == 0f && vy == 0f)
+            return (lastX, lastY);
+
+        if (isLocal && localArrived)
+            return (lastX, lastY);
+
+        double maxExt = Math.Max(0.0, cadence - renderDelay);
+        maxExt = Math.Min(maxExt, cadence * 0.45);
+        double dtExt = rtMs - lastMs;
+        if (dtExt <= maxExt)
+        {
+            moving = true;
+            return (lastX + (float)(vx * dtExt), lastY + (float)(vy * dtExt));
+        }
+
+        double over = dtExt - maxExt;
+        double decay = Math.Exp(-over / 160.0);
+        moving = maxExt > 0 && decay > 0.01;
+        return (lastX + (float)(vx * maxExt * decay), lastY + (float)(vy * maxExt * decay));
+    }
+
+    private static double EstimateCadenceMs(string key)
+    {
+        if (key.StartsWith("monster:")) return 1500;
+        int mi = 0;
+        try
+        {
+            var st = GameMain.Instance?.Client.Status;
+            if (st != null && st.MoveIntervalMs > 0) mi = st.MoveIntervalMs;
+        }
+        catch { }
+        return mi > 0 ? mi : 500;
     }
 
     private void SetVisTarget(string key, int tx, int ty)
@@ -1979,7 +2091,37 @@ private sealed class RemotePlayerState
         lock (_stateLock)
         {
             _visTarget[key] = (tx, ty);
-            if (!_visPos.ContainsKey(key)) _visPos[key] = (tx, ty);
+            var now = DateTime.UtcNow;
+            if (!_visHistory.TryGetValue(key, out var hist))
+            {
+                hist = new List<VisSample>();
+                _visHistory[key] = hist;
+            }
+            else
+            {
+                var last = hist[hist.Count - 1];
+                float dx = tx - last.X, dy = ty - last.Y;
+                float dist = MathF.Sqrt(dx * dx + dy * dy);
+                if (dist > 1.5f)
+                {
+                    hist.Clear();
+                    _visPos[key] = (tx, ty);
+                }
+                else if (dist > 0.001f)
+                {
+                    double gap = (now - last.Time).TotalMilliseconds;
+                    double est = EstimateCadenceMs(key);
+                    if (gap > est * 1.5)
+                        hist.Add(new VisSample { X = last.X, Y = last.Y, Time = now.AddMilliseconds(-est) });
+                    hist.Add(new VisSample { X = tx, Y = ty, Time = now });
+                }
+            }
+            if (hist.Count == 0)
+                hist.Add(new VisSample { X = tx, Y = ty, Time = now });
+            if (hist.Count > 8)
+                hist.RemoveRange(0, hist.Count - 8);
+            if (!_visPos.ContainsKey(key))
+                _visPos[key] = (tx, ty);
         }
     }
 

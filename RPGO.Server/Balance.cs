@@ -156,7 +156,10 @@ public static class Balance
 
     // ===== ЦИКЛЫ СЕРВЕРА =====
     public const int LoopMonsterWanderMs = 1500;
-    public const int LoopMovePathMs = 200;
+    // Цикл перемещения должен тикать быстрее самого быстрого MoveIntervalMs (500 / Speed),
+    // иначе серверный каденс (шаг = ceil(MoveIntervalMs / Loop) * Loop) отстаёт от
+    // клиентской интерполяции (1000 / MoveIntervalMs): персонаж то телепортируется, то стоит.
+    public const int LoopMovePathMs = 50;
     public const int LoopCombatMs = 200;
     public const int LoopMonsterAttackMs = 500;
 
