@@ -59,7 +59,7 @@ public static class KeyCharMap
         Add(VK_M, 'm', 'M', '\u044C', '\u042C');
         Add(VK_N, 'n', 'N', '\u0442', '\u0422');
         Add(VK_O, 'o', 'O', '\u0449', '\u0429');
-        Add(VK_P, 'p', 'P', '\u0437', '\u0427');
+        Add(VK_P, 'p', 'P', '\u0437', '\u0417');
         Add(VK_Q, 'q', 'Q', '\u0439', '\u0419');
         Add(VK_R, 'r', 'R', '\u043A', '\u041A');
         Add(VK_S, 's', 'S', '\u044B', '\u042B');

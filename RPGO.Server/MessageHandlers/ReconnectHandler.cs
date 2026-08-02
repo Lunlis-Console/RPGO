@@ -1,5 +1,6 @@
 ﻿using RPGGame.Server.Network;
 
+using RPGGame.Server.Repositories;
 using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
@@ -90,6 +91,13 @@ public class ReconnectHandler : BaseHandler
         // Сразу отправляем свежую карту (у нового соединения тайлы не отправлены
         // ни для одной зоны, поэтому клиент получит и тайлы, и сущности текущей зоны).
         await Hub.BroadcastMapAsync();
+
+        int unreadCount = MailRepository.CountUnread(playerName);
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "mail_unread",
+            Data = new { Count = unreadCount }
+        });
 
         Log.Info($"[Reconnect] {playerName} reconnected successfully");
     }

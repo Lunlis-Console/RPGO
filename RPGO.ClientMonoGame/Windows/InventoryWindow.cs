@@ -65,11 +65,13 @@ public class InventoryWindow : GameWindow
     private Point _dragPos;
     private Point _dragStart;
 
-    // Подсветка новых предметов
+    // Подсветка новых предметов — по уникальному Id записи (стека),
+    // чтобы подсвечивались только реально добавленные/пополненные стаки,
+    // а не все предметы с тем же именем.
     private Dictionary<string, int> _knownQtys = new();
-    private HashSet<string> _newNames = new();
+    private HashSet<string> _newIds = new();
     private bool _initTracked;
-    public int NewItemCount => _newNames.Count;
+    public int NewItemCount => _newIds.Count;
     public Action<int>? NewItemCountChanged;
 
     // Подтверждение удаления
@@ -89,33 +91,39 @@ public class InventoryWindow : GameWindow
         {
             var newQty = new Dictionary<string, int>();
             foreach (var item in data.Items)
-                newQty[item.Name] = newQty.GetValueOrDefault(item.Name, 0) + item.Quantity;
+                newQty[item.Id] = newQty.GetValueOrDefault(item.Id, 0) + item.Quantity;
 
             if (!_initTracked)
             {
-                foreach (var (name, qty) in newQty)
-                    _knownQtys[name] = qty;
+                foreach (var (id, qty) in newQty)
+                    _knownQtys[id] = qty;
                 _initTracked = true;
             }
             else if (data.FromUnequip)
             {
-                foreach (var (name, qty) in newQty)
-                    _knownQtys[name] = qty;
+                foreach (var (id, qty) in newQty)
+                    _knownQtys[id] = qty;
             }
             else
             {
-                foreach (var (name, qty) in newQty)
+                // Подсветка только для новых Id или стаков, количество которых выросло.
+                foreach (var (id, qty) in newQty)
                 {
-                    if (!_knownQtys.TryGetValue(name, out var prev) || qty > prev)
-                        _newNames.Add(name);
-                    _knownQtys[name] = qty;
+                    if (!_knownQtys.TryGetValue(id, out var prev) || qty > prev)
+                        _newIds.Add(id);
+                    _knownQtys[id] = qty;
                 }
+
+                // Убираем записи, которых больше нет в инвентаре (потрачены/проданы),
+                // чтобы вернувшийся Id не был ошибочно помечен как известный.
+                foreach (var id in _knownQtys.Keys.Where(k => !newQty.ContainsKey(k)).ToList())
+                    _knownQtys.Remove(id);
             }
         }
 
         // Если окно открыто — новые предметы сразу считаются просмотренными
         if (Visible)
-            _newNames.Clear();
+            _newIds.Clear();
 
         NewItemCountChanged?.Invoke(NewItemCount);
         _data = data;
@@ -172,9 +180,9 @@ public class InventoryWindow : GameWindow
     protected override void OnHidden()
     {
         base.OnHidden();
-        if (_newNames.Count > 0)
+        if (_newIds.Count > 0)
         {
-            _newNames.Clear();
+            _newIds.Clear();
             NewItemCountChanged?.Invoke(0);
         }
     }
@@ -233,7 +241,7 @@ public class InventoryWindow : GameWindow
                 if (!rect.Contains(mouse.X, mouse.Y)) continue;
 
                 // Наведение на предмет снимает подсветку нового
-                if (idx < _stacks.Count && _newNames.Remove(_stacks[idx].item.Name))
+                if (idx < _stacks.Count && _newIds.Remove(_stacks[idx].item.Id))
                     NewItemCountChanged?.Invoke(NewItemCount);
 
                 if (pressed && idx < _stacks.Count)
@@ -444,7 +452,7 @@ public class InventoryWindow : GameWindow
                 if (filled && r * GridCols + c < _stacks.Count)
                 {
                     var stack = _stacks[r * GridCols + c];
-                    if (_newNames.Contains(stack.item.Name))
+                    if (_newIds.Contains(stack.item.Id))
                         UIHelper.DrawRectOutline(sb, rect, new Color(255, 215, 0), 2);
                 }
 
