@@ -303,39 +303,30 @@ public class PvPService
 
     internal bool ChasePlayerTarget(Player pl, Player target)
     {
-        int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
-        bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
-        if (!canMove) return false;
+        int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
+        int weaponRange = pl.GetEffectiveAttackRange();
+        if (dist <= weaponRange) return false;
 
-        int stepX = Math.Sign(target.X - pl.X);
-        int stepY = Math.Sign(target.Y - pl.Y);
-
-        int mx = 0, my = 0;
-        if (stepX != 0 && stepY != 0)
-        {
-            if (pl.X + stepX >= 0 && pl.X + stepX < _svc.World.Map.Width)
-                mx = stepX;
-            else
-                my = stepY;
-        }
-        else if (stepX != 0) mx = stepX;
-        else if (stepY != 0) my = stepY;
-
-        if (mx == 0 && my == 0) return false;
-
-        int nx = pl.X + mx;
-        int ny = pl.Y + my;
         var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
-        if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) return false;
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { -1, 1, 0, 0 };
+        int bestX = -1, bestY = -1;
+        int bestDist = int.MaxValue;
+        for (int i = 0; i < 4; i++)
+        {
+            int nx = target.X + dx[i];
+            int ny = target.Y + dy[i];
+            if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
+            if (zoneMap.IsObstacle(nx, ny)) continue;
+            int d = Math.Abs(nx - pl.X) + Math.Abs(ny - pl.Y);
+            if (d < bestDist) { bestDist = d; bestX = nx; bestY = ny; }
+        }
+        if (bestX < 0) return false;
+        if (pl.X == bestX && pl.Y == bestY) return true;
 
-        if (mx == 1) pl.Facing = "right";
-        else if (mx == -1) pl.Facing = "left";
-        else if (my == 1) pl.Facing = "down";
-        else if (my == -1) pl.Facing = "up";
-
-        pl.X = nx;
-        pl.Y = ny;
-        pl.Movement.LastMoveTime = DateTime.UtcNow;
+        var path = _svc.Pathfinding.FindPath(pl.X, pl.Y, bestX, bestY, pl.CurrentZoneId);
+        if (path.Count == 0) return false;
+        pl.Movement.SetPath(path);
         return true;
     }
 
@@ -361,10 +352,7 @@ public class PvPService
         int weaponRange = pl.GetEffectiveAttackRange();
 
         if (dist > weaponRange)
-        {
-            if (ChasePlayerTarget(pl, target)) return true;
             return false;
-        }
 
         var atkClient = _svc.World.FindClientByPlayer(pl);
         if (atkClient == null) return false;

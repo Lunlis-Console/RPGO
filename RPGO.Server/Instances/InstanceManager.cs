@@ -14,12 +14,20 @@ public class InstanceManager
     private readonly List<InstanceTemplate> _templates = new();
     private readonly List<InstancePortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), InstancePortal> _portalLookup = new();
+    private GameMap? _dungeonTemplate;
+    private DungeonSpawnData? _dungeonSpawns;
 
     public IReadOnlyList<InstanceTemplate> Templates => _templates;
 
     public InstanceManager(Lazy<GameServices> svc)
     {
         _svcLazy = svc;
+    }
+
+    public void SetDungeonTemplate(GameMap map, DungeonSpawnData? spawns)
+    {
+        _dungeonTemplate = map;
+        _dungeonSpawns = spawns;
     }
 
     public void LoadAll()
@@ -135,6 +143,14 @@ public class InstanceManager
             return _instances.Values.FirstOrDefault(inst => inst.Players.Contains(player));
     }
 
+    private static int ExtractLevelFromTemplateId(string templateId)
+    {
+        int lastUnderscore = templateId.LastIndexOf('_');
+        if (lastUnderscore >= 0 && int.TryParse(templateId.AsSpan(lastUnderscore + 1), out int lvl))
+            return Math.Max(1, lvl);
+        return 1;
+    }
+
     public ActiveInstance? FindInstanceByZoneId(string zoneId)
     {
         if (!zoneId.StartsWith("instance:")) return null;
@@ -142,10 +158,44 @@ public class InstanceManager
             return _instances.Values.FirstOrDefault(inst => inst.InstanceZoneId == zoneId);
     }
 
+    public ActiveInstance? FindInstanceById(Guid id)
+    {
+        lock (_lock)
+            return _instances.TryGetValue(id, out var inst) ? inst : null;
+    }
+
     public GameMap? GetInstanceMap(string zoneId)
     {
         var inst = FindInstanceByZoneId(zoneId);
         return inst?.Map;
+    }
+
+    private Item? RollRewardWeapon(int playerLevel, int dungeonLevel)
+    {
+        int maxLevel = Math.Min(playerLevel, dungeonLevel + 4);
+        int minLevel = Math.Max(1, maxLevel - 3);
+        var allWeapons = _svc.Merchant.ShopItems
+            .Where(i => i.Type is "weapon" or "twohand" && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
+            .ToList();
+
+        if (allWeapons.Count == 0)
+            allWeapons = _svc.Merchant.ShopItems.Where(i => i.Type is "weapon" or "twohand").ToList();
+
+        if (allWeapons.Count == 0) return null;
+
+        int roll = Random.Shared.Next(100);
+        string qualityLabel = roll < 15 ? "Эпический" : roll < 40 ? "Редкий" : roll < 70 ? "Необычный" : "Обычный";
+        var qualityWeapons = allWeapons.Where(w => w.Description.Contains(qualityLabel)).ToList();
+        var picked = qualityWeapons.Count > 0
+            ? qualityWeapons[Random.Shared.Next(qualityWeapons.Count)]
+            : allWeapons[Random.Shared.Next(allWeapons.Count)];
+
+        var clone = picked.Clone();
+        clone.Id = Guid.NewGuid().ToString();
+        clone.Stock = 1;
+        clone.Quantity = 1;
+        clone.IsBuyback = false;
+        return clone;
     }
 
     /// <summary>Попытка входа игрока в инстанс.</summary>
@@ -207,9 +257,31 @@ public class InstanceManager
 
     private async Task<bool> CreateAndEnter(Player player, InstanceTemplate template, ClientConnection conn)
     {
-        var map = GenerateCorridorMap(template);
+        GameMap map;
+        int spawnX, spawnY;
+        if (_dungeonTemplate != null)
+        {
+            map = _dungeonTemplate.Clone();
+            spawnX = _dungeonSpawns?.PlayerSpawn.X ?? FindWalkableSpot(map, preferTop: true).x;
+            spawnY = _dungeonSpawns?.PlayerSpawn.Y ?? FindWalkableSpot(map, preferTop: true).y;
+        }
+        else
+        {
+            map = GenerateCorridorMap(template);
+            spawnX = template.SpawnX;
+            spawnY = template.SpawnY;
+        }
 
         var instance = new ActiveInstance(template, map);
+        instance._spawnX = spawnX;
+        instance._spawnY = spawnY;
+        if (_dungeonSpawns != null)
+        {
+            instance._chestX = _dungeonSpawns.Chest.X;
+            instance._chestY = _dungeonSpawns.Chest.Y;
+            instance._exitX = _dungeonSpawns.Exit.X;
+            instance._exitY = _dungeonSpawns.Exit.Y;
+        }
         SpawnMonsters(instance, template);
 
         lock (_lock)
@@ -220,6 +292,8 @@ public class InstanceManager
 
         // Регистрируем карту инстанса в ZoneManager
         _svc.Zones.RegisterInstanceZone(instance.InstanceZoneId, map);
+        if (_dungeonTemplate != null)
+            _svc.Zones.SetTileConfig(instance.InstanceZoneId, 64, "Dungeon-Tilemap");
 
         await TeleportInto(player, instance, conn);
         await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", $"Вход в «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
@@ -229,8 +303,8 @@ public class InstanceManager
     private async Task TeleportInto(Player player, ActiveInstance instance, ClientConnection conn)
     {
         player.CurrentZoneId = instance.InstanceZoneId;
-        player.X = instance.Template.SpawnX + instance.OffsetX;
-        player.Y = instance.Template.SpawnY + instance.OffsetY;
+        player.X = instance._spawnX > 0 ? instance._spawnX : instance.Template.SpawnX + instance.OffsetX;
+        player.Y = instance._spawnY > 0 ? instance._spawnY : instance.Template.SpawnY + instance.OffsetY;
         player.Combat.Cancel();
         player.Movement.Stop();
 
@@ -284,54 +358,103 @@ public class InstanceManager
         return ((mapW - cw) / 2, (mapH - ch) / 2);
     }
 
-    /// <summary>Спавн монстров из шаблона.</summary>
+    private static (int x, int y) FindWalkableSpot(GameMap map, bool preferTop)
+    {
+        int startY = preferTop ? 0 : map.Height - 1;
+        int endY = preferTop ? map.Height : -1;
+        int step = preferTop ? 1 : -1;
+        for (int y = startY; y != endY; y += step)
+            for (int x = 0; x < map.Width; x++)
+            {
+                byte t = map.GetTile(x, y);
+                if (t != 0 && t != 255 && !map.IsObstacle(x, y))
+                    return (x, y);
+            }
+        return (map.Width / 2, map.Height / 2);
+    }
+
+    /// <summary>Спавн монстров на проходимых тайлах карты.</summary>
     private void SpawnMonsters(ActiveInstance instance, InstanceTemplate template)
     {
-        using var conn = Db.OpenContent();
-        var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT monster_template_id, x, y, is_boss FROM instance_spawns WHERE instance_template_id = $id ORDER BY y";
-        cmd.Parameters.AddWithValue("$id", template.Id);
-        using var reader = cmd.ExecuteReader();
-        while (reader.Read())
-        {
-            string monId = reader.GetString(0);
-            int x = reader.GetInt32(1) + instance.OffsetX;
-            int y = reader.GetInt32(2) + instance.OffsetY;
-            bool isBoss = reader.GetBoolean(3);
+        int scaledLevel = ExtractLevelFromTemplateId(template.Id);
+        var map = instance.Map;
+        var rng = new Random();
+        var spawnedIds = new HashSet<string>();
 
+        void DoSpawn(string monId, int x, int y, bool isBoss)
+        {
             var tpl = _svc.World.GetMonsterTemplates().FirstOrDefault(t => t.Id == monId);
-            if (tpl == null) continue;
+            if (tpl == null) return;
+
+            int lvl = isBoss ? scaledLevel + 2 : scaledLevel;
+            float scale = 1f + (lvl - 1) * 0.3f;
+            int hp = (int)(tpl.Health * scale * (isBoss ? 3 : 1));
 
             var monster = new Monster
             {
-                TemplateId = tpl.Id,
-                Name = tpl.Name,
-                X = x,
-                Y = y,
-                Health = isBoss ? tpl.Health * 5 : tpl.Health,
-                MaxHealth = isBoss ? tpl.Health * 5 : tpl.Health,
-                XpReward = tpl.XpReward * (isBoss ? 3 : 1),
-                GoldReward = tpl.GoldReward * (isBoss ? 3 : 1),
-                Level = isBoss ? 15 : 5,
+                TemplateId = tpl.Id, Name = tpl.Name,
+                X = x, Y = y,
+                Health = hp, MaxHealth = hp,
+                Level = lvl,
+                XpReward = (int)(tpl.XpReward * scale * (isBoss ? 3 : 1)),
+                GoldReward = (int)(tpl.GoldReward * scale * (isBoss ? 3 : 1)),
                 ZoneId = instance.InstanceZoneId,
                 Symbol = tpl.Symbol,
-                Strength = tpl.Strength + (isBoss ? 4 : 0),
-                Endurance = tpl.Endurance + (isBoss ? 3 : 0),
-                Agility = tpl.Agility,
-                Cunning = tpl.Cunning,
-                Intellect = tpl.Intellect,
-                Wisdom = tpl.Wisdom,
-                CritChance = tpl.CritChance + (isBoss ? 2 : 0),
-                CritDamage = tpl.CritDamage + (isBoss ? 0.5 : 0),
+                Strength = (int)(tpl.Strength * scale) + (isBoss ? 3 : 0),
+                Endurance = (int)(tpl.Endurance * scale) + (isBoss ? 2 : 0),
+                Agility = tpl.Agility, Cunning = tpl.Cunning,
+                Intellect = tpl.Intellect, Wisdom = tpl.Wisdom,
+                CritChance = tpl.CritChance + (isBoss ? 1 : 0),
+                CritDamage = tpl.CritDamage + (isBoss ? 0.3 : 0),
                 EvadeChance = tpl.EvadeChance,
-                SpawnX = x,
-                SpawnY = y,
+                SpawnX = x, SpawnY = y,
                 WanderRadius = Balance.MonsterWanderRadius,
                 AggroRange = isBoss ? 10 : 5,
                 MoveIntervalMs = 1500,
-                LastMoveTime = DateTime.UtcNow.AddMilliseconds(-Random.Shared.Next(0, 500))
+                LastMoveTime = DateTime.UtcNow.AddMilliseconds(-rng.Next(0, 500))
             };
             instance.Monsters.Add(monster);
+        }
+
+        if (_dungeonSpawns != null && _dungeonSpawns.MonsterSpawns.Count > 0)
+        {
+            // Спавним монстров из Tiled-точек
+            var allTemplates = _svc.World.GetMonsterTemplates();
+            for (int i = 0; i < _dungeonSpawns.MonsterSpawns.Count; i++)
+            {
+                var (sx, sy) = _dungeonSpawns.MonsterSpawns[i];
+                var tpl = allTemplates[rng.Next(allTemplates.Count)];
+                DoSpawn(tpl.Id, sx, sy, false);
+            }
+            // Босс
+            DoSpawn(template.BossMonsterId, _dungeonSpawns.BossSpawn.X, _dungeonSpawns.BossSpawn.Y, true);
+        }
+        else
+        {
+            // Фолбэк: случайные проходимые позиции
+            var walkable = new List<(int x, int y)>();
+            for (int y = 0; y < map.Height; y++)
+                for (int x = 0; x < map.Width; x++)
+                {
+                    byte t = map.GetTile(x, y);
+                    if (t != 0 && t != 255 && !map.IsObstacle(x, y))
+                        walkable.Add((x, y));
+                }
+            if (walkable.Count == 0) return;
+            walkable.Sort((a, b) => a.y.CompareTo(b.y));
+            int step = Math.Max(1, walkable.Count / 6);
+
+            for (int i = 0; i < 6; i++)
+            {
+                int idx = i * step + rng.Next(step);
+                if (idx >= walkable.Count) idx = walkable.Count - 1;
+                while (spawnedIds.Contains(walkable[idx].ToString()) && idx < walkable.Count - 1) idx++;
+                if (spawnedIds.Contains(walkable[idx].ToString())) continue;
+                spawnedIds.Add(walkable[idx].ToString());
+                var (sx, sy) = walkable[idx];
+                var (monId, isBoss) = i == 5 ? (template.BossMonsterId, true) : (_svc.World.GetMonsterTemplates()[rng.Next(_svc.World.GetMonsterTemplates().Count)].Id, false);
+                DoSpawn(monId, sx, sy, isBoss);
+            }
         }
     }
 
@@ -365,7 +488,7 @@ public class InstanceManager
                 lock (_lock) { monsters = new List<Monster>(inst.Monsters); players = new List<Player>(inst.Players); }
                 if (monsters.Count == 0 || players.Count == 0) continue;
 
-                _svc.Monsters.WanderStepForInstances(monsters, players, inst.Map.Width, inst.Map.Height);
+                _svc.Monsters.WanderStepForInstances(monsters, players, inst.Map);
 
                 // Реген монстров
                 foreach (var m in monsters)
@@ -572,7 +695,7 @@ public class InstanceManager
             return false;
         }
 
-        if (player.X != inst.Template.ChestX + inst.OffsetX || player.Y != inst.Template.ChestY + inst.OffsetY)
+        if (Math.Abs(player.X - inst.EffectiveChestX) + Math.Abs(player.Y - inst.EffectiveChestY) > 1)
         {
             await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Подойдите к сундуку.");
             return false;
@@ -584,23 +707,56 @@ public class InstanceManager
             return false;
         }
 
-        // Ролл лута
-        var templates = _svc.World.GetMonsterTemplates();
-        var randomTpl = templates.Count > 0 ? templates[Random.Shared.Next(templates.Count)] : null;
-        var loot = randomTpl != null ? _svc.Loot.RollLoot(randomTpl.Id) : new List<Item>();
-
-        foreach (var item in loot)
+        if (inst.ChestOpened)
         {
-            InventoryHelper.AddItem(player, item);
+            if (inst.ChestLootItems.Count == 0 && inst.ChestGold == 0)
+            {
+                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Сундук уже опустошён.");
+                return false;
+            }
+            await _svc.Hub.SendToClient(conn, new GameMessage
+            {
+                Type = "loot_corpse",
+                Data = new
+                {
+                    CorpseId = "chest_" + inst.Id,
+                    MonsterName = "Сундук подземелья",
+                    DamagePercent = 100,
+                    Gold = inst.ChestGold,
+                    Items = inst.ChestLootItems.Select(i => new
+                    {
+                        i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
+                    }).ToList()
+                }
+            });
+            return true;
         }
 
-        // Золото
-        int goldReward = 50 + Random.Shared.Next(51); // 50-100
-        player.Gold += goldReward;
+        // Награда — оружие, подобранное под уровень подземелья
+        var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id));
+        if (selectedItem != null)
+            inst.ChestLootItems.Add(selectedItem);
 
-        await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
-            $"Сундук открыт! Получено: {loot.Count} предметов, {goldReward} золота.");
-        await _svc.Hub.SendStatusAsync(conn, player);
+        // Золото
+        int goldReward = 50 + player.Level * 10 + Random.Shared.Next(51);
+        inst.ChestGold = goldReward;
+        inst.ChestOpened = true;
+
+        await _svc.Hub.SendToClient(conn, new GameMessage
+        {
+            Type = "loot_corpse",
+            Data = new
+            {
+                CorpseId = "chest_" + inst.Id,
+                MonsterName = "Сундук подземелья",
+                DamagePercent = 100,
+                Gold = goldReward,
+                Items = inst.ChestLootItems.Select(i => new
+                {
+                    i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
+                }).ToList()
+            }
+        });
         Log.Info($"{player.Name} открыл сундук в инстансе {inst.Id}");
         return true;
     }

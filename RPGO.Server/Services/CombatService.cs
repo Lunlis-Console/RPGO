@@ -162,11 +162,7 @@ public class CombatService
                     await ProcessInstantBuffs(pl, buffClient);
             }
 
-            if (dist > weaponRange && !offHandCanShoot)
-            {
-                if (ChaseTarget(pl, monster)) changed = true;
-            }
-            else if (dist > weaponRange && offHandCanShoot)
+            if (dist > weaponRange && offHandCanShoot)
             {
                 var client = _svc.World.FindClientByPlayer(pl);
                 if (client == null) continue;
@@ -177,7 +173,7 @@ public class CombatService
                     changed = true;
                 }
             }
-            else
+            else if (dist <= weaponRange)
             {
                 var client = _svc.World.FindClientByPlayer(pl);
                 if (client == null) continue;
@@ -769,40 +765,32 @@ public class CombatService
     {
         if (_svc.Debuffs.HasDebuff(pl, DebuffType.Stun)) return false;
         if (_svc.Debuffs.HasDebuff(pl, DebuffType.Root)) return false;
-        int moveIntervalMs = Balance.MoveIntervalMs(pl.Speed);
-        bool canMove = (DateTime.UtcNow - pl.Movement.LastMoveTime).TotalMilliseconds >= moveIntervalMs;
-        if (!canMove) return false;
+        int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
+        int weaponRange = pl.GetEffectiveAttackRange();
+        if (dist <= weaponRange) return false;
 
-        int stepX = Math.Sign(monster.X - pl.X);
-        int stepY = Math.Sign(monster.Y - pl.Y);
-
-        int mx = 0, my = 0;
-        if (stepX != 0 && stepY != 0)
+        var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
+        int[] dx = { 0, 0, -1, 1 };
+        int[] dy = { -1, 1, 0, 0 };
+        int bestX = -1, bestY = -1;
+        int bestDist = int.MaxValue;
+        for (int i = 0; i < 4; i++)
         {
-            if (pl.X + stepX >= 0 && pl.X + stepX < _svc.World.Map.Width
-                && _svc.Monsters.FindMonsterAt(pl.X + stepX, pl.Y) == null)
-                mx = stepX;
-            else
-                my = stepY;
+            int nx = monster.X + dx[i];
+            int ny = monster.Y + dy[i];
+            if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
+            if (zoneMap.IsObstacle(nx, ny)) continue;
+            var mAt = _svc.Monsters.FindMonsterAt(nx, ny);
+            if (mAt != null && mAt.Id != monster.Id) continue;
+            int d = Math.Abs(nx - pl.X) + Math.Abs(ny - pl.Y);
+            if (d < bestDist) { bestDist = d; bestX = nx; bestY = ny; }
         }
-        else if (stepX != 0) mx = stepX;
-        else if (stepY != 0) my = stepY;
+        if (bestX < 0) return false;
+        if (pl.X == bestX && pl.Y == bestY) return true;
 
-        if (mx == 0 && my == 0) return false;
-
-        int nx = pl.X + mx;
-        int ny = pl.Y + my;
-        if (nx < 0 || nx >= _svc.World.Map.Width || ny < 0 || ny >= _svc.World.Map.Height) return false;
-        if (_svc.Monsters.FindMonsterAt(nx, ny) != null) return false;
-
-        if (mx == 1) pl.Facing = "right";
-        else if (mx == -1) pl.Facing = "left";
-        else if (my == 1) pl.Facing = "down";
-        else if (my == -1) pl.Facing = "up";
-
-        pl.X = nx;
-        pl.Y = ny;
-        pl.Movement.LastMoveTime = DateTime.UtcNow;
+        var path = _svc.Pathfinding.FindPath(pl.X, pl.Y, bestX, bestY, pl.CurrentZoneId);
+        if (path.Count == 0) return false;
+        pl.Movement.SetPath(path);
         return true;
     }
 
@@ -1072,6 +1060,8 @@ public class CombatService
         {
             if (pl.IsDead && (DateTime.UtcNow - pl.DeathTime).TotalMilliseconds >= Balance.DeathDelayMs)
             {
+                if (pl.CurrentZoneId.StartsWith("instance:"))
+                    await _svc.Instances.KickPlayer(pl, "Вы погибли в подземелье.");
                 await RespawnPlayer(pl);
             }
         }

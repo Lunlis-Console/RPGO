@@ -347,13 +347,19 @@ public class GameScreen : IScreen
         _lootWindow.DragStateChanged += item => _input.DragOverlayItem = item;
         _lootWindow.TakeItem += item =>
         {
-            _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
+            if (_lootWindow.CorpseId.StartsWith("chest_"))
+                _ = client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
+            else
+                _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
             _lootWindow.RemoveItem(item);
         };
         _lootWindow.DropOnInventory += (pt, item) =>
         {
             if (_inventoryWindow.Contains(pt))
-                _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
+                if (_lootWindow.CorpseId.StartsWith("chest_"))
+                    _ = client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
+                else
+                    _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
         };
         _inventoryWindow.DropOnEquip += (pt, item) =>
         {
@@ -399,11 +405,11 @@ public class GameScreen : IScreen
         {
             if (!_inventoryWindow.Visible || !_inventoryWindow.Contains(pt)) return false;
             int stock = Math.Max(1, item.Stock);
-            int maxAffordable = _shopWindow.DiscountedPrice(item) > 0
-                ? _input.PlayerGoldCache / _shopWindow.DiscountedPrice(item) : stock;
+            int maxAffordable = item.Value > 0
+                ? _input.PlayerGoldCache / item.Value : stock;
             int max = Math.Min(stock, Math.Max(1, maxAffordable));
             if (stock > 1 || item.MaxStack > 1)
-                _input.OpenQuantity(item.Name, max, _shopWindow.DiscountedPrice(item),
+                _input.OpenQuantity(item.Name, max, item.Value,
                     q => _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
             else
                 _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = 1 });
@@ -412,10 +418,10 @@ public class GameScreen : IScreen
         _shopWindow.PendingBuy += (item, max) =>
         {
             int stock = Math.Max(1, item.Stock);
-            int maxAffordable = _shopWindow.DiscountedPrice(item) > 0
-                ? _input.PlayerGoldCache / _shopWindow.DiscountedPrice(item) : stock;
+            int maxAffordable = item.Value > 0
+                ? _input.PlayerGoldCache / item.Value : stock;
             int realMax = Math.Min(max, Math.Max(1, maxAffordable));
-            _input.OpenQuantity(item.Name, realMax, _shopWindow.DiscountedPrice(item),
+            _input.OpenQuantity(item.Name, realMax, item.Value,
                 q => _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
         };
         _inventoryWindow.DropOnSell += (pt, item) =>
@@ -448,7 +454,7 @@ public class GameScreen : IScreen
         {
             var lootItems = items.Select(item => new RPGGame.ClientMonoGame.Networking.LootItemInfo
             {
-                Id = item.Id, Name = item.Name, Type = item.Type, Value = item.Value, Description = item.Description
+                Id = item.Id, Name = item.Name, Type = item.Type, WeaponSubtype = item.WeaponSubtype, Value = item.Value, Description = item.Description
             }).ToList();
             _lootWindow.Setup(corpseId, monsterName, damagePct, lootItems, gold);
             var g = GameMain.Instance!.Graphics;
@@ -612,7 +618,12 @@ public class GameScreen : IScreen
 
         // Loot
         _lootWindow.TakeLoot += (corpseId, takeAll, ids, takeGold) =>
-            _ = client.SendAsync("take_loot", new { CorpseId = corpseId, TakeAll = takeAll, ItemIds = ids, TakeGold = takeGold });
+        {
+            if (corpseId.StartsWith("chest_"))
+                _ = client.SendAsync("take_chest_loot", new { InstanceId = corpseId.Substring(6), ItemIds = ids, TakeGold = takeGold });
+            else
+                _ = client.SendAsync("take_loot", new { CorpseId = corpseId, TakeAll = takeAll, ItemIds = ids, TakeGold = takeGold });
+        };
 
         // Inventory actions
         _inventoryWindow.EquipItem += id =>
@@ -938,6 +949,10 @@ public class GameScreen : IScreen
         var mmRect = _minimap.GetPanelRect(game.Graphics.PreferredBackBufferWidth);
         bool overMinimap = mmRect.Contains(mouse.X, mouse.Y);
 
+        bool overLeaveBtn = _hudDraw.InstanceLeaveRect.Contains(mouse.X, mouse.Y);
+        if (overLeaveBtn && _input.PrevMouse.LeftButton == ButtonState.Released && mouse.LeftButton == ButtonState.Pressed)
+            _ = client.SendAsync("leave_instance", new { });
+
         if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
         {
             int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
@@ -985,6 +1000,7 @@ public class GameScreen : IScreen
         _minimap.SetViewBounds(_mapRenderer.GetViewBounds());
         var mmCenter = _mapRenderer.CameraCenter;
         _minimap.Draw(spriteBatch, _minimap.GetPanelRect(w), mmCenter.X, mmCenter.Y);
+        _hudDraw.DrawInstanceLeaveButton(spriteBatch, w);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
         _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
         float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + 60 + 4, w - 16);

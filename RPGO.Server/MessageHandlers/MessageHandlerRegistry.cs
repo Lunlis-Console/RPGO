@@ -63,6 +63,7 @@ public static class MessageHandlerRegistry
         Register("party_kick", new PartyHandler(svc));
         Register("loot_corpse", new LootCorpseHandler(svc));
         Register("take_loot", new TakeLootHandler(svc));
+        Register("take_chest_loot", new TakeChestLootHandler(svc));
         Register("trade_request", new TradeRequestHandler(svc));
         Register("trade_accept", new TradeAcceptHandler(svc));
         Register("trade_decline", new TradeDeclineHandler(svc));
@@ -80,5 +81,6 @@ public static class MessageHandlerRegistry
         Register("storage_deposit", new StorageDepositHandler(svc));
         Register("storage_withdraw", new StorageWithdrawHandler(svc));
         Register("tile_request", new TileRequestHandler(svc));
+        Register("leave_instance", new LeaveInstanceHandler(svc));
     }
 }

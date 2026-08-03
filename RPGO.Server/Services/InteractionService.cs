@@ -1,3 +1,4 @@
+using System.Linq;
 using RPGGame.Server.MessageHandlers;
 using RPGGame.Server.Network;
 using RPGGame.Shared.Models;
@@ -114,14 +115,6 @@ public class InteractionService
 
             case "npc":
                 {
-                    // Портал инстанса размещается в Tiled, привязка к шаблону — в InstanceManager
-                    var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
-                    if (portal != null)
-                    {
-                        await _svc.Instances.TryEnter(player, portal.InstanceTemplateId, client);
-                        break;
-                    }
-
                     if (player.Dialogue.IsActive) break;
                     var npc = _svc.Hub.FindNpcAt(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
                     if (npc != null)
@@ -137,12 +130,19 @@ public class InteractionService
                                 _svc.Quests.IncrementTalkProgress(player, npc.Id);
                                 await _svc.Hub.SendQuestLog(client, player);
                             }
-                        }
-                        else
-                        {
-                            await ChatTo(client, ChatChannel.System, "Система", "Нечего сказать.");
+                            break;
                         }
                     }
+
+                    // Если у NPC нет диалога — пробуем портал инстанса
+                    var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
+                    if (portal != null)
+                    {
+                        await _svc.Instances.TryEnter(player, portal.InstanceTemplateId, client);
+                        break;
+                    }
+
+                    await ChatTo(client, ChatChannel.System, "Система", "Нечего сказать.");
                 }
                 break;
 
@@ -285,6 +285,35 @@ public class InteractionService
             if (pl.IsDead) continue;
             if (pl.Movement.Path.Count == 0)
             {
+                // Преследование цели через A* (PvE и PvP)
+                if (pl.Combat.HasTarget && pl.Combat.TargetMonsterId != null)
+                {
+                    var monster = _svc.Monsters.FindMonsterById(pl.Combat.TargetMonsterId.Value);
+                    if (monster != null && monster.Health > 0 && monster.ZoneId == pl.CurrentZoneId)
+                    {
+                        if (_svc.Combat.ChaseTarget(pl, monster))
+                            _svc.Hub.MarkZoneDirty(pl.CurrentZoneId);
+                    }
+                    else if (monster == null || monster.Health <= 0 || monster.ZoneId != pl.CurrentZoneId)
+                    {
+                        pl.Combat.Cancel();
+                    }
+                }
+                else if (pl.Combat.IsPvPTarget && pl.Combat.TargetPlayerId != null)
+                {
+                    var target = _svc.World.GetPlayersSnapshot()
+                        .FirstOrDefault(p => p.Id == pl.Combat.TargetPlayerId.Value && p.CurrentZoneId == pl.CurrentZoneId);
+                    if (target != null && !target.IsDead && target.Health > 0)
+                    {
+                        if (_svc.PvP.ChasePlayerTarget(pl, target))
+                            _svc.Hub.MarkZoneDirty(pl.CurrentZoneId);
+                    }
+                    else
+                    {
+                        pl.Combat.Cancel();
+                    }
+                }
+
                 if (pl.Interaction.IsPending)
                 {
                     var interaction = pl.Interaction.Type!;
@@ -326,7 +355,7 @@ public class InteractionService
             if (pl.CurrentZoneId.StartsWith("instance:"))
             {
                 var inst = _svc.Instances.FindInstanceByPlayer(pl);
-                if (inst != null && pl.X == inst.Template.ExitX + inst.OffsetX && pl.Y == inst.Template.ExitY + inst.OffsetY)
+                if (inst != null && pl.X == inst.EffectiveExitX && pl.Y == inst.EffectiveExitY)
                 {
                     pl.Movement.Stop();
                     pl.Interaction.Clear();
