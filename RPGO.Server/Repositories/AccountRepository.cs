@@ -126,7 +126,7 @@ internal static class AccountRepository
                     Gold = 500,
                     Inventory = new List<Item>
                     {
-                        new Item { Name = "Железный меч", TemplateId = "I0002", Type = "weapon", Value = 5, BonusPhysAttack = 0, DamageMin = 3, DamageMax = 6, Description = "Надёжный железный меч", MaxStack = Balance.UniqueItemMaxStack },
+                        new Item { Name = "Меч новобранца", TemplateId = "W0002", Type = "weapon", Value = 30, BonusPhysAttack = 0, DamageMin = 15, DamageMax = 15, Description = "Качество: Обычный", MaxStack = Balance.UniqueItemMaxStack },
                         new Item { Name = "Зелье здоровья", Type = "consumable", Value = 20, HealAmount = 50, Description = "Восстанавливает 50 HP", MaxStack = Balance.DefaultMaxStack }
                     }
                 }
