@@ -71,15 +71,13 @@ public class Equipment
     public static bool IsCasterOffhand(Item? item)
     {
         if (item == null) return false;
-        string sub = (item.WeaponSubtype ?? "").ToLowerInvariant();
-        return sub == "grimoire" || sub == "sphere";
+        return item.Category is WeaponCategory.Grimoire or WeaponCategory.Sphere;
     }
 
     public static bool IsCasterWeapon(Item? item)
     {
         if (item == null) return false;
-        string sub = (item.WeaponSubtype ?? "").ToLowerInvariant();
-        return sub == "staff" || sub == "grimoire" || sub == "sphere";
+        return item.Category is WeaponCategory.Staff or WeaponCategory.Grimoire or WeaponCategory.Sphere;
     }
 
     public Item? GetEffectiveMainHandWeapon()
@@ -107,6 +105,16 @@ public class Equipment
         return "";
     }
 
+    public WeaponCategory GetWeaponCategory()
+    {
+        var weapon = GetEffectiveMainHandWeapon();
+        if (weapon != null) return weapon.Category;
+        var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
+        if (lh != null && !IsCasterOffhand(lh) && !lh.TwoHanded)
+            return lh.Category;
+        return WeaponCategory.None;
+    }
+
     public int GetWeaponAttackRange()
     {
         var weapon = GetEffectiveMainHandWeapon();
@@ -119,8 +127,7 @@ public class Equipment
 
     public bool IsBowEquipped()
     {
-        var w = GetEffectiveMainHandWeapon();
-        return w != null && (w.WeaponSubtype ?? "").Equals("bow", StringComparison.OrdinalIgnoreCase);
+        return GetWeaponCategory() == WeaponCategory.Bow;
     }
 
     public bool IsDualWielding()

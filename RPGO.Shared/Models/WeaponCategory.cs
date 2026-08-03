@@ -22,12 +22,12 @@ public enum WeaponCategory
 
 public static class WeaponCategoryExtensions
 {
-    public static WeaponCategory Parse(string subtype)
+    public static WeaponCategory Parse(string? subtype)
     {
         if (string.IsNullOrWhiteSpace(subtype))
             return WeaponCategory.None;
 
-        return subtype switch
+        return subtype.Trim().ToLowerInvariant() switch
         {
             "sword" => WeaponCategory.Sword,
             "axe" => WeaponCategory.Axe,

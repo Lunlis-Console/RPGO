@@ -27,23 +27,24 @@ public static class ItemTooltip
         _ => t
     };
 
-    public static string WeaponSubtypeLabel(string subtype) => subtype.ToLower() switch
+    public static string WeaponCategoryLabel(WeaponCategory category) => category switch
     {
-        "sword" => "Меч",
-        "greatsword" => "Двуручный меч",
-        "axe" => "Топор",
-        "greataxe" => "Секира",
-        "mace" => "Булава",
-        "hammer" => "Молот",
-        "greathammer" => "Двуручный молот",
-        "dagger" => "Кинжал",
-        "halberd" => "Алебарда",
-        "spear" => "Копьё",
-        "staff" => "Посох",
-        "bow" => "Лук",
-        "grimoire" => "Гримуар",
-        "sphere" => "Сфера",
-        _ => subtype
+        WeaponCategory.Sword => "Меч",
+        WeaponCategory.Greatsword => "Двуручный меч",
+        WeaponCategory.Axe => "Топор",
+        WeaponCategory.Greataxe => "Секира",
+        WeaponCategory.Mace => "Булава",
+        WeaponCategory.Hammer => "Молот",
+        WeaponCategory.Greathammer => "Двуручный молот",
+        WeaponCategory.Dagger => "Кинжал",
+        WeaponCategory.Halberd => "Алебарда",
+        WeaponCategory.Spear => "Копьё",
+        WeaponCategory.Staff => "Посох",
+        WeaponCategory.Bow => "Лук",
+        WeaponCategory.Grimoire => "Гримуар",
+        WeaponCategory.Sphere => "Сфера",
+        WeaponCategory.Shield => "Щит",
+        _ => ""
     };
 
     public static string DamageTypeLabel(string damageType) => damageType.ToLower() switch
@@ -54,15 +55,15 @@ public static class ItemTooltip
         _ => damageType
     };
 
-    public static string WeaponProcDescription(string subtype) => subtype.ToLower() switch
+    public static string WeaponProcDescription(WeaponCategory category) => category switch
     {
-        "dagger" or "spear" => "5% шанс: Пронзание (снижает защиту)",
-        "sword" or "greatsword" => "5% шанс: Рассекающий удар (урон по 3 клеткам)",
-        "axe" or "greataxe" or "halberd" => "5% шанс: Свирепость (+к урону)",
-        "mace" => "5% шанс: Обезоруживание (снижает урон)",
-        "hammer" or "greathammer" => "5% шанс: Контузия (снижает точность)",
-        "grimoire" => "Магическое оружие. С оружием в правой руке — только бафф.",
-        "sphere" => "Магическое оружие. С оружием в правой руке — только бафф.",
+        WeaponCategory.Dagger or WeaponCategory.Spear => "5% шанс: Пронзание (снижает защиту)",
+        WeaponCategory.Sword or WeaponCategory.Greatsword => "5% шанс: Рассекающий удар (урон по 3 клеткам)",
+        WeaponCategory.Axe or WeaponCategory.Greataxe or WeaponCategory.Halberd => "5% шанс: Свирепость (+к урону)",
+        WeaponCategory.Mace => "5% шанс: Обезоруживание (снижает урон)",
+        WeaponCategory.Hammer or WeaponCategory.Greathammer => "5% шанс: Контузия (снижает точность)",
+        WeaponCategory.Grimoire => "Магическое оружие. С оружием в правой руке — только бафф.",
+        WeaponCategory.Sphere => "Магическое оружие. С оружием в правой руке — только бафф.",
         _ => ""
     };
 
@@ -90,15 +91,15 @@ public static class ItemTooltip
             {
                 lines.Add($"Вид: Левая рука");
             }
-            if (!string.IsNullOrEmpty(item.WeaponSubtype))
-                lines.Add($"Тип оружия: {WeaponSubtypeLabel(item.WeaponSubtype)}");
+            if (item.Category != WeaponCategory.None)
+                lines.Add($"Тип оружия: {WeaponCategoryLabel(item.Category)}");
             if (!string.IsNullOrEmpty(item.DamageType) && item.DamageType != "none")
                 lines.Add($"Тип урона: {DamageTypeLabel(item.DamageType)}");
             if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
                 lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
-            if (!string.IsNullOrEmpty(item.WeaponSubtype))
+            if (item.Category != WeaponCategory.None)
             {
-                string proc = WeaponProcDescription(item.WeaponSubtype);
+                string proc = WeaponProcDescription(item.Category);
                 if (proc.Length > 0) lines.Add(proc);
             }
         }
@@ -155,7 +156,7 @@ public static class ItemTooltip
             else
                 lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
         }
-        if (isShield && (item.WeaponSubtype == "grimoire" || item.WeaponSubtype == "sphere") && item.DamageMax > 0)
+        if (isShield && item.Category is WeaponCategory.Grimoire or WeaponCategory.Sphere && item.DamageMax > 0)
         {
             if (item.DamageMin == item.DamageMax)
                 lines.Add($"Урон: {item.DamageMax}");

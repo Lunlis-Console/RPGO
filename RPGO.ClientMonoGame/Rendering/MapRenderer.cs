@@ -1717,7 +1717,7 @@ private sealed class RemotePlayerState
         }
         else if (mainAttackActive)
         {
-            bool mainIsRanged = weaponSub == "bow" || weaponSub == "staff";
+            bool mainIsRanged = WeaponCategoryExtensions.Parse(weaponSub) is WeaponCategory.Bow or WeaponCategory.Staff;
             if (mainIsRanged)
                 offAnim = SpriteCache.GetWeaponAttackAnimation(offWeaponSub, facing);
             else

@@ -256,6 +256,7 @@ public class CombatService
             pl.Facing = dy > 0 ? "down" : "up";
 
         string subtype = pl.Equipment.GetWeaponSubtype();
+        WeaponCategory category = pl.Equipment.GetWeaponCategory();
         string attackHand;
         var effectiveMain = pl.Equipment.GetEffectiveMainHandWeapon();
         if (effectiveMain != null)
@@ -276,7 +277,7 @@ public class CombatService
             if (debuff != null)
             {
                 string action = isNew ? "наложено" : "обновлено";
-                string targetName = WeaponAffectsTarget(subtype) ? monster.Name : pl.Name;
+                string targetName = WeaponAffectsTarget(category) ? monster.Name : pl.Name;
                 await ChatTo(client, ChatChannel.Combat, "Бой",
                     $"{debuff.DisplayName} {action} на {targetName} ({debuff.DurationMs / 1000}с)");
                 if (monster.GetDebuffsSnapshot().Count > 0)
@@ -390,14 +391,14 @@ public class CombatService
             else
                 pl.Facing = dy > 0 ? "down" : "up";
 
-            string visualType = subtype == "bow" ? "arrow" : "magic_bolt";
+            string visualType = category == WeaponCategory.Bow ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit, attackHand);
             await _svc.Projectiles.BroadcastSpawn(proj);
 
-            if (subtype == "bow" && dmgToMonster > 0)
+            if (category == WeaponCategory.Bow && dmgToMonster > 0)
                 await TryExtraArrow(pl, monster, client, attackHand);
 
-            if (_svc.Debuffs.HasDebuff(pl, DebuffType.SuppressingFire) && subtype == "bow")
+            if (_svc.Debuffs.HasDebuff(pl, DebuffType.SuppressingFire) && category == WeaponCategory.Bow)
                 await ApplySuppressingFireCone(pl, monster, client);
 
             await _svc.Hub.BroadcastMapAsync();
@@ -592,8 +593,7 @@ public class CombatService
     {
         var w = pl.Equipment.GetEffectiveMainHandWeapon() ?? pl.Equipment.GetOffHandWeapon();
         if (w == null) return false;
-        string sub = w.WeaponSubtype ?? "";
-        return sub != "staff" && sub != "bow" && sub != "grimoire" && sub != "sphere";
+        return w.Category is not (WeaponCategory.Staff or WeaponCategory.Bow or WeaponCategory.Grimoire or WeaponCategory.Sphere);
     }
 
     private async Task ApplyHolyTrinityDebuff(Player pl, Monster monster, ClientConnection client, Random rng)
@@ -642,7 +642,7 @@ public class CombatService
         pl.Combat.OffHandLastAttackTime = DateTime.UtcNow;
 
         var offWeapon = pl.Equipment.GetOffHandWeapon();
-        string offSubtype = offWeapon?.WeaponSubtype ?? "";
+        WeaponCategory offCategory = offWeapon?.Category ?? WeaponCategory.None;
         int offWeaponRange = offWeapon?.AttackRange ?? 1;
 
         int dx = offMonster.X - pl.X;
@@ -659,7 +659,7 @@ public class CombatService
         {
             var (ohDmg, ohCrit, ohEvaded, ohParried, ohBlocked) = _svc.Monsters.CalculateOffHandAttack(pl, offMonster);
 
-            string visualType = offSubtype == "bow" ? "arrow" : "magic_bolt";
+            string visualType = offCategory == WeaponCategory.Bow ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, offMonster, visualType, ohDmg, ohCrit, "off");
             await _svc.Projectiles.BroadcastSpawn(proj);
 
@@ -1156,7 +1156,7 @@ public class CombatService
             await _svc.Hub.SendToClient(client, GameMessage.ResetCombat());
     }
 
-    public static bool WeaponAffectsTarget(string subtype) => subtype is "dagger" or "spear" or "mace" or "hammer" or "greathammer";
+    public static bool WeaponAffectsTarget(WeaponCategory category) => category is WeaponCategory.Dagger or WeaponCategory.Spear or WeaponCategory.Mace or WeaponCategory.Hammer or WeaponCategory.Greathammer;
 
     // «Вам подарочек» (SK0017)
     private async Task TryExtraArrow(Player pl, Monster primary, ClientConnection client, string hand)
@@ -1186,7 +1186,7 @@ public class CombatService
     {
         double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult("SK0015");
         int range = pl.GetEffectiveAttackRange();
-        string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
+        string visualType = pl.Equipment.GetWeaponCategory() == WeaponCategory.Bow ? "arrow" : "magic_bolt";
 
         (int tx1, int ty1, int tx2, int ty2) = pl.Facing switch
         {

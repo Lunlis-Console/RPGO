@@ -18,7 +18,7 @@ public sealed class AchillesHeelExecutor : SkillExecutorBase
 
         if (!evaded)
         {
-            string visualType = pl.Equipment.GetWeaponSubtype() == "bow" ? "arrow" : "magic_bolt";
+            string visualType = pl.Equipment.GetWeaponCategory() == WeaponCategory.Bow ? "arrow" : "magic_bolt";
             var proj = svc.Projectiles.Spawn(pl, monster, visualType, hitDmg, hitCrit, "main", skill.Name);
             await svc.Projectiles.BroadcastSpawn(proj);
         }

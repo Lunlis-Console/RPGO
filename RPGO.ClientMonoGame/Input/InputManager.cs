@@ -20,7 +20,7 @@ public class InputManager
 
     public void SetSkills(List<ClientSkillInfo> skills) => _skills = skills;
     public void SetInventory(InventoryData inv) => _inventory = inv;
-    public bool IsWieldingBow() => _inventory?.Equipment?.Slots?.GetValueOrDefault("rhand")?.WeaponSubtype == "bow";
+    public bool IsWieldingBow() => WeaponCategoryExtensions.Parse(_inventory?.Equipment?.Slots?.GetValueOrDefault("rhand")?.WeaponSubtype) == WeaponCategory.Bow;
     public bool HasWeaponEquipped() => _inventory?.Equipment?.Slots?.ContainsKey("rhand") == true;
     public void UpdateHotbar(string?[] slots)
     {

@@ -134,14 +134,10 @@ public class Player : ICombatant
     public int GetBlockValue()
         => (int)(Equipment.GetShieldBonusDefense() * BalanceStatic.ShieldBlockValueMultiplier);
 
-    private bool IsUsingStaff() => Equipment.GetWeaponSubtype() == "staff";
+    private bool IsUsingStaff() => Equipment.GetWeaponCategory() == WeaponCategory.Staff;
 
     private bool UsesMagicAttack(int dist)
-    {
-        string sub = Equipment.GetWeaponSubtype();
-        if (sub == "staff" || sub == "grimoire" || sub == "sphere") return true;
-        return false;
-    }
+        => Equipment.GetWeaponCategory() is WeaponCategory.Staff or WeaponCategory.Grimoire or WeaponCategory.Sphere;
 
     // Совместимость с ICombatant (физ. атака/защита) — без расстояния (ближний бой по умолчанию)
     public int GetBaseDamage() => 1 + (Level - 1);
