@@ -66,6 +66,7 @@ public sealed class GameServices
         StorageService storage)
     {
         World = world;
+        pathfinding.Services = this; // патфайндинг получит доступ к зонам/порталам/NPC
         Hub = hub;
         Monsters = monsters;
         Loot = loot;

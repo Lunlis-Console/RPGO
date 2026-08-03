@@ -29,8 +29,7 @@ public class MapRenderer
     private List<(int X, int Y)>? _cachedPath;
     private int _cachedFromX = -1, _cachedFromY = -1;
     private int _cachedTargetX = -1, _cachedTargetY = -1;
-    private int _cachedMerchantX = -1, _cachedMerchantY = -1;
-    private int _cachedBoardX = -1, _cachedBoardY = -1;
+    private HashSet<(int X, int Y)>? _cachedBlockedCells;
     private byte[]? _cachedObstacleData;
     private int _hoverTileX = -1, _hoverTileY = -1;
     private string _hoverCursorType = "";
@@ -39,10 +38,18 @@ public class MapRenderer
     private readonly Dictionary<string, (float X, float Y)> _visPos = new();
     private readonly Dictionary<string, (int X, int Y)> _visTarget = new();
     private readonly object _stateLock = new();
-    private const float RenderDelayMinMs = 40f;
-    private const float RenderDelayBaseMs = 150f;
-    private sealed class VisSample { public float X; public float Y; public DateTime Time; }
-    private readonly Dictionary<string, List<VisSample>> _visHistory = new();
+
+    // Простой tween между авторитетными клетками: каждый шаг сервера превращается в один
+    // плавный перенос за кадрус(шаг) с smoothstep-сглаживанием. Без экстраполяции,
+    // перелёта и клампа — поэтому спрайт не «скачет туда-сюда».
+    private sealed class VisTween
+    {
+        public float FromX; public float FromY;
+        public int ToX; public int ToY;
+        public DateTime Start;
+        public double DurMs;
+    }
+    private readonly Dictionary<string, VisTween> _visTween = new();
 
     private byte[]? _tileData;
     private int _tileMapWidth;
@@ -781,8 +788,14 @@ private sealed class RemotePlayerState
 
     private List<EntityInfo> GetEntitiesAt(int mapX, int mapY)
     {
-        if (_spatialHash.TryGetValue((mapX, mapY), out var list))
-            return list;
+        // Сетевой поток перестраивает _spatialHash (RebuildSpatialHash) под _stateLock;
+        // чтение тоже обязано блокироваться, иначе GetCursorType* получает NRE при
+        // гонке с сетевой картой (сборка пути через торговца и т.п.).
+        lock (_stateLock)
+        {
+            if (_spatialHash.TryGetValue((mapX, mapY), out var list))
+                return list;
+        }
         return new List<EntityInfo>();
     }
 
@@ -971,18 +984,17 @@ private sealed class RemotePlayerState
         var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
         UpdateVisualInterpolation(map);
 
+        // Камера плавно следует за АВТОРИТЕТНОЙ клеткой игрока (не за интерполированным
+        // спрайтом), чтобы не наследовать дрожание/перелёт интерполяции движения.
         float targetX = me?.X ?? (map.Merchant?.X ?? 50);
         float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
-        if (me != null)
-        {
-            lock (_stateLock)
-            {
-                if (_visPos.TryGetValue($"player:{me.Name}", out var v))
-                { targetX = v.X; targetY = v.Y; }
-            }
-        }
-        _camX = targetX;
-        _camY = targetY;
+        if (me == null && _visPos.TryGetValue($"merchant", out var m))
+        { targetX = m.X; targetY = m.Y; }
+
+        // frame-independent экспоненциальное сглаживание; 10 → реакция ~0.1s
+        float k = 1f - MathF.Exp(-10f * dt);
+        _camX += (targetX - _camX) * k;
+        _camY += (targetY - _camY) * k;
 
         int centerX = (int)Math.Floor(_camX);
         int centerY = (int)Math.Floor(_camY);
@@ -1022,7 +1034,7 @@ private sealed class RemotePlayerState
                 {
                     _visTarget.Remove(k);
                     _visPos.Remove(k);
-                    _visHistory.Remove(k);
+                    _visTween.Remove(k);
                     if (k.StartsWith("player:")) _remoteMoving.Remove(k.Substring(7));
                 }
             }
@@ -1243,23 +1255,35 @@ private sealed class RemotePlayerState
     private void DrawPathDots(SpriteBatch sb, WorldMap map, PlayerPosition? me)
     {
         if (_moveTargetX < 0 || _moveTargetY < 0 || me == null) return;
-        int mx = map.Merchant?.X ?? -1, my = map.Merchant?.Y ?? -1;
-        int bx = map.Board?.X ?? -1, by = map.Board?.Y ?? -1;
+
+        // Клетки статичных сущностей, через которые путь строить нельзя (торговец,
+        // порталы, инстансы, сундуки, NPC). Игроки не учитываются — через них можно идти.
+        var blocked = new HashSet<(int X, int Y)>();
+        if (map.Merchant != null) blocked.Add((map.Merchant.X, map.Merchant.Y));
+        if (map.Board != null) blocked.Add((map.Board.X, map.Board.Y));
+        if (map.StorageChest != null) blocked.Add((map.StorageChest.X, map.StorageChest.Y));
+        if (map.InstanceChest != null) blocked.Add((map.InstanceChest.X, map.InstanceChest.Y));
+        if (map.InstanceExitPortal != null) blocked.Add((map.InstanceExitPortal.X, map.InstanceExitPortal.Y));
+        foreach (var p in map.Portals ?? Enumerable.Empty<PortalPosition>())
+            blocked.Add((p.X, p.Y));
+        foreach (var n in map.Npcs ?? Enumerable.Empty<NpcPosition>())
+            blocked.Add((n.X, n.Y));
 
         // Пересчитываем маршрут только когда изменились входные данные BFS:
-        // цель движения, позиция торговца/доски, препятствия или клетка игрока.
+        // цель движения, набор блокирующих клеток, препятствия или клетка игрока.
+        bool blockedChanged = _cachedBlockedCells == null
+            || _cachedBlockedCells.Count != blocked.Count
+            || _cachedBlockedCells.Except(blocked).Any();
         if (_cachedPath == null
             || _cachedTargetX != _moveTargetX || _cachedTargetY != _moveTargetY
-            || _cachedMerchantX != mx || _cachedMerchantY != my
-            || _cachedBoardX != bx || _cachedBoardY != by
+            || blockedChanged
             || !ReferenceEquals(_cachedObstacleData, _obstacleData)
             || _cachedFromX != me.X || _cachedFromY != me.Y)
         {
-            _cachedPath = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, mx, my, bx, by, map.Width, map.Height, IsBlocked);
+            _cachedPath = ClientPathfinding.FindPath(me.X, me.Y, _moveTargetX, _moveTargetY, map.Width, map.Height, blocked, IsBlocked);
             _cachedFromX = me.X; _cachedFromY = me.Y;
             _cachedTargetX = _moveTargetX; _cachedTargetY = _moveTargetY;
-            _cachedMerchantX = mx; _cachedMerchantY = my;
-            _cachedBoardX = bx; _cachedBoardY = by;
+            _cachedBlockedCells = blocked;
             _cachedObstacleData = _obstacleData;
         }
 
@@ -1282,8 +1306,7 @@ private sealed class RemotePlayerState
         _cachedPath = null;
         _cachedFromX = _cachedFromY = -1;
         _cachedTargetX = _cachedTargetY = -1;
-        _cachedMerchantX = _cachedMerchantY = -1;
-        _cachedBoardX = _cachedBoardY = -1;
+        _cachedBlockedCells = null;
         _cachedObstacleData = null;
     }
 
@@ -1918,8 +1941,6 @@ private sealed class RemotePlayerState
     {
         var now = DateTime.UtcNow;
 
-        bool localArrived = false;
-        float localMoveMs = 0f;
         WorldMap? map;
         lock (_stateLock) { map = _currentMap; }
         if (map != null)
@@ -1932,16 +1953,8 @@ private sealed class RemotePlayerState
                     _arriveX = _moveTargetX;
                     _arriveY = _moveTargetY;
                 }
-                localArrived = _arriveX >= 0 && _arriveY >= 0
-                    && me.X == _arriveX && me.Y == _arriveY;
             }
         }
-        try
-        {
-            var st = GameMain.Instance?.Client.Status;
-            if (st != null && st.MoveIntervalMs > 0) localMoveMs = st.MoveIntervalMs;
-        }
-        catch { }
 
         _isMoving = false;
         lock (_stateLock)
@@ -1949,38 +1962,65 @@ private sealed class RemotePlayerState
             foreach (var kv in _visTarget)
             {
                 var key = kv.Key;
-                if (!_visHistory.TryGetValue(key, out var hist) || hist.Count == 0)
-                {
-                    _visPos[key] = (kv.Value.X, kv.Value.Y);
-                    continue;
-                }
-
+                int tx = kv.Value.X, ty = kv.Value.Y;
                 bool isLocal = key == $"player:{_playerName}";
-                bool startedFromIdle = false;
-                if (isLocal && hist.Count >= 2)
-                {
-                    var pp = hist[hist.Count - 2];
-                    var cc = hist[hist.Count - 1];
-                    double gap = (cc.Time - pp.Time).TotalMilliseconds;
-                    double est = EstimateCadenceMs(key);
-                    startedFromIdle = gap > est * 1.5;
-                }
-                var (px, py) = ComputeVisualPos(hist, now, isLocal, localArrived, localMoveMs, startedFromIdle, out bool moving, out float vx, out float vy);
 
-                float tvx = kv.Value.X, tvy = kv.Value.Y;
-                float cdx = px - tvx, cdy = py - tvy;
-                float cdist = MathF.Sqrt(cdx * cdx + cdy * cdy);
-                const float MaxVisualDist = 0.5f;
-                if (cdist > MaxVisualDist)
+                _visTween.TryGetValue(key, out var tween);
+                double cadence = EstimateCadenceMs(key);
+
+                // Телепорт / смена зоны: сразу встаём в новую клетку.
+                if (tween != null)
                 {
-                    px = tvx + cdx / cdist * MaxVisualDist;
-                    py = tvy + cdy / cdist * MaxVisualDist;
+                    double dist = Math.Sqrt((tx - tween.ToX) * (tx - tween.ToX) + (ty - tween.ToY) * (ty - tween.ToY));
+                    if (dist > 1.5)
+                    {
+                        _visPos[key] = (tx, ty);
+                        tween.ToX = tx; tween.ToY = ty;
+                        tween.FromX = tx; tween.FromY = ty;
+                        tween.Start = now;
+                        tween.DurMs = cadence;
+                    }
+                }
+
+                // Новый таргет или tween ещё нет: начинаем перенос из текущей визуальной позиции.
+                if (tween == null || tween.ToX != tx || tween.ToY != ty)
+                {
+                    _visPos.TryGetValue(key, out var cur);
+                    float dCells = MathF.Sqrt((tx - cur.X) * (tx - cur.X) + (ty - cur.Y) * (ty - cur.Y));
+                    tween = new VisTween
+                    {
+                        FromX = cur.X, FromY = cur.Y,
+                        ToX = tx, ToY = ty,
+                        Start = now,
+                        DurMs = cadence * Math.Max(0.01f, dCells)
+                    };
+                    _visTween[key] = tween;
+                }
+
+                double elapsed = (now - tween.Start).TotalMilliseconds;
+                float t = (float)Math.Clamp(elapsed / tween.DurMs, 0.0, 1.0);
+                double s = t * t * (3f - 2f * t); // smoothstep — плавный разгон/торможение
+                float px = (float)(tween.FromX + (tween.ToX - tween.FromX) * s);
+                float py = (float)(tween.FromY + (tween.ToY - tween.FromY) * s);
+
+                float vx = (float)((tween.ToX - tween.FromX) / tween.DurMs);
+                float vy = (float)((tween.ToY - tween.FromY) / tween.DurMs);
+                bool moving = tween.ToX != tween.FromX || tween.ToY != tween.FromY;
+
+                if (t >= 1f)
+                {
+                    px = tween.ToX; py = tween.ToY;
+                    moving = false;
+                    tween.FromX = px; tween.FromY = py; // припаркован — последующие старты от него
                 }
 
                 _visPos[key] = (px, py);
 
                 if (isLocal)
                 {
+                    // Walk-анимация длится, пока tween реально не доедет до клетки
+                    // (moving), а не обрывается по флагу localArrived — иначе в конце
+                    // пути персонаж «подкатывает» в idle во время доскальзывания.
                     _isMoving = moving;
                     if (moving && (vx != 0f || vy != 0f))
                     {
@@ -1994,83 +2034,6 @@ private sealed class RemotePlayerState
                 }
             }
         }
-    }
-
-    private static (float X, float Y) ComputeVisualPos(List<VisSample> hist, DateTime now, bool isLocal, bool localArrived, float localMoveMs, bool startedFromIdle, out bool moving, out float vx, out float vy)
-    {
-        var last = hist[hist.Count - 1];
-        float lastX = last.X, lastY = last.Y;
-        moving = false;
-        vx = 0f;
-        vy = 0f;
-
-        if (hist.Count == 1)
-            return (lastX, lastY);
-
-        var prev = hist[hist.Count - 2];
-        double spanMs = (last.Time - prev.Time).TotalMilliseconds;
-        if (spanMs <= 0) spanMs = 1.0;
-        double cadence = Math.Clamp(spanMs, 60.0, 2000.0);
-        if (isLocal && localMoveMs > 0 && spanMs > localMoveMs * 3.0)
-            cadence = Math.Clamp(localMoveMs, 60.0, 2000.0);
-        double renderDelay = isLocal
-            ? Math.Clamp(cadence * 0.5, RenderDelayMinMs, RenderDelayBaseMs)
-            : Math.Clamp(cadence, RenderDelayMinMs, 2000.0);
-        double effSpan = Math.Min(spanMs, cadence);
-        double lastMs = (last.Time - DateTime.MinValue).TotalMilliseconds;
-        double rtMs = (now - DateTime.MinValue).TotalMilliseconds - renderDelay;
-
-        if (rtMs <= lastMs)
-        {
-            for (int i = hist.Count - 2; i >= 0; i--)
-            {
-                var a = hist[i];
-                var b = hist[i + 1];
-                double aMs = (a.Time - DateTime.MinValue).TotalMilliseconds;
-                double bMs = (b.Time - DateTime.MinValue).TotalMilliseconds;
-                if (i == hist.Count - 2 && bMs - aMs > effSpan)
-                    aMs = bMs - effSpan;
-                if (rtMs >= aMs && rtMs <= bMs)
-                {
-                    float t = (float)((rtMs - aMs) / (bMs - aMs));
-                    if (startedFromIdle && isLocal)
-                        t = t * t;
-                    float iax = b.X - a.X, iay = b.Y - a.Y;
-                    if (Math.Abs(iax) > 0.0001f || Math.Abs(iay) > 0.0001f)
-                    {
-                        double segMs = bMs - aMs;
-                        vx = (float)(iax / segMs);
-                        vy = (float)(iay / segMs);
-                        moving = true;
-                    }
-                    return (a.X + iax * t, a.Y + iay * t);
-                }
-            }
-            var first = hist[0];
-            return (first.X, first.Y);
-        }
-
-        vx = (float)((last.X - prev.X) / effSpan);
-        vy = (float)((last.Y - prev.Y) / effSpan);
-        if (vx == 0f && vy == 0f)
-            return (lastX, lastY);
-
-        if (isLocal && localArrived)
-            return (lastX, lastY);
-
-        double maxExt = Math.Max(0.0, cadence - renderDelay);
-        maxExt = Math.Min(maxExt, cadence * 0.45);
-        double dtExt = rtMs - lastMs;
-        if (dtExt <= maxExt)
-        {
-            moving = true;
-            return (lastX + (float)(vx * dtExt), lastY + (float)(vy * dtExt));
-        }
-
-        double over = dtExt - maxExt;
-        double decay = Math.Exp(-over / 160.0);
-        moving = maxExt > 0 && decay > 0.01;
-        return (lastX + (float)(vx * maxExt * decay), lastY + (float)(vy * maxExt * decay));
     }
 
     private static double EstimateCadenceMs(string key)
@@ -2090,36 +2053,22 @@ private sealed class RemotePlayerState
     {
         lock (_stateLock)
         {
-            _visTarget[key] = (tx, ty);
-            var now = DateTime.UtcNow;
-            if (!_visHistory.TryGetValue(key, out var hist))
+            if (_visTarget.TryGetValue(key, out var prev))
             {
-                hist = new List<VisSample>();
-                _visHistory[key] = hist;
-            }
-            else
-            {
-                var last = hist[hist.Count - 1];
-                float dx = tx - last.X, dy = ty - last.Y;
+                float dx = tx - prev.X, dy = ty - prev.Y;
                 float dist = MathF.Sqrt(dx * dx + dy * dy);
                 if (dist > 1.5f)
                 {
-                    hist.Clear();
+                    // Телепорт/смена зоны — сразу встаём в новую клетку.
                     _visPos[key] = (tx, ty);
-                }
-                else if (dist > 0.001f)
-                {
-                    double gap = (now - last.Time).TotalMilliseconds;
-                    double est = EstimateCadenceMs(key);
-                    if (gap > est * 1.5)
-                        hist.Add(new VisSample { X = last.X, Y = last.Y, Time = now.AddMilliseconds(-est) });
-                    hist.Add(new VisSample { X = tx, Y = ty, Time = now });
+                    if (_visTween.TryGetValue(key, out var tw))
+                    {
+                        tw.FromX = tx; tw.FromY = ty;
+                        tw.ToX = tx; tw.ToY = ty;
+                    }
                 }
             }
-            if (hist.Count == 0)
-                hist.Add(new VisSample { X = tx, Y = ty, Time = now });
-            if (hist.Count > 8)
-                hist.RemoveRange(0, hist.Count - 8);
+            _visTarget[key] = (tx, ty);
             if (!_visPos.ContainsKey(key))
                 _visPos[key] = (tx, ty);
         }

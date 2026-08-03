@@ -59,7 +59,7 @@ public class MoveToHandler : BaseHandler
         var moveToData = JsonSerializer.Deserialize<MoveToCommand>(JsonSerializer.Serialize(message.Data));
         if (moveToData == null) return;
 
-        var path = Svc.Pathfinding.FindPath(player.X, player.Y, moveToData.X, moveToData.Y);
+        var path = Svc.Pathfinding.FindPath(player.X, player.Y, moveToData.X, moveToData.Y, player.CurrentZoneId);
         player.Movement.SetPath(path);
 
         if (path.Count == 0 && !(player.X == moveToData.X && player.Y == moveToData.Y))

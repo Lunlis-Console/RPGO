@@ -72,7 +72,7 @@ public class TakeLootHandler : BaseHandler
                 return;
             }
 
-            var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY);
+            var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY, player.CurrentZoneId);
             if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
                 await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");

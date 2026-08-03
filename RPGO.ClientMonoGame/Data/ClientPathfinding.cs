@@ -4,14 +4,21 @@ namespace RPGGame.ClientMonoGame.Data;
 
 public static class ClientPathfinding
 {
+    /// <summary>
+    /// Поиск пути с обходом препятствий и НЕПРОХОДИМЫХ статичных сущностей.
+    /// Путь строится только через пустые клетки — торговец, порталы, инстансы,
+    /// сундуки и т.п. не проходной. Игроки не учитываются (через них можно идти).
+    /// </summary>
     public static List<(int X, int Y)> FindPath(int sx, int sy, int tx, int ty,
-        int merchantX = -1, int merchantY = -1, int boardX = -1, int boardY = -1,
-        int worldW = 100, int worldH = 100, Func<int, int, bool>? isBlocked = null)
+        int worldW, int worldH, HashSet<(int X, int Y)> blockedCells,
+        Func<int, int, bool>? isBlocked = null)
     {
         return Shared.Utils.Pathfinding.FindPath(sx, sy, tx, ty, worldW, worldH,
             (nx, ny) =>
-                (nx == merchantX && ny == merchantY) ||
-                (nx == boardX && ny == boardY) ||
-                (isBlocked?.Invoke(nx, ny) ?? false));
+                // Клетка назначения достижима даже если там сущность (встаём на неё,
+                // чтобы взаимодействовать/активировать портал), а промежуточные клетки-сущности обходим.
+                ((nx == tx && ny == ty) ? false :
+                (blockedCells.Contains((nx, ny)) ||
+                (isBlocked?.Invoke(nx, ny) ?? false))));
     }
 }

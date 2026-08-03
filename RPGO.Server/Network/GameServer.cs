@@ -777,6 +777,10 @@ public sealed class GameServer : INetworkHub
 
     public async Task SendZoneTransition(ClientConnection connection, Player player)
     {
+        // Клиент хранит один буфер тайлов; при смене зоны всегда должны прийти полные
+        // тайлы новой зоны. Сброс кэша исключает гонку с BroadcastMapAsync: иначе при
+        // возврате в уже посещённую зону клиент недополучал тайлы (белые «куски»).
+        connection.ResetTilesSent();
         var zone = _svc.Zones.GetZone(player.CurrentZoneId);
         var zoneMap = _svc.Zones.GetOrCreateMap(player.CurrentZoneId);
         await SendToClient(connection, new GameMessage
