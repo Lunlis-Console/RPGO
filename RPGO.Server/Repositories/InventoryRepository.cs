@@ -114,7 +114,8 @@ internal static class InventoryRepository
                             AttackSpeedModifier = item.AttackSpeedModifier,
                             DamageMin = item.DamageMin,
                             DamageMax = item.DamageMax,
-                            AttackRange = item.AttackRange
+                            AttackRange = item.AttackRange,
+                            RequiredLevel = item.RequiredLevel
                         });
                     }
                 }
@@ -353,7 +354,7 @@ internal static class InventoryRepository
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
             bonus_block_chance, bonus_parry_chance,
             two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-            damage_min, damage_max, attack_range
+            damage_min, damage_max, attack_range, required_level
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -387,6 +388,7 @@ internal static class InventoryRepository
             item.DamageMin = reader.GetInt32(25);
             item.DamageMax = reader.GetInt32(26);
             item.AttackRange = reader.IsDBNull(27) ? 1 : reader.GetInt32(27);
+            item.RequiredLevel = reader.IsDBNull(28) ? 0 : reader.GetInt32(28);
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;

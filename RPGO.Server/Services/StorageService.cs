@@ -244,7 +244,7 @@ public sealed class StorageService
             cmd.CommandText = @"SELECT item_id, template_id, name, type, value, quantity, max_stack,
                 description, bonus_defense, bonus_phys_attack, bonus_mag_attack,
                 bonus_max_health, heal_amount, restore_mana, weapon_subtype,
-                damage_min, damage_max, attack_range
+                damage_min, damage_max, attack_range, required_level
                 FROM storage_items WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -271,7 +271,8 @@ public sealed class StorageService
                     WeaponSubtype = reader.IsDBNull(14) ? "" : reader.GetString(14),
                     DamageMin = reader.GetInt32(15),
                     DamageMax = reader.GetInt32(16),
-                    AttackRange = reader.GetInt32(17)
+                    AttackRange = reader.GetInt32(17),
+                    RequiredLevel = reader.IsDBNull(18) ? 0 : reader.GetInt32(18)
                 });
             }
             return InventoryHelper.ConsolidateStackables(items);
