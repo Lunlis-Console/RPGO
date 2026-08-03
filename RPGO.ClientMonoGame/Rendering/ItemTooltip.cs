@@ -9,6 +9,7 @@ public static class ItemTooltip
     private static readonly Color QualityUncommon = new Color(76, 175, 80);
     private static readonly Color QualityRare = new Color(66, 165, 245);
     private static readonly Color QualityEpic = new Color(171, 71, 188);
+    private static readonly Color RequiredLevelColor = new Color(255, 140, 80);
 
     private static Color QualityColor(ItemQuality q) => q switch
     {
@@ -96,6 +97,9 @@ public static class ItemTooltip
             string qualLabel = ItemQualityExtensions.Label(item.Quality);
             lines.Add(new TooltipLine($"Качество: {qualLabel}", QualityColor(item.Quality)));
         }
+
+        if (item.RequiredLevel > 0)
+            lines.Add(new TooltipLine($"Требуемый уровень: {item.RequiredLevel}", RequiredLevelColor));
 
         if (isWeapon || isCasterShield)
         {
