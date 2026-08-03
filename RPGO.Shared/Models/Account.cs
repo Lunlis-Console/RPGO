@@ -87,6 +87,12 @@ public class Item
     // Подтип оружия
     public string WeaponSubtype { get; set; } = "";
 
+    // Категория оружия (выводится из WeaponSubtype)
+    public WeaponCategory Category => WeaponCategoryExtensions.Parse(WeaponSubtype);
+
+    // Требуемый уровень (0 = без ограничений)
+    public int RequiredLevel { get; set; }
+
     // Диапазон урона оружия
     public int DamageMin { get; set; }
     public int DamageMax { get; set; }
