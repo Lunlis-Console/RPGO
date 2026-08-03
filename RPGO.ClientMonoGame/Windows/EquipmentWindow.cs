@@ -196,7 +196,13 @@ public class EquipmentWindow : GameWindow
                 // Надетый предмет — иконка строго по центру (подпись слота скрыта)
                 var spr = SpriteCache.ForItem(it);
                 if (spr != null)
-                    sb.Draw(spr, new Rectangle(r.X + 6, r.Y + 6, r.Width - 12, r.Height - 12), Color.White);
+                {
+                    var iconRect = new Rectangle(r.X + 6, r.Y + 6, r.Width - 12, r.Height - 12);
+                    sb.Draw(spr, iconRect, Color.White);
+                    var qFrame = SpriteCache.ForQualityFrame(it.Quality);
+                    if (qFrame != null)
+                        sb.Draw(qFrame, iconRect, Color.White);
+                }
 
                 // Тултип при наведении (когда не тащим)
                 if (!_dragging && _dragSlotId == null && r.Contains(mouse.X, mouse.Y))

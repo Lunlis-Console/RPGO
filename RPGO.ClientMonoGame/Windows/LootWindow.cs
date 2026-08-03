@@ -217,7 +217,13 @@ public class LootWindow : GameWindow
                     var item = _items[idx];
                     var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                     if (spr != null)
-                        sb.Draw(spr, new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12), Color.White);
+                    {
+                        var iconRect = new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12);
+                        sb.Draw(spr, iconRect, Color.White);
+                        var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                        if (qFrame != null)
+                            sb.Draw(qFrame, iconRect, Color.White);
+                    }
                     if (hover) _hoverItem = item;
                 }
             }

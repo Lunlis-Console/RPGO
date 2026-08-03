@@ -278,7 +278,13 @@ public class ShopWindow : GameWindow
                     var item = ActiveItems[idx];
                     var spr = SpriteCache.ForItem(item);
                     if (spr != null)
-                        sb.Draw(spr, new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12), Color.White);
+                    {
+                        var iconRect = new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12);
+                        sb.Draw(spr, iconRect, Color.White);
+                        var qFrame = SpriteCache.ForQualityFrame(item.Quality);
+                        if (qFrame != null)
+                            sb.Draw(qFrame, iconRect, Color.White);
+                    }
                     int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
                     if (stock > 1)
                         DrawText(sb, stock.ToString(), rect.X + rect.Width - 16, rect.Y + rect.Height - 16, new Color(230, 230, 120));

@@ -104,6 +104,10 @@ public static class SpriteCache
         foreach (var sub in iconSubtypes)
             LoadTexture($"icon_{sub.ToLower()}", $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 
+        var qualityFrames = new[] { ("quality_common", "Ordinary_Frame"), ("quality_uncommon", "Unusual_Frame"), ("quality_rare", "Rare_Frame"), ("quality_epic", "Epic_Frame") };
+        foreach (var (key, file) in qualityFrames)
+            LoadTexture(key, $"RPGGame.ClientMonoGame.Content.Sprites.Inventory_Icon.{file}.png");
+
         // Иконки навыков (из Skill_Icons)
         var skillIcons = new[] { "StrongHand", "BarrageOfBlows", "Cutting", "HolyTrinity", "Duel", "Ambidexter", "WarriorsConcentration", "Reflexes", "Bloodletting", "Berserk", "AimedShot", "AchillesHeel", "Retreat", "SuppressingFire", "VeniVidiVici", "ExtraArrow", "BowAccuracy", "MeleeEvade", "LongRangeSight", "HuntingInstinct" };
         foreach (var si in skillIcons)
@@ -477,6 +481,14 @@ public static class SpriteCache
         }
         return ForItem(item.Type, item.WeaponSubtype);
     }
+
+    public static Texture2D? ForQualityFrame(ItemQuality quality) => quality switch
+    {
+        ItemQuality.Uncommon => Get("quality_uncommon"),
+        ItemQuality.Rare => Get("quality_rare"),
+        ItemQuality.Epic => Get("quality_epic"),
+        _ => Get("quality_common")
+    };
 
     public static void Unload()
     {

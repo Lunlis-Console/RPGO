@@ -104,7 +104,7 @@ public partial class MainForm : Form
             DropDownStyle = ComboBoxStyle.DropDownList};
         _itemTypeSelector.Items.AddRange(new object[] { "все", "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
         _itemTypeSelector.SelectedIndex = 0;
-        _itemTypeSelector.SelectedIndexChanged += (s, e) => ApplyItemTypeView();
+        _itemTypeSelector.SelectedIndexChanged += (s, e) => ApplyItemsFilter();
         itemsTypeRow.Controls.Add(_itemTypeSelector);
         itemsTypeRow.Controls.Add(typeLabel);
 
@@ -473,12 +473,23 @@ public partial class MainForm : Form
 
     private void LoadItems()
     {
-        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, stock, description,
-            bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
-            damage_type, attack_speed_modifier, weapon_subtype, attack_range
+        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
+            bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+            bonus_phys_attack, bonus_mag_attack, bonus_defense, bonus_resistance,
+            bonus_attack_speed, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
+            two_handed, damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level
             FROM items ORDER BY id");
         SetupItemsTypeColumn();
-        ApplyItemTypeView();
+        ShowOnlyIdNameType();
+    }
+
+    private void ShowOnlyIdNameType()
+    {
+        foreach (DataGridViewColumn col in _itemsGrid.Columns)
+        {
+            if (col.Name is "id" or "name" or "type") continue;
+            col.Visible = false;
+        }
     }
 
     private void SetupItemsTypeColumn()
@@ -494,46 +505,6 @@ public partial class MainForm : Form
                 DataPropertyName = "type"};
             combo.Items.AddRange(new object[] { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
             _itemsGrid.Columns.Insert(idx, combo);
-        }
-    }
-
-    private void ApplyItemTypeView()
-    {
-        string selected = _itemTypeSelector?.SelectedItem?.ToString() ?? "все";
-
-        if (_itemsGrid.DataSource is DataTable dt)
-        {
-            string search = GetSearchText(_itemsSearch);
-            string filter = "";
-            if (selected != "все") filter = $"type = '{selected}'";
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                string sFilter = $"(name LIKE '%{search}%' OR id LIKE '%{search}%')";
-                filter = string.IsNullOrEmpty(filter) ? sFilter : $"({filter}) AND {sFilter}";
-            }
-            dt.DefaultView.RowFilter = filter;
-        }
-
-        var alwaysVisible = new HashSet<string> { "id", "name", "type", "value", "stock", "description", "two_handed" };
-        var relevant = selected switch
-        {
-            "weapon" or "twohand" => new HashSet<string> { "damage_min", "damage_max", "bonus_strength", "bonus_agility", "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_parry_chance", "damage_type", "attack_speed_modifier", "weapon_subtype", "attack_range" },
-            "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" => new HashSet<string> { "defense", "max_health_bonus", "bonus_endurance", "bonus_wisdom", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
-            "accessory" or "necklace" or "ring" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus",
-                "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
-                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
-            "consumable" => new HashSet<string> { "heal_amount", "max_health_bonus" },
-            "collectible" => new HashSet<string> { },
-            "trophy" => new HashSet<string> { "damage_min", "damage_max", "defense", "max_health_bonus", "heal_amount",
-                "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom",
-                "bonus_crit_chance", "bonus_crit_damage", "bonus_evade_chance", "bonus_block_chance", "bonus_parry_chance" },
-            _ => null
-        };
-
-        foreach (DataGridViewColumn col in _itemsGrid.Columns)
-        {
-            if (col.Name == "type") { col.Visible = true; continue; }
-            col.Visible = relevant == null || alwaysVisible.Contains(col.Name) || relevant.Contains(col.Name);
         }
     }
 
@@ -988,10 +959,12 @@ public partial class MainForm : Form
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO items (id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, stock, description,
-                        bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
-                        damage_type, attack_speed_modifier, weapon_subtype, attack_range)
-                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$h,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$th,$dt,$asm,$ws,$ar)";
+                cmd.CommandText = @"INSERT INTO items (id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
+                        bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
+                        bonus_phys_attack, bonus_mag_attack, bonus_defense, bonus_resistance,
+                        bonus_attack_speed, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
+                        damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level)
+                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$h,$rm,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$bpa,$bma,$bdef,$bres,$bas,$cc,$cd,$ec,$th,$dt,$asm,$ws,$ar,$rl)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
@@ -1001,6 +974,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$d", ToInt(row["defense"]));
                 cmd.Parameters.AddWithValue("$m", ToInt(row["max_health_bonus"]));
                 cmd.Parameters.AddWithValue("$h", ToInt(row["heal_amount"]));
+                cmd.Parameters.AddWithValue("$rm", ToInt(row["restore_mana"]));
                 cmd.Parameters.AddWithValue("$s", ToInt(row["stock"]));
                 cmd.Parameters.AddWithValue("$desc", row["description"] ?? "");
                 cmd.Parameters.AddWithValue("$str", ToInt(row["bonus_strength"]));
@@ -1009,6 +983,11 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$cun", ToInt(row["bonus_cunning"]));
                 cmd.Parameters.AddWithValue("$wis", ToInt(row["bonus_intellect"]));
                 cmd.Parameters.AddWithValue("$wil", ToInt(row["bonus_wisdom"]));
+                cmd.Parameters.AddWithValue("$bpa", ToInt(row["bonus_phys_attack"]));
+                cmd.Parameters.AddWithValue("$bma", ToInt(row["bonus_mag_attack"]));
+                cmd.Parameters.AddWithValue("$bdef", ToInt(row["bonus_defense"]));
+                cmd.Parameters.AddWithValue("$bres", ToInt(row["bonus_resistance"]));
+                cmd.Parameters.AddWithValue("$bas", ToDouble(row["bonus_attack_speed"]));
                 cmd.Parameters.AddWithValue("$cc", ToDouble(row["bonus_crit_chance"]));
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["bonus_crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["bonus_evade_chance"]));
@@ -1017,6 +996,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$asm", ToDouble(row["attack_speed_modifier"]));
                 cmd.Parameters.AddWithValue("$ws", row["weapon_subtype"] ?? "");
                 cmd.Parameters.AddWithValue("$ar", ToInt(row["attack_range"]));
+                cmd.Parameters.AddWithValue("$rl", ToInt(row["required_level"]));
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -1657,117 +1637,257 @@ public partial class MainForm : Form
     {
         private readonly DataGridView _grid;
         private readonly int _rowIndex;
+
         internal ItemEditForm(DataGridViewRow row, DataGridView grid) : base()
         {
             _grid = grid;
             _rowIndex = row.Index;
-            Text = "Редактирование предмета";
-            Size = new Size(420, 520);
+            Text = $"Редактирование: {Cell(row, "name")}";
+            Size = new Size(520, 760);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            Padding = new Padding(8);
 
-            var top = new Panel { Dock = DockStyle.Top, AutoSize = true };
-            top.Controls.Add(MakeField("ID:", _idBox = new TextBox { Dock = DockStyle.Fill }));
-            _idBox.Text = Cell(row, "id");
-            top.Controls.Add(MakeField("Name:", _nameBox = new TextBox { Dock = DockStyle.Fill }));
-            _nameBox.Text = Cell(row, "name");
-            top.Controls.Add(MakeField("Тип:", _typeCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList }));
-            _typeCombo.Items.AddRange(new object[] { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" });
-            _typeCombo.SelectedItem = Cell(row, "type");
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(8, 8, 8, 0) };
 
-            top.Controls.Add(MakeField("Стоимость:", _valueBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _valueBox.Value = Num(row, "value");
-            top.Controls.Add(MakeField("Урон мин:", _minBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _minBox.Value = Num(row, "damage_min");
-            top.Controls.Add(MakeField("Урон макс:", _maxBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _maxBox.Value = Num(row, "damage_max");
-            top.Controls.Add(MakeField("Защита:", _defBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _defBox.Value = Num(row, "defense");
-            top.Controls.Add(MakeField("HP макс:", _hpBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _hpBox.Value = Num(row, "max_health_bonus");
-            top.Controls.Add(MakeField("Лечение:", _healBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _healBox.Value = Num(row, "heal_amount");
-            top.Controls.Add(MakeField("Сток:", _stockBox = new NumericUpDown { Minimum = 0, Maximum = 99999 }));
-            _stockBox.Value = Num(row, "stock");
-            top.Controls.Add(MakeField("Двуручная:", _thBox = new CheckBox()));
-            _thBox.Checked = Num(row, "two_handed") != 0;
+            // === ОСНОВНОЕ ===
+            var grpMain = NewGroup(scroll, "Основное");
+            _idBox = AddField(grpMain, "ID:", Cell(row, "id"));
+            _nameBox = AddField(grpMain, "Название:", Cell(row, "name"));
+            _typeCombo = AddCombo(grpMain, "Тип:", new[] { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" }, Cell(row, "type"));
+            _qualityCombo = AddCombo(grpMain, "Качество:", new[] { "Обычный", "Необычный", "Редкий", "Эпический" }, QualityFromDesc(Cell(row, "description")));
+            _reqBox = AddNum(grpMain, "Треб.уровень:", Num(row, "required_level"), 0, 999);
+            _valueBox = AddNum(grpMain, "Цена:", Num(row, "value"), 0, 999999);
+            _stockBox = AddNum(grpMain, "Сток:", Num(row, "stock"), 0, 99999);
+
+            // === ХАРАКТЕРИСТИКИ ===
+            var grpStats = NewGroup(scroll, "Характеристики");
+            _minBox = AddNum(grpStats, "Урон мин:", Num(row, "damage_min"), 0, 99999);
+            _maxBox = AddNum(grpStats, "Урон макс:", Num(row, "damage_max"), 0, 99999);
+            _defBox = AddNum(grpStats, "Защита:", Num(row, "defense"), 0, 99999);
+            _hpBox = AddNum(grpStats, "HP:", Num(row, "max_health_bonus"), 0, 99999);
+            _healBox = AddNum(grpStats, "Лечение:", Num(row, "heal_amount"), 0, 99999);
+            _manaBox = AddNum(grpStats, "Восст.маны:", Num(row, "restore_mana"), 0, 99999);
+            _thBox = AddCheck(grpStats, "Двуручное:", Num(row, "two_handed") != 0);
+
+            // === БОНУСЫ К АТРИБУТАМ ===
+            var grpAttr = NewGroup(scroll, "Бонусы к атрибутам");
+            _strBox = AddNum(grpAttr, "Сила:", Num(row, "bonus_strength"), 0, 999);
+            _endBox = AddNum(grpAttr, "Выносливость:", Num(row, "bonus_endurance"), 0, 999);
+            _agiBox = AddNum(grpAttr, "Ловкость:", Num(row, "bonus_agility"), 0, 999);
+            _cunBox = AddNum(grpAttr, "Хитрость:", Num(row, "bonus_cunning"), 0, 999);
+            _intBox = AddNum(grpAttr, "Интеллект:", Num(row, "bonus_intellect"), 0, 999);
+            _wisBox = AddNum(grpAttr, "Мудрость:", Num(row, "bonus_wisdom"), 0, 999);
+
+            // === БОНУСЫ К ХАРАКТЕРИСТИКАМ ===
+            var grpSec = NewGroup(scroll, "Бонусы к характеристикам");
+            _bpaBox = AddNum(grpSec, "+Физ.атака:", Num(row, "bonus_phys_attack"), 0, 999);
+            _bmaBox = AddNum(grpSec, "+Маг.атака:", Num(row, "bonus_mag_attack"), 0, 999);
+            _bdefBox = AddNum(grpSec, "+Защита:", Num(row, "bonus_defense"), 0, 999);
+            _bresBox = AddNum(grpSec, "+Сопротивл.:", Num(row, "bonus_resistance"), 0, 999);
+            _basBox = AddNumDbl(grpSec, "+Скор.атаки:", (decimal)NumDbl(row, "bonus_attack_speed"), 0, 999, 1);
+            _ccBox = AddNumDbl(grpSec, "+Крит.шанс (%):", (decimal)NumDbl(row, "bonus_crit_chance"), 0, 100, 1);
+            _cdBox = AddNumDbl(grpSec, "+Крит.урон (%):", (decimal)NumDbl(row, "bonus_crit_damage"), 0, 999, 1);
+            _ecBox = AddNumDbl(grpSec, "+Уклонение (%):", (decimal)NumDbl(row, "bonus_evade_chance"), 0, 100, 1);
+
+            // === ОРУЖИЕ ===
+            var grpWpn = NewGroup(scroll, "Оружие");
+            _dmgTypeBox = AddCombo(grpWpn, "Тип урона:", new[] { "", "slashing", "piercing", "bludgeoning", "magic" }, Cell(row, "damage_type"));
+            _subtypeBox = AddCombo(grpWpn, "Подтип:", new[] { "", "sword", "axe", "mace", "dagger", "greatsword", "poleaxe", "hammer", "greathammer", "halberd", "spear", "bow", "staff", "wand", "grimoire", "sphere", "shield" }, Cell(row, "weapon_subtype"));
+            _asmBox = AddNumDbl(grpWpn, "Скор.атаки:", Math.Max(0.1M, (decimal)NumDbl(row, "attack_speed_modifier")), 0.1M, 5, 1, 0.1M);
+            _arBox = AddNum(grpWpn, "Дальность:", Math.Max(1, Num(row, "attack_range")), 1, 10);
+
+            // === ОПИСАНИЕ ===
+            var grpDesc = NewGroup(scroll, "Описание");
+            _descBox = new TextBox { Dock = DockStyle.Fill, Height = 60, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            grpDesc.Controls.Add(_descBox);
+            _descBox.Text = Cell(row, "description");
 
             _typeCombo.SelectedIndexChanged += (s, e) => UpdateFields();
 
-            _descBox = new TextBox { Dock = DockStyle.Top, Height = 50, Multiline = true, ScrollBars = ScrollBars.Vertical };
-            _descBox.Text = Cell(row, "description");
+            // === КНОПКИ ===
+            var btnPanel = new Panel { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(8, 8, 8, 0) };
+            var cancelBtn = new Button { Text = "Отмена", Dock = DockStyle.Right, Width = 100, Height = 30 };
+            cancelBtn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+            var okBtn = new Button { Text = "Сохранить", Dock = DockStyle.Right, Width = 100, Height = 30, BackColor = SystemColors.ControlDark, FlatStyle = FlatStyle.Standard, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            okBtn.Click += (s, e) => SaveToRow(row);
+            btnPanel.Controls.Add(cancelBtn);
+            btnPanel.Controls.Add(okBtn);
 
-            var okBtn = new Button { Text = "Сохранить", Dock = DockStyle.Bottom, Height = 34, BackColor = SystemColors.ControlDark, FlatStyle = FlatStyle.Standard, Cursor = Cursors.Hand };
-            okBtn.Click += (s, e) =>
-            {
-                SetCell(row, "id", _idBox.Text.Trim());
-                SetCell(row, "name", _nameBox.Text.Trim());
-                SetCell(row, "type", _typeCombo.SelectedItem?.ToString() ?? "");
-                SetCell(row, "value", (int)_valueBox.Value);
-                SetCell(row, "damage_min", (int)_minBox.Value);
-                SetCell(row, "damage_max", (int)_maxBox.Value);
-                SetCell(row, "defense", (int)_defBox.Value);
-                SetCell(row, "max_health_bonus", (int)_hpBox.Value);
-                SetCell(row, "heal_amount", (int)_healBox.Value);
-                SetCell(row, "stock", (int)_stockBox.Value);
-                SetCell(row, "two_handed", _thBox.Checked ? 1 : 0);
-                SetCell(row, "description", _descBox.Text);
-                DialogResult = DialogResult.OK;
-                Close();
-            };
-
-            var cancelBtn = new Button { Text = "Отмена", Dock = DockStyle.Bottom, Height = 34, Margin = new Padding(0, 0, 0, 4) };
-            cancelBtn.Click += (s, e) => DialogResult = DialogResult.Cancel;
-
-            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-            scroll.Controls.Add(top);
-
-            Controls.Add(okBtn);
-            Controls.Add(cancelBtn);
+            Controls.Add(btnPanel);
             Controls.Add(scroll);
             UpdateFields();
         }
 
-        private TextBox _idBox = null!;
-        private TextBox _nameBox = null!;
-        private ComboBox _typeCombo = null!;
-        private NumericUpDown _valueBox = null!;
-        private NumericUpDown _minBox = null!;
-        private NumericUpDown _maxBox = null!;
-        private NumericUpDown _defBox = null!;
-        private NumericUpDown _hpBox = null!;
-        private NumericUpDown _healBox = null!;
-        private NumericUpDown _stockBox = null!;
+        private TextBox _idBox = null!, _nameBox = null!, _descBox = null!;
+        private ComboBox _typeCombo = null!, _qualityCombo = null!, _dmgTypeBox = null!, _subtypeBox = null!;
+        private NumericUpDown _reqBox = null!, _valueBox = null!, _stockBox = null!;
+        private NumericUpDown _minBox = null!, _maxBox = null!, _defBox = null!, _hpBox = null!, _healBox = null!, _manaBox = null!;
         private CheckBox _thBox = null!;
-        private TextBox _descBox = null!;
+        private NumericUpDown _strBox = null!, _endBox = null!, _agiBox = null!, _cunBox = null!, _intBox = null!, _wisBox = null!;
+        private NumericUpDown _bpaBox = null!, _bmaBox = null!, _bdefBox = null!, _bresBox = null!, _basBox = null!, _ccBox = null!, _cdBox = null!, _ecBox = null!;
+        private NumericUpDown _asmBox = null!, _arBox = null!;
 
         private string Cell(DataGridViewRow r, string col) => r.Cells[col]?.Value?.ToString() ?? "";
         private void SetCell(DataGridViewRow r, string col, object val) => r.Cells[col].Value = val;
         private int Num(DataGridViewRow r, string col) { var v = r.Cells[col]?.Value; return v == null || v is DBNull ? 0 : Convert.ToInt32(v); }
+        private double NumDbl(DataGridViewRow r, string col) { var v = r.Cells[col]?.Value; if (v == null || v is DBNull) return 0; return double.TryParse(v.ToString(), out var d) ? d : 0; }
 
-        private Panel MakeField(string labelText, Control ctrl)
+        private static string QualityFromDesc(string desc)
         {
-            var p = new Panel { Dock = DockStyle.Top, Height = 26 };
-            var lbl = new Label { Text = labelText, Dock = DockStyle.Left, Width = 90, TextAlign = ContentAlignment.MiddleRight };
-            ctrl.Dock = DockStyle.Fill;
-            ctrl.Margin = new Padding(0);
-            p.Controls.Add(ctrl);
-            p.Controls.Add(lbl);
-            return p;
+            if (desc.Contains("Эпический")) return "Эпический";
+            if (desc.Contains("Редкий")) return "Редкий";
+            if (desc.Contains("Необычный")) return "Необычный";
+            return "Обычный";
         }
+
+        private void SaveToRow(DataGridViewRow row)
+        {
+            SetCell(row, "id", _idBox.Text.Trim());
+            SetCell(row, "name", _nameBox.Text.Trim());
+            SetCell(row, "type", _typeCombo.SelectedItem?.ToString() ?? "");
+            SetCell(row, "required_level", (int)_reqBox.Value);
+            SetCell(row, "value", (int)_valueBox.Value);
+            SetCell(row, "stock", (int)_stockBox.Value);
+            SetCell(row, "damage_min", (int)_minBox.Value);
+            SetCell(row, "damage_max", (int)_maxBox.Value);
+            SetCell(row, "defense", (int)_defBox.Value);
+            SetCell(row, "max_health_bonus", (int)_hpBox.Value);
+            SetCell(row, "heal_amount", (int)_healBox.Value);
+            SetCell(row, "restore_mana", (int)_manaBox.Value);
+            SetCell(row, "two_handed", _thBox.Checked ? 1 : 0);
+            SetCell(row, "bonus_strength", (int)_strBox.Value);
+            SetCell(row, "bonus_endurance", (int)_endBox.Value);
+            SetCell(row, "bonus_agility", (int)_agiBox.Value);
+            SetCell(row, "bonus_cunning", (int)_cunBox.Value);
+            SetCell(row, "bonus_intellect", (int)_intBox.Value);
+            SetCell(row, "bonus_wisdom", (int)_wisBox.Value);
+            SetCell(row, "bonus_phys_attack", (int)_bpaBox.Value);
+            SetCell(row, "bonus_mag_attack", (int)_bmaBox.Value);
+            SetCell(row, "bonus_defense", (int)_bdefBox.Value);
+            SetCell(row, "bonus_resistance", (int)_bresBox.Value);
+            SetCell(row, "bonus_attack_speed", (double)_basBox.Value);
+            SetCell(row, "bonus_crit_chance", (double)_ccBox.Value);
+            SetCell(row, "bonus_crit_damage", (double)_cdBox.Value);
+            SetCell(row, "bonus_evade_chance", (double)_ecBox.Value);
+            SetCell(row, "damage_type", _dmgTypeBox.Text);
+            SetCell(row, "weapon_subtype", _subtypeBox.Text);
+            SetCell(row, "attack_speed_modifier", (double)_asmBox.Value);
+            SetCell(row, "attack_range", (int)_arBox.Value);
+            string qLabel = _qualityCombo.SelectedItem?.ToString() ?? "Обычный";
+            string cleanDesc = RemoveQualityFromDesc(_descBox.Text);
+            SetCell(row, "description", $"Качество: {qLabel}. {cleanDesc}".TrimEnd('.', ' '));
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private static string RemoveQualityFromDesc(string desc)
+        {
+            var idx = desc.IndexOf("Качество:");
+            if (idx < 0) return desc;
+            int dotIdx = desc.IndexOf(". ", idx);
+            if (dotIdx < 0) return desc.Substring(0, idx).Trim();
+            return (desc.Substring(0, idx) + desc.Substring(dotIdx)).Trim();
+        }
+
+        // ---- Layout helpers ----
+
+        private static GroupBox NewGroup(Panel parent, string title)
+        {
+            var g = new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(8, 18, 8, 6),
+                Margin = new Padding(0, 0, 0, 4),
+                MinimumSize = new Size(0, 0)
+            };
+            parent.Controls.Add(g);
+            parent.Controls.SetChildIndex(g, 0);
+            return g;
+        }
+
+        private static Panel AddRow(GroupBox g)
+        {
+            var row = new Panel { Height = 26, Dock = DockStyle.Top };
+            g.Controls.Add(row);
+            g.Controls.SetChildIndex(row, 0); // new rows appear at the top of the GroupBox
+            return row;
+        }
+
+        private TextBox AddField(GroupBox g, string label, string value)
+        {
+            var row = AddRow(g);
+            var ctrl = new TextBox { Text = value, Dock = DockStyle.Fill };
+            var lbl = new Label { Text = label, Width = 115, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        private ComboBox AddCombo(GroupBox g, string label, string[] items, string current)
+        {
+            var row = AddRow(g);
+            var ctrl = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            ctrl.Items.AddRange(items);
+            ctrl.SelectedItem = items.Contains(current) ? current : items[0];
+            var lbl = new Label { Text = label, Width = 115, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        private NumericUpDown AddNum(GroupBox g, string label, decimal val, decimal min, decimal max)
+        {
+            var row = AddRow(g);
+            var ctrl = new NumericUpDown { Minimum = min, Maximum = max, Width = 100, Dock = DockStyle.Left };
+            ctrl.Value = Math.Clamp(val, min, max);
+            var lbl = new Label { Text = label, Width = 115, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            row.Controls.SetChildIndex(ctrl, 0);
+            return ctrl;
+        }
+
+        private NumericUpDown AddNumDbl(GroupBox g, string label, decimal val, decimal min, decimal max, int decPlaces, decimal inc = 1)
+        {
+            var num = AddNum(g, label, val, min, max);
+            num.DecimalPlaces = decPlaces;
+            num.Increment = inc;
+            return num;
+        }
+
+        private CheckBox AddCheck(GroupBox g, string label, bool isChecked)
+        {
+            var row = AddRow(g);
+            var ctrl = new CheckBox { Checked = isChecked, Dock = DockStyle.Fill };
+            var lbl = new Label { Text = label, Width = 115, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        // ---- Context-sensitive enable/disable ----
 
         private void UpdateFields()
         {
             string t = _typeCombo.SelectedItem?.ToString() ?? "";
-            _minBox.Enabled = t is "weapon" or "twohand";
-            _maxBox.Enabled = t is "weapon" or "twohand";
-            _thBox.Enabled = t is "weapon" or "twohand";
-            _defBox.Enabled = t is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt";
-            _hpBox.Enabled = t is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" or "consumable" or "trophy" or "weapon" or "twohand";
+            bool isWeapon = t is "weapon" or "twohand";
+            bool isArmor = t is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt";
+            _minBox.Enabled = isWeapon;
+            _maxBox.Enabled = isWeapon;
+            _thBox.Enabled = isWeapon;
+            _defBox.Enabled = isArmor;
+            _hpBox.Enabled = isArmor || isWeapon || t is "consumable" or "trophy";
             _healBox.Enabled = t is "consumable" or "trophy" or "weapon" or "twohand";
+            _manaBox.Enabled = t is "consumable";
+            _dmgTypeBox.Enabled = isWeapon || t is "shield";
+            _subtypeBox.Enabled = isWeapon || t is "shield";
+            _asmBox.Enabled = isWeapon;
+            _arBox.Enabled = isWeapon;
         }
     }
 

@@ -262,7 +262,12 @@ internal class GameHudRenderer
             int sz = 44;
             var r = new Rectangle(ms.X - sz / 2, ms.Y - sz / 2, sz, sz);
             if (spr != null)
+            {
                 sb.Draw(spr, r, Color.White * 0.95f);
+                var qFrame = SpriteCache.ForQualityFrame(dragItem.Quality);
+                if (qFrame != null)
+                    sb.Draw(qFrame, r, Color.White * 0.95f);
+            }
             else
                 sb.Draw(SpriteCache.Pixel, r, new Color(120, 120, 140, 240));
 

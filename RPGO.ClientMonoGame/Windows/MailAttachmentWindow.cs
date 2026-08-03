@@ -401,7 +401,12 @@ public class MailAttachmentWindow : GameWindow
                 int sz = 36;
                 var dst = new Rectangle(_dragPos.X - _dragOffset.X, _dragPos.Y - _dragOffset.Y, sz, sz);
                 if (spr != null)
+                {
                     sb.Draw(spr, dst, Color.White);
+                    var qFrame = SpriteCache.ForQualityFrame(item.Quality);
+                    if (qFrame != null)
+                        sb.Draw(qFrame, dst, Color.White);
+                }
                 else
                     sb.Draw(SpriteCache.Pixel, dst, new Color(180, 140, 60, 200));
                 if (item.Quantity > 1 && fontS != null)
@@ -448,7 +453,13 @@ public class MailAttachmentWindow : GameWindow
                     var (item, count) = _invStacks[idx];
                     var spr = SpriteCache.ForItem(item);
                     if (spr != null)
-                        sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), Color.White);
+                    {
+                        var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8);
+                        sb.Draw(spr, iconRect, Color.White);
+                        var qFrame = SpriteCache.ForQualityFrame(item.Quality);
+                        if (qFrame != null)
+                            sb.Draw(qFrame, iconRect, Color.White);
+                    }
                     if (count > 1 && fontS != null)
                         sb.DrawString(fontS, count.ToString(),
                             new Vector2(rect.X + rect.Width - 16, rect.Y + rect.Height - 16),
@@ -495,7 +506,13 @@ public class MailAttachmentWindow : GameWindow
                     {
                         var spr = SpriteCache.ForItem(item);
                         if (spr != null)
-                            sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), Color.White);
+                        {
+                            var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8);
+                            sb.Draw(spr, iconRect, Color.White);
+                            var qFrame = SpriteCache.ForQualityFrame(item.Quality);
+                            if (qFrame != null)
+                                sb.Draw(qFrame, iconRect, Color.White);
+                        }
                         if (att.Quantity > 1 && fontS != null)
                             sb.DrawString(fontS, att.Quantity.ToString(),
                                 new Vector2(rect.X + rect.Width - 16, rect.Y + rect.Height - 16),

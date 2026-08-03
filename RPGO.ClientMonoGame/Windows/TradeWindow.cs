@@ -730,7 +730,12 @@ namespace RPGGame.ClientMonoGame.Windows
                     int sz = 36;
                     var dst = new Rectangle(_dragPos.X - _dragOffset.X, _dragPos.Y - _dragOffset.Y, sz, sz);
                     if (spr != null)
+                    {
                         sb.Draw(spr, dst, Color.White);
+                        var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                        if (qFrame != null)
+                            sb.Draw(qFrame, dst, Color.White);
+                    }
                     else
                         sb.Draw(SpriteCache.Pixel, dst, new Color(180, 140, 60, 200));
                     if (grouped[_dragIdx].Value > 1 && font != null)
@@ -773,7 +778,13 @@ namespace RPGGame.ClientMonoGame.Windows
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
-                            sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, _invCellSize - 8, _invCellSize - 8), Color.White);
+                        {
+                            var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _invCellSize - 8, _invCellSize - 8);
+                            sb.Draw(spr, iconRect, Color.White);
+                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            if (qFrame != null)
+                                sb.Draw(qFrame, iconRect, Color.White);
+                        }
 
                         int count = groupedInv[uniqueIdx].Value;
                         if (count > 1)
@@ -820,7 +831,13 @@ namespace RPGGame.ClientMonoGame.Windows
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
-                            sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8), Color.White);
+                        {
+                            var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
+                            sb.Draw(spr, iconRect, Color.White);
+                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            if (qFrame != null)
+                                sb.Draw(qFrame, iconRect, Color.White);
+                        }
 
                         if (kvp.Value > 1)
                             DrawText(sb, kvp.Value.ToString(), rect.X + _offerCellSize - 14, rect.Y + _offerCellSize - 14, new Color(230, 230, 120), font);
@@ -897,7 +914,13 @@ namespace RPGGame.ClientMonoGame.Windows
                         if (hover) _hoverItem = item;
                         var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
                         if (spr != null)
-                            sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8), Color.White);
+                        {
+                            var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
+                            sb.Draw(spr, iconRect, Color.White);
+                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            if (qFrame != null)
+                                sb.Draw(qFrame, iconRect, Color.White);
+                        }
 
                         if (kvp.Value > 1)
                             DrawText(sb, kvp.Value.ToString(), rect.X + _offerCellSize - 14, rect.Y + _offerCellSize - 14, new Color(230, 230, 120), font);
