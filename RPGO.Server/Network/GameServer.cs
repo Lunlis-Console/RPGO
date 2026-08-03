@@ -506,6 +506,7 @@ public sealed class GameServer : INetworkHub
             Type = "inventory_response",
             Data = new
             {
+                PlayerLevel = player.Level,
                 Items = player.Inventory,
                 Gold = player.Gold,
                 Equipment = new

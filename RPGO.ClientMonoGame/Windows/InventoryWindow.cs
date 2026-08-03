@@ -10,6 +10,7 @@ namespace RPGGame.ClientMonoGame.Windows;
 public class InventoryWindow : GameWindow
 {
     private InventoryData? _data;
+    private int _playerLevel = 1;
     private string _filter = "all";
 
     public Action<string>? EquipItem;
@@ -126,6 +127,7 @@ public class InventoryWindow : GameWindow
             _newIds.Clear();
 
         NewItemCountChanged?.Invoke(NewItemCount);
+        _playerLevel = data.PlayerLevel;
         _data = data;
     }
 
@@ -335,7 +337,7 @@ public class InventoryWindow : GameWindow
                         else
                             RequestSell(item, _stacks[idx].count);
                     }
-                    else if (EquipmentSlots.IsEquippableType(item.Type))
+                    else if (EquipmentSlots.IsEquippableType(item.Type) && item.RequiredLevel <= _playerLevel)
                         EquipItem?.Invoke(item.Id);
                     else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
                         UseItem?.Invoke(item.Id);
@@ -363,7 +365,7 @@ public class InventoryWindow : GameWindow
         if (!isDouble) return;
 
         _lastClickIdx = -1;
-        if (EquipmentSlots.IsEquippableType(item.Type))
+        if (EquipmentSlots.IsEquippableType(item.Type) && item.RequiredLevel <= _playerLevel)
             EquipItem?.Invoke(item.Id);
         else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
             UseItem?.Invoke(item.Id);
@@ -460,8 +462,12 @@ public class InventoryWindow : GameWindow
                 {
                     var stack = _stacks[r * GridCols + c];
                     var spr = SpriteCache.ForItem(stack.item);
+                    bool levelLocked = stack.item.RequiredLevel > _playerLevel;
+                    var tint = levelLocked ? new Color(60, 60, 60) : Color.White;
                     if (spr != null)
-                        sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), Color.White);
+                        sb.Draw(spr, new Rectangle(rect.X + 4, rect.Y + 4, rect.Width - 8, rect.Height - 8), tint);
+                    if (levelLocked && stack.item.RequiredLevel > 0)
+                        DrawText(sb, $"{stack.item.RequiredLevel}ур", rect.X + 6, rect.Y + 4, new Color(255, 100, 80));
                     if (stack.count > 1)
                         DrawText(sb, stack.count.ToString(), rect.X + rect.Width - 16, rect.Y + rect.Height - 16, new Color(230, 230, 120));
                     if (hover) _hoverItem = stack.item;

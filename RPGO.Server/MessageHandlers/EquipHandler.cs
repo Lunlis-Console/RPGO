@@ -35,6 +35,12 @@ public class EquipHandler : BaseHandler
             return;
         }
 
+        if (item.RequiredLevel > player.Level)
+        {
+            await SendError(connection, ErrorCodes.ItemLevelTooLow, $"Требуется уровень {item.RequiredLevel}!");
+            return;
+        }
+
         bool twoHanded = EquipmentSlots.IsTwoHanded(item.Type, item.TwoHanded);
 
         // Целевой слот: явный (из клиента) или первый подходящий

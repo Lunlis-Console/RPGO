@@ -69,6 +69,7 @@ public sealed class StatusData
 
 public sealed class InventoryData
 {
+    public int PlayerLevel { get; set; }
     public List<Item>? Items { get; set; }
     public int Gold { get; set; }
     public EquipmentData? Equipment { get; set; }

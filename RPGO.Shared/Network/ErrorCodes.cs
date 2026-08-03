@@ -10,6 +10,7 @@ public static class ErrorCodes
     public const string InsufficientGold = "INSUFFICIENT_GOLD";
     public const string ItemNotInInventory = "ITEM_NOT_IN_INVENTORY";
     public const string ItemNotEquippable = "ITEM_NOT_EQUIPPABLE";
+    public const string ItemLevelTooLow = "ITEM_LEVEL_TOO_LOW";
     public const string SlotEmpty = "SLOT_EMPTY";
     public const string NothingToCollect = "NOTHING_TO_COLLECT";
     public const string NotAtBoard = "NOT_AT_BOARD";
