@@ -90,6 +90,9 @@ public class Item
     // Категория оружия (выводится из WeaponSubtype)
     public WeaponCategory Category => WeaponCategoryExtensions.Parse(WeaponSubtype);
 
+    // Класс оружия (выводится из Category)
+    public ItemClass Class => Category.GetItemClass();
+
     // Требуемый уровень (0 = без ограничений)
     public int RequiredLevel { get; set; }
 

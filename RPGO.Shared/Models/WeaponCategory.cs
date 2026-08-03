@@ -20,6 +20,13 @@ public enum WeaponCategory
     Shield
 }
 
+public enum ItemClass
+{
+    Melee = 0,
+    Ranged,
+    Magic
+}
+
 public static class WeaponCategoryExtensions
 {
     public static WeaponCategory Parse(string? subtype)
@@ -47,4 +54,11 @@ public static class WeaponCategoryExtensions
             _ => WeaponCategory.None
         };
     }
+
+    public static ItemClass GetItemClass(this WeaponCategory category) => category switch
+    {
+        WeaponCategory.Bow => ItemClass.Ranged,
+        WeaponCategory.Staff or WeaponCategory.Grimoire or WeaponCategory.Sphere => ItemClass.Magic,
+        _ => ItemClass.Melee
+    };
 }
