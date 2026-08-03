@@ -4,6 +4,19 @@ using Microsoft.Xna.Framework.Input;
 
 namespace RPGGame.ClientMonoGame.Rendering;
 
+public readonly struct TooltipLine
+{
+    public readonly string Text;
+    public readonly Color? Color;
+
+    public TooltipLine(string text, Color? color = null)
+    {
+        Text = text; Color = color;
+    }
+
+    public static implicit operator TooltipLine(string text) => new(text);
+}
+
 public static class TooltipRenderer
 {
     private static readonly Color BgColor = new Color(20, 22, 30, 240);
@@ -13,6 +26,11 @@ public static class TooltipRenderer
 
     public static void Draw(SpriteBatch sb, List<string> lines, MouseState mouse, int windowRight = int.MaxValue, int windowBottom = int.MaxValue)
     {
+        Draw(sb, lines.ConvertAll(l => new TooltipLine(l)), mouse, windowRight, windowBottom);
+    }
+
+    public static void Draw(SpriteBatch sb, List<TooltipLine> lines, MouseState mouse, int windowRight = int.MaxValue, int windowBottom = int.MaxValue)
+    {
         if (lines.Count == 0) return;
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font == null) return;
@@ -21,7 +39,7 @@ public static class TooltipRenderer
         int lh = 18;
         float maxW = 0;
         foreach (var l in lines)
-            maxW = Math.Max(maxW, font.MeasureString(l).X);
+            maxW = Math.Max(maxW, font.MeasureString(l.Text).X);
 
         int tw = (int)maxW + pad * 2;
         int th = lines.Count * lh + pad * 2;
@@ -38,8 +56,8 @@ public static class TooltipRenderer
 
         for (int i = 0; i < lines.Count; i++)
         {
-            var color = i == 0 ? TitleColor : TextColor;
-            sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * lh), color);
+            var color = lines[i].Color ?? (i == 0 ? TitleColor : TextColor);
+            sb.DrawString(font, lines[i].Text, new Vector2(tx + pad, ty + pad + i * lh), color);
         }
     }
 }

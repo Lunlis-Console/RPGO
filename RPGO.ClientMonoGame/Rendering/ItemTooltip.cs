@@ -1,9 +1,22 @@
+using Microsoft.Xna.Framework;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.ClientMonoGame.Rendering;
 
 public static class ItemTooltip
 {
+    private static readonly Color PriceColor = new Color(230, 220, 80);
+    private static readonly Color QualityUncommon = new Color(76, 175, 80);
+    private static readonly Color QualityRare = new Color(66, 165, 245);
+    private static readonly Color QualityEpic = new Color(171, 71, 188);
+
+    private static Color QualityColor(ItemQuality q) => q switch
+    {
+        ItemQuality.Uncommon => QualityUncommon,
+        ItemQuality.Rare => QualityRare,
+        ItemQuality.Epic => QualityEpic,
+        _ => Color.White
+    };
     public static string TypeLabel(string t) => t switch
     {
         "weapon" => "Оружие",
@@ -67,18 +80,22 @@ public static class ItemTooltip
         _ => ""
     };
 
-    public static List<string> BuildLines(Item item, int? overrideValue = null, int? stockOverride = null)
+    public static List<TooltipLine> BuildLines(Item item, int? overrideValue = null, int? stockOverride = null)
     {
-        var lines = new List<string>();
-
-        lines.Add(item.Name);
-        lines.Add($"Тип: {TypeLabel(item.Type)}");
-
-        int price = overrideValue ?? item.Value;
-        lines.Add($"Цена: {price} золота");
+        var lines = new List<TooltipLine>();
 
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
         bool isCasterShield = item.Type == "shield" && Equipment.IsCasterOffhand(item);
+        bool hasQuality = isWeapon || isCasterShield || item.Type == "shield";
+
+        lines.Add(item.Name);
+        lines.Add(new TooltipLine($"Тип: {TypeLabel(item.Type)}"));
+
+        if (hasQuality)
+        {
+            string qualLabel = ItemQualityExtensions.Label(item.Quality);
+            lines.Add(new TooltipLine($"Качество: {qualLabel}", QualityColor(item.Quality)));
+        }
 
         if (isWeapon || isCasterShield)
         {
@@ -109,8 +126,11 @@ public static class ItemTooltip
         if (stockOverride.HasValue && stockOverride.Value > 1)
             lines.Add($"В наличии: {stockOverride.Value}");
 
-        if (!string.IsNullOrEmpty(item.Description))
+        if (!hasQuality && !string.IsNullOrEmpty(item.Description))
             lines.Add(item.Description);
+
+        int price = overrideValue ?? item.Value;
+        lines.Add(new TooltipLine($"Цена: {price} золота", PriceColor));
 
         return lines;
     }
@@ -145,7 +165,7 @@ public static class ItemTooltip
         };
     }
 
-    private static void AddStatLines(List<string> lines, Item item)
+    private static void AddStatLines(List<TooltipLine> lines, Item item)
     {
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
         bool isShield = item.Type == "shield";

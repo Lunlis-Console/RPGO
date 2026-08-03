@@ -109,5 +109,8 @@ public class Item
     // Дальность атаки (1 = ближний бой, 3 = лук и т.д.)
     public int AttackRange { get; set; } = 1;
 
+    // Качество предмета (Common/Uncommon/Rare/Epic) — определяется из описания
+    public ItemQuality Quality => ItemQualityExtensions.ParseFromDescription(Description);
+
     public Item Clone() => (Item)MemberwiseClone();
 }
