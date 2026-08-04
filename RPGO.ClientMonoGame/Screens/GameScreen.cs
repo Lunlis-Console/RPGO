@@ -107,6 +107,7 @@ public class GameScreen : IScreen
         };
         client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
+            _mapRenderer.ClearMap();
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
         };
@@ -996,6 +997,8 @@ public class GameScreen : IScreen
         int topH = 0;
 
         _mapRenderer.Draw(spriteBatch, 0, topH, w, h - topH);
+        if (_mapRenderer.IsMapLoaded)
+        {
         _mapRenderer.DrawSkillEffects(spriteBatch, 0, topH, w, h - topH);
         _minimap.SetViewBounds(_mapRenderer.GetViewBounds());
         var mmCenter = _mapRenderer.CameraCenter;
@@ -1050,6 +1053,7 @@ public class GameScreen : IScreen
         // Icon bar
         _hudDraw.LayoutIconBar(w, h);
         _hudDraw.DrawIconBar(spriteBatch);
+        }
 
         // Settings overlay
         if (_settingsWindow.Visible)

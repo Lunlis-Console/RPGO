@@ -11,9 +11,7 @@ public class FixQualityBonuses : ForwardOnlyMigration
         Execute.Sql(@"
             UPDATE items SET
                 bonus_strength = 0, bonus_endurance = 0, bonus_agility = 0,
-                bonus_cunning = 0, bonus_intellect = 0, bonus_wisdom = 0,
-                bonus_phys_attack = 0, bonus_mag_attack = 0,
-                bonus_defense = 0, bonus_resistance = 0
+                bonus_cunning = 0, bonus_intellect = 0, bonus_wisdom = 0
             WHERE description LIKE 'Качество:%'
         ");
 
@@ -29,7 +27,7 @@ public class FixQualityBonuses : ForwardOnlyMigration
             {
                 string id = reader.GetString(0);
                 string desc = reader.GetString(1);
-                int reqLvl = reader.GetInt32(2);
+                int reqLvl = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
                 var quality = ItemQualityExtensions.ParseFromDescription(desc);
                 int target = quality switch
                 {
@@ -42,7 +40,8 @@ public class FixQualityBonuses : ForwardOnlyMigration
 
                 int bonusValue = Math.Max(1, reqLvl / 5);
                 string[] allStats = { "bonus_strength", "bonus_endurance", "bonus_agility", "bonus_cunning", "bonus_intellect", "bonus_wisdom" };
-                int itemNum = int.Parse(id.AsSpan(1));
+                int itemNum;
+                if (!int.TryParse(id.AsSpan(1), out itemNum)) continue;
 
                 for (int t = 0; t < target; t++)
                 {
@@ -55,7 +54,15 @@ public class FixQualityBonuses : ForwardOnlyMigration
             {
                 using var updateCmd = conn.CreateCommand();
                 updateCmd.Transaction = trans;
-                updateCmd.CommandText = $"UPDATE items SET {stat} = {value} WHERE id = '{id}'";
+                updateCmd.CommandText = $"UPDATE items SET {stat} = @val WHERE id = @id";
+                var pv = updateCmd.CreateParameter();
+                pv.ParameterName = "@val";
+                pv.Value = value;
+                updateCmd.Parameters.Add(pv);
+                var pid = updateCmd.CreateParameter();
+                pid.ParameterName = "@id";
+                pid.Value = id;
+                updateCmd.Parameters.Add(pid);
                 updateCmd.ExecuteNonQuery();
             }
         });

@@ -41,7 +41,7 @@ public class InventoryWindow : GameWindow
     public Action<Item, int>? PendingDrop;
 
     private int _lastClickIdx = -1;
-    private TimeSpan _lastClickTime;
+    private int _lastClickTime;
 
     private new MouseState _prevMouse;
     private KeyboardState _prevKey;
@@ -291,23 +291,23 @@ public class InventoryWindow : GameWindow
                 }
                 // иначе — возврат в инвентарь (ничего не делаем)
             }
-                else if (moved < 6 && idx < _stacks.Count)
+            else if (moved < 6 && idx < _stacks.Count)
+            {
+                // Клик (без перетаскивания)
+                var item = _stacks[idx].item;
+                if (ShopMode)
                 {
-                    // Клик (без перетаскивания)
-                    var item = _stacks[idx].item;
-                    if (ShopMode)
-                    {
-                        // В режиме торговли одиночный клик ничего не делает;
-                        // двойной клик — продажа
-                        HandleShopClick(item, mouse);
-                    }
-                    else
-                    {
-                        // Надевание/использование — только по двойному клику,
-                        // чтобы не мешать drag-n-drop
-                        HandleInventoryClick(item);
-                    }
+                    // В режиме торговли одиночный клик ничего не делает;
+                    // двойной клик — продажа
+                    HandleShopClick(item, mouse);
                 }
+                else
+                {
+                    // Надевание/использование — только по двойному клику,
+                    // чтобы не мешать drag-n-drop
+                    HandleInventoryClick(item);
+                }
+            }
 
                 // Сброс состояния перетаскивания — ПОСЛЕ всех действий дропа,
                 // иначе DraggingType обнуляется раньше времени и TryGetSlotAt не сработает.
@@ -358,8 +358,8 @@ public class InventoryWindow : GameWindow
     private void HandleInventoryClick(Item item)
     {
         int idx = _stacks.FindIndex(s => s.item == item);
-        var now = DateTime.Now.TimeOfDay;
-        bool isDouble = idx == _lastClickIdx && (_lastClickTime - now).TotalMilliseconds is > -500 and < 500;
+        var now = Environment.TickCount;
+        bool isDouble = idx == _lastClickIdx && unchecked(now - _lastClickTime) < 500;
         _lastClickIdx = idx;
         _lastClickTime = now;
         if (!isDouble) return;
@@ -374,8 +374,8 @@ public class InventoryWindow : GameWindow
     private void HandleShopClick(Item item, MouseState mouse)
     {
         int idx = _stacks.FindIndex(s => s.item == item);
-        var now = DateTime.Now.TimeOfDay;
-        bool isDouble = idx == _lastClickIdx && (_lastClickTime - now).TotalMilliseconds is > -500 and < 500;
+        var now = Environment.TickCount;
+        bool isDouble = idx == _lastClickIdx && unchecked(now - _lastClickTime) < 500;
         _lastClickIdx = idx;
         _lastClickTime = now;
         if (isDouble)

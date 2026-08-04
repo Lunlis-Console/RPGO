@@ -87,6 +87,16 @@ public sealed class GameMap
 
     public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
 
+    public GameMap Clone()
+    {
+        var clone = new GameMap(Width, Height);
+        if (_tiles != null) clone.SetTiles((byte[])_tiles.Clone());
+        if (_objectTiles != null) clone.SetObjectTiles((byte[])_objectTiles.Clone());
+        foreach (var (x, y) in _obstacles)
+            clone.AddObstacle(x, y);
+        return clone;
+    }
+
     /// <summary>Радиус видимости сущностей вокруг игрока.</summary>
     public int ViewRadius { get; set; } = Balance.ViewRadius;
 }

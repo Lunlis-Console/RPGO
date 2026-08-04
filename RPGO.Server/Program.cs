@@ -113,6 +113,15 @@ partial class Program
         var instances = new InstanceManager(servicesLazy);
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
+
+        // Загружаем карту подземелья как шаблон для инстанса (должно быть после создания instances)
+        var dungeonTemplate = LoadTiledMap("dungeon_1.tmj");
+        if (dungeonTemplate != null)
+        {
+            var tiledData = TiledMapLoader.Load(Path.Combine(AppContext.BaseDirectory, "Content", "dungeon_1.tmj"));
+            var dungeonSpawns = TiledMapLoader.ExtractDungeonObjects(tiledData);
+            instances.SetDungeonTemplate(dungeonTemplate, dungeonSpawns);
+        }
         var persistence = new PersistenceService();
         var storage = new StorageService(world, hub);
 
@@ -657,5 +666,30 @@ partial class Program
         }
         catch { }
         return ips;
+    }
+
+    /// <summary>
+    /// Загружает Tiled-карту как standalone GameMap (без привязки к зоне).
+    /// </summary>
+    private static GameMap? LoadTiledMap(string fileName)
+    {
+        string path = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
+        if (!File.Exists(path))
+        {
+            Log.Warn($"Tiled-карта не найдена: {path}");
+            return null;
+        }
+        var tiledMap = TiledMapLoader.Load(path);
+        var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
+        var map = new GameMap(tiledMap.Width, tiledMap.Height);
+        map.SetTiles(tileData);
+        var obstacles = TiledMapLoader.ExtractObstacles(tiledMap);
+        foreach (var (ox, oy) in obstacles)
+            map.AddObstacle(ox, oy);
+        var objectLayer = TiledMapLoader.ExtractObjectLayer(tiledMap);
+        if (objectLayer != null)
+            map.SetObjectTiles(objectLayer);
+        Log.Info($"Карта {fileName} загружена: {map.Width}x{map.Height}, препятствий: {obstacles.Count}");
+        return map;
     }
 }

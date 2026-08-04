@@ -10,6 +10,9 @@ public static class Pathfinding
         int worldW, int worldH,
         Func<int, int, bool> isBlocked)
     {
+        if (startX < 0 || startX >= worldW || startY < 0 || startY >= worldH)
+            return new List<(int, int)>();
+
         if (startX == targetX && startY == targetY)
             return new List<(int, int)>();
 

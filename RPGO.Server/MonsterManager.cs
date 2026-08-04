@@ -441,8 +441,10 @@ public class MonsterManager
     }
 
     /// <summary>Тик ИИ для монстров инстанса (адаптация WanderStep).</summary>
-    public void WanderStepForInstances(List<Monster> monsters, List<Player> players, int mapW, int mapH)
+    public void WanderStepForInstances(List<Monster> monsters, List<Player> players, GameMap map)
     {
+        int mapW = map.Width;
+        int mapH = map.Height;
         var now = DateTime.UtcNow;
         foreach (var m in monsters)
         {
@@ -472,7 +474,9 @@ public class MonsterManager
                 int mx = stepX != 0 && stepY != 0 ? stepX : (stepX != 0 ? stepX : 0);
                 int my = stepX != 0 && stepY != 0 ? 0 : (stepY != 0 ? stepY : 0);
                 int nx = m.X + mx, ny = m.Y + my;
-                if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH && !InstanceOccupied(monsters, nx, ny))
+                if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH
+                    && !map.IsObstacle(nx, ny) && map.GetTile(nx, ny) != 0 && map.GetTile(nx, ny) != 255
+                    && !InstanceOccupied(monsters, nx, ny))
                 { m.X = nx; m.Y = ny; }
                 m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
@@ -536,6 +540,7 @@ public class MonsterManager
                     int nx = m.X + mx, ny = m.Y + my;
                     if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH
                         && Math.Abs(nx - m.SpawnX) <= m.WanderRadius && Math.Abs(ny - m.SpawnY) <= m.WanderRadius
+                        && !map.IsObstacle(nx, ny) && map.GetTile(nx, ny) != 0 && map.GetTile(nx, ny) != 255
                         && !InstanceOccupied(monsters, nx, ny))
                     { m.X = nx; m.Y = ny; moved = true; }
                 }
@@ -553,6 +558,7 @@ public class MonsterManager
             int wnx = m.X + wdx, wny = m.Y + wdy;
             if (wnx < 0 || wnx >= mapW || wny < 0 || wny >= mapH) continue;
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
+            if (map.IsObstacle(wnx, wny) || map.GetTile(wnx, wny) == 0 || map.GetTile(wnx, wny) == 255) continue;
             if (InstanceOccupied(monsters, wnx, wny)) continue;
             m.X = wnx; m.Y = wny;
             m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);

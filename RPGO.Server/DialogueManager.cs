@@ -195,6 +195,13 @@ public class DialogueManager
             await CloseDialogue(client, player);
             return true;
         }
+        else if (action.StartsWith("enter_instance:"))
+        {
+            string templateId = action["enter_instance:".Length..];
+            await CloseDialogue(client, player);
+            await _svc.Instances.TryEnter(player, templateId, client);
+            return true;
+        }
         return false;
     }
 

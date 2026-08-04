@@ -74,8 +74,8 @@ public class PathfindingService
                 var inst = Services.Instances.FindInstanceByZoneId(zoneId);
                 if (inst != null)
                 {
-                    blocked.Add((inst.Template.ChestX + inst.OffsetX, inst.Template.ChestY + inst.OffsetY));
-                    blocked.Add((inst.Template.ExitX + inst.OffsetX, inst.Template.ExitY + inst.OffsetY));
+                    blocked.Add((inst.EffectiveChestX, inst.EffectiveChestY));
+                    blocked.Add((inst.EffectiveExitX, inst.EffectiveExitY));
                 }
             }
         }

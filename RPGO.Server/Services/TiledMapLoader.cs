@@ -61,6 +61,14 @@ public record TiledSpawn(int X, int Y, string Name, string Type);
 /// <summary>Позиция NPC из Tiled: координата в тайлах, имя (id записи npcs или instance_template_id) и тип.</summary>
 public record TiledNpc(int X, int Y, string Name, string Type, string ZoneId);
 
+/// <summary>Точки для данж-карт: вход игрока, спавны монстров/босса, сундук, выход.</summary>
+public record DungeonSpawnData(
+    (int X, int Y) PlayerSpawn,
+    List<(int X, int Y)> MonsterSpawns,
+    (int X, int Y) BossSpawn,
+    (int X, int Y) Chest,
+    (int X, int Y) Exit);
+
 public static class TiledMapLoader
 {
     private const uint FlippedHorizontally = 0x80000000;
@@ -379,6 +387,60 @@ public static class TiledMapLoader
             return null;
         }
         return null;
+    }
+
+    /// <summary>
+    /// Извлекает точки для данж-карт из object-слоёв.
+    /// Ищет объекты с типами: player_spawn, monster_spawn, boss_spawn, chest, exit_portal.
+    /// </summary>
+    public static DungeonSpawnData? ExtractDungeonObjects(TiledMapData map)
+    {
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return null;
+
+        (int X, int Y)? playerSpawn = null;
+        var monsterSpawns = new List<(int X, int Y)>();
+        (int X, int Y)? bossSpawn = null;
+        (int X, int Y)? chest = null;
+        (int X, int Y)? exit = null;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                var type = obj.Type ?? "";
+                int tx, ty;
+                if (obj.Point)
+                {
+                    tx = (int)Math.Floor(obj.X / map.TileWidth);
+                    ty = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    tx = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    ty = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
+
+                switch (type.ToLowerInvariant())
+                {
+                    case "player_spawn": playerSpawn = (tx, ty); break;
+                    case "monster_spawn": monsterSpawns.Add((tx, ty)); break;
+                    case "boss_spawn": bossSpawn = (tx, ty); break;
+                    case "chest": chest = (tx, ty); break;
+                    case "exit_portal": exit = (tx, ty); break;
+                }
+            }
+        }
+
+        if (playerSpawn == null || bossSpawn == null || chest == null || exit == null)
+            return null;
+
+        return new DungeonSpawnData(playerSpawn.Value, monsterSpawns, bossSpawn.Value, chest.Value, exit.Value);
     }
 
     public static string GetTilesetPngPath(TiledMapData map, string baseDir)

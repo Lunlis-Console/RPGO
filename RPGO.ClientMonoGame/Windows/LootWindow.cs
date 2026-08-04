@@ -24,7 +24,7 @@ public class LootWindow : GameWindow
     private Point _dragPos;
     private Point _dragOffset;
     private int _lastClickIdx = -1;
-    private TimeSpan _lastClickTime;
+    private int _lastClickTime;
     private LootItemInfo? _hoverItem;
 
     public Action<string, bool, string[], bool>? TakeLoot;
@@ -127,8 +127,8 @@ public class LootWindow : GameWindow
             {
                 // Двойной клик — забрать предмет
                 var item = _items[idx];
-                var now = DateTime.Now.TimeOfDay;
-                bool isDouble = idx == _lastClickIdx && (_lastClickTime - now).TotalMilliseconds is > -500 and < 500;
+                var now = Environment.TickCount;
+                bool isDouble = idx == _lastClickIdx && unchecked(now - _lastClickTime) < 500;
                 _lastClickIdx = idx;
                 _lastClickTime = now;
                 if (isDouble)

@@ -358,4 +358,28 @@ internal class GameHudRenderer
         var tSz = font.MeasureString(tTxt);
         sb.DrawString(font, tTxt, new Vector2(btnX + (btnW - tSz.X) / 2, btnY + btnH + 4 + (btnH - tSz.Y) / 2), Color.White);
     }
+
+    internal Rectangle InstanceLeaveRect = Rectangle.Empty;
+
+    internal void DrawInstanceLeaveButton(SpriteBatch sb, int screenW)
+    {
+        if (!_map.IsInstance) return;
+
+        int btnW = 80, btnH = 24;
+        int btnX = screenW - MinimapRenderer.Size - MinimapRenderer.PanelMarginRight;
+        int btnY = MinimapRenderer.PanelTop + MinimapRenderer.Size + 6;
+        InstanceLeaveRect = new Rectangle(btnX, btnY, btnW, btnH);
+
+        var ms = Mouse.GetState();
+        bool hov = InstanceLeaveRect.Contains(ms.X, ms.Y);
+        sb.Draw(SpriteCache.Pixel, InstanceLeaveRect, hov ? new Color(180, 60, 60) : new Color(130, 40, 40));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(btnX, btnY, btnW, 1), new Color(90, 95, 115));
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font != null)
+        {
+            string txt = "Выход";
+            var sz = font.MeasureString(txt);
+            sb.DrawString(font, txt, new Vector2(btnX + (btnW - sz.X) / 2, btnY + (btnH - sz.Y) / 2), Color.White);
+        }
+    }
 }

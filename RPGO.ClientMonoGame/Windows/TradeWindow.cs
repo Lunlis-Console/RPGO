@@ -41,6 +41,7 @@ namespace RPGGame.ClientMonoGame.Windows
         private int _prevScrollWheel;
         private bool _wasVisible;
         private TradeItemData? _hoverItem;
+        private int _heldScrollFrames;
 
         // Drag-n-drop между инвентарём и оффером (как в окне склада)
         private int _dragFromPanel = -1; // 0 = инвентарь, 1 = мой оффер
@@ -58,6 +59,8 @@ namespace RPGGame.ClientMonoGame.Windows
         private Rectangle _invPanelRect;
         private Rectangle _myOfferPanelRect;
         private Rectangle _theirOfferPanelRect;
+        private Rectangle _confirmBtnRect;
+        private Rectangle _cancelBtnRect;
         private int _invCellSize;
         private int _offerCellSize;
         private int _invVisibleRows;
@@ -378,6 +381,19 @@ namespace RPGGame.ClientMonoGame.Windows
             HandleScrollClick(mouse);
             HandleMouseWheel(mouse);
 
+            int by = Y + Height - BottomBarH + 8;
+            int rightX = ContentX + ContentW - 8;
+            _confirmBtnRect = new Rectangle(rightX - 240, by, 130, 26);
+            _cancelBtnRect = new Rectangle(rightX - 100, by, 100, 26);
+
+            if (clicked && ConfirmRequested != null && _confirmBtnRect.Contains(mouse.X, mouse.Y))
+                ConfirmRequested.Invoke();
+            if (clicked && CancelRequested != null && _cancelBtnRect.Contains(mouse.X, mouse.Y))
+            {
+                CancelRequested.Invoke();
+                Visible = false;
+            }
+
             _prevMouse = mouse;
             _prevScrollWheel = mouse.ScrollWheelValue;
             _prevKeyboard = keyboard;
@@ -490,19 +506,22 @@ namespace RPGGame.ClientMonoGame.Windows
 
         private void HandleScrollClick(MouseState mouse)
         {
-            bool justClicked = mouse.LeftButton == ButtonState.Pressed
-                            && _prevMouse.LeftButton == ButtonState.Released;
-            if (!justClicked) return;
+            bool held = mouse.LeftButton == ButtonState.Pressed;
+            bool justClicked = held && _prevMouse.LeftButton == ButtonState.Released;
+            if (!justClicked && !held) { _heldScrollFrames = 0; return; }
+            if (justClicked) _heldScrollFrames = 0;
+
+            bool shouldScroll = justClicked || (held && ++_heldScrollFrames % 4 == 0);
 
             // Инвентарь
             int gridW = InvCols * _invCellSize + (InvCols - 1) * CellGap;
-            if (_scrollOffset > 0)
+            if (_scrollOffset > 0 && shouldScroll)
             {
                 var upBtn = new Rectangle(_invPanelRect.X + 8 + gridW + 4, _invPanelRect.Y + PanelHeaderH, 14, 14);
                 if (upBtn.Contains(mouse.X, mouse.Y))
                     _scrollOffset = Math.Max(0, _scrollOffset - InvCols);
             }
-            if (_scrollOffset < _maxScroll)
+            if (_scrollOffset < _maxScroll && shouldScroll)
             {
                 var dnBtn = new Rectangle(_invPanelRect.X + 8 + gridW + 4, _invPanelRect.Y + PanelHeaderH + _invVisibleRows * (_invCellSize + CellGap) - 14, 14, 14);
                 if (dnBtn.Contains(mouse.X, mouse.Y))
@@ -511,13 +530,13 @@ namespace RPGGame.ClientMonoGame.Windows
 
             // Мой оффер
             int offerGridW = OfferCols * _offerCellSize + (OfferCols - 1) * CellGap;
-            if (_offerScroll > 0)
+            if (_offerScroll > 0 && shouldScroll)
             {
                 var upBtn = new Rectangle(_myOfferPanelRect.X + 8 + offerGridW + 4, _myOfferPanelRect.Y + PanelHeaderH, 14, 14);
                 if (upBtn.Contains(mouse.X, mouse.Y))
                     _offerScroll = Math.Max(0, _offerScroll - OfferCols);
             }
-            if (_offerScroll < _offerMaxScroll)
+            if (_offerScroll < _offerMaxScroll && shouldScroll)
             {
                 var dnBtn = new Rectangle(_myOfferPanelRect.X + 8 + offerGridW + 4, _myOfferPanelRect.Y + PanelHeaderH + OfferRows * (_offerCellSize + CellGap) - 14, 14, 14);
                 if (dnBtn.Contains(mouse.X, mouse.Y))
@@ -525,13 +544,13 @@ namespace RPGGame.ClientMonoGame.Windows
             }
 
             // Оффер противника
-            if (_theirScroll > 0)
+            if (_theirScroll > 0 && shouldScroll)
             {
                 var upBtn = new Rectangle(_theirOfferPanelRect.X + 8 + offerGridW + 4, _theirOfferPanelRect.Y + PanelHeaderH, 14, 14);
                 if (upBtn.Contains(mouse.X, mouse.Y))
                     _theirScroll = Math.Max(0, _theirScroll - OfferCols);
             }
-            if (_theirScroll < _theirMaxScroll)
+            if (_theirScroll < _theirMaxScroll && shouldScroll)
             {
                 var dnBtn = new Rectangle(_theirOfferPanelRect.X + 8 + offerGridW + 4, _theirOfferPanelRect.Y + PanelHeaderH + OfferRows * (_offerCellSize + CellGap) - 14, 14, 14);
                 if (dnBtn.Contains(mouse.X, mouse.Y))
@@ -707,13 +726,7 @@ namespace RPGGame.ClientMonoGame.Windows
             var clSize = font.MeasureString("Отмена");
             sb.DrawString(font, "Отмена", new Vector2(cancelBtn.X + (cancelBtn.Width - clSize.X) / 2, cancelBtn.Y + (cancelBtn.Height - clSize.Y) / 2), Color.White);
 
-            if (pressed(confirmBtn, mouse))
-                ConfirmRequested?.Invoke();
-            if (pressed(cancelBtn, mouse))
-            {
-                CancelRequested?.Invoke();
-                Visible = false;
-            }
+            // confirm/cancel handled in Update() via single-frame click detection
 
             if (_hoverItem != null)
                 DrawTooltip(sb, _hoverItem, mouse);
@@ -979,10 +992,7 @@ namespace RPGGame.ClientMonoGame.Windows
                 .ToList();
         }
 
-        private static bool pressed(Rectangle rect, MouseState mouse)
-        {
-            return rect.Contains(mouse.X, mouse.Y) && mouse.LeftButton == ButtonState.Pressed;
-        }
+        // ── helpers ──
 
         private static void DrawBorder(SpriteBatch sb, Rectangle r, Color color, int thickness)
         {

@@ -316,7 +316,8 @@ public partial class MainForm : Form
         if (type != "все") filter = $"type = '{type}'";
         if (!string.IsNullOrWhiteSpace(search))
         {
-            string sFilter = $"(name LIKE '%{search}%' OR id LIKE '%{search}%')";
+            string escaped = search.Replace("'", "''");
+            string sFilter = $"(name LIKE '%{escaped}%' OR id LIKE '%{escaped}%')";
             filter = string.IsNullOrEmpty(filter) ? sFilter : $"({filter}) AND {sFilter}";
         }
         dt.DefaultView.RowFilter = filter;
@@ -327,11 +328,12 @@ public partial class MainForm : Form
         if (grid.DataSource is not DataTable dt) return;
         string search = GetSearchText(searchText);
         if (string.IsNullOrWhiteSpace(search)) { dt.DefaultView.RowFilter = ""; return; }
+        string escaped = search.Replace("'", "''");
         var parts = new List<string>();
         foreach (DataColumn col in dt.Columns)
         {
             if (col.DataType == typeof(string))
-                parts.Add($"{col.ColumnName} LIKE '%{search}%'");
+                parts.Add($"{col.ColumnName} LIKE '%{escaped}%'");
         }
         dt.DefaultView.RowFilter = string.Join(" OR ", parts);
     }
@@ -463,7 +465,7 @@ public partial class MainForm : Form
         {
             var values = new object[reader.FieldCount];
             for (int i = 0; i < reader.FieldCount; i++)
-                values[i] = reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString() ?? "";
+                values[i] = reader.IsDBNull(i) ? "" : string.Format(System.Globalization.CultureInfo.InvariantCulture, "{0}", reader.GetValue(i));
             dt.Rows.Add(values);
         }
         return dt;
@@ -1291,7 +1293,8 @@ public partial class MainForm : Form
         if (_accountsGrid.DataSource is not DataTable dt) return;
         string search = GetSearchText(_accountsSearch);
         if (string.IsNullOrWhiteSpace(search)) { dt.DefaultView.RowFilter = ""; return; }
-        dt.DefaultView.RowFilter = $"login LIKE '%{search}%' OR player_name LIKE '%{search}%'";
+        string escaped = search.Replace("'", "''");
+        dt.DefaultView.RowFilter = $"login LIKE '%{escaped}%' OR player_name LIKE '%{escaped}%'";
     }
 
     private void LoadAccounts()
@@ -1788,7 +1791,7 @@ public partial class MainForm : Form
             if (idx < 0) return desc;
             int dotIdx = desc.IndexOf(". ", idx);
             if (dotIdx < 0) return desc.Substring(0, idx).Trim();
-            return (desc.Substring(0, idx) + desc.Substring(dotIdx)).Trim();
+            return (desc.Substring(0, idx) + desc.Substring(dotIdx + 2)).Trim();
         }
 
         // ---- Layout helpers ----

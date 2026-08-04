@@ -13,6 +13,18 @@ public class ReviveHandler : BaseHandler
     {
         if (player == null) return;
         if (!player.IsDead) return;
+
+        if (player.CurrentZoneId.StartsWith("instance:"))
+        {
+            var inst = Svc.Instances.FindInstanceByPlayer(player);
+            if (inst != null)
+            {
+                int spawnX = inst._spawnX > 0 ? inst._spawnX : inst.Template.SpawnX + inst.OffsetX;
+                int spawnY = inst._spawnY > 0 ? inst._spawnY : inst.Template.SpawnY + inst.OffsetY;
+                await Svc.Combat.RespawnPlayer(player, spawnX, spawnY);
+                return;
+            }
+        }
         await Svc.Combat.RespawnPlayer(player);
     }
 }

@@ -15,7 +15,6 @@ public class ShopWindow : GameWindow
     private List<Item> _buybackItems = new();
     private string _merchantName = "";
     private int _playerGold;
-    private int _discount;
     private int _activeTab;
     private Rectangle _tabShopRect;
     private Rectangle _tabBuybackRect;
@@ -31,13 +30,14 @@ public class ShopWindow : GameWindow
     private Rectangle[,] _slotRects = new Rectangle[GridCols, GridRows];
     private new MouseState _prevMouse;
     private int _lastClickIdx = -1;
-    private TimeSpan _lastClickTime;
+    private int _lastClickTime;
 
     // Drag-to-buy
     private int _dragIndex = -1;
     private Point _dragStart;
     private Point _dragOffset;
     private Point _dragPos;
+    private bool _scrollDragging;
 
     public Action<string, int>? BuyItem { get; set; }
     public Action? SellAllTrophies { get; set; }
@@ -64,7 +64,6 @@ public class ShopWindow : GameWindow
         {
             _merchantName = data.MerchantName ?? "Торговец";
             _items = data.Items ?? new List<Item>();
-            _discount = data.Discount;
         }
         if (data.Buyback is { Count: >= 0 })
             _buybackItems = data.Buyback;
@@ -81,8 +80,6 @@ public class ShopWindow : GameWindow
         Closed?.Invoke();
         base.OnClose();
     }
-
-    public int DiscountedPrice(Item item) => item.Value - (item.Value * _discount / 100);
 
     private List<Item> ActiveItems => _activeTab == 1 ? _buybackItems : _items;
 
@@ -105,6 +102,36 @@ public class ShopWindow : GameWindow
             int wheel = mouse.ScrollWheelValue;
             int prevWheel = _prevMouse.ScrollWheelValue;
             _scrollOffset -= (wheel - prevWheel) / (cell * 2);
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+        }
+
+        // Скроллбар — drag за ползунок или клик по дорожке
+        if (maxScroll > 0)
+        {
+            int sbX = ContentX + ContentW - ScrollbarWidth - 4;
+            int thumbH = Math.Max(20, listH - maxScroll * 8);
+            int thumbY = gridY + (int)((float)_scrollOffset / maxScroll * (listH - thumbH));
+            var thumbRect = new Rectangle(sbX, thumbY, ScrollbarWidth, thumbH);
+            var trackRect = new Rectangle(sbX, gridY, ScrollbarWidth, listH);
+
+            bool trackPressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released && trackRect.Contains(mouse.X, mouse.Y);
+            if (trackPressed)
+            {
+                if (thumbRect.Contains(mouse.X, mouse.Y))
+                    _scrollDragging = true;
+                else
+                    _scrollOffset = (int)((float)(mouse.Y - gridY - thumbH / 2) / (listH - thumbH) * maxScroll);
+            }
+
+            if (_scrollDragging && mouse.LeftButton == ButtonState.Released)
+                _scrollDragging = false;
+
+            if (_scrollDragging)
+            {
+                float frac = (float)(mouse.Y - gridY - thumbH / 2) / (listH - thumbH);
+                _scrollOffset = (int)Math.Round(frac * maxScroll);
+            }
+
             _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
         }
 
@@ -188,8 +215,8 @@ public class ShopWindow : GameWindow
     private void HandleBuyClick(Item item)
     {
         int idx = ActiveItems.IndexOf(item);
-        var now = DateTime.Now.TimeOfDay;
-        bool isDouble = idx == _lastClickIdx && (_lastClickTime - now).TotalMilliseconds is > -500 and < 500;
+        var now = Environment.TickCount;
+        bool isDouble = idx == _lastClickIdx && unchecked(now - _lastClickTime) < 500;
         _lastClickIdx = idx;
         _lastClickTime = now;
         if (isDouble)
@@ -201,7 +228,7 @@ public class ShopWindow : GameWindow
 
     private void RequestBuy(Item item, bool ctrlHeld = false)
     {
-        int price = _discount > 0 ? DiscountedPrice(item) : item.Value;
+        int price = item.Value;
         int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
         int maxAffordable = price > 0 ? _playerGold / price : stock;
         int max = Math.Min(stock, Math.Max(1, maxAffordable));
@@ -230,8 +257,6 @@ public class ShopWindow : GameWindow
 
         DrawText(sb, _merchantName, ContentX + 12, ContentY + 8, new Color(200, 170, 100));
         DrawText(sb, $"Золото: {_playerGold}", ContentX + 12, ContentY + 28, new Color(220, 190, 60));
-        if (_discount > 0)
-            DrawText(sb, $"Скидка: {_discount}%", ContentX + ContentW - 120, ContentY + 28, new Color(100, 200, 100));
 
         var sellAllRect = GetSellAllRect();
         bool sellHover = sellAllRect.Contains(mouse.X, mouse.Y);
@@ -292,7 +317,7 @@ public class ShopWindow : GameWindow
                     var f = SpriteCache.FontSmall ?? SpriteCache.Font;
                     if (f != null)
                     {
-                        string price = DiscountedPrice(item).ToString();
+                        string price = item.Value.ToString();
                         var sz = f.MeasureString(price);
                         sb.Draw(SpriteCache.Pixel, new Rectangle(rect.X + 2, rect.Y + rect.Height - 14, (int)sz.X + 4, 12), new Color(0, 0, 0, 150));
                         sb.DrawString(f, price, new Vector2(rect.X + 4, rect.Y + rect.Height - 13), new Color(240, 220, 120));
@@ -328,7 +353,7 @@ public class ShopWindow : GameWindow
     private void DrawTooltip(SpriteBatch sb, Item item, MouseState mouse)
     {
         int stock = Math.Max(1, item.IsBuyback ? item.Quantity : item.Stock);
-        var lines = ItemTooltip.BuildLines(item, overrideValue: DiscountedPrice(item), stockOverride: stock);
+        var lines = ItemTooltip.BuildLines(item, overrideValue: null, stockOverride: stock);
         var g = GameMain.Instance;
         int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
         int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;

@@ -9,6 +9,7 @@ namespace RPGGame.ClientMonoGame.Rendering;
 public class MapRenderer
 {
     private WorldMap? _currentMap;
+    public bool IsInstance => _currentMap?.InstanceExitPortal != null;
     private string _playerName = "";
     private int _playerLevel = 1;
 
@@ -455,8 +456,25 @@ private sealed class RemotePlayerState
         lock (_stateLock)
         {
             _currentMap = map;
-            RebuildSpatialHash(map);
+            if (map != null)
+                RebuildSpatialHash(map);
+            else
+                _spatialHash.Clear();
         }
+    }
+
+    public void ClearMap()
+    {
+        lock (_stateLock)
+        {
+            _currentMap = null;
+            _spatialHash.Clear();
+        }
+    }
+
+    public bool IsMapLoaded
+    {
+        get { lock (_stateLock) return _currentMap != null; }
     }
 
     private void RebuildSpatialHash(WorldMap map)
@@ -512,6 +530,16 @@ private sealed class RemotePlayerState
                 _spatialHash[key] = list;
             }
             list.Add(new EntityInfo { Type = "storage_chest", Name = "Склад", X = map.StorageChest.X, Y = map.StorageChest.Y });
+        }
+        if (map.InstanceChest != null)
+        {
+            var key = (map.InstanceChest.X, map.InstanceChest.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "chest", Name = "Сундук", X = map.InstanceChest.X, Y = map.InstanceChest.Y });
         }
         foreach (var c in map.Collectibles ?? Enumerable.Empty<CollectiblePosition>())
         {
@@ -768,6 +796,7 @@ private sealed class RemotePlayerState
                 "corpse" => "loot",
                 "collectible" => "harvest",
                 "npc" or "merchant" or "board" or "storage_chest" => "talk",
+                "chest" => "loot",
                 "player" when _currentMap?.PvPEnabled == true => "attack",
                 "player" => "player",
                 _ => "main"
@@ -977,7 +1006,13 @@ private sealed class RemotePlayerState
 
         if (map == null)
         {
-            sb.DrawString(font, "Карта загружается...", new Vector2(offsetX + 10, offsetY + 10), Color.Gray);
+            var g = GameMain.Instance;
+            int sw = g?.Graphics.PreferredBackBufferWidth ?? 1000;
+            int sh = g?.Graphics.PreferredBackBufferHeight ?? 720;
+            sb.Draw(SpriteCache.Pixel, new Rectangle(0, 0, sw, sh), new Color(24, 24, 32));
+            var text = "Карта загружается...";
+            var ts = font.MeasureString(text);
+            sb.DrawString(font, text, new Vector2((sw - ts.X) / 2f, (sh - ts.Y) / 2f), Color.Gold);
             return;
         }
 
@@ -1215,14 +1250,7 @@ private sealed class RemotePlayerState
         }
         if (map.InstanceExitPortal != null)
         {
-            int px = map.InstanceExitPortal.X, py = map.InstanceExitPortal.Y;
-            if (px >= _viewStartX && px <= _viewEndX && py >= _viewStartY && py <= _viewEndY)
-            {
-                float ptx = _gridOX + (px - _viewStartX) * _cellW;
-                float pty = _gridOY + (py - _viewStartY) * _cellH;
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(60, 180, 80, 180));
-                sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 2, (int)pty + 2, (int)_cellW - 4, (int)_cellH - 4), new Color(100, 220, 120, 200));
-            }
+            // Выход невидим — игрок находит его по тайлу на карте
         }
         if (map.InstanceChest != null)
         {
@@ -1232,7 +1260,7 @@ private sealed class RemotePlayerState
                 var chestSheet = SpriteCache.Get("chest_ss");
                 if (chestSheet != null)
                 {
-                    int frameIdx = map.InstanceChest.IsLocked ? 2 : 3;
+                    int frameIdx = 2; // always closed sprite
                     var srcRect = new Rectangle(frameIdx * 64, 0, 64, 64);
                     float ptx = _gridOX + (px - _viewStartX) * _cellW;
                     float pty = _gridOY + (py - _viewStartY) * _cellH;
@@ -1242,11 +1270,8 @@ private sealed class RemotePlayerState
                 {
                     float ptx = _gridOX + (px - _viewStartX) * _cellW;
                     float pty = _gridOY + (py - _viewStartY) * _cellH;
-                    Color chestColor = map.InstanceChest.IsLocked
-                        ? new Color(120, 80, 40, 200) : new Color(220, 180, 50, 200);
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), chestColor);
-                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8),
-                        map.InstanceChest.IsLocked ? new Color(90, 60, 30, 200) : new Color(255, 215, 80, 220));
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx, (int)pty, (int)_cellW, (int)_cellH), new Color(120, 80, 40, 200));
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)ptx + 4, (int)pty + 4, (int)_cellW - 8, (int)_cellH - 8), new Color(90, 60, 30, 200));
                 }
             }
         }

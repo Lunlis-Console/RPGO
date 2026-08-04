@@ -887,51 +887,68 @@ public class CombatService
         await _svc.Party.SendUpdateForAsync(pl);
     }
 
-    public async Task RespawnPlayer(Player pl)
+    public async Task RespawnPlayer(Player pl, int? forceX = null, int? forceY = null)
     {
         pl.IsDead = false;
         pl.Health = Balance.RespawnHealth(pl.MaxHealth);
 
-        var zone = _svc.Zones.GetZone(pl.CurrentZoneId);
-
-        int baseX, baseY, mapW, mapH;
-        if (zone != null && zone.PvpEnabled)
+        if (forceX.HasValue && forceY.HasValue)
         {
-            var safeZone = _svc.Zones.Zones.Values
-                .Where(z => !z.PvpEnabled && (z.SpawnX > 0 || z.SpawnY > 0))
-                .OrderBy(z => Math.Abs(z.SpawnX - _svc.Merchant.MerchantX) + Math.Abs(z.SpawnY - _svc.Merchant.MerchantY))
-                .FirstOrDefault();
-
-            if (safeZone != null)
-            {
-                baseX = safeZone.SpawnX;
-                baseY = safeZone.SpawnY;
-                mapW = safeZone.Width;
-                mapH = safeZone.Height;
-                pl.CurrentZoneId = safeZone.Id;
-            }
-            else
-            {
-                baseX = _svc.Merchant.MerchantX;
-                baseY = _svc.Merchant.MerchantY;
-                mapW = zone.Width;
-                mapH = zone.Height;
-            }
+            pl.X = forceX.Value;
+            pl.Y = forceY.Value;
         }
         else
         {
-            baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
-            baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
-            mapW = zone?.Width ?? _svc.World.Map.Width;
-            mapH = zone?.Height ?? _svc.World.Map.Height;
-        }
+            var zone = _svc.Zones.GetZone(pl.CurrentZoneId);
 
-        int sx = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-        int sy = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-        sx = Math.Clamp(sx, 0, mapW - 1);
-        sy = Math.Clamp(sy, 0, mapH - 1);
-        pl.X = sx;
-        pl.Y = sy;
+            int baseX, baseY, mapW, mapH;
+            if (zone != null && zone.PvpEnabled)
+            {
+                var safeZone = _svc.Zones.Zones.Values
+                    .Where(z => !z.PvpEnabled && (z.SpawnX > 0 || z.SpawnY > 0))
+                    .OrderBy(z => Math.Abs(z.SpawnX - _svc.Merchant.MerchantX) + Math.Abs(z.SpawnY - _svc.Merchant.MerchantY))
+                    .FirstOrDefault();
+
+                if (safeZone != null)
+                {
+                    baseX = safeZone.SpawnX;
+                    baseY = safeZone.SpawnY;
+                    mapW = safeZone.Width;
+                    mapH = safeZone.Height;
+                    pl.CurrentZoneId = safeZone.Id;
+                }
+                else
+                {
+                    baseX = _svc.Merchant.MerchantX;
+                    baseY = _svc.Merchant.MerchantY;
+                    mapW = zone.Width;
+                    mapH = zone.Height;
+                }
+            }
+            else
+            {
+                baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
+                baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
+                mapW = zone?.Width ?? _svc.World.Map.Width;
+                mapH = zone?.Height ?? _svc.World.Map.Height;
+            }
+
+            var zoneMap = _svc.Zones.GetMap(pl.CurrentZoneId);
+            int sx, sy;
+            int attempts = 0;
+            do
+            {
+                sx = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                sy = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
+                sx = Math.Clamp(sx, 0, mapW - 1);
+                sy = Math.Clamp(sy, 0, mapH - 1);
+                attempts++;
+            }
+            while (zoneMap?.IsObstacle(sx, sy) == true && attempts < 20);
+
+            pl.X = sx;
+            pl.Y = sy;
+        }
 
         var client = _svc.World.FindClientByPlayer(pl);
         if (client != null)
@@ -1061,8 +1078,23 @@ public class CombatService
             if (pl.IsDead && (DateTime.UtcNow - pl.DeathTime).TotalMilliseconds >= Balance.DeathDelayMs)
             {
                 if (pl.CurrentZoneId.StartsWith("instance:"))
-                    await _svc.Instances.KickPlayer(pl, "Вы погибли в подземелье.");
-                await RespawnPlayer(pl);
+                {
+                    var inst = _svc.Instances.FindInstanceByPlayer(pl);
+                    if (inst != null)
+                    {
+                        int spawnX = inst._spawnX > 0 ? inst._spawnX : inst.Template.SpawnX + inst.OffsetX;
+                        int spawnY = inst._spawnY > 0 ? inst._spawnY : inst.Template.SpawnY + inst.OffsetY;
+                        await RespawnPlayer(pl, spawnX, spawnY);
+                    }
+                    else
+                    {
+                        await RespawnPlayer(pl);
+                    }
+                }
+                else
+                {
+                    await RespawnPlayer(pl);
+                }
             }
         }
     }

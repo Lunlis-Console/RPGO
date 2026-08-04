@@ -18,7 +18,9 @@
   <Target Name="CopyContent" AfterTargets="Build">
     <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\wordlmap.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\arena_1.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\dungeon_1.tmj" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\World-Tilemap.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\Dungeon-Tilemap.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
     <Copy SourceFiles="$(ProjectDir)..\RPGO.ClientMonoGame\Content\Tilesets\Tileset-Tree.png" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
   </Target>
 

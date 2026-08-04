@@ -278,15 +278,15 @@ public sealed class GameServer : INetworkHub
                 {
                     mapData.InstanceExitPortal = new PortalPosition
                     {
-                        X = inst.Template.ExitX + inst.OffsetX,
-                        Y = inst.Template.ExitY + inst.OffsetY,
+                        X = inst.EffectiveExitX,
+                        Y = inst.EffectiveExitY,
                         TargetZone = "",
                         TargetZoneName = svc.Zones.GetZone("main")?.Name ?? "Главный мир"
                     };
                     mapData.InstanceChest = new ChestPosition
                     {
-                        X = inst.Template.ChestX + inst.OffsetX,
-                        Y = inst.Template.ChestY + inst.OffsetY,
+                        X = inst.EffectiveChestX,
+                        Y = inst.EffectiveChestY,
                         IsLocked = inst.ChestLocked
                     };
                     mapData.InstanceExpiresAtUtcMs = new DateTimeOffset(inst.ExpiresAt).ToUnixTimeMilliseconds();
