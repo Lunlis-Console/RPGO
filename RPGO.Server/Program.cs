@@ -127,6 +127,8 @@ partial class Program
         var hazard = new HazardService(servicesLazy);
         var interactions = new InteractionService(servicesLazy);
         var playerDeath = new PlayerDeathService(servicesLazy);
+        var monsterCombat = new MonsterCombatCalculator(servicesLazy);
+        var monsterAttacks = new MonsterAttackService(servicesLazy);
         var auth = new AuthService(servicesLazy);
         var instances = new InstanceManager(servicesLazy);
         instances.LoadAll();
@@ -177,7 +179,7 @@ partial class Program
         // Единственное создание GameServices
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage, playerDeath);
+            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage, playerDeath, monsterCombat, monsterAttacks);
 
         hub.SetServices(Services);
         monsters.SetServices(Services);
@@ -387,12 +389,6 @@ partial class Program
                 });
             }
         }
-    }
-
-    internal static async Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
-    {
-        if (conn == null) return;
-        await Services.Hub.SendChatToAsync(conn, channel, name, text);
     }
 
     /// <summary>

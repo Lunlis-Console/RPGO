@@ -13,7 +13,8 @@ public enum DebuffType
     Root,
     Slow,
     Dot,
-    SuppressingFire
+    SuppressingFire,
+    Returning
 }
 
 public class ActiveDebuff

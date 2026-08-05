@@ -11,4 +11,5 @@ public sealed class EntityInfo
     public int Y { get; set; }
     public string? Id { get; set; }
     public string? Info { get; set; }
+    public List<string>? DebuffTypes { get; set; }
 }

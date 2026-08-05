@@ -33,27 +33,16 @@ public class MonsterManager
     }
 
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
-    {
-        double dmgBonus = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
-        double mult = 1.0 + dmgBonus;
-        if (attacker is Player p) mult *= p.GetBerserkMultiplier();
-        return baseAttack * mult;
-    }
+        => _svc.MonsterCombat.GetEffectiveAttack(attacker, baseAttack);
 
     public double GetEffectiveAttack(ICombatant attacker)
-        => GetEffectiveAttack(attacker, attacker.GetTotalAttack());
+        => _svc.MonsterCombat.GetEffectiveAttack(attacker);
 
     public double GetEffectiveDefense(ICombatant defender)
-    {
-        double armorPen = _svc.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
-        return defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
-    }
+        => _svc.MonsterCombat.GetEffectiveDefense(defender);
 
     public int ApplyDmgReduction(ICombatant attacker, int baseDamage)
-    {
-        double dmgReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.DamageReduction);
-        return Math.Max(Balance.MinDamage, (int)(baseDamage * (1.0 - Math.Min(dmgReduction, 1.0))));
-    }
+        => _svc.MonsterCombat.ApplyDmgReduction(attacker, baseDamage);
 
     public List<(Monster Monster, Player Player, int Damage)> DrainPendingAttacks()
         => _world.DrainMonsterAttacks();
@@ -123,7 +112,7 @@ public class MonsterManager
             Symbol = template.Symbol,
             Level = template.Tier,
             MoveIntervalMs = _world.NextRandom(Balance.MonsterMoveMinMs, Balance.MonsterMoveMaxMs),
-            LastMoveTime = DateTime.UtcNow.AddMilliseconds(-_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs))
+            LastMoveTime = DateTime.UtcNow.AddMilliseconds(-_world.NextRandom(0, Balance.MonsterMoveMaxMs))
         };
         monster.Strength = template.Strength;
         monster.Endurance = template.Endurance;
@@ -307,6 +296,7 @@ public class MonsterManager
                     m.ReturningToSpawn = false; m.StuckTicks = 0;
                     m.AggroTarget = null; m.DamageTracker.Clear();
                     m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                    RemoveReturningDebuff(m);
                     anyMoved = true;
                     continue;
                 }
@@ -336,7 +326,7 @@ public class MonsterManager
                       Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y) > m.AggroRange))
             {
                 m.AggroTarget = null; m.StuckTicks = 0;
-                if (m.X != m.SpawnX || m.Y != m.SpawnY) m.ReturningToSpawn = true;
+                if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); }
                 continue;
             }
 
@@ -347,7 +337,7 @@ public class MonsterManager
                 if (dist > m.AggroRange)
                 {
                     m.AggroTarget = null; m.StuckTicks = 0;
-                    if (m.X != m.SpawnX || m.Y != m.SpawnY) m.ReturningToSpawn = true;
+                    if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); }
                     continue;
                 }
                 if (dist <= 1)
@@ -384,7 +374,7 @@ public class MonsterManager
                 {
                     m.StuckTicks++;
                     if (m.StuckTicks >= Balance.MonsterLeashStuckTicks)
-                    { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; }
+                    { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; ApplyReturningDebuff(m); }
                 }
                 m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
@@ -439,20 +429,25 @@ public class MonsterManager
 
     public List<MonsterPosition> GetMonsterPositions()
     {
-        return _world.GetMonstersSnapshot().Select(m => new MonsterPosition
+        return _world.GetMonstersSnapshot().Select(m =>
         {
-            Id = m.Id,
-            TemplateId = m.TemplateId,
-            Name = m.Name,
-            X = m.X,
-            Y = m.Y,
-            Health = m.Health,
-            MaxHealth = m.MaxHealth,
-            Symbol = m.Symbol,
-            Level = m.Level,
-            IsMannequin = m.IsMannequin,
-            ZoneId = m.ZoneId,
-            MoveIntervalMs = m.MoveIntervalMs
+            var debuffs = m.GetDebuffsSnapshot();
+            return new MonsterPosition
+            {
+                Id = m.Id,
+                TemplateId = m.TemplateId,
+                Name = m.Name,
+                X = m.X,
+                Y = m.Y,
+                Health = m.Health,
+                MaxHealth = m.MaxHealth,
+                Symbol = m.Symbol,
+                Level = m.Level,
+                IsMannequin = m.IsMannequin,
+                ZoneId = m.ZoneId,
+                MoveIntervalMs = m.MoveIntervalMs,
+                ActiveDebuffTypes = debuffs.Count > 0 ? debuffs.Select(d => d.Type.ToString()).ToList() : null
+            };
         }).ToList();
     }
 
@@ -496,121 +491,16 @@ public class MonsterManager
 
     public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
-    {
-        int rolledAttack = attacker.RollAttackDamage();
-        double effectiveAttackerAttack = GetEffectiveAttack(attacker, rolledAttack);
-        double effectiveDefenderDefense = GetEffectiveDefense(defender);
-        double accuracyReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
-
-        double passiveAccuracyBonus = 0;
-        double passiveCritBonus = 0;
-        double armorPenExtra = 0;
-        if (attacker is Player plPassive)
-        {
-            if (plPassive.LearnedSkills.Contains(SkillIds.WarriorsFocus)
-                && _svc.Debuffs.HasDebuff(defender, DebuffType.Stun))
-            {
-                passiveAccuracyBonus = 10;
-                passiveCritBonus = 10;
-            }
-            passiveAccuracyBonus += plPassive.GetBowAccuracyBonus();
-            passiveCritBonus += plPassive.GetHunterInstinctCritBonus(defender);
-            // Для CalculateCombat дистанция неизвестна — берём 1 (макс. пробитие в упор)
-            armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
-        }
-
-        double evadeChance = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
-        if (isMelee && defender is Player plDef)
-            evadeChance += plDef.GetMeleeEvadeBonus();
-
-        bool defenderEvaded = Balance.RollPercent(evadeChance);
-        if (defenderEvaded)
-            return (0, 0, false, false, true, false, false);
-
-        bool defenderParried = isMelee && Balance.RollPercent(defender.GetParryChance());
-        if (defenderParried)
-            return (0, 0, false, false, false, true, false);
-
-        bool defenderBlocked = Balance.RollPercent(defender.GetBlockChance());
-        int attackerDamage = 0;
-        bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
-        double def = effectiveDefenderDefense * (1.0 - Math.Min(armorPenExtra, 1.0));
-        int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - def));
-        attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
-        attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
-
-        if (defenderBlocked)
-        {
-            int blockValue = defender.GetBlockValue();
-            attackerDamage = Math.Max(Balance.MinDamage, attackerDamage - blockValue);
-        }
-
-        if (applyDefenderDamage && defender is Monster mon && !mon.ReturningToSpawn)
-        {
-            mon.Health -= attackerDamage;
-            mon.LastDamagedTime = DateTime.UtcNow;
-            if (attacker is Player pl)
-                mon.DamageTracker.AddOrUpdate(pl.Id, attackerDamage, (k, old) => old + attackerDamage);
-        }
-        bool targetDead = defender.Health <= 0;
-
-        return (attackerDamage, 0, targetDead, isCrit, false, false, defenderBlocked);
-    }
+        => _svc.MonsterCombat.CalculateCombat(attacker, defender, applyDefenderDamage, isMelee);
 
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateOffHandAttack(Player attacker, Monster target)
-    {
-        if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
-
-        bool evaded = Balance.RollPercent(target.GetEvadeChance());
-        if (evaded) return (0, false, true, false, false);
-
-        bool parried = Balance.RollPercent(target.GetParryChance());
-        if (parried) return (0, false, false, true, false);
-
-        bool blocked = Balance.RollPercent(target.GetBlockChance());
-
-        bool crit = Balance.RollPercent(attacker.GetCritChance());
-        double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
-        int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
-        int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
-        double offHandFraction = attacker.GetOffHandDamageFraction();
-        finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * offHandFraction));
-
-        if (blocked)
-        {
-            int blockValue = target.GetBlockValue();
-            finalDmg = Math.Max(Balance.MinDamage, finalDmg - blockValue);
-        }
-
-        return (finalDmg, crit, false, false, blocked);
-    }
+        => _svc.MonsterCombat.CalculateOffHandAttack(attacker, target);
 
     public void CalculateCleave(Player attacker, Monster primaryTarget)
-    {
-        var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
-        double effectiveAttack = GetEffectiveAttack(attacker, attacker.GetMaxAttackDamage());
-        int cleaveDmg = Math.Max(Balance.MinDamage,
-            (int)((effectiveAttack - GetEffectiveDefense(primaryTarget)) * Balance.CleaveDamageFraction));
+        => _svc.MonsterCombat.CalculateCleave(attacker, primaryTarget, FindMonsterAt);
 
-        foreach (var (cx, cy) in positions)
-        {
-            var monster = FindMonsterAt(cx, cy);
-            if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
-
-            bool evaded = Balance.RollPercent(monster.GetEvadeChance());
-            if (evaded) continue;
-
-            bool crit = Balance.RollPercent(attacker.GetCritChance());
-            int dmg = crit ? (int)(cleaveDmg * attacker.GetCritDamage()) : cleaveDmg;
-            dmg = Math.Max(Balance.MinDamage, dmg);
-            monster.Health -= dmg;
-            monster.LastDamagedTime = DateTime.UtcNow;
-            monster.DamageTracker.AddOrUpdate(attacker.Id, dmg, (k, old) => old + dmg);
-        }
-    }
-
-    private List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
+    private static List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
     {
         return facing switch
         {
@@ -620,5 +510,25 @@ public class MonsterManager
             "right" => new List<(int, int)> { (px + 1, py - 1), (px + 1, py), (px + 1, py + 1) },
             _       => new List<(int, int)>()
         };
+    }
+
+    private void ApplyReturningDebuff(Monster m)
+    {
+        if (_svc == null) return;
+        lock (m.DebuffsLock)
+        {
+            if (m.ActiveDebuffs.Any(d => d.Type == DebuffType.Returning)) return;
+            var debuff = ActiveDebuff.Create(DebuffType.Returning, 0, int.MaxValue, "leash",
+                "Возвращение", "Возвращается на точку спавна");
+            m.ActiveDebuffs.Add(debuff);
+        }
+        Task.Run(() => _svc.Combat.SendTargetDebuffUpdateAsync(m));
+    }
+
+    private void RemoveReturningDebuff(Monster m)
+    {
+        if (_svc == null) return;
+        lock (m.DebuffsLock) m.ActiveDebuffs.RemoveAll(d => d.Type == DebuffType.Returning);
+        Task.Run(() => _svc.Combat.SendTargetDebuffUpdateAsync(m));
     }
 }

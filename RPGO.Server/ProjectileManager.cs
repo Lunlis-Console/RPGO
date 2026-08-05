@@ -105,7 +105,7 @@ public class ProjectileManager
                     monster.Health = monster.MaxHealth;
                     monster.LastDamagedTime = DateTime.UtcNow;
                     await _hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
-                    await Program.ChatTo(client, ChatChannel.Combat, "Бой", $"Манекен восстановил все HP!{critText}");
+                    await _svc.ChatTo(client, ChatChannel.Combat, "Бой", $"Манекен восстановил все HP!{critText}");
                     continue;
                 }
 
@@ -119,7 +119,7 @@ public class ProjectileManager
             else
             {
                 string skillPrefix = proj.SkillName != null ? $"«{proj.SkillName}»: " : "";
-                await Program.ChatTo(client, ChatChannel.Combat, "Бой",
+                await _svc.ChatTo(client, ChatChannel.Combat, "Бой",
                     $"{skillPrefix}Вы нанесли {proj.Damage} урона{critText} {monster.Name}.");
 
                 var dmgMsg = new GameMessage

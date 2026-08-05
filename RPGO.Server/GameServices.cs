@@ -38,6 +38,8 @@ public sealed class GameServices : IGameServices
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
     public PlayerDeathService PlayerDeath { get; }
+    public MonsterCombatCalculator MonsterCombat { get; }
+    public MonsterAttackService MonsterAttacks { get; }
 
     public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
@@ -74,7 +76,9 @@ public sealed class GameServices : IGameServices
         PersistenceService persistence,
         ClientBuildService clientBuild,
         StorageService storage,
-        PlayerDeathService playerDeath)
+        PlayerDeathService playerDeath,
+        MonsterCombatCalculator monsterCombat,
+        MonsterAttackService monsterAttacks)
     {
         World = world;
         pathfinding.Services = this; // патфайндинг получит доступ к зонам/порталам/NPC
@@ -103,6 +107,8 @@ public sealed class GameServices : IGameServices
         ClientBuild = clientBuild;
         Storage = storage;
         PlayerDeath = playerDeath;
+        MonsterCombat = monsterCombat;
+        MonsterAttacks = monsterAttacks;
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)

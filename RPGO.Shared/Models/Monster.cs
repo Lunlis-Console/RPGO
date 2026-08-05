@@ -110,4 +110,5 @@ public class MonsterPosition
     public bool IsMannequin { get; set; }
     public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public int MoveIntervalMs { get; set; }
+    public List<string>? ActiveDebuffTypes { get; set; }
 }

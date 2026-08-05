@@ -49,7 +49,8 @@ public sealed class RetreatExecutor : SkillExecutorBase
         for (int i = 0; i < Balance.RetreatTiles; i++)
         {
             int nx = pl.X + dx, ny = pl.Y + dy;
-            if (!svc.World.Map.InBounds(nx, ny) || svc.World.Map.IsObstacle(nx, ny)) break;
+            var zoneMap = svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
+            if (!zoneMap.InBounds(nx, ny) || zoneMap.IsObstacle(nx, ny)) break;
             if (svc.World.FindMonsterAt(nx, ny) != null) break;
             if (svc.World.GetPlayersSnapshot().Any(p => p.Id != pl.Id && p.X == nx && p.Y == ny && !p.IsDead)) break;
             pl.X = nx; pl.Y = ny;

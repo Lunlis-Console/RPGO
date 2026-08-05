@@ -73,7 +73,7 @@ public class GameServerHost
             if (now - lastMonsterAttack >= Balance.LoopMonsterAttackMs)
             {
                 lastMonsterAttack = now;
-                try { await _svc.Combat.MonsterAttackTick(); }
+                try { await _svc.MonsterAttacks.MonsterAttackTick(); }
                 catch (Exception ex) { Log.Error("[Tick] MonsterAttack", ex); }
             }
             if (now - lastDeathTimer >= Balance.LoopDeathTimerMs)

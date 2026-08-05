@@ -14,6 +14,16 @@ public class CombatTests
         var debuffs = new DebuffManager();
         var quests = new QuestManager(world);
         var merchant = new MerchantManager(world);
+        var servicesLazy = new Lazy<GameServices>(() => new GameServices(world, null!, _monsters,
+            new LootManager(world), new CorpseManager(),
+            quests, merchant,
+            new CollectibleManager(world), new TradeManager(),
+            new DialogueManager(world, quests, merchant), new PartyManager(world),
+            new ProjectileManager(world), new KillService(world),
+            new PathfindingService(world, merchant, quests), debuffs,
+            combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!, storage: null!, playerDeath: null!, monsterCombat: null!, monsterAttacks: null!));
+        var monsterAttacks = new MonsterAttackService(servicesLazy);
+        var monsterCombat = new MonsterCombatCalculator(servicesLazy);
         var svc = new GameServices(world, null!, _monsters,
             new LootManager(world), new CorpseManager(),
             quests, merchant,
@@ -21,7 +31,7 @@ public class CombatTests
             new DialogueManager(world, quests, merchant), new PartyManager(world),
             new ProjectileManager(world), new KillService(world),
             new PathfindingService(world, merchant, quests), debuffs,
-            combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!, storage: null!, playerDeath: null!);
+            combat: null!, pvp: null!, hazard: null!, interactions: null!, auth: null!, zones: null!, instances: null!, persistence: null!, clientBuild: null!, storage: null!, playerDeath: null!, monsterCombat: monsterCombat, monsterAttacks: monsterAttacks);
         _monsters.SetServices(svc);
         Program.Services = svc;
     }

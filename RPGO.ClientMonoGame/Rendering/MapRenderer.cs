@@ -22,6 +22,7 @@ public class MapRenderer
     private int _selectedEntityX, _selectedEntityY;
     private string? _selectedEntityId;
     private string? _selectedEntityInfo;
+    private List<string>? _selectedDebuffTypes;
     private int _moveTargetX = -1, _moveTargetY = -1;
     private int _arriveX = -1, _arriveY = -1;
 
@@ -504,7 +505,7 @@ private sealed class RemotePlayerState
                 list = new List<EntityInfo>();
                 _spatialHash[key] = list;
             }
-            list.Add(new EntityInfo { Type = "monster", Name = m.Name, Level = m.Level, Hp = m.Health, MaxHp = m.MaxHealth, X = m.X, Y = m.Y, Id = m.Id.ToString() });
+            list.Add(new EntityInfo { Type = "monster", Name = m.Name, Level = m.Level, Hp = m.Health, MaxHp = m.MaxHealth, X = m.X, Y = m.Y, Id = m.Id.ToString(), DebuffTypes = m.ActiveDebuffTypes });
         }
         if (map.Merchant != null)
         {
@@ -629,10 +630,11 @@ private sealed class RemotePlayerState
         {
             Type = _selectedEntityType,
             Name = _selectedEntityName ?? "",
-            X = _selectedEntityX,
-            Y = _selectedEntityY,
+            Level = 0, Hp = 0, MaxHp = 0,
+            X = _selectedEntityX, Y = _selectedEntityY,
             Id = _selectedEntityId,
-            Info = _selectedEntityInfo
+            Info = _selectedEntityInfo,
+            DebuffTypes = _selectedDebuffTypes
         };
     }
 
@@ -664,6 +666,7 @@ private sealed class RemotePlayerState
         _selectedEntityY = mapY;
         _selectedEntityId = entity.Id;
         _selectedEntityInfo = entity.Info;
+        _selectedDebuffTypes = entity.DebuffTypes;
         // Запоминаем клетку назначения для отрисовки пути (вейпоинта)
         // не только для пустой клетки ("move"), но и для целей действия
         // (монстр/труп/предмет) — чтобы путь рисовался и при движении к цели.
@@ -881,6 +884,7 @@ private sealed class RemotePlayerState
         _selectedEntityType = null; _selectedEntityName = null;
         _selectedEntityX = _selectedEntityY = 0; _selectedEntityId = null;
         _selectedEntityInfo = null;
+        _selectedDebuffTypes = null;
         _moveTargetX = _moveTargetY = -1;
         ClearPathCache();
         SelectionChanged?.Invoke(null);

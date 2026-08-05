@@ -680,6 +680,19 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
                 _ = _client.SendAsync("select_target", new { PlayerId = entity.Id });
             }
+            else if (entity.Type == "monster" && entity.DebuffTypes != null && entity.DebuffTypes.Count > 0)
+            {
+                var infos = entity.DebuffTypes.Select(t => new DebuffInfo
+                {
+                    Type = t, DisplayName = DebuffDisplayName(t), Description = "",
+                    RemainingMs = 0, DurationMs = 0
+                }).ToList();
+                _hudRenderer.UpdateTargetDebuffs(infos);
+            }
+            else
+            {
+                _hudRenderer.UpdateTargetDebuffs(null);
+            }
         };
     }
 
@@ -1135,4 +1148,22 @@ public class GameScreen : IScreen
     public static string? CurrentCursorType { get; set; }
 
     public void Dispose() { }
+
+    private static string DebuffDisplayName(string type) => type switch
+    {
+        "Returning"       => "Возвращение",
+        "Stun"            => "Оглушение",
+        "Root"            => "Обездвижен",
+        "Slow"            => "Замедление",
+        "Dot"             => "Отравление",
+        "SuppressingFire" => "Подавл. огонь",
+        "ArmorPenetration"=> "Пробитие брони",
+        "DamageBonus"     => "Усиление урона",
+        "DamageReduction" => "Ослабление",
+        "AccuracyReduction"=> "Дезориентация",
+        "AttackSpeedBonus"=> "Проворность",
+        "CleaveReady"     => "Рассечение",
+        "DualWieldBonus"  => "Двойное оружие",
+        _                 => type
+    };
 }

@@ -145,10 +145,11 @@ public class InteractTargetHandler : BaseHandler
         {
             int nx = targetX + dx[i];
             int ny = targetY + dy[i];
-            if (nx < 0 || nx >= World.Map.Width || ny < 0 || ny >= World.Map.Height) continue;
-            if (World.Map.IsObstacle(nx, ny)) continue;
-            if (nx == Svc.Merchant.MerchantX && ny == Svc.Merchant.MerchantY) continue;
-            if (nx == Svc.Quests.BoardX && ny == Svc.Quests.BoardY) continue;
+            var zoneMap = Svc.Zones.GetOrCreateMap(player.CurrentZoneId);
+            if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
+            if (zoneMap.IsObstacle(nx, ny)) continue;
+            var zoneNpcs = Svc.Zones.GetTiledNpcs(player.CurrentZoneId);
+            if (zoneNpcs.Any(n => n.X == nx && n.Y == ny && (n.Type == "merchant" || n.Type == "board"))) continue;
             if (Svc.Monsters.FindMonsterAt(nx, ny) != null) continue;
 
             int dist = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);

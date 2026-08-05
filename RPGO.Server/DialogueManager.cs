@@ -164,7 +164,7 @@ public class DialogueManager
             {
                 _quests.TakeQuest(player, def);
                 await _hub.SendQuestLog(client, player);
-                await Program.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
+                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
                 _hub.MarkZoneDirty(player.CurrentZoneId);
                 await _hub.BroadcastMapAsync();
             }
@@ -176,7 +176,7 @@ public class DialogueManager
             if (result.Success)
             {
                 await _hub.SendQuestLog(client, player);
-                await Program.ChatTo(client, ChatChannel.System, "Система", result.Message);
+                await _svc.ChatTo(client, ChatChannel.System, "Система", result.Message);
                 await _hub.SendStatusAsync(client, player);
                 _hub.MarkZoneDirty(player.CurrentZoneId);
                 await _hub.BroadcastMapAsync();
