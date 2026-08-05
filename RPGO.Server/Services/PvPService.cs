@@ -26,10 +26,7 @@ public class PvPService
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
-    {
-        if (conn == null) return Task.CompletedTask;
-        return _svc.Hub.SendChatToAsync(conn, channel, name, text);
-    }
+        => _svc.ChatTo(conn, channel, name, text);
 
     internal Task SendToC(ClientConnection client, GameMessage msg)
         => _svc.Hub.SendToClient(client, msg);
@@ -41,9 +38,9 @@ public class PvPService
 
     private static PvPDefenseRoll RollPvPDefense(Player target, int dist)
     {
-        bool evaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
-        bool parried = !evaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
-        bool blocked = !evaded && !parried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
+        bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
         return new PvPDefenseRoll(evaded, parried, blocked);
     }
 
@@ -62,7 +59,7 @@ public class PvPService
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * damageMult);
             if (checkCrit)
             {
-                hitCrit = Random.Shared.NextDouble() * 100 < attacker.GetCritChance();
+                hitCrit = Balance.RollPercent(attacker.GetCritChance());
                 if (hitCrit) hitDmg = (int)(hitDmg * attacker.GetCritDamage());
             }
             if (roll.Blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
@@ -446,12 +443,12 @@ public class PvPService
         });
 
         int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist));
-        bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+        bool isCrit = Balance.RollPercent(pl.GetCritChance());
         if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
 
-        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
-        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
-        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+        bool isEvaded = Balance.RollPercent(target.GetEvadeChance());
+        bool isParried = !isEvaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
+        bool isBlocked = !isEvaded && !isParried && Balance.RollPercent(target.GetBlockChance());
 
         int finalDmg = 0;
         if (!isEvaded && !isParried)
@@ -562,13 +559,13 @@ public class PvPService
         });
 
         int rawDmg = Math.Max(Balance.MinDamage, pl.GetOffHandTotalAttack(dist));
-        bool isCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+        bool isCrit = Balance.RollPercent(pl.GetCritChance());
         if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
         rawDmg = Math.Max(Balance.MinDamage, (int)(rawDmg * pl.GetOffHandDamageFraction()));
 
-        bool isEvaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
-        bool isParried = !isEvaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
-        bool isBlocked = !isEvaded && !isParried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+        bool isEvaded = Balance.RollPercent(target.GetEvadeChance());
+        bool isParried = !isEvaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
+        bool isBlocked = !isEvaded && !isParried && Balance.RollPercent(target.GetBlockChance());
 
         int finalDmg = 0;
         if (!isEvaded && !isParried)

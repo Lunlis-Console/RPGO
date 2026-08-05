@@ -15,7 +15,7 @@ public class Monster : ICombatant
     public int Level { get; set; }
 
     // Зона
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
 
     // Атрибуты (настраиваются в редакторе, по шаблону)
     public int Strength { get; set; } = 1;
@@ -108,6 +108,6 @@ public class MonsterPosition
     public char Symbol { get; set; } = 'M';
     public int Level { get; set; }
     public bool IsMannequin { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public int MoveIntervalMs { get; set; }
 }

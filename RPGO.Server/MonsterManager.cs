@@ -1,3 +1,4 @@
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Server.Services;
 
@@ -258,6 +259,29 @@ public class MonsterManager
     {
         var players = _world.GetPlayersSnapshot();
         var monsters = _world.GetMonstersSnapshot();
+        var ctx = new MonsterMoveContext(
+            _world.Map.Width, _world.Map.Height,
+            IsBlocked: (x, y) => _world.Map.IsObstacle(x, y) || IsNearMerchant(x, y),
+            IsOccupied: (x, y) => IsOccupiedByMonster(x, y));
+        return StepMonsters(monsters, players, ctx);
+    }
+
+    public void WanderStepForInstances(List<Monster> monsters, List<Player> players, GameMap map)
+    {
+        var ctx = new MonsterMoveContext(
+            map.Width, map.Height,
+            IsBlocked: (x, y) => map.IsObstacle(x, y) || map.GetTile(x, y) == 0 || map.GetTile(x, y) == 255,
+            IsOccupied: (x, y) => InstanceOccupied(monsters, x, y));
+        StepMonsters(monsters, players, ctx);
+    }
+
+    private readonly record struct MonsterMoveContext(
+        int MapWidth, int MapHeight,
+        Func<int, int, bool> IsBlocked,
+        Func<int, int, bool> IsOccupied);
+
+    private bool StepMonsters(List<Monster> monsters, List<Player> players, MonsterMoveContext ctx)
+    {
         var now = DateTime.UtcNow;
         bool anyMoved = false;
 
@@ -271,191 +295,7 @@ public class MonsterManager
             double slow = 1.0 + debuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
             int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
 
-            // === LEASH: моб возвращается на спавн ===
-            if (m.ReturningToSpawn)
-            {
-                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
-
-                int distToSpawn = Math.Abs(m.X - m.SpawnX) + Math.Abs(m.Y - m.SpawnY);
-                if (distToSpawn <= 1)
-                {
-                    m.X = m.SpawnX;
-                    m.Y = m.SpawnY;
-                    m.Health = m.MaxHealth;
-                    m.ReturningToSpawn = false;
-                    m.StuckTicks = 0;
-                    m.AggroTarget = null;
-                    m.DamageTracker.Clear();
-                    m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
-                    anyMoved = true;
-                    continue;
-                }
-
-                int stepX = Math.Sign(m.SpawnX - m.X);
-                int stepY = Math.Sign(m.SpawnY - m.Y);
-                int mx = 0, my = 0;
-                if (stepX != 0 && stepY != 0)
-                {
-                    mx = stepX;
-                    my = 0;
-                }
-                else if (stepX != 0) mx = stepX;
-                else if (stepY != 0) my = stepY;
-
-                int nx = m.X + mx;
-                int ny = m.Y + my;
-                if (nx >= 0 && nx < _world.Map.Width && ny >= 0 && ny < _world.Map.Height)
-                {
-                    if (!IsOccupiedByMonster(nx, ny))
-                    {
-                        m.X = nx;
-                        m.Y = ny;
-                        anyMoved = true;
-                    }
-                }
-                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
-                continue;
-            }
-
-            // === АГРО ===
-            Player? target = null;
-            int bestDist = int.MaxValue;
-            foreach (var p in players)
-            {
-                if (p.Health <= 0) continue;
-                if (p.CurrentZoneId != m.ZoneId) continue;
-                int d = Math.Abs(p.X - m.X) + Math.Abs(p.Y - m.Y);
-                if (d <= m.AggroRange && d < bestDist)
-                {
-                    bestDist = d;
-                    target = p;
-                }
-            }
-
-            if (target != null)
-            {
-                m.AggroTarget = target;
-            }
-            else if (m.AggroTarget != null &&
-                     (m.AggroTarget.Health <= 0 ||
-                      Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y) > m.AggroRange))
-            {
-                m.AggroTarget = null;
-                m.StuckTicks = 0;
-                if (m.X != m.SpawnX || m.Y != m.SpawnY)
-                    m.ReturningToSpawn = true;
-                continue;
-            }
-
-            // === ПОГОНЯ / АТАКА ===
-            if (m.AggroTarget != null && m.AggroTarget.Health > 0)
-            {
-                int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
-                if (dist > m.AggroRange)
-                {
-                    m.AggroTarget = null;
-                    m.StuckTicks = 0;
-                    if (m.X != m.SpawnX || m.Y != m.SpawnY)
-                        m.ReturningToSpawn = true;
-                    continue;
-                }
-                if (dist <= 1)
-                {
-                    if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
-                    {
-                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2);
-                        m.StuckTicks = 0;
-                        int dmgToPlayer = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
-                        _world.QueueMonsterAttack(m, m.AggroTarget, dmgToPlayer);
-                    }
-                    continue;
-                }
-                int stepX = Math.Sign(m.AggroTarget.X - m.X);
-                int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
-
-                int mx = 0, my = 0;
-                if (stepX != 0 && stepY != 0)
-                {
-                    if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y)
-                        mx = stepX;
-                    else
-                        my = stepY;
-                }
-                else if (stepX != 0)
-                    mx = stepX;
-                else if (stepY != 0)
-                    my = stepY;
-
-                if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
-
-                bool moved = false;
-                if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
-                    || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
-                {
-                    moved = TryMoveTowards(m, mx, my);
-                }
-
-                if (moved)
-                {
-                    m.StuckTicks = 0;
-                    anyMoved = true;
-                }
-                else
-                {
-                    m.StuckTicks++;
-                    if (m.StuckTicks >= Balance.MonsterLeashStuckTicks)
-                    {
-                        m.ReturningToSpawn = true;
-                        m.AggroTarget = null;
-                        m.StuckTicks = 0;
-                    }
-                }
-                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
-                continue;
-            }
-
-            // === БЛУЖДАНИЕ ===
-            if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
-
-            if (_world.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
-
-            int dir = _world.NextRandom(0, 4);
-            int dx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
-            int dy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
-
-            int wnx = m.X + dx;
-            int wny = m.Y + dy;
-
-            if (wnx < 0 || wnx >= _world.Map.Width || wny < 0 || wny >= _world.Map.Height) continue;
-            if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
-            if (IsNearMerchant(wnx, wny)) continue;
-            if (IsOccupiedByMonster(wnx, wny)) continue;
-
-            m.X = wnx;
-            m.Y = wny;
-            m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
-            anyMoved = true;
-        }
-
-        return anyMoved;
-    }
-
-    /// <summary>Тик ИИ для монстров инстанса (адаптация WanderStep).</summary>
-    public void WanderStepForInstances(List<Monster> monsters, List<Player> players, GameMap map)
-    {
-        int mapW = map.Width;
-        int mapH = map.Height;
-        var now = DateTime.UtcNow;
-        foreach (var m in monsters)
-        {
-            if (m.IsMannequin) continue;
-            var debuffs = m.GetDebuffsSnapshot();
-            if (debuffs.Any(d => d.Type == DebuffType.Stun)) continue;
-            if (debuffs.Any(d => d.Type == DebuffType.Root)) continue;
-
-            double slow = 1.0 + debuffs.Where(d => d.Type == DebuffType.Slow).Sum(d => d.Value);
-            int moveMs = (int)(m.MoveIntervalMs * Math.Max(1.0, slow));
-
+            // LEASH: возврат на спавн
             if (m.ReturningToSpawn)
             {
                 if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
@@ -467,23 +307,22 @@ public class MonsterManager
                     m.ReturningToSpawn = false; m.StuckTicks = 0;
                     m.AggroTarget = null; m.DamageTracker.Clear();
                     m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                    anyMoved = true;
                     continue;
                 }
-                int stepX = Math.Sign(m.SpawnX - m.X);
-                int stepY = Math.Sign(m.SpawnY - m.Y);
+                int stepX = Math.Sign(m.SpawnX - m.X), stepY = Math.Sign(m.SpawnY - m.Y);
                 int mx = stepX != 0 && stepY != 0 ? stepX : (stepX != 0 ? stepX : 0);
                 int my = stepX != 0 && stepY != 0 ? 0 : (stepY != 0 ? stepY : 0);
                 int nx = m.X + mx, ny = m.Y + my;
-                if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH
-                    && !map.IsObstacle(nx, ny) && map.GetTile(nx, ny) != 0 && map.GetTile(nx, ny) != 255
-                    && !InstanceOccupied(monsters, nx, ny))
+                if (nx >= 0 && nx < ctx.MapWidth && ny >= 0 && ny < ctx.MapHeight
+                    && !ctx.IsBlocked(nx, ny) && !ctx.IsOccupied(nx, ny))
                 { m.X = nx; m.Y = ny; }
                 m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
-            Player? target = null;
-            int bestDist = int.MaxValue;
+            // АГРО
+            Player? target = null; int bestDist = int.MaxValue;
             foreach (var p in players)
             {
                 if (p.Health <= 0 || p.CurrentZoneId != m.ZoneId) continue;
@@ -501,6 +340,7 @@ public class MonsterManager
                 continue;
             }
 
+            // ПОГОНЯ / АТАКА
             if (m.AggroTarget != null && m.AggroTarget.Health > 0)
             {
                 int dist = Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y);
@@ -514,73 +354,62 @@ public class MonsterManager
                 {
                     if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
                     {
-                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2); m.StuckTicks = 0;
+                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2);
+                        m.StuckTicks = 0;
                         int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
                     }
                     continue;
                 }
-                int stepX = Math.Sign(m.AggroTarget.X - m.X);
-                int stepY = Math.Sign(m.AggroTarget.Y - m.Y);
-                int mx = 0, my = 0;
-                if (stepX != 0 && stepY != 0)
-                {
-                    if (m.X + stepX != m.AggroTarget.X || m.Y != m.AggroTarget.Y) mx = stepX;
-                    else my = stepY;
-                }
-                else if (stepX != 0) mx = stepX;
-                else if (stepY != 0) my = stepY;
+                int stpX = Math.Sign(m.AggroTarget.X - m.X), stpY = Math.Sign(m.AggroTarget.Y - m.Y);
+                int chmx = 0, chmy = 0;
+                if (stpX != 0 && stpY != 0) { chmx = stpX; chmy = 0; }
+                else if (stpX != 0) chmx = stpX;
+                else if (stpY != 0) chmy = stpY;
 
                 if ((now - m.LastMoveTime).TotalMilliseconds < moveMs) continue;
 
                 bool moved = false;
-                if ((mx != 0 && (m.X + mx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
-                    || (my != 0 && (m.Y + my != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
+                if ((chmx != 0 && (m.X + chmx != m.AggroTarget.X || m.Y != m.AggroTarget.Y))
+                    || (chmy != 0 && (m.Y + chmy != m.AggroTarget.Y || m.X != m.AggroTarget.X)))
                 {
-                    int nx = m.X + mx, ny = m.Y + my;
-                    if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH
-                        && Math.Abs(nx - m.SpawnX) <= m.WanderRadius && Math.Abs(ny - m.SpawnY) <= m.WanderRadius
-                        && !map.IsObstacle(nx, ny) && map.GetTile(nx, ny) != 0 && map.GetTile(nx, ny) != 255
-                        && !InstanceOccupied(monsters, nx, ny))
-                    { m.X = nx; m.Y = ny; moved = true; }
+                    int tnx = m.X + chmx, tny = m.Y + chmy;
+                    if (tnx >= 0 && tnx < ctx.MapWidth && tny >= 0 && tny < ctx.MapHeight
+                        && Math.Abs(tnx - m.SpawnX) <= m.WanderRadius && Math.Abs(tny - m.SpawnY) <= m.WanderRadius
+                        && !ctx.IsBlocked(tnx, tny) && !ctx.IsOccupied(tnx, tny))
+                    { m.X = tnx; m.Y = tny; moved = true; }
                 }
-                if (moved) m.StuckTicks = 0;
-                else { m.StuckTicks++; if (m.StuckTicks >= Balance.MonsterLeashStuckTicks) { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; } }
+                if (moved) { m.StuckTicks = 0; anyMoved = true; }
+                else
+                {
+                    m.StuckTicks++;
+                    if (m.StuckTicks >= Balance.MonsterLeashStuckTicks)
+                    { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; }
+                }
                 m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
                 continue;
             }
 
+            // БЛУЖДАНИЕ
             if ((now - m.LastMoveTime).TotalMilliseconds < m.MoveIntervalMs) continue;
             if (_world.NextRandom(0, 100) < Balance.MonsterWanderSkipChance) continue;
             int dir = _world.NextRandom(0, 4);
             int wdx = dir == 2 ? -1 : dir == 3 ? 1 : 0;
             int wdy = dir == 0 ? -1 : dir == 1 ? 1 : 0;
             int wnx = m.X + wdx, wny = m.Y + wdy;
-            if (wnx < 0 || wnx >= mapW || wny < 0 || wny >= mapH) continue;
+            if (wnx < 0 || wnx >= ctx.MapWidth || wny < 0 || wny >= ctx.MapHeight) continue;
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
-            if (map.IsObstacle(wnx, wny) || map.GetTile(wnx, wny) == 0 || map.GetTile(wnx, wny) == 255) continue;
-            if (InstanceOccupied(monsters, wnx, wny)) continue;
+            if (ctx.IsBlocked(wnx, wny) || ctx.IsOccupied(wnx, wny)) continue;
             m.X = wnx; m.Y = wny;
             m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+            anyMoved = true;
         }
+
+        return anyMoved;
     }
 
     private static bool InstanceOccupied(List<Monster> monsters, int x, int y)
         => monsters.Any(mm => mm.X == x && mm.Y == y);
-
-    private bool TryMoveTowards(Monster m, int dx, int dy)
-    {
-        if (dx == 0 && dy == 0) return false;
-        int nx = m.X + dx;
-        int ny = m.Y + dy;
-        if (nx < 0 || nx >= _world.Map.Width || ny < 0 || ny >= _world.Map.Height) return false;
-        if (_world.Map.IsObstacle(nx, ny)) return false;
-        if (Math.Abs(nx - m.SpawnX) > m.WanderRadius || Math.Abs(ny - m.SpawnY) > m.WanderRadius) return false;
-        if (IsNearMerchant(nx, ny)) return false;
-        m.X = nx;
-        m.Y = ny;
-        return true;
-    }
 
     private bool IsOccupiedByMonster(int x, int y)
         => _world.FindMonsterAt(x, y) != null;
@@ -668,8 +497,6 @@ public class MonsterManager
     public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
     {
-        var rng = Random.Shared;
-
         int rolledAttack = attacker.RollAttackDamage();
         double effectiveAttackerAttack = GetEffectiveAttack(attacker, rolledAttack);
         double effectiveDefenderDefense = GetEffectiveDefense(defender);
@@ -680,7 +507,7 @@ public class MonsterManager
         double armorPenExtra = 0;
         if (attacker is Player plPassive)
         {
-            if (plPassive.LearnedSkills.Contains("SK0006")
+            if (plPassive.LearnedSkills.Contains(SkillIds.WarriorsFocus)
                 && _svc.Debuffs.HasDebuff(defender, DebuffType.Stun))
             {
                 passiveAccuracyBonus = 10;
@@ -696,17 +523,17 @@ public class MonsterManager
         if (isMelee && defender is Player plDef)
             evadeChance += plDef.GetMeleeEvadeBonus();
 
-        bool defenderEvaded = rng.Next(Balance.ChanceRollMax) < evadeChance;
+        bool defenderEvaded = Balance.RollPercent(evadeChance);
         if (defenderEvaded)
             return (0, 0, false, false, true, false, false);
 
-        bool defenderParried = isMelee && rng.Next(Balance.ChanceRollMax) < defender.GetParryChance();
+        bool defenderParried = isMelee && Balance.RollPercent(defender.GetParryChance());
         if (defenderParried)
             return (0, 0, false, false, false, true, false);
 
-        bool defenderBlocked = rng.Next(Balance.ChanceRollMax) < defender.GetBlockChance();
+        bool defenderBlocked = Balance.RollPercent(defender.GetBlockChance());
         int attackerDamage = 0;
-        bool isCrit = rng.Next(Balance.ChanceRollMax) < (attacker.GetCritChance() + passiveCritBonus);
+        bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
         double def = effectiveDefenderDefense * (1.0 - Math.Min(armorPenExtra, 1.0));
         int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - def));
         attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
@@ -733,18 +560,17 @@ public class MonsterManager
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateOffHandAttack(Player attacker, Monster target)
     {
-        var rng = Random.Shared;
         if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
 
-        bool evaded = rng.Next(Balance.ChanceRollMax) < target.GetEvadeChance();
+        bool evaded = Balance.RollPercent(target.GetEvadeChance());
         if (evaded) return (0, false, true, false, false);
 
-        bool parried = rng.Next(Balance.ChanceRollMax) < target.GetParryChance();
+        bool parried = Balance.RollPercent(target.GetParryChance());
         if (parried) return (0, false, false, true, false);
 
-        bool blocked = rng.Next(Balance.ChanceRollMax) < target.GetBlockChance();
+        bool blocked = Balance.RollPercent(target.GetBlockChance());
 
-        bool crit = rng.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+        bool crit = Balance.RollPercent(attacker.GetCritChance());
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
         int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
         int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
@@ -772,10 +598,10 @@ public class MonsterManager
             var monster = FindMonsterAt(cx, cy);
             if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
 
-            bool evaded = Random.Shared.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+            bool evaded = Balance.RollPercent(monster.GetEvadeChance());
             if (evaded) continue;
 
-            bool crit = Random.Shared.Next(Balance.ChanceRollMax) < attacker.GetCritChance();
+            bool crit = Balance.RollPercent(attacker.GetCritChance());
             int dmg = crit ? (int)(cleaveDmg * attacker.GetCritDamage()) : cleaveDmg;
             dmg = Math.Max(Balance.MinDamage, dmg);
             monster.Health -= dmg;

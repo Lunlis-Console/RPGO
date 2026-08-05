@@ -1,5 +1,6 @@
 ﻿using RPGGame.Server.Network;
 using RPGGame.Server.Services;
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using System.Text.Json;
@@ -8,7 +9,7 @@ namespace RPGGame.Server.MessageHandlers;
 
 public class UseSkillHandler : BaseHandler
 {
-    private static readonly HashSet<string> InstantSkills = new() { "SK0002" };
+    private static readonly HashSet<string> InstantSkills = new() { SkillIds.Flurry };
 
     public UseSkillHandler(GameServices svc) : base(svc) { }
 

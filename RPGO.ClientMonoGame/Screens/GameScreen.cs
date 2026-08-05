@@ -6,6 +6,7 @@ using RPGGame.ClientMonoGame.Rendering;
 using RPGGame.ClientMonoGame.Input;
 using RPGGame.ClientMonoGame.Networking;
 using RPGGame.ClientMonoGame.Windows;
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -50,10 +51,11 @@ public class GameScreen : IScreen
     private HashSet<Guid> _lastPartyMemberIds = new();
     private string? _tileRequestedZone;
     private DateTime _tileRequestTime;
+    private GameClient _client = null!;
 
     public GameScreen()
     {
-        var client = GameMain.Instance!.Client;
+        _client = GameMain.Instance!.Client;
 
         _mapRenderer = new MapRenderer();
         _hudRenderer = new HudRenderer();
@@ -63,20 +65,42 @@ public class GameScreen : IScreen
         _input = new GameInputHandler(_inputManager, _mapRenderer, _hudRenderer, _chatRenderer, _windows);
         _hudDraw = new GameHudRenderer(_hudRenderer, _mapRenderer);
 
-        _socialWindow = new SocialWindow(client);
+        _socialWindow = new SocialWindow(_client);
         _socialWindow.WhisperRequested += name =>
         {
             _chatRenderer.IsTyping = true;
             _chatRenderer.TypedText = $"/w {name} ";
         };
 
-        // === GameClient events ===
-        client.MapUpdated += map =>
+        WireMapEvents();
+        WireCombatEvents();
+        WirePartyEvents();
+        WireStatusEvents();
+        WireInventoryEvents();
+        WireHotbarEvents();
+        WireShopEvents();
+        WireTradeEvents();
+        WireQuestEvents();
+        WireSkillsEvents();
+        WireLootEvents();
+        WireMapInteractionEvents();
+        WireSettingsEvents();
+        WireMailEvents();
+        WireStorageEvents();
+        WireDialogueEvents();
+        WireDeathEvents();
+        WireTradeRequestEvents();
+        RegisterWindows();
+    }
+
+    private void WireMapEvents()
+    {
+        _client.MapUpdated += map =>
         {
             _mapRenderer.SetMap(map);
-            _mapRenderer.SetPlayerName(client.PlayerName);
-            _mapRenderer.SetPlayerLevel(client.PlayerLevel);
-            _minimap.SetPlayerName(client.PlayerName);
+            _mapRenderer.SetPlayerName(_client.PlayerName);
+            _mapRenderer.SetPlayerLevel(_client.PlayerLevel);
+            _minimap.SetPlayerName(_client.PlayerName);
             _minimap.SetMap(map);
             _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
             if (map.TileData != null && map.TileData.Length > 0)
@@ -100,33 +124,50 @@ public class GameScreen : IScreen
             }
             foreach (var p in map.Players)
             {
-                if (p.Name == client.PlayerName) continue;
+                if (p.Name == _client.PlayerName) continue;
                 _mapRenderer.UpdateRemotePlayer(p.Name, p.Facing, p.WeaponSubtype, p.OffWeaponSubtype, p.ShieldSubtype, p.IsTwoHanded, p.IsDead, p.X, p.Y);
             }
             HazardRenderer.Sync(map.Hazards);
         };
-        client.ZoneChanged += (zoneId, zoneName, pvp) =>
+        _client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
             _mapRenderer.ClearMap();
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
         };
-        client.TileDataReceived += (data, w, h, tilesetId, tileSize) =>
+        _client.TileDataReceived += (data, w, h, tilesetId, tileSize) =>
         {
             _mapRenderer.SetTileData(data, w, h, tilesetId, tileSize);
             _minimap.SetTileData(data, w, h);
-            _tileRequestedZone = null; // тайлы получены — разрешаем повторный запрос при следующей проблеме
+            _tileRequestedZone = null;
         };
-        client.ObstacleDataReceived += (data, w, h) =>
+        _client.ObstacleDataReceived += (data, w, h) =>
         {
             _mapRenderer.SetObstacleData(data, w, h);
             _minimap.SetObstacleData(data, w, h);
         };
-        client.ObjectLayerDataReceived += (data, w, h, tilesetId, tileSize) =>
+        _client.ObjectLayerDataReceived += (data, w, h, tilesetId, tileSize) =>
         {
             _mapRenderer.SetObjectLayerData(data, w, h, tilesetId, tileSize);
         };
-        client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
+        _client.ChatReceived += (channel, name, text, isAdmin) =>
+        {
+            if (Enum.TryParse<ChatChannel>(channel, out var ch))
+                _chatRenderer.AddMessage(ch, name, text, isAdmin);
+            else
+                _chatRenderer.AddMessage(ChatChannel.System, name, text, isAdmin);
+        };
+        _client.SystemMessage += msg => _chatRenderer.AddMessage(ChatChannel.System, "Система", msg);
+        _client.WelcomeReceived += () =>
+        {
+            _ = _client.SendAsync("status", null);
+            _ = _client.SendAsync("inventory_request", null);
+        };
+    }
+
+    private void WireCombatEvents()
+    {
+        _client.FloatingTextReceived += (x, y, text, argb, isCrit) =>
         {
             uint a = argb;
             var color = new Color(
@@ -136,7 +177,7 @@ public class GameScreen : IScreen
             Logger.Debug($"FLT screen argb={argb:X8} -> rgb=({color.R},{color.G},{color.B}) text={text}");
             _mapRenderer.SpawnFloatingText(x, y, text, color, isCrit);
         };
-        client.CombatStateUpdated += (inCombat, targetName, hp, maxHp, targetId) =>
+        _client.CombatStateUpdated += (inCombat, targetName, hp, maxHp, targetId) =>
         {
             _hudRenderer.UpdateCombatState(inCombat, targetName, hp, maxHp, targetId);
             if (!inCombat)
@@ -145,7 +186,7 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
             }
         };
-        client.PlayerAttackPerformed += (hand, skillId, targetX, targetY) =>
+        _client.PlayerAttackPerformed += (hand, skillId, targetX, targetY) =>
         {
             _mapRenderer.TriggerAttack(hand);
             if (skillId != null)
@@ -168,7 +209,7 @@ public class GameScreen : IScreen
                 }
             }
         };
-        client.RemotePlayerAttack += (playerName, hand, skillId, targetX, targetY, buffDurationMs) =>
+        _client.RemotePlayerAttack += (playerName, hand, skillId, targetX, targetY, buffDurationMs) =>
         {
             _mapRenderer.TriggerRemoteAttack(playerName, hand);
             if (skillId != null)
@@ -197,13 +238,13 @@ public class GameScreen : IScreen
                 }
             }
         };
-        client.RemotePlayerFacing += (playerName, facing) => _mapRenderer.UpdateRemotePlayerFacing(playerName, facing);
-        _mapRenderer.OnFacingChanged = facing => _ = client.SendAsync("player_facing", new { Facing = facing });
-        client.TargetDebuffsUpdated += debuffs =>
+        _client.RemotePlayerFacing += (playerName, facing) => _mapRenderer.UpdateRemotePlayerFacing(playerName, facing);
+        _mapRenderer.OnFacingChanged = facing => _ = _client.SendAsync("player_facing", new { Facing = facing });
+        _client.TargetDebuffsUpdated += debuffs =>
         {
             _hudRenderer.UpdateTargetDebuffs(debuffs);
         };
-        client.AttackCooldownUpdated += (skillId, remainingMs, totalMs) =>
+        _client.AttackCooldownUpdated += (skillId, remainingMs, totalMs) =>
         {
             int slot = -1;
             var slots = _inputManager.HotbarSlots;
@@ -219,29 +260,33 @@ public class GameScreen : IScreen
                 _input.PendingSent = false;
             }
         };
-        client.TargetCleared += _ =>
+        _client.TargetCleared += _ =>
         {
             _hudRenderer.ClearTarget();
             _mapRenderer.ClearSelection();
         };
-        client.ProjectileSpawned += (id, sx, sy, tx, ty, vt, fm) =>
+        _client.ProjectileSpawned += (id, sx, sy, tx, ty, vt, fm) =>
         {
             ProjectileRenderer.Spawn(id, sx, sy, tx, ty, vt, fm);
         };
-        client.ProjectileHit += (id, hx, hy) =>
+        _client.ProjectileHit += (id, hx, hy) =>
         {
             ProjectileRenderer.OnHit(id);
         };
-        client.PartyUpdated += party =>
+    }
+
+    private void WirePartyEvents()
+    {
+        _client.PartyUpdated += party =>
         {
             _hudRenderer.UpdateParty(party);
-            var myName = GameMain.Instance!.Client.PlayerName;
+            var myName = _client.PlayerName;
             var groupNames = party.Members
                 .Where(m => !string.Equals(m.Name, myName, StringComparison.OrdinalIgnoreCase))
                 .Select(m => m.Name).ToList();
             _mapRenderer.SetPartyMembers(groupNames);
             _minimap.SetPartyMembers(groupNames);
-            var myId = GameMain.Instance!.Client.PlayerId;
+            var myId = _client.PlayerId;
             if (_lastPartyMemberCount == 0 && party.Members.Count >= 2)
                 _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа сформирована!");
             else
@@ -251,7 +296,7 @@ public class GameScreen : IScreen
             _lastPartyMemberCount = party.Members.Count;
             _lastPartyMemberIds = party.Members.Select(m => m.PlayerId).ToHashSet();
         };
-        client.PartyDisbanded += () =>
+        _client.PartyDisbanded += () =>
         {
             if (_lastPartyMemberCount > 0)
                 _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа распущена.");
@@ -261,12 +306,18 @@ public class GameScreen : IScreen
             _mapRenderer.SetPartyMembers(Array.Empty<string>());
             _minimap.SetPartyMembers(Array.Empty<string>());
         };
-        client.PartyInviteReceived += (inviterName, _) =>
+        _client.PartyInviteReceived += (inviterName, _) =>
         {
             _partyInviteWindow.Show(inviterName);
             _windows.BringToFront(_partyInviteWindow);
         };
-        client.StatusUpdated += status =>
+        _partyInviteWindow.Accepted += inviterName => _ = _client.SendAsync("party_accept", new { InviterName = inviterName });
+        _partyInviteWindow.Declined += inviterName => _ = _client.SendAsync("party_decline", new { InviterName = inviterName });
+    }
+
+    private void WireStatusEvents()
+    {
+        _client.StatusUpdated += status =>
         {
             _hudRenderer.UpdateStatus(status);
             _statusWindow.UpdateData(status);
@@ -286,26 +337,29 @@ public class GameScreen : IScreen
             }
 
             bool hasBuff = status.ActiveDebuffs?.Any(d => d.Type == "AttackSpeedBonus") ?? false;
-            if (hasBuff && !SkillEffectManager.HasLooping("SK0002"))
-                SkillEffectManager.SpawnLooping("SK0002", _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
+            if (hasBuff && !SkillEffectManager.HasLooping(SkillIds.Flurry))
+                SkillEffectManager.SpawnLooping(SkillIds.Flurry, _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
             else if (!hasBuff)
-                SkillEffectManager.StopLooping("SK0002");
+                SkillEffectManager.StopLooping(SkillIds.Flurry);
 
             _mapRenderer.SetSuppressingFireActive(status.ActiveDebuffs?.Any(d => d.Type == "SuppressingFire") ?? false);
         };
-        client.SkillsUpdated += skills =>
+        _client.SkillsUpdated += skills =>
         {
             _inputManager.SetSkills(skills);
-            _skillsWindow.SetSkillPoints(client.SkillPoints);
+            _skillsWindow.SetSkillPoints(_client.SkillPoints);
             _skillsWindow.UpdateData(skills);
         };
-        client.InventoryUpdated += inv =>
+    }
+
+    private void WireInventoryEvents()
+    {
+        _client.InventoryUpdated += inv =>
         {
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
             _storageWindow.UpdateInventory(inv.Items);
             if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
-            // Оверлей оружия: берём подтип из слота правой руки
             string? weaponSub = null;
             bool isTwoHanded = false;
             if (inv.Equipment?.Slots != null)
@@ -318,7 +372,6 @@ public class GameScreen : IScreen
             }
             _mapRenderer.SetWeaponSubtype(weaponSub);
             _mapRenderer.SetTwoHanded(isTwoHanded);
-            // Оверлей левой руки: щит или второе оружие
             string? shieldSub = null;
             string? offWeaponSub = null;
             if (inv.Equipment?.Slots != null && inv.Equipment.Slots.TryGetValue("lhand", out var lHand))
@@ -332,7 +385,7 @@ public class GameScreen : IScreen
             _mapRenderer.SetOffHandWeaponSubtype(offWeaponSub);
         };
         _inventoryWindow.NewItemCountChanged += count => _hudDraw.SetNewInventoryCount(count);
-        _equipmentWindow.UnequipItem += slot => _ = client.SendAsync("unequip", new { Slot = slot });
+        _equipmentWindow.UnequipItem += slot => _ = _client.SendAsync("unequip", new { Slot = slot });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;
         _inventoryWindow.DragStateChanged += item =>
         {
@@ -346,47 +399,56 @@ public class GameScreen : IScreen
         };
         _equipmentWindow.IsOverInventory = pt => _inventoryWindow.Contains(pt);
         _lootWindow.DragStateChanged += item => _input.DragOverlayItem = item;
-        _lootWindow.TakeItem += item =>
-        {
-            if (_lootWindow.CorpseId.StartsWith("chest_"))
-                _ = client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
-            else
-                _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
-            _lootWindow.RemoveItem(item);
-        };
         _lootWindow.DropOnInventory += (pt, item) =>
         {
             if (_inventoryWindow.Contains(pt))
                 if (_lootWindow.CorpseId.StartsWith("chest_"))
-                    _ = client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
+                    _ = _client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
                 else
-                    _ = client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
+                    _ = _client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
         };
         _inventoryWindow.DropOnEquip += (pt, item) =>
         {
             if (!_equipmentWindow.Visible) return false;
             if (_equipmentWindow.TryGetSlotAt(pt, item.Type, out var slot) && slot != null)
             {
-                _ = client.SendAsync("equip", new { ItemId = item.Id, TargetSlot = slot });
+                _ = _client.SendAsync("equip", new { ItemId = item.Id, TargetSlot = slot });
                 return true;
             }
             return false;
         };
-        client.HotbarUpdated += slots => _inputManager.UpdateHotbar(slots);
-        client.ChatReceived += (channel, name, text, isAdmin) =>
+        _inventoryWindow.EquipItem += id =>
         {
-            if (Enum.TryParse<ChatChannel>(channel, out var ch))
-                _chatRenderer.AddMessage(ch, name, text, isAdmin);
-            else
-                _chatRenderer.AddMessage(ChatChannel.System, name, text, isAdmin);
+            _ = _client.SendAsync("equip", new { ItemId = id });
+            GameInputHandler.OpenEquipmentBesideInventory(_equipmentWindow, _inventoryWindow, GameMain.Instance!);
         };
-        client.SystemMessage += msg => _chatRenderer.AddMessage(ChatChannel.System, "Система", msg);
-        client.WelcomeReceived += () =>
+        _inventoryWindow.UseItem += id => _ = _client.SendAsync("use_item", new { ItemId = id });
+        _inventoryWindow.DeleteItem += id => _ = _client.SendAsync("drop_item", new { ItemId = id });
+        _inventoryWindow.SortItems += () =>
         {
-            _ = client.SendAsync("status", null);
-            _ = client.SendAsync("inventory_request", null);
+            var inv = _client.Inventory;
+            if (inv?.Items == null) return;
+            int Cat(string t) => t switch
+            {
+                "weapon" => 0, "armor" => 1, "accessory" => 2,
+                "consumable" => 3, "collectible" => 4, "material" => 5, _ => 6
+            };
+            var order = inv.Items.OrderBy(i => Cat(i.Type)).ThenBy(i => i.Name).Select(i => i.Id).ToList();
+            _ = _client.SendAsync("inventory_sort", new { Order = order });
         };
-        client.ShopUpdated += data =>
+        _statusWindow.AllocateAttribute += attr => _ = _client.SendAsync("allocate_attribute", new { Attribute = attr });
+        _statusWindow.ResetAttributes += () => _ = _client.SendAsync("reset_attributes", new { });
+    }
+
+    private void WireHotbarEvents()
+    {
+        _client.HotbarUpdated += slots => _inputManager.UpdateHotbar(slots);
+        _inputManager.HotbarActivated += (idx, item) => _input.ActivateHotbarSlot(idx, item, GameMain.Instance!);
+    }
+
+    private void WireShopEvents()
+    {
+        _client.ShopUpdated += data =>
         {
             _shopWindow.UpdateData(data);
             _inventoryWindow.Visible = true;
@@ -399,9 +461,9 @@ public class GameScreen : IScreen
             _inventoryWindow.Visible = false;
             _inventoryWindow.ShopMode = false;
         };
-        _shopWindow.BuyItem += (id, qty) => _ = client.SendAsync("buy", new { ItemId = id, Quantity = qty });
+        _shopWindow.BuyItem += (id, qty) => _ = _client.SendAsync("buy", new { ItemId = id, Quantity = qty });
         _shopWindow.DragStateChanged += item => _input.DragOverlayItem = item;
-        _shopWindow.SellAllTrophies += () => _ = client.SendAsync("sell_all_trophies", new { });
+        _shopWindow.SellAllTrophies += () => _ = _client.SendAsync("sell_all_trophies", new { });
         _shopWindow.DropOnInventory += (pt, item) =>
         {
             if (!_inventoryWindow.Visible || !_inventoryWindow.Contains(pt)) return false;
@@ -411,9 +473,9 @@ public class GameScreen : IScreen
             int max = Math.Min(stock, Math.Max(1, maxAffordable));
             if (stock > 1 || item.MaxStack > 1)
                 _input.OpenQuantity(item.Name, max, item.Value,
-                    q => _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
+                    q => _ = _client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
             else
-                _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = 1 });
+                _ = _client.SendAsync("buy", new { ItemId = item.Id, Quantity = 1 });
             return true;
         };
         _shopWindow.PendingBuy += (item, max) =>
@@ -423,20 +485,24 @@ public class GameScreen : IScreen
                 ? _input.PlayerGoldCache / item.Value : stock;
             int realMax = Math.Min(max, Math.Max(1, maxAffordable));
             _input.OpenQuantity(item.Name, realMax, item.Value,
-                q => _ = client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
+                q => _ = _client.SendAsync("buy", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
         };
         _inventoryWindow.DropOnSell += (pt, item) =>
         {
             if (!_shopWindow.Visible || !_shopWindow.Contains(pt)) return false;
-            _ = client.SendAsync("sell", new { ItemId = item.Id, Quantity = 1 });
+            _ = _client.SendAsync("sell", new { ItemId = item.Id, Quantity = 1 });
             return true;
         };
-        _inventoryWindow.SellItem += (id, qty) => _ = client.SendAsync("sell", new { ItemId = id, Quantity = qty });
+        _inventoryWindow.SellItem += (id, qty) => _ = _client.SendAsync("sell", new { ItemId = id, Quantity = qty });
         _inventoryWindow.PendingSell += (item, max) =>
-            _input.OpenQuantity(item.Name, max, 1, q => _ = GameMain.Instance!.Client.SendAsync("sell", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
+            _input.OpenQuantity(item.Name, max, 1, q => _ = _client.SendAsync("sell", new { ItemId = item.Id, Quantity = q }), true, _quantityDialog, GameMain.Instance!);
         _inventoryWindow.PendingDrop += (item, max) =>
-            _input.OpenQuantity(item.Name, max, 1, q => _ = client.SendAsync("drop_item", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
-        client.TradeOpened += data =>
+            _input.OpenQuantity(item.Name, max, 1, q => _ = _client.SendAsync("drop_item", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+    }
+
+    private void WireTradeEvents()
+    {
+        _client.TradeOpened += data =>
         {
             var inv = data.YourInventory ?? new List<TradeItemData>();
             var grouped = inv.GroupBy(i => i.Id).Select(gr => $"{gr.First().Name} x{gr.Count()}").ToList();
@@ -445,152 +511,53 @@ public class GameScreen : IScreen
             _tradeWindow.Open(data);
             _windows.BringToFront(_tradeWindow);
         };
-        client.QuestLogUpdated += (available, active) =>
-        {
-            _questLogWindow.UpdateActive(active);
-            _activeQuests = active ?? new List<QuestInfo>();
-            _questBoardWindow.UpdateData(available, _activeQuests);
-        };
-        client.LootReceived += (corpseId, monsterName, damagePct, items, gold) =>
-        {
-            var lootItems = items.Select(item => new RPGGame.ClientMonoGame.Networking.LootItemInfo
-            {
-                Id = item.Id, Name = item.Name, Type = item.Type, WeaponSubtype = item.WeaponSubtype, Value = item.Value, Description = item.Description
-            }).ToList();
-            _lootWindow.Setup(corpseId, monsterName, damagePct, lootItems, gold);
-            var g = GameMain.Instance!.Graphics;
-            _lootWindow.X = Math.Max(0, (g.PreferredBackBufferWidth - _lootWindow.Width) / 2);
-            _lootWindow.Y = Math.Max(0, (g.PreferredBackBufferHeight - _lootWindow.Height) / 2);
-        };
-
-        // Map events
-        _mapRenderer.MoveRequested += (x, y) =>
-        {
-            Logger.Action($"Движение в клетку ({x}, {y})");
-            _ = client.SendAsync("move_to", new { X = x, Y = y });
-        };
-        _mapRenderer.InteractRequested += (entity, x, y) =>
-        {
-            Logger.Action($"Взаимодействие с {entity.Type} '{entity.Name}' ({x}, {y})");
-            if (entity.Type == "corpse" && entity.Id != null)
-                _ = client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
-            else if (entity.Type == "player")
-                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
-            else
-                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
-        };
-        _mapRenderer.EntityPickRequested += (entities, mapX, mapY) =>
-        {
-            var filtered = entities.Where(e => e.Type != "corpse" || e.Id == null || !_lootedCorpses.Contains(e.Id)).ToList();
-            if (filtered.Count == 0) return;
-            if (filtered.Count == 1)
-            {
-                var single = filtered[0];
-                Logger.Action($"Выбрана сущность: {single.Type} '{single.Name}' ({mapX}, {mapY})");
-                if (single.Type == "corpse" && single.Id != null)
-                {
-                    _lootedCorpses.Add(single.Id);
-                    _ = client.SendAsync("loot_corpse", new { CorpseId = single.Id });
-                }
-                else if (single.Type == "player")
-                    _ = client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, PlayerId = single.Id?.ToString() });
-                else
-                    _ = client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, MonsterId = single.Id?.ToString() });
-                return;
-            }
-            var g = GameMain.Instance!.Graphics;
-            _entityPickDialog.Setup(filtered, mapX, mapY);
-            _entityPickDialog.X = Math.Max(0, (g.PreferredBackBufferWidth - _entityPickDialog.Width) / 2);
-            _entityPickDialog.Y = Math.Max(0, (g.PreferredBackBufferHeight - _entityPickDialog.Height) / 2);
-            _windows.BringToFront(_entityPickDialog);
-        };
-        _entityPickDialog.OnPick += (entity, x, y) =>
-        {
-            Logger.Action($"Выбрана сущность: {entity.Type} '{entity.Name}' ({x}, {y})");
-            if (entity.Type == "corpse" && entity.Id != null)
-            {
-                _lootedCorpses.Add(entity.Id);
-                _ = client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
-            }
-            else if (entity.Type == "player")
-                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
-            else
-                _ = client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
-        };
-        _mapRenderer.SelectionChanged += entity =>
-        {
-            if (entity == null)
-            {
-                _hudRenderer.UpdateTargetDebuffs(null);
-            }
-            else if (entity.Type == "player" && entity.Id != null)
-            {
-                _hudRenderer.UpdateTargetDebuffs(null);
-                _ = client.SendAsync("select_target", new { PlayerId = entity.Id });
-            }
-        };
-
-        // Hotbar
-        _inputManager.HotbarActivated += (idx, item) => _input.ActivateHotbarSlot(idx, item, GameMain.Instance!);
-
-        // Trade window events
-        client.TradeOfferUpdated += offer =>
+        _client.TradeOfferUpdated += offer =>
         {
             if (offer.IsFromMe) _tradeWindow.UpdateMyOffer(offer);
             else _tradeWindow.UpdateTheirOffer(offer);
         };
-        client.TradeConfirmUpdated += conf => _tradeWindow.UpdateConfirm(conf);
-        client.TradeCompleted += done =>
+        _client.TradeConfirmUpdated += conf => _tradeWindow.UpdateConfirm(conf);
+        _client.TradeCompleted += done =>
         {
             _tradeWindow.HandleComplete(done);
             if (!string.IsNullOrEmpty(done.Message))
                 _chatRenderer.AddMessage(ChatChannel.System, "Обмен", done.Message);
         };
-        client.TradeClosed += msg =>
+        _client.TradeClosed += msg =>
         {
             _tradeWindow.Visible = false;
             if (!string.IsNullOrEmpty(msg))
                 _chatRenderer.AddMessage(ChatChannel.System, "Обмен", msg);
         };
         _tradeWindow.OfferChanged += (entries, gold) =>
-            _ = client.SendAsync("trade_offer", new { Entries = entries, Gold = gold });
+            _ = _client.SendAsync("trade_offer", new { Entries = entries, Gold = gold });
         _tradeWindow.RequestQuantity += (itemName, max, defaultQty, onConfirm) =>
             _input.OpenQuantity(itemName, max, 0, onConfirm, false, _quantityDialog, GameMain.Instance!);
-        _tradeWindow.ConfirmRequested += () => _ = client.SendAsync("trade_confirm", null);
-        _tradeWindow.CancelRequested += () => _ = client.SendAsync("trade_cancel", null);
+        _tradeWindow.ConfirmRequested += () => _ = _client.SendAsync("trade_confirm", null);
+        _tradeWindow.CancelRequested += () => _ = _client.SendAsync("trade_cancel", null);
+    }
 
-        // Quests
-        _questBoardWindow.TakeQuest += id => _ = client.SendAsync("take_quest", new { QuestId = id });
-        _questBoardWindow.CompleteQuest += id => _ = client.SendAsync("complete_quest", new { QuestId = id });
-        _questBoardWindow.AbandonQuest += id => _ = client.SendAsync("abandon_quest", new { QuestId = id });
-        _questLogWindow.AbandonQuest += id => _ = client.SendAsync("abandon_quest", new { QuestId = id });
-
-        // Settings
-        _settingsWindow.ApplyRequested += ApplySettings;
-        _settingsWindow.LogoutRequested += () =>
+    private void WireQuestEvents()
+    {
+        _questBoardWindow.TakeQuest += id => _ = _client.SendAsync("take_quest", new { QuestId = id });
+        _questBoardWindow.CompleteQuest += id => _ = _client.SendAsync("complete_quest", new { QuestId = id });
+        _questBoardWindow.AbandonQuest += id => _ = _client.SendAsync("abandon_quest", new { QuestId = id });
+        _questLogWindow.AbandonQuest += id => _ = _client.SendAsync("abandon_quest", new { QuestId = id });
+        _client.QuestLogUpdated += (available, active) =>
         {
-            _settingsWindow.Visible = false;
-            var g = GameMain.Instance!.Graphics;
-            _logoutConfirmWindow.ResetTimer();
-            _logoutConfirmWindow.X = (g.PreferredBackBufferWidth - _logoutConfirmWindow.Width) / 2;
-            _logoutConfirmWindow.Y = (g.PreferredBackBufferHeight - _logoutConfirmWindow.Height) / 2;
-            _logoutConfirmWindow.Visible = true;
-            _windows.BringToFront(_logoutConfirmWindow);
+            _questLogWindow.UpdateActive(active);
+            _activeQuests = active ?? new List<QuestInfo>();
+            _questBoardWindow.UpdateData(available, _activeQuests);
         };
-        _logoutConfirmWindow.Confirmed += () =>
-        {
-            _ = client.SendAsync("logout", new { });
-            GameMain.Instance!.Network.Disconnect();
-            GameMain.Instance.ShowLogin();
-        };
-        _logoutConfirmWindow.Cancelled += () => { };
-        client.BoardOpened += () =>
+        _client.BoardOpened += () =>
         {
             _questBoardWindow.Visible = true;
             GameInputHandler.CenterWindow(_questBoardWindow, GameMain.Instance!);
         };
+    }
 
-        // Skills
+    private void WireSkillsEvents()
+    {
         _skillsWindow.UseSkill += id =>
         {
             if (_input.PendingSkillId == id)
@@ -598,7 +565,7 @@ public class GameScreen : IScreen
                 _input.PendingSkillId = null;
                 _input.PendingSlot = -1;
                 _input.PendingSent = false;
-                _ = GameMain.Instance!.Client.SendAsync("cancel_skill", new { });
+                _ = _client.SendAsync("cancel_skill", new { });
                 return;
             }
             int slot = -1;
@@ -613,43 +580,287 @@ public class GameScreen : IScreen
         _skillsWindow.SkillDragStateChanged += skill => _input.DragOverlaySkill = skill;
         _skillsWindow.SkillDragEnded += () => _input.HandleSkillDragEnd(GameMain.Instance!);
         _skillsWindow.LearnSkill += skillId =>
-            _ = client.SendAsync("allocate_skill", new { SkillId = skillId });
+            _ = _client.SendAsync("allocate_skill", new { SkillId = skillId });
         _skillsWindow.ResetSkills += () =>
-            _ = client.SendAsync("reset_skills", new { });
+            _ = _client.SendAsync("reset_skills", new { });
+    }
 
-        // Loot
+    private void WireLootEvents()
+    {
+        _client.LootReceived += (corpseId, monsterName, damagePct, items, gold) =>
+        {
+            var lootItems = items.Select(item => new RPGGame.ClientMonoGame.Networking.LootItemInfo
+            {
+                Id = item.Id, Name = item.Name, Type = item.Type, WeaponSubtype = item.WeaponSubtype, Value = item.Value, Description = item.Description
+            }).ToList();
+            _lootWindow.Setup(corpseId, monsterName, damagePct, lootItems, gold);
+            _lootWindow.X = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferWidth - _lootWindow.Width) / 2);
+            _lootWindow.Y = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferHeight - _lootWindow.Height) / 2);
+        };
+        _lootWindow.TakeItem += item =>
+        {
+            if (_lootWindow.CorpseId.StartsWith("chest_"))
+                _ = _client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
+            else
+                _ = _client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
+            _lootWindow.RemoveItem(item);
+        };
         _lootWindow.TakeLoot += (corpseId, takeAll, ids, takeGold) =>
         {
             if (corpseId.StartsWith("chest_"))
-                _ = client.SendAsync("take_chest_loot", new { InstanceId = corpseId.Substring(6), ItemIds = ids, TakeGold = takeGold });
+                _ = _client.SendAsync("take_chest_loot", new { InstanceId = corpseId.Substring(6), ItemIds = ids, TakeGold = takeGold });
             else
-                _ = client.SendAsync("take_loot", new { CorpseId = corpseId, TakeAll = takeAll, ItemIds = ids, TakeGold = takeGold });
+                _ = _client.SendAsync("take_loot", new { CorpseId = corpseId, TakeAll = takeAll, ItemIds = ids, TakeGold = takeGold });
         };
+    }
 
-        // Inventory actions
-        _inventoryWindow.EquipItem += id =>
+    private void WireMapInteractionEvents()
+    {
+        _mapRenderer.MoveRequested += (x, y) =>
         {
-            _ = client.SendAsync("equip", new { ItemId = id });
-            GameInputHandler.OpenEquipmentBesideInventory(_equipmentWindow, _inventoryWindow, GameMain.Instance!);
+            Logger.Action($"Движение в клетку ({x}, {y})");
+            _ = _client.SendAsync("move_to", new { X = x, Y = y });
         };
-        _inventoryWindow.UseItem += id => _ = client.SendAsync("use_item", new { ItemId = id });
-        _inventoryWindow.DeleteItem += id => _ = client.SendAsync("drop_item", new { ItemId = id });
-        _inventoryWindow.SortItems += () =>
+        _mapRenderer.InteractRequested += (entity, x, y) =>
         {
-            var inv = client.Inventory;
-            if (inv?.Items == null) return;
-            int Cat(string t) => t switch
+            Logger.Action($"Взаимодействие с {entity.Type} '{entity.Name}' ({x}, {y})");
+            if (entity.Type == "corpse" && entity.Id != null)
+                _ = _client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
+            else if (entity.Type == "player")
+                _ = _client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
+            else
+                _ = _client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
+        };
+        _mapRenderer.EntityPickRequested += (entities, mapX, mapY) =>
+        {
+            var filtered = entities.Where(e => e.Type != "corpse" || e.Id == null || !_lootedCorpses.Contains(e.Id)).ToList();
+            if (filtered.Count == 0) return;
+            if (filtered.Count == 1)
             {
-                "weapon" => 0, "armor" => 1, "accessory" => 2,
-                "consumable" => 3, "collectible" => 4, "material" => 5, _ => 6
-            };
-            var order = inv.Items.OrderBy(i => Cat(i.Type)).ThenBy(i => i.Name).Select(i => i.Id).ToList();
-            _ = client.SendAsync("inventory_sort", new { Order = order });
+                var single = filtered[0];
+                Logger.Action($"Выбрана сущность: {single.Type} '{single.Name}' ({mapX}, {mapY})");
+                if (single.Type == "corpse" && single.Id != null)
+                {
+                    _lootedCorpses.Add(single.Id);
+                    _ = _client.SendAsync("loot_corpse", new { CorpseId = single.Id });
+                }
+                else if (single.Type == "player")
+                    _ = _client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, PlayerId = single.Id?.ToString() });
+                else
+                    _ = _client.SendAsync("interact_target", new { Type = single.Type, X = mapX, Y = mapY, MonsterId = single.Id?.ToString() });
+                return;
+            }
+            _entityPickDialog.Setup(filtered, mapX, mapY);
+            _entityPickDialog.X = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferWidth - _entityPickDialog.Width) / 2);
+            _entityPickDialog.Y = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferHeight - _entityPickDialog.Height) / 2);
+            _windows.BringToFront(_entityPickDialog);
         };
-        _statusWindow.AllocateAttribute += attr => _ = client.SendAsync("allocate_attribute", new { Attribute = attr });
-        _statusWindow.ResetAttributes += () => _ = client.SendAsync("reset_attributes", new { });
+        _entityPickDialog.OnPick += (entity, x, y) =>
+        {
+            Logger.Action($"Выбрана сущность: {entity.Type} '{entity.Name}' ({x}, {y})");
+            if (entity.Type == "corpse" && entity.Id != null)
+            {
+                _lootedCorpses.Add(entity.Id);
+                _ = _client.SendAsync("loot_corpse", new { CorpseId = entity.Id });
+            }
+            else if (entity.Type == "player")
+                _ = _client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, PlayerId = entity.Id?.ToString() });
+            else
+                _ = _client.SendAsync("interact_target", new { Type = entity.Type, X = x, Y = y, MonsterId = entity.Id?.ToString() });
+        };
+        _mapRenderer.SelectionChanged += entity =>
+        {
+            if (entity == null)
+            {
+                _hudRenderer.UpdateTargetDebuffs(null);
+            }
+            else if (entity.Type == "player" && entity.Id != null)
+            {
+                _hudRenderer.UpdateTargetDebuffs(null);
+                _ = _client.SendAsync("select_target", new { PlayerId = entity.Id });
+            }
+        };
+    }
 
-        // Register windows in manager
+    private void WireSettingsEvents()
+    {
+        _settingsWindow.ApplyRequested += ApplySettings;
+        _settingsWindow.LogoutRequested += () =>
+        {
+            _settingsWindow.Visible = false;
+            _logoutConfirmWindow.ResetTimer();
+            _logoutConfirmWindow.X = (GameMain.Instance!.Graphics.PreferredBackBufferWidth - _logoutConfirmWindow.Width) / 2;
+            _logoutConfirmWindow.Y = (GameMain.Instance!.Graphics.PreferredBackBufferHeight - _logoutConfirmWindow.Height) / 2;
+            _logoutConfirmWindow.Visible = true;
+            _windows.BringToFront(_logoutConfirmWindow);
+        };
+        _logoutConfirmWindow.Confirmed += () =>
+        {
+            _ = _client.SendAsync("logout", new { });
+            GameMain.Instance!.Network.Disconnect();
+            GameMain.Instance.ShowLogin();
+        };
+        _logoutConfirmWindow.Cancelled += () => { };
+    }
+
+    private void WireMailEvents()
+    {
+        _mailWindow.InboxRequested += () =>
+        {
+            _ = _client.SendAsync("mail", new { Action = "inbox" });
+        };
+        _mailWindow.OutboxRequested += () =>
+        {
+            _ = _client.SendAsync("mail", new { Action = "outbox" });
+        };
+        _mailWindow.SendRequested += (recipient, subject, body, gold, attachments) =>
+        {
+            _ = _client.SendAsync("mail", new
+            {
+                Action = "send",
+                RecipientName = recipient,
+                Subject = subject,
+                Body = body,
+                GoldAmount = gold,
+                Attachments = attachments.Select(a => new
+                {
+                    a.TemplateId, a.Quantity, a.WeaponSubtype, a.HealAmount, a.RestoreMana
+                }).ToList()
+            });
+        };
+        _mailWindow.ReadRequested += id =>
+        {
+            _ = _client.SendAsync("mail", new { Action = "read", MailId = id });
+        };
+        _mailWindow.DeleteRequested += id =>
+        {
+            _ = _client.SendAsync("mail", new { Action = "delete", MailId = id });
+        };
+        _mailWindow.TakeAttachmentRequested += id =>
+        {
+            _ = _client.SendAsync("mail", new { Action = "take", MailId = id });
+        };
+        _mailWindow.AttachmentRequested += () =>
+        {
+            var items = _client.Inventory?.Items?
+                .Where(i => i.Type != "gold")
+                .ToList() ?? new();
+            _mailAttachmentWindow.Open(items, _mailWindow.ComposeAttachments);
+            GameInputHandler.CenterWindow(_mailAttachmentWindow, GameMain.Instance!);
+            _windows.BringToFront(_mailAttachmentWindow);
+        };
+        _mailAttachmentWindow.ConfirmRequested += () =>
+        {
+            _mailWindow.SetComposeAttachments(_mailAttachmentWindow.Attachments);
+        };
+        _mailAttachmentWindow.RequestQuantity += (name, max, defaultQty, onConfirm) =>
+            _input.OpenQuantity(name, max, 0, onConfirm, false, _quantityDialog, GameMain.Instance!);
+        _client.MailListReceived += (folder, mails) =>
+        {
+            if (folder == "inbox")
+                _mailWindow.SetInbox(mails);
+            else if (folder == "outbox")
+                _mailWindow.SetOutbox(mails);
+        };
+        _client.MailDetailReceived += mail =>
+        {
+            _mailWindow.UpdateMail(mail);
+        };
+        _client.MailResultReceived += (ok, msg) =>
+        {
+            if (!string.IsNullOrEmpty(msg))
+                _chatRenderer.AddMessage(ChatChannel.System, "Почта", msg);
+            if (ok && _mailWindow.SelectedMailId > 0)
+                _ = _client.SendAsync("mail", new { Action = "read", MailId = _mailWindow.SelectedMailId });
+        };
+        _client.MailUnreadReceived += count =>
+        {
+            _hudDraw.SetMailUnreadCount(count);
+            _mailWindow.RefreshInboxIfOpen();
+        };
+    }
+
+    private void WireStorageEvents()
+    {
+        _client.StorageOpened += data =>
+        {
+            var invItems = _client.Inventory?.Items ?? new List<Item>();
+            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
+            GameInputHandler.CenterWindow(_storageWindow, GameMain.Instance!);
+            _windows.BringToFront(_storageWindow);
+        };
+        _client.StorageUpdated += data =>
+        {
+            var invItems = _client.Inventory?.Items ?? new List<Item>();
+            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
+        };
+        _storageWindow.DepositItem += (id, qty) => _ = _client.SendAsync("storage_deposit", new { ItemId = id, Quantity = qty });
+        _storageWindow.WithdrawItem += (id, qty) => _ = _client.SendAsync("storage_withdraw", new { ItemId = id, Quantity = qty });
+        _storageWindow.PendingDeposit += (item, max) =>
+            _input.OpenQuantity(item.Name, max, 0, q => _ = _client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+        _storageWindow.PendingWithdraw += (item, max) =>
+            _input.OpenQuantity(item.Name, max, 0, q => _ = _client.SendAsync("storage_withdraw", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+    }
+
+    private void WireDialogueEvents()
+    {
+        _client.DialogueOpened += (npcId, speaker, text, choices) =>
+        {
+            _dialogueWindow.SetNode(speaker, text, choices);
+            GameInputHandler.CenterWindow(_dialogueWindow, GameMain.Instance!);
+            _input.PushWindow(_dialogueWindow);
+        };
+        _client.DialogueClosed += () =>
+        {
+            _dialogueWindow.CloseDialogue();
+        };
+        _dialogueWindow.DialogueClosed += () =>
+        {
+            _ = _client.SendAsync("dialogue_choice", new { ChoiceIndex = -1 });
+        };
+        _dialogueWindow.ChoiceSelected += index =>
+        {
+            _ = _client.SendAsync("dialogue_choice", new { ChoiceIndex = index });
+        };
+    }
+
+    private void WireDeathEvents()
+    {
+        _client.PlayerDeathReceived += lostGold =>
+        {
+            _deathWindow.Activate(lostGold);
+            GameInputHandler.CenterWindow(_deathWindow, GameMain.Instance!);
+            _windows.BringToFront(_deathWindow);
+            _mapRenderer.SetPlayerDead(true);
+        };
+        _deathWindow.ReviveRequested += () =>
+        {
+            _ = _client.SendAsync("revive", null);
+            _mapRenderer.SetPlayerDead(false);
+        };
+        _client.StatusUpdated += _ =>
+        {
+            if (!_client.IsDead && _deathWindow.Visible)
+            {
+                _deathWindow.Deactivate();
+                _mapRenderer.SetPlayerDead(false);
+            }
+        };
+    }
+
+    private void WireTradeRequestEvents()
+    {
+        _client.TradeRequestReceived += inviterName =>
+        {
+            _tradeRequestWindow.Show(inviterName);
+            _windows.BringToFront(_tradeRequestWindow);
+        };
+        _tradeRequestWindow.Accepted += inviterName => _ = _client.SendAsync("trade_accept", new { InviterName = inviterName });
+        _tradeRequestWindow.Declined += inviterName => _ = _client.SendAsync("trade_decline", new { InviterName = inviterName });
+    }
+
+    private void RegisterWindows()
+    {
         _windows.Add(_inventoryWindow);
         _windows.Add(_statusWindow);
         _windows.Add(_skillsWindow);
@@ -671,154 +882,6 @@ public class GameScreen : IScreen
         _windows.Add(_mailWindow);
         _windows.Add(_mailAttachmentWindow);
         _windows.Add(_storageWindow);
-
-        // Mail events
-        _mailWindow.InboxRequested += () =>
-        {
-            _ = client.SendAsync("mail", new { Action = "inbox" });
-        };
-        _mailWindow.OutboxRequested += () =>
-        {
-            _ = client.SendAsync("mail", new { Action = "outbox" });
-        };
-        _mailWindow.SendRequested += (recipient, subject, body, gold, attachments) =>
-        {
-            _ = client.SendAsync("mail", new
-            {
-                Action = "send",
-                RecipientName = recipient,
-                Subject = subject,
-                Body = body,
-                GoldAmount = gold,
-                Attachments = attachments.Select(a => new
-                {
-                    a.TemplateId, a.Quantity, a.WeaponSubtype, a.HealAmount, a.RestoreMana
-                }).ToList()
-            });
-        };
-        _mailWindow.ReadRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "read", MailId = id });
-        };
-        _mailWindow.DeleteRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "delete", MailId = id });
-        };
-        _mailWindow.TakeAttachmentRequested += id =>
-        {
-            _ = client.SendAsync("mail", new { Action = "take", MailId = id });
-        };
-        _mailWindow.AttachmentRequested += () =>
-        {
-            var items = client.Inventory?.Items?
-                .Where(i => i.Type != "gold")
-                .ToList() ?? new();
-            _mailAttachmentWindow.Open(items, _mailWindow.ComposeAttachments);
-            GameInputHandler.CenterWindow(_mailAttachmentWindow, GameMain.Instance!);
-            _windows.BringToFront(_mailAttachmentWindow);
-        };
-        _mailAttachmentWindow.ConfirmRequested += () =>
-        {
-            _mailWindow.SetComposeAttachments(_mailAttachmentWindow.Attachments);
-        };
-        _mailAttachmentWindow.RequestQuantity += (name, max, defaultQty, onConfirm) =>
-            _input.OpenQuantity(name, max, 0, onConfirm, false, _quantityDialog, GameMain.Instance!);
-
-        // Dialogue events
-        client.DialogueOpened += (npcId, speaker, text, choices) =>
-        {
-            _dialogueWindow.SetNode(speaker, text, choices);
-            GameInputHandler.CenterWindow(_dialogueWindow, GameMain.Instance!);
-            _input.PushWindow(_dialogueWindow);
-        };
-        client.DialogueClosed += () =>
-        {
-            _dialogueWindow.CloseDialogue();
-        };
-        _dialogueWindow.DialogueClosed += () =>
-        {
-            _ = client.SendAsync("dialogue_choice", new { ChoiceIndex = -1 });
-        };
-        _dialogueWindow.ChoiceSelected += index =>
-        {
-            _ = client.SendAsync("dialogue_choice", new { ChoiceIndex = index });
-        };
-
-        _partyInviteWindow.Accepted += inviterName => _ = client.SendAsync("party_accept", new { InviterName = inviterName });
-        _partyInviteWindow.Declined += inviterName => _ = client.SendAsync("party_decline", new { InviterName = inviterName });
-
-        // Death
-        client.PlayerDeathReceived += lostGold =>
-        {
-            _deathWindow.Activate(lostGold);
-            GameInputHandler.CenterWindow(_deathWindow, GameMain.Instance!);
-            _windows.BringToFront(_deathWindow);
-            _mapRenderer.SetPlayerDead(true);
-        };
-        _deathWindow.ReviveRequested += () =>
-        {
-            _ = client.SendAsync("revive", null);
-            _mapRenderer.SetPlayerDead(false);
-        };
-        client.StatusUpdated += _ =>
-        {
-            if (!client.IsDead && _deathWindow.Visible)
-            {
-                _deathWindow.Deactivate();
-                _mapRenderer.SetPlayerDead(false);
-            }
-        };
-        client.TradeRequestReceived += inviterName =>
-        {
-            _tradeRequestWindow.Show(inviterName);
-            _windows.BringToFront(_tradeRequestWindow);
-        };
-        _tradeRequestWindow.Accepted += inviterName => _ = client.SendAsync("trade_accept", new { InviterName = inviterName });
-        _tradeRequestWindow.Declined += inviterName => _ = client.SendAsync("trade_decline", new { InviterName = inviterName });
-
-        client.MailListReceived += (folder, mails) =>
-        {
-            if (folder == "inbox")
-                _mailWindow.SetInbox(mails);
-            else if (folder == "outbox")
-                _mailWindow.SetOutbox(mails);
-        };
-        client.MailDetailReceived += mail =>
-        {
-            _mailWindow.UpdateMail(mail);
-        };
-        client.MailResultReceived += (ok, msg) =>
-        {
-            if (!string.IsNullOrEmpty(msg))
-                _chatRenderer.AddMessage(ChatChannel.System, "Почта", msg);
-            if (ok && _mailWindow.SelectedMailId > 0)
-                _ = client.SendAsync("mail", new { Action = "read", MailId = _mailWindow.SelectedMailId });
-        };
-        client.MailUnreadReceived += count =>
-        {
-            _hudDraw.SetMailUnreadCount(count);
-            _mailWindow.RefreshInboxIfOpen();
-        };
-
-        // Storage events
-        client.StorageOpened += data =>
-        {
-            var invItems = client.Inventory?.Items ?? new List<Item>();
-            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
-            GameInputHandler.CenterWindow(_storageWindow, GameMain.Instance!);
-            _windows.BringToFront(_storageWindow);
-        };
-        client.StorageUpdated += data =>
-        {
-            var invItems = client.Inventory?.Items ?? new List<Item>();
-            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
-        };
-        _storageWindow.DepositItem += (id, qty) => _ = client.SendAsync("storage_deposit", new { ItemId = id, Quantity = qty });
-        _storageWindow.WithdrawItem += (id, qty) => _ = client.SendAsync("storage_withdraw", new { ItemId = id, Quantity = qty });
-        _storageWindow.PendingDeposit += (item, max) =>
-            _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
-        _storageWindow.PendingWithdraw += (item, max) =>
-            _input.OpenQuantity(item.Name, max, 0, q => _ = client.SendAsync("storage_withdraw", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
     }
 
     /// <summary>

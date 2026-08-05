@@ -154,6 +154,9 @@ public static class Balance
     public const double BuybackFraction = 0.5;
     public const double SellFraction = 0.5;
 
+    // ===== ЗОНЫ =====
+    public const string MainZoneId = BalanceStatic.MainZoneId;
+
     // ===== ЦИКЛЫ СЕРВЕРА =====
     public const int LoopMonsterWanderMs = 1500;
     // Цикл перемещения должен тикать быстрее самого быстрого MoveIntervalMs (500 / Speed),
@@ -162,6 +165,12 @@ public static class Balance
     public const int LoopMovePathMs = 50;
     public const int LoopCombatMs = 200;
     public const int LoopMonsterAttackMs = 500;
+    public const int LoopDeathTimerMs = 500;
+    public const int LoopInstanceMs = 1000;
+    public const int LoopRespawnMs = 1000;
+    public const int LoopCorpseCleanupMs = 30_000;
+    public const int LoopSessionCleanupMs = 60_000;
+    public const int LoopDisconnectSweepMs = 2000;
 
     // ===== ФОРМУЛЫ =====
 
@@ -290,4 +299,8 @@ public static class Balance
     public const int ProjectileFlightMs = 350;
     public const double ProjectileHitRadius = 0.5;
     public const int ProjectileTickMs = 50;
+
+    // ===== ХЕЛПЕРЫ =====
+    public static bool RollPercent(double percent)
+        => Random.Shared.NextDouble() * 100 < percent;
 }

@@ -10,7 +10,7 @@ namespace RPGGame.Server;
 /// Единый контейнер всех сервисов сервера. Создаётся один раз в Program.Main()
 /// и передаётся всем компонентам через конструктор.
 /// </summary>
-public sealed class GameServices
+public sealed class GameServices : IGameServices
 {
     public GameWorld World { get; }
     public INetworkHub Hub { get; }
@@ -37,6 +37,16 @@ public sealed class GameServices
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
+    public PlayerDeathService PlayerDeath { get; }
+
+    public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    {
+        if (conn == null) return Task.CompletedTask;
+        return Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    public Task ChatToC(ClientConnection? conn, string name, string text)
+        => ChatTo(conn, ChatChannel.Combat, name, text);
 
     public GameServices(
         GameWorld world,
@@ -63,7 +73,8 @@ public sealed class GameServices
         InstanceManager instances,
         PersistenceService persistence,
         ClientBuildService clientBuild,
-        StorageService storage)
+        StorageService storage,
+        PlayerDeathService playerDeath)
     {
         World = world;
         pathfinding.Services = this; // патфайндинг получит доступ к зонам/порталам/NPC
@@ -91,6 +102,7 @@ public sealed class GameServices
         Persistence = persistence;
         ClientBuild = clientBuild;
         Storage = storage;
+        PlayerDeath = playerDeath;
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)

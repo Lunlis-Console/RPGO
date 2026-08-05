@@ -1,4 +1,5 @@
 using RPGGame.Server.Skills.Executors;
+using RPGGame.Shared;
 
 namespace RPGGame.Server.Skills;
 
@@ -6,16 +7,16 @@ public static class SkillRegistry
 {
     private static readonly Dictionary<string, ISkillExecutor> _executors = new()
     {
-        ["SK0001"] = new StrongArmExecutor(),
-        ["SK0002"] = new FlurryExecutor(),
-        ["SK0004"] = new SlashExecutor(),
-        ["SK0007"] = new HolyTrinityExecutor(),
-        ["SK0009"] = new DuelExecutor(),
-        ["SK0012"] = new AimedShotExecutor(),
-        ["SK0013"] = new AchillesHeelExecutor(),
-        ["SK0014"] = new RetreatExecutor(),
-        ["SK0015"] = new SuppressingFireExecutor(),
-        ["SK0016"] = new VeniVidiViciExecutor(),
+        [SkillIds.StrongArm]       = new StrongArmExecutor(),
+        [SkillIds.Flurry]          = new FlurryExecutor(),
+        [SkillIds.Slash]           = new SlashExecutor(),
+        [SkillIds.HolyTrinity]     = new HolyTrinityExecutor(),
+        [SkillIds.Duel]            = new DuelExecutor(),
+        [SkillIds.AimedShot]       = new AimedShotExecutor(),
+        [SkillIds.AchillesHeel]    = new AchillesHeelExecutor(),
+        [SkillIds.Retreat]         = new RetreatExecutor(),
+        [SkillIds.SuppressingFire] = new SuppressingFireExecutor(),
+        [SkillIds.VeniVidiVici]    = new VeniVidiViciExecutor(),
     };
 
     public static ISkillExecutor? Get(string skillId)

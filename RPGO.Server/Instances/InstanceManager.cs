@@ -527,7 +527,7 @@ public class InstanceManager
         var portal = _portals.FirstOrDefault(p => p.InstanceTemplateId == instance.Template.Id);
         int exitX = portal?.FromX ?? 50;
         int exitY = portal?.FromY ?? 50;
-        string exitZone = portal?.FromZone ?? "main";
+        string exitZone = portal?.FromZone ?? Balance.MainZoneId;
 
         player.CurrentZoneId = exitZone;
         player.X = exitX;
@@ -553,7 +553,7 @@ public class InstanceManager
         var portal = _portals.FirstOrDefault(p => p.InstanceTemplateId == exit.Id);
         int exitX = portal?.FromX ?? 50;
         int exitY = portal?.FromY ?? 50;
-        string exitZone = portal?.FromZone ?? "main";
+        string exitZone = portal?.FromZone ?? Balance.MainZoneId;
 
         foreach (var pl in instance.Players.ToList())
         {

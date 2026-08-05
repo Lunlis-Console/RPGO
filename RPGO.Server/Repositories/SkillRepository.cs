@@ -1,3 +1,4 @@
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 
 namespace RPGGame.Server.Repositories;
@@ -8,26 +9,26 @@ internal static class SkillRepository
 
     private static readonly Dictionary<string, string> _iconMap = new()
     {
-        ["SK0001"] = "icon_skill_stronghand",
-        ["SK0002"] = "icon_skill_barrageofblows",
-        ["SK0007"] = "icon_skill_holytrinity",
-        ["SK0009"] = "icon_skill_duel",
-        ["SK0004"] = "icon_skill_cutting",
-        ["SK0003"] = "icon_skill_ambidexter",
-        ["SK0006"] = "icon_skill_warriorsconcentration",
-        ["SK0008"] = "icon_skill_reflexes",
-        ["SK0010"] = "icon_skill_bloodletting",
-        ["SK0011"] = "icon_skill_berserk",
-        ["SK0012"] = "icon_skill_aimedshot",
-        ["SK0013"] = "icon_skill_achillesheel",
-        ["SK0014"] = "icon_skill_retreat",
-        ["SK0015"] = "icon_skill_suppressingfire",
-        ["SK0016"] = "icon_skill_venividivici",
-        ["SK0017"] = "icon_skill_extraarrow",
-        ["SK0018"] = "icon_skill_bowaccuracy",
-        ["SK0019"] = "icon_skill_meleeevade",
-        ["SK0020"] = "icon_skill_longrangesight",
-        ["SK0021"] = "icon_skill_huntinginstinct",
+        [SkillIds.StrongArm]       = "icon_skill_stronghand",
+        [SkillIds.Flurry]          = "icon_skill_barrageofblows",
+        [SkillIds.HolyTrinity]     = "icon_skill_holytrinity",
+        [SkillIds.Duel]            = "icon_skill_duel",
+        [SkillIds.Slash]           = "icon_skill_cutting",
+        [SkillIds.Ambidextrous]    = "icon_skill_ambidexter",
+        [SkillIds.WarriorsFocus]   = "icon_skill_warriorsconcentration",
+        [SkillIds.Reflexes]        = "icon_skill_reflexes",
+        [SkillIds.Bloodletting]    = "icon_skill_bloodletting",
+        [SkillIds.Berserk]         = "icon_skill_berserk",
+        [SkillIds.AimedShot]       = "icon_skill_aimedshot",
+        [SkillIds.AchillesHeel]    = "icon_skill_achillesheel",
+        [SkillIds.Retreat]         = "icon_skill_retreat",
+        [SkillIds.SuppressingFire] = "icon_skill_suppressingfire",
+        [SkillIds.VeniVidiVici]    = "icon_skill_venividivici",
+        [SkillIds.ExtraArrow]      = "icon_skill_extraarrow",
+        [SkillIds.BowAccuracy]     = "icon_skill_bowaccuracy",
+        [SkillIds.MeleeEvade]      = "icon_skill_meleeevade",
+        [SkillIds.LongRangeSight]  = "icon_skill_longrangesight",
+        [SkillIds.HuntingInstinct] = "icon_skill_huntinginstinct",
     };
 
     internal static List<Skill> LoadAll()

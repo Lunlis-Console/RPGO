@@ -27,7 +27,7 @@ public class PlayerData
     public List<string> CompletedQuestIds { get; set; } = new();
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
     public Guid? PartyId { get; set; }
-    public string CurrentZoneId { get; set; } = "main";
+    public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
 }
 
 public class Account

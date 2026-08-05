@@ -170,7 +170,7 @@ internal static class ClientMessageHandlerRegistry
     {
         if (m.Data is JsonElement ztEl)
         {
-            string zoneId = ztEl.TryGetProperty("ZoneId", out var zi) ? zi.GetString() ?? "main" : "main";
+            string zoneId = ztEl.TryGetProperty("ZoneId", out var zi) ? zi.GetString() ?? BalanceStatic.MainZoneId : BalanceStatic.MainZoneId;
             string zoneName = ztEl.TryGetProperty("ZoneName", out var zn) ? zn.GetString() ?? zoneId : zoneId;
             bool pvp = ztEl.TryGetProperty("PvPEnabled", out var pv) && pv.GetBoolean();
             c.RaiseZoneChanged(zoneId, zoneName, pvp);
@@ -295,83 +295,43 @@ internal static class ClientMessageHandlerRegistry
 
     private static void HandleDamage(GameClient c, GameMessage m)
     {
-        if (m.Data is JsonElement dmgEl)
+        if (m.Data is not JsonElement dmgEl) return;
+
+        int amount = dmgEl.TryGetProperty("Amount", out var am) ? am.GetInt32() : 0;
+        bool isCrit = dmgEl.TryGetProperty("IsCrit", out var ic) && ic.GetBoolean();
+        bool isSkill = dmgEl.TryGetProperty("IsSkill", out var skillEl) && skillEl.GetBoolean();
+        int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
+        int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
+        string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
+        string result = dmgEl.TryGetProperty("Result", out var rs) ? (rs.GetString() ?? "") : "";
+
+        var (color, text, crit) = GetDamageText(amount, result, isSkill, isCrit, target);
+        Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
+        c.RaiseFloatingText(x, y, text, color, crit);
+    }
+
+    private static readonly Dictionary<string, (uint Color, string Text)> _damageZeroTable = new()
+    {
+        ["miss"]      = (0xFFAAAAAAu, "Промах"),
+        ["parry"]     = (0xFF66CCFFu, "Парирование"),
+        ["block"]     = (0xFFFFCC44u, "Блок"),
+        ["returning"] = (0xFF8888FFu, "Возвращение"),
+    };
+
+    private static (uint Color, string Text, bool Crit) GetDamageText(int amount, string result,
+        bool isSkill, bool isCrit, string target)
+    {
+        if (amount <= 0)
         {
-            int amount = dmgEl.TryGetProperty("Amount", out var am) ? am.GetInt32() : 0;
-            bool isCrit = dmgEl.TryGetProperty("IsCrit", out var ic) && ic.GetBoolean();
-            bool isSkill = dmgEl.TryGetProperty("IsSkill", out var skillEl) && skillEl.GetBoolean();
-            int x = dmgEl.TryGetProperty("X", out var xp) ? xp.GetInt32() : 0;
-            int y = dmgEl.TryGetProperty("Y", out var yp) ? yp.GetInt32() : 0;
-            string target = dmgEl.TryGetProperty("Target", out var tg) ? (tg.GetString() ?? "") : "";
-            string result = dmgEl.TryGetProperty("Result", out var rs) ? (rs.GetString() ?? "") : "";
-
-            uint color;
-            string text;
-            bool crit = isCrit;
-            if (amount <= 0 && result == "miss")
-            {
-                color = 0xFFAAAAAAu;
-                text = "Промах";
-                crit = false;
-            }
-            else if (amount <= 0 && result == "parry")
-            {
-                color = 0xFF66CCFFu;
-                text = "Парирование";
-                crit = false;
-            }
-            else if (amount <= 0 && result == "block")
-            {
-                color = 0xFFFFCC44u;
-                text = "Блок";
-                crit = false;
-            }
-            else if (amount <= 0 && result == "returning")
-            {
-                color = 0xFF8888FFu;
-                text = "Возвращение";
-                crit = false;
-            }
-            else if (amount <= 0)
-            {
-                color = 0xFFAAAAAAu;
-                text = "Промах";
-                crit = false;
-            }
-            else if (isSkill && crit)
-            {
-                color = 0xFFFF6600u;
-                text = "-" + amount + "!";
-            }
-            else if (isSkill)
-            {
-                color = 0xFFFFDD44u;
-                text = "-" + amount;
-            }
-            else if (crit && target == "player")
-            {
-                color = 0xFFFFD040u;
-                text = "-" + amount + "!";
-            }
-            else if (crit)
-            {
-                color = 0xFF40FF80u;
-                text = "-" + amount + "!";
-            }
-            else if (target == "player")
-            {
-                color = 0xFFF06040u;
-                text = "-" + amount;
-            }
-            else
-            {
-                color = 0xFF30CC60u;
-                text = "-" + amount;
-            }
-
-            Logger.Debug($"FLT dmg argb={color:X8} text={text} crit={crit}");
-            c.RaiseFloatingText(x, y, text, color, crit);
+            _damageZeroTable.TryGetValue(result, out var entry);
+            return (entry.Color != 0 ? entry.Color : 0xFFAAAAAAu,
+                    entry.Text ?? "Промах", false);
         }
+        if (isSkill)
+            return (isCrit ? 0xFFFF6600u : 0xFFFFDD44u, $"-{amount}" + (isCrit ? "!" : ""), isCrit);
+        if (isCrit)
+            return (target == "player" ? 0xFFFFD040u : 0xFF40FF80u, $"-{amount}!", true);
+        return (target == "player" ? 0xFFF06040u : 0xFF30CC60u, $"-{amount}", false);
     }
 
     private static void HandleHeal(GameClient c, GameMessage m)

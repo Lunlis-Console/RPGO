@@ -11,7 +11,7 @@ public class Collectible
     public char Symbol { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = Balance.MainZoneId;
 }
 
 /// <summary>
@@ -73,7 +73,7 @@ public class CollectibleManager
                     Symbol = tpl.Symbol,
                     X = s.X,
                     Y = s.Y,
-                    ZoneId = "main"
+                    ZoneId = Balance.MainZoneId
                 });
                 spawned++;
             }
@@ -84,7 +84,7 @@ public class CollectibleManager
             foreach (var template in _templates)
             {
                 for (int i = 0; i < template.Count; i++)
-                    SpawnOne(template.Name, template.ItemName, template.Symbol, "main");
+                    SpawnOne(template.Name, template.ItemName, template.Symbol, Balance.MainZoneId);
             }
         }
     }

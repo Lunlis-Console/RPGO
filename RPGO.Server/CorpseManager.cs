@@ -92,7 +92,7 @@ public class MonsterCorpse
     public char Symbol { get; set; }
     public int Level { get; set; }
     public DateTime CreatedAt { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = Balance.MainZoneId;
 
     // Общий лут (для обратной совместимости)
     public int GoldReward { get; set; }

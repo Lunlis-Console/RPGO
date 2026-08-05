@@ -111,8 +111,7 @@ public class MapRenderer
         if (idx < 0 || idx >= _obstacleData.Length) return false;
         return _obstacleData[idx] != 0;
     }
-    private readonly List<FloatingText> _floatingTexts = new();
-    private static readonly Random _rng = new();
+    private readonly FloatingTextRenderer _floatingRenderer = new();
 
     // Снаряды
     private readonly List<ClientProjectile> _projectiles = new();
@@ -575,22 +574,7 @@ private sealed class RemotePlayerState
     }
 
     public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
-    {
-        lock (_stateLock)
-        {
-            // Небольшой случайный разброс по X, чтобы цифры не накладывались друг на друга
-            float jitterX = (float)(_rng.NextDouble() - 0.5) * 0.6f;
-            _floatingTexts.Add(new FloatingText
-            {
-                X = mapX + jitterX,
-                Y = mapY,
-                Text = text,
-                Color = color,
-                StartTime = DateTime.UtcNow,
-                Scale = isCrit ? 1.6f : 1.2f
-            });
-        }
-    }
+        => _floatingRenderer.Spawn(mapX, mapY, text, color, isCrit);
 
     // Всплывающий текст над самим игроком (опыт / повышение уровня)
     public void SpawnFloatingTextAtPlayer(string text, Color color, bool isCrit = false)
@@ -1859,36 +1843,7 @@ private sealed class RemotePlayerState
     }
 
     private void DrawFloatingTexts(SpriteBatch sb, SpriteFont font, int startX, int startY)
-    {
-        lock (_stateLock)
-        {
-            for (int i = _floatingTexts.Count - 1; i >= 0; i--)
-            {
-                var ft = _floatingTexts[i];
-                float elapsed = (float)(DateTime.UtcNow - ft.StartTime).TotalMilliseconds;
-                if (elapsed >= ft.DurationMs) { _floatingTexts.RemoveAt(i); continue; }
-                float t = elapsed / ft.DurationMs;
-                int alpha = 255 - (int)(t * 200); if (alpha < 0) alpha = 0;
-                float rise = t * 1.2f;
-                float fpx = _gridOX + (ft.X - startX) * _cellW + _cellW / 2;
-                float fpy = _gridOY + (ft.Y - startY - rise) * _cellH - 4;
-                var c = new Color(ft.Color.R, ft.Color.G, ft.Color.B, (byte)alpha);
-                Vector2 origin = font.MeasureString(ft.Text) / 2f;
-                float scale = ft.Scale;
-                var outline = new Color((byte)0, (byte)0, (byte)0, (byte)(alpha * 0.9f));
-                float o = 1.2f * scale;
-                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy - o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx - o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx + o, fpy + o), outline, 0f, origin, scale, SpriteEffects.None, 0f);
-                sb.DrawString(font, ft.Text, new Vector2(fpx, fpy), c, 0f, origin, scale, SpriteEffects.None, 0f);
-            }
-        }
-    }
+        => _floatingRenderer.Draw(sb, font, startX, startY, _gridOX, _gridOY, _cellW, _cellH);
 
     private void DrawHoverTile(SpriteBatch sb)
     {
@@ -2107,16 +2062,6 @@ private sealed class RemotePlayerState
             return null;
         }
     }
-}
-
-public sealed class FloatingText
-{
-    public float X, Y;
-    public string Text = "";
-    public Color Color;
-    public DateTime StartTime;
-    public int DurationMs = 1000;
-    public float Scale = 1f;
 }
 
 public sealed class ClientProjectile

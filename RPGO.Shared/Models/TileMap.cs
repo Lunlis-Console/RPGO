@@ -3,7 +3,7 @@ namespace RPGGame.Shared.Models;
 public class TileMap
 {
     public string Id { get; set; } = "";
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public int Width { get; set; } = 100;
     public int Height { get; set; } = 100;
     public int TileSize { get; set; } = 32;

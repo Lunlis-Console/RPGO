@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Rendering;
 using RPGGame.ClientMonoGame.Networking;
+using RPGGame.Shared;
 using System.Text.RegularExpressions;
 
 namespace RPGGame.ClientMonoGame.Windows;
@@ -510,7 +511,7 @@ public class SkillsWindow : GameWindow
     // Множитель пассивного навыка от ранга. Для «Амбидекстра» (SK0003) бонус фиксированный: 25%/40%/50%.
     private static double PassiveRankMult(string skillId, int rank)
     {
-        if (skillId == "SK0003")
+        if (skillId == SkillIds.Ambidextrous)
             return rank switch { 2 => 1.6, 3 => 2.0, _ => 1.0 };
         return 1.0 + (rank - 1) * 0.33;
     }

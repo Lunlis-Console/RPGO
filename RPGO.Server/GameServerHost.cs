@@ -76,10 +76,10 @@ public class GameServerHost
                 try { await _svc.Combat.MonsterAttackTick(); }
                 catch (Exception ex) { Log.Error("[Tick] MonsterAttack", ex); }
             }
-            if (now - lastDeathTimer >= 500)
+            if (now - lastDeathTimer >= Balance.LoopDeathTimerMs)
             {
                 lastDeathTimer = now;
-                try { await _svc.Combat.DeathTimerTick(); }
+                try { await _svc.PlayerDeath.DeathTimerTick(); }
                 catch (Exception ex) { Log.Error("[Tick] DeathTimer", ex); }
             }
             if (now - lastMonsterWander >= Balance.LoopMonsterWanderMs)
@@ -106,13 +106,13 @@ public class GameServerHost
                 try { await DebuffTick(); }
                 catch (Exception ex) { Log.Error("[Tick] Debuff", ex); }
             }
-            if (now - lastInstance >= 1000)
+            if (now - lastInstance >= Balance.LoopInstanceMs)
             {
                 lastInstance = now;
                 try { await _svc.Instances.TickAsync(); }
                 catch (Exception ex) { Log.Error("[Tick] Instance", ex); }
             }
-            if (now - lastRespawn >= 1000)
+            if (now - lastRespawn >= Balance.LoopRespawnMs)
             {
                 lastRespawn = now;
                 try { _svc.Monsters.TickRespawns(); }
@@ -128,7 +128,7 @@ public class GameServerHost
             }
 
             // 30s — corpse cleanup
-            if (now - lastCorpse >= 30_000)
+            if (now - lastCorpse >= Balance.LoopCorpseCleanupMs)
             {
                 lastCorpse = now;
                 try
@@ -140,7 +140,7 @@ public class GameServerHost
             }
 
             // 60s — session cleanup
-            if (now - lastSession >= 60_000)
+            if (now - lastSession >= Balance.LoopSessionCleanupMs)
             {
                 lastSession = now;
                 try { SessionManager.Cleanup(); }
@@ -148,7 +148,7 @@ public class GameServerHost
             }
 
             // 2s — finalize pending disconnects whose reconnect window expired
-            if (now - lastDisconnectSweep >= 2000)
+            if (now - lastDisconnectSweep >= Balance.LoopDisconnectSweepMs)
             {
                 lastDisconnectSweep = now;
                 try { await FinalizeExpiredDisconnectsAsync(); }

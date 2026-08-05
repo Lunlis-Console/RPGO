@@ -64,7 +64,7 @@ partial class Program
         List<TiledSpawn>? spawns = null;
         try
         {
-            spawns = LoadTiledZone(zones, "wordlmap.tmj", "main");
+            spawns = LoadTiledZone(zones, "wordlmap.tmj", Balance.MainZoneId);
             LoadTiledZone(zones, "arena_1.tmj", "arena");
         }
         catch (Exception ex)
@@ -109,6 +109,7 @@ partial class Program
         var pvp = new PvPService(servicesLazy);
         var hazard = new HazardService(servicesLazy);
         var interactions = new InteractionService(servicesLazy);
+        var playerDeath = new PlayerDeathService(servicesLazy);
         var auth = new AuthService(servicesLazy);
         var instances = new InstanceManager(servicesLazy);
         instances.LoadAll();
@@ -154,7 +155,7 @@ partial class Program
         // Единственное создание GameServices
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage);
+            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage, playerDeath);
 
         hub.SetServices(Services);
         monsters.SetServices(Services);

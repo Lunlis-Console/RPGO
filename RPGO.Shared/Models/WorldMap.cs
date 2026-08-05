@@ -18,7 +18,7 @@ public class WorldMap
     public List<NpcPosition> Npcs { get; set; } = new();
 
     // Зона
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public string ZoneName { get; set; } = "";
     public bool PvPEnabled { get; set; }
     public List<PortalPosition> Portals { get; set; } = new();
@@ -75,7 +75,7 @@ public class CollectiblePosition
     public char Symbol { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
 }
 
 public class CorpsePosition
@@ -87,7 +87,7 @@ public class CorpsePosition
     public char Symbol { get; set; }
     public int Level { get; set; }
     public int ItemCount { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
 }
 
 public class NpcPosition
@@ -97,7 +97,7 @@ public class NpcPosition
     public string Type { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
-    public string ZoneId { get; set; } = "main";
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public bool HasDialogue { get; set; }
     public string? QuestIndicator { get; set; }
 }

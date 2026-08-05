@@ -14,8 +14,8 @@ public static class PlayerFactory
 
         // После перезапуска инстансы не существуют — возвращаем на главную карту.
         bool zoneGone = svc.Zones.GetZone(savedZone) == null
-                        && !savedZone.Equals("main", StringComparison.OrdinalIgnoreCase);
-        string zoneId = zoneGone ? "main" : savedZone;
+                        && !savedZone.Equals(Balance.MainZoneId, StringComparison.OrdinalIgnoreCase);
+        string zoneId = zoneGone ? Balance.MainZoneId : savedZone;
 
         int spawnX, spawnY;
         if (!zoneGone && account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)

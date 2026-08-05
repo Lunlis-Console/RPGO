@@ -46,7 +46,7 @@ public class ZoneManager
         }
 
         if (_mainMap != null)
-            _maps["main"] = _mainMap;
+            _maps[Balance.MainZoneId] = _mainMap;
 
         foreach (var portal in ZoneRepository.LoadPortals())
         {
@@ -167,7 +167,7 @@ public class ZoneManager
     /// </summary>
     public GameMap CreateOrReplaceMap(string zoneId, int width, int height)
     {
-        if (zoneId == "main" && _mainMap != null)
+        if (zoneId == Balance.MainZoneId && _mainMap != null)
         {
             if (_mainMap.Width != width || _mainMap.Height != height)
                 throw new InvalidOperationException($"Размер Tiled-карты {width}x{height} не совпадает с картой мира {_mainMap.Width}x{_mainMap.Height}");

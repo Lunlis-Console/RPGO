@@ -359,7 +359,7 @@ internal static class AccountRepository
                 SkillPoints = reader.GetInt32(24),
                 LearnedSkills = ParseStringList(reader.IsDBNull(25) ? "[]" : reader.GetString(25)),
                 SkillRanks = ParseSkillRanks(reader.IsDBNull(26) ? "{}" : reader.GetString(26)),
-                CurrentZoneId = reader.IsDBNull(27) ? "main" : reader.GetString(27),
+                CurrentZoneId = reader.IsDBNull(27) ? Balance.MainZoneId : reader.GetString(27),
                 Inventory = InventoryRepository.GetForPlayer(playerName, equipIds),
                 Equipment = InventoryRepository.LoadEquipment(connection, playerName),
                 ActiveQuests = QuestRepository.Load(connection, playerName),

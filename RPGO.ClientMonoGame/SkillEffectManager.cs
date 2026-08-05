@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using RPGGame.ClientMonoGame.Rendering;
+using RPGGame.Shared;
 
 namespace RPGGame.ClientMonoGame;
 
@@ -43,11 +44,11 @@ public static class SkillEffectManager
 
     private static readonly Dictionary<string, (string Key, int Frames, float Fps, bool OnPlayer)> _registry = new()
     {
-        ["SK0001"] = ("skill_anim_stronghand",    4, 12f, false),
-        ["SK0002"] = ("skill_anim_barrageofblows", 4,  6f, true),
-        ["SK0004"] = ("skill_anim_cutting",        4, 12f, false),
-        ["SK0007"] = ("skill_anim_holytrinity",    4, 12f, false),
-        ["SK0009"] = ("skill_anim_duel",           4, 12f, false),
+        [SkillIds.StrongArm] = ("skill_anim_stronghand",    4, 12f, false),
+        [SkillIds.Flurry]    = ("skill_anim_barrageofblows", 4,  6f, true),
+        [SkillIds.Slash]     = ("skill_anim_cutting",        4, 12f, false),
+        [SkillIds.HolyTrinity] = ("skill_anim_holytrinity",    4, 12f, false),
+        [SkillIds.Duel]      = ("skill_anim_duel",           4, 12f, false),
     };
 
     public static bool IsOnPlayer(string skillId)

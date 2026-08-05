@@ -1,5 +1,6 @@
 using System;
 using RPGGame.Server.Network;
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -18,17 +19,16 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster);
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
-        bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
-        bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
+        bool evaded = Balance.RollPercent(monster.GetEvadeChance());
+        bool parried = !evaded && Balance.RollPercent(monster.GetParryChance());
+        bool blocked = !evaded && !parried && Balance.RollPercent(monster.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
 
         if (!evaded && !parried)
         {
-            hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+            hitCrit = Balance.RollPercent(pl.GetCritChance());
             int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
@@ -38,7 +38,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
             monster.DamageTracker.AddOrUpdate(pl.Id, hitDmg, (k, old) => old + hitDmg);
-            sideEffect?.Invoke(pl, monster, hitDmg, hitCrit, rng);
+            sideEffect?.Invoke(pl, monster, hitDmg, hitCrit, Random.Shared);
         }
 
         if (evaded)
@@ -88,19 +88,18 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendPlayerAttack(pl.Name, hitHand, pl.Combat.PendingSkillId,
             targetX: monster.X, targetY: monster.Y);
 
-        var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster);
         double effAtk = useOffHand
             ? svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage())
             : svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
-        bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
-        bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
+        bool evaded = Balance.RollPercent(monster.GetEvadeChance());
+        bool parried = !evaded && Balance.RollPercent(monster.GetParryChance());
+        bool blocked = !evaded && !parried && Balance.RollPercent(monster.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
 
         if (!evaded && !parried)
         {
-            hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
+            hitCrit = Balance.RollPercent(pl.GetCritChance());
             int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
@@ -115,14 +114,14 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
             monster.DamageTracker.AddOrUpdate(pl.Id, hitDmg, (k, old) => old + hitDmg);
-            sideEffect?.Invoke(pl, monster, hitDmg, hitCrit, rng);
+            sideEffect?.Invoke(pl, monster, hitDmg, hitCrit, Random.Shared);
         }
 
         string skillName = pl.Combat.PendingSkillId switch
         {
-            "SK0004" => "Разрез",
-            "SK0007" => "Святая троица",
-            "SK0009" => "ЭТО ДУЭЛЬ!",
+            SkillIds.Slash       => "Разрез",
+            SkillIds.HolyTrinity => "Святая троица",
+            SkillIds.Duel        => "ЭТО ДУЭЛЬ!",
             _ => "???"
         };
 
@@ -186,16 +185,16 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        bool evaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
-        bool parried = !evaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
-        bool blocked = !evaded && !parried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
+        bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
 
         if (!evaded && !parried)
         {
             int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
-            hitCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+            hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
             target.Health -= hitDmg;
@@ -260,16 +259,16 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendPlayerAttack(pl.Name, "main", pl.Combat.PendingSkillId,
             targetX: target.X, targetY: target.Y);
 
-        bool evaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
-        bool parried = !evaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
-        bool blocked = !evaded && !parried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
+        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
+        bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
 
         if (!evaded && !parried)
         {
             int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
-            hitCrit = Random.Shared.NextDouble() * 100 < pl.GetCritChance();
+            hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
             target.Health -= hitDmg;
@@ -277,7 +276,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             target.LastDamagedTime = DateTime.UtcNow;
         }
 
-        string skillName = pl.Combat.PendingSkillId switch { "SK0004" => "Разрез", "SK0007" => "Святая троица", _ => "???" };
+        string skillName = pl.Combat.PendingSkillId switch { SkillIds.Slash => "Разрез", SkillIds.HolyTrinity => "Святая троица", _ => "???" };
         if (evaded)
             await svc.ChatToC(atkClient, "Бой", $"{target.Name} уклонился от удара «{skillName}».");
         else if (parried)

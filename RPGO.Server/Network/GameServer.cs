@@ -67,7 +67,7 @@ public sealed class GameServer : INetworkHub
                 Type = n.Type,
                 X = tiledNpc?.X ?? n.X,
                 Y = tiledNpc?.Y ?? n.Y,
-                ZoneId = tiledNpc?.ZoneId ?? "main",
+                ZoneId = tiledNpc?.ZoneId ?? Balance.MainZoneId,
                 HasDialogue = svc.Dialogue.GetTree(n.Id) != null
             });
         }
@@ -237,9 +237,9 @@ public sealed class GameServer : INetworkHub
                 Width = zoneMap.Width,
                 Height = zoneMap.Height,
                 Players = sameZonePlayers,
-                Merchant = (zoneId == "main") ? merchant : null,
-                Board = (zoneId == "main") ? board : null,
-                StorageChest = (zoneId == "main") ? new ChestPosition
+                Merchant = (zoneId == Balance.MainZoneId) ? merchant : null,
+                Board = (zoneId == Balance.MainZoneId) ? board : null,
+                StorageChest = (zoneId == Balance.MainZoneId) ? new ChestPosition
                 {
                     X = svc.Storage.StorageX,
                     Y = svc.Storage.StorageY,
@@ -281,7 +281,7 @@ public sealed class GameServer : INetworkHub
                         X = inst.EffectiveExitX,
                         Y = inst.EffectiveExitY,
                         TargetZone = "",
-                        TargetZoneName = svc.Zones.GetZone("main")?.Name ?? "Главный мир"
+                        TargetZoneName = svc.Zones.GetZone(Balance.MainZoneId)?.Name ?? "Главный мир"
                     };
                     mapData.InstanceChest = new ChestPosition
                     {

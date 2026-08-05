@@ -20,7 +20,7 @@ public class PathfindingService
     public GameServices? Services { get; set; }
 
     public List<(int X, int Y)> FindPath(int startX, int startY, int targetX, int targetY)
-        => FindPath(startX, startY, targetX, targetY, "main");
+        => FindPath(startX, startY, targetX, targetY, Balance.MainZoneId);
 
     /// <summary>
     /// Поиск пути по клеткам зоны с обходом препятствий и статичных сущностей
@@ -61,7 +61,7 @@ public class PathfindingService
                 blocked.Add((p.FromX, p.FromY));
 
             // Склад (главная зона).
-            if (zoneId == "main")
+            if (zoneId == Balance.MainZoneId)
                 blocked.Add((Services.Storage.StorageX, Services.Storage.StorageY));
 
             // NPC зоны (из Tiled; позиции авторитетнее, чем в БД).

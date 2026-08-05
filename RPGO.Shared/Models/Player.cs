@@ -1,4 +1,6 @@
-﻿namespace RPGGame.Shared.Models;
+﻿using RPGGame.Shared;
+
+namespace RPGGame.Shared.Models;
 
 public class Player : ICombatant
 {
@@ -104,16 +106,16 @@ public class Player : ICombatant
     // Пассивный навык «Рефлексы» (SK0008): +10% шанс парирования при двух одноручных оружиях.
     public double GetReflexesParryBonus()
     {
-        if (!LearnedSkills.Contains("SK0008")) return 0;
-        return Equipment.IsDualWielding() ? 10.0 * GetPassiveRankMult("SK0008") : 0.0;
+        if (!LearnedSkills.Contains(SkillIds.Reflexes)) return 0;
+        return Equipment.IsDualWielding() ? 10.0 * GetPassiveRankMult(SkillIds.Reflexes) : 0.0;
     }
 
     // Пассивный навык «Амбидекстр» (SK0003): доля урона левой руки от правой.
     // Ранг 1: +25% (итого 75%), ранг 2: +40% (90%), ранг 3: +50% (100% — как правая рука).
     public double GetOffHandDamageFraction()
     {
-        if (!LearnedSkills.Contains("SK0003")) return Equipment.OffHandDamageFraction;
-        double bonus = GetSkillRank("SK0003") switch
+        if (!LearnedSkills.Contains(SkillIds.Ambidextrous)) return Equipment.OffHandDamageFraction;
+        double bonus = GetSkillRank(SkillIds.Ambidextrous) switch
         {
             3 => 0.50,
             2 => 0.40,
@@ -160,11 +162,11 @@ public class Player : ICombatant
     // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья.
     public double GetBerserkMultiplier()
     {
-        if (!LearnedSkills.Contains("SK0011")) return 1.0;
+        if (!LearnedSkills.Contains(SkillIds.Berserk)) return 1.0;
         int maxHp = MaxHealth + Equipment.GetBonusMaxHealth();
         if (maxHp <= 0) return 1.0;
         double percentMissing = (maxHp - Health) / (double)maxHp * 100.0;
-        return 1.0 + BalanceStatic.BerserkDamagePer5Percent * GetPassiveRankMult("SK0011") * (percentMissing / 5.0);
+        return 1.0 + BalanceStatic.BerserkDamagePer5Percent * GetPassiveRankMult(SkillIds.Berserk) * (percentMissing / 5.0);
     }
 
     // ───── Ранги навыков ─────
@@ -189,49 +191,49 @@ public class Player : ICombatant
     /// <summary>«Вам подарочек» (SK0017): шанс доп. стрелы.</summary>
     public double GetExtraArrowChance()
     {
-        if (!LearnedSkills.Contains("SK0017") || !IsWieldingBow()) return 0;
-        return BalanceStatic.ExtraArrowChance * GetPassiveRankMult("SK0017");
+        if (!LearnedSkills.Contains(SkillIds.ExtraArrow) || !IsWieldingBow()) return 0;
+        return BalanceStatic.ExtraArrowChance * GetPassiveRankMult(SkillIds.ExtraArrow);
     }
 
     /// <summary>«Белке в глаз» (SK0018): бонус точности (вычитается из уклона цели).</summary>
     public double GetBowAccuracyBonus()
     {
-        if (!LearnedSkills.Contains("SK0018") || !IsWieldingBow()) return 0;
-        return BalanceStatic.BowAccuracyBonus * GetPassiveRankMult("SK0018");
+        if (!LearnedSkills.Contains(SkillIds.BowAccuracy) || !IsWieldingBow()) return 0;
+        return BalanceStatic.BowAccuracyBonus * GetPassiveRankMult(SkillIds.BowAccuracy);
     }
 
     /// <summary>«Руками не трогать» (SK0019): +уклон против ближнего боя.</summary>
     public double GetMeleeEvadeBonus()
     {
-        if (!LearnedSkills.Contains("SK0019")) return 0;
-        return BalanceStatic.MeleeEvadeBonus * GetPassiveRankMult("SK0019");
+        if (!LearnedSkills.Contains(SkillIds.MeleeEvade)) return 0;
+        return BalanceStatic.MeleeEvadeBonus * GetPassiveRankMult(SkillIds.MeleeEvade);
     }
 
     /// <summary>«Дальний прицел» (SK0020): бонус дальности лука.</summary>
     public int GetBowRangeBonus()
-        => LearnedSkills.Contains("SK0020") && IsWieldingBow() ? BalanceStatic.BowRangeBonus : 0;
+        => LearnedSkills.Contains(SkillIds.LongRangeSight) && IsWieldingBow() ? BalanceStatic.BowRangeBonus : 0;
 
     /// <summary>«Дальний прицел»: пробитие брони чем ближе цель (дист ≤ 2).</summary>
     public double GetCloseRangeArmorPen(int dist)
     {
-        if (!LearnedSkills.Contains("SK0020") || !IsWieldingBow()) return 0;
+        if (!LearnedSkills.Contains(SkillIds.LongRangeSight) || !IsWieldingBow()) return 0;
         if (dist > BalanceStatic.CloseRangeArmorPenDist) return 0;
         double t = 1.0 - (dist - 1) / (double)BalanceStatic.CloseRangeArmorPenDist;
         if (dist <= 1) t = 1.0;
-        return BalanceStatic.CloseRangeArmorPenMax * GetPassiveRankMult("SK0020") * Math.Clamp(t, 0, 1);
+        return BalanceStatic.CloseRangeArmorPenMax * GetPassiveRankMult(SkillIds.LongRangeSight) * Math.Clamp(t, 0, 1);
     }
 
     /// <summary>«Охотничий инстинкт» (SK0021): бонус крита по ослабленным целям.</summary>
     public double GetHunterInstinctCritBonus(ICombatant target)
     {
-        if (!LearnedSkills.Contains("SK0021") || !IsWieldingBow()) return 0;
+        if (!LearnedSkills.Contains(SkillIds.HuntingInstinct) || !IsWieldingBow()) return 0;
         bool marked = target switch
         {
             Player p => p.GetDebuffsSnapshot().Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
             Monster m => m.GetDebuffsSnapshot().Any(d => d.Type is DebuffType.Root or DebuffType.Slow or DebuffType.AccuracyReduction),
             _ => false
         };
-        return marked ? BalanceStatic.HunterInstinctCritBonus * GetPassiveRankMult("SK0021") : 0;
+        return marked ? BalanceStatic.HunterInstinctCritBonus * GetPassiveRankMult(SkillIds.HuntingInstinct) : 0;
     }
 
     public int RollAttackDamage(int dist)
@@ -280,7 +282,7 @@ public class Player : ICombatant
     public bool IsAdmin { get; set; }
 
     // Зона
-    public string CurrentZoneId { get; set; } = "main";
+    public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
 
     // Смерть: флаг + время (для задержки 5с перед респауном)
     public bool IsDead { get; set; }

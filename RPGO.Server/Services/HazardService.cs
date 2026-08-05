@@ -24,12 +24,6 @@ public class HazardService
         _svcLazy = svc;
     }
 
-    private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
-    {
-        if (conn == null) return Task.CompletedTask;
-        return _svc.Hub.SendChatToAsync(conn, channel, name, text);
-    }
-
     public async Task RunHazardTickLoop(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)

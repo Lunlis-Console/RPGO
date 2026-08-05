@@ -1,4 +1,5 @@
 using RPGGame.Server.Network;
+using RPGGame.Shared;
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 
@@ -27,14 +28,11 @@ public class CombatService
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
-    {
-        if (conn == null) return Task.CompletedTask;
-        return _svc.Hub.SendChatToAsync(conn, channel, name, text);
-    }
+        => _svc.ChatTo(conn, channel, name, text);
 
     // Публичные хелперы для skill-экзекуторов
     internal Task ChatToC(ClientConnection? conn, string name, string text)
-        => ChatTo(conn, ChatChannel.Combat, name, text);
+        => _svc.ChatToC(conn, name, text);
 
     internal async Task SendPlayerAttack(string playerName, string hand, string? skillId = null,
         int? targetX = null, int? targetY = null, int? buffDurationMs = null)
@@ -264,7 +262,7 @@ public class CombatService
             var lh = pl.Equipment.Slots.TryGetValue("lhand", out var l) ? l : null;
             attackHand = (lh != null && !Equipment.IsCasterOffhand(lh) && !lh.TwoHanded) ? "off" : "main";
         }
-        bool forceProc = queuedSkill?.Id == "SK0001" && weaponRange <= 1;
+        bool forceProc = queuedSkill?.Id == SkillIds.StrongArm && weaponRange <= 1;
         if (!string.IsNullOrEmpty(subtype))
         {
             var (debuff, isNew) = forceProc
@@ -283,7 +281,7 @@ public class CombatService
 
         if (queuedSkill != null)
         {
-            bool skillBlocked = queuedSkill.Id == "SK0001" && weaponRange > 1;
+            bool skillBlocked = queuedSkill.Id == SkillIds.StrongArm && weaponRange > 1;
             if (skillBlocked)
             {
                 await ChatTo(client, ChatChannel.Combat, "Бой",
@@ -292,13 +290,13 @@ public class CombatService
                 await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl, _svc.Hub);
                 queuedSkill = null;
             }
-            else if (queuedSkill.Id == "SK0002")
+            else if (queuedSkill.Id == SkillIds.Flurry)
             {
                 var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
                     Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
                     $"Увеличивает скорость атаки на {(int)(Balance.AttackSpeedBonusValue * 100)}%");
                 _svc.Debuffs.ApplyDebuff(pl, buff);
-                await SendPlayerAttack(pl.Name, "main", "SK0002", buffDurationMs: Balance.AttackSpeedBonusDurationMs);
+                await SendPlayerAttack(pl.Name, "main", SkillIds.Flurry, buffDurationMs: Balance.AttackSpeedBonusDurationMs);
                 pl.Mana = Math.Max(0, pl.Mana - queuedSkill.MpCost);
                 pl.LastSkillUse[queuedSkill.Id] = DateTime.UtcNow;
                 pl.QueuedSkillIds.RemoveAt(0);
@@ -471,7 +469,7 @@ public class CombatService
         {
             pl.Combat.Cancel();
             pl.Combat.OffHandLastAttackTime = DateTime.MinValue;
-            await HandlePlayerDeath(pl, client);
+            await _svc.PlayerDeath.HandlePlayerDeath(pl, client);
         }
     }
 
@@ -569,10 +567,10 @@ public class CombatService
     internal async Task TryLifesteal(Player pl, int dealt, bool isMelee, ClientConnection? client)
     {
         if (dealt <= 0) return;
-        if (!pl.LearnedSkills.Contains("SK0010")) return;
+        if (!pl.LearnedSkills.Contains(SkillIds.Bloodletting)) return;
         if (!isMelee || !IsWieldingMelee(pl)) return;
 
-        int heal = (int)(dealt * Balance.LifestealFraction * pl.GetPassiveRankMult("SK0010"));
+        int heal = (int)(dealt * Balance.LifestealFraction * pl.GetPassiveRankMult(SkillIds.Bloodletting));
         if (heal <= 0) return;
         int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
         if (pl.Health >= maxHp) return;
@@ -796,7 +794,7 @@ public class CombatService
 
     // ──────────────── Навыки ────────────────
 
-    private static readonly HashSet<string> InstantBuffSkills = new() { "SK0002" };
+    private static readonly HashSet<string> InstantBuffSkills = new() { SkillIds.Flurry };
 
     internal async Task ProcessInstantBuffs(Player pl, ClientConnection client)
     {
@@ -820,7 +818,7 @@ public class CombatService
         pl.LastSkillUse[skill.Id] = DateTime.UtcNow;
         pl.QueuedSkillIds.RemoveAt(0);
 
-        if (skill.Id == "SK0002")
+        if (skill.Id == SkillIds.Flurry)
         {
             var buff = ActiveDebuff.Create(DebuffType.AttackSpeedBonus, Balance.AttackSpeedBonusValue,
                 Balance.AttackSpeedBonusDurationMs, "skill", "Проворность",
@@ -830,7 +828,7 @@ public class CombatService
             _ = _svc.Hub.SendToAllAsync(new GameMessage
             {
                 Type = "player_attack",
-                Data = new { PlayerName = pl.Name, Hand = "main", SkillId = "SK0002", BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
+                Data = new { PlayerName = pl.Name, Hand = "main", SkillId = SkillIds.Flurry, BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
             });
         }
 
@@ -872,115 +870,7 @@ public class CombatService
         return cand;
     }
 
-    // ──────────────── Смерть / Возрождение ────────────────
-
-    public async Task HandlePlayerDeath(Player pl, ClientConnection client)
-    {
-        int lostGold = Balance.ComputeDeathGoldLoss(pl.Gold);
-        pl.Gold -= lostGold;
-        pl.IsDead = true;
-        pl.DeathTime = DateTime.UtcNow;
-        Log.Info($"{pl.Name} погиб! Потеряно {lostGold} золота. Таймер 5с.");
-        await _svc.Hub.SendToClient(client, GameMessage.ResetCombat());
-        await _svc.Hub.SendToClient(client, GameMessage.PlayerDeath(lostGold));
-        await ChatTo(client, ChatChannel.System, "Система", $"Вы погибли! Потеряно {lostGold} золота. Возрождение через 5 сек...");
-        await _svc.Party.SendUpdateForAsync(pl);
-    }
-
-    public async Task RespawnPlayer(Player pl, int? forceX = null, int? forceY = null)
-    {
-        pl.IsDead = false;
-        pl.Health = Balance.RespawnHealth(pl.MaxHealth);
-
-        if (forceX.HasValue && forceY.HasValue)
-        {
-            pl.X = forceX.Value;
-            pl.Y = forceY.Value;
-        }
-        else
-        {
-            var zone = _svc.Zones.GetZone(pl.CurrentZoneId);
-
-            int baseX, baseY, mapW, mapH;
-            if (zone != null && zone.PvpEnabled)
-            {
-                var safeZone = _svc.Zones.Zones.Values
-                    .Where(z => !z.PvpEnabled && (z.SpawnX > 0 || z.SpawnY > 0))
-                    .OrderBy(z => Math.Abs(z.SpawnX - _svc.Merchant.MerchantX) + Math.Abs(z.SpawnY - _svc.Merchant.MerchantY))
-                    .FirstOrDefault();
-
-                if (safeZone != null)
-                {
-                    baseX = safeZone.SpawnX;
-                    baseY = safeZone.SpawnY;
-                    mapW = safeZone.Width;
-                    mapH = safeZone.Height;
-                    pl.CurrentZoneId = safeZone.Id;
-                }
-                else
-                {
-                    baseX = _svc.Merchant.MerchantX;
-                    baseY = _svc.Merchant.MerchantY;
-                    mapW = zone.Width;
-                    mapH = zone.Height;
-                }
-            }
-            else
-            {
-                baseX = zone?.SpawnX ?? _svc.Merchant.MerchantX;
-                baseY = zone?.SpawnY ?? _svc.Merchant.MerchantY;
-                mapW = zone?.Width ?? _svc.World.Map.Width;
-                mapH = zone?.Height ?? _svc.World.Map.Height;
-            }
-
-            var zoneMap = _svc.Zones.GetMap(pl.CurrentZoneId);
-            int sx, sy;
-            int attempts = 0;
-            do
-            {
-                sx = baseX + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                sy = baseY + _svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-                sx = Math.Clamp(sx, 0, mapW - 1);
-                sy = Math.Clamp(sy, 0, mapH - 1);
-                attempts++;
-            }
-            while (zoneMap?.IsObstacle(sx, sy) == true && attempts < 20);
-
-            pl.X = sx;
-            pl.Y = sy;
-        }
-
-        var client = _svc.World.FindClientByPlayer(pl);
-        if (client != null)
-        {
-            await _svc.Hub.SendZoneTransition(client, pl);
-            await ChatTo(client, ChatChannel.System, "Система", "Вы возродились!");
-            await _svc.Hub.SendToClient(client, GameMessage.SystemChat("Вы возродились!"));
-        }
-        await _svc.Hub.BroadcastMapAsync();
-        await _svc.Party.SendUpdateForAsync(pl);
-        if (client != null)
-            await _svc.Hub.SendStatusAsync(client, pl);
-    }
-
     // ──────────────── Цикл монстр-атак ────────────────
-
-    public async Task RunMonsterAttackLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(Balance.LoopMonsterAttackMs, ct);
-                await MonsterAttackTick();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                Log.Error("Ошибка боевого цикла монстров", ex);
-            }
-        }
-    }
 
     public async Task MonsterAttackTick()
     {
@@ -1051,51 +941,6 @@ public class CombatService
 
             await _svc.Hub.SendStatusAsync(client, player);
             _svc.Hub.MarkZoneDirty(player.CurrentZoneId);
-        }
-    }
-
-    public async Task RunDeathTimerLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(500, ct);
-                await DeathTimerTick();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                Log.Error("Ошибка цикла таймера смерти", ex);
-            }
-        }
-    }
-
-    public async Task DeathTimerTick()
-    {
-        foreach (var pl in _svc.World.GetPlayersSnapshot())
-        {
-            if (pl.IsDead && (DateTime.UtcNow - pl.DeathTime).TotalMilliseconds >= Balance.DeathDelayMs)
-            {
-                if (pl.CurrentZoneId.StartsWith("instance:"))
-                {
-                    var inst = _svc.Instances.FindInstanceByPlayer(pl);
-                    if (inst != null)
-                    {
-                        int spawnX = inst._spawnX > 0 ? inst._spawnX : inst.Template.SpawnX + inst.OffsetX;
-                        int spawnY = inst._spawnY > 0 ? inst._spawnY : inst.Template.SpawnY + inst.OffsetY;
-                        await RespawnPlayer(pl, spawnX, spawnY);
-                    }
-                    else
-                    {
-                        await RespawnPlayer(pl);
-                    }
-                }
-                else
-                {
-                    await RespawnPlayer(pl);
-                }
-            }
         }
     }
 
@@ -1206,7 +1051,7 @@ public class CombatService
     // «Подавляющий огонь» (SK0015) — AoE-конус
     private async Task ApplySuppressingFireCone(Player pl, Monster primary, ClientConnection client)
     {
-        double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult("SK0015");
+        double mult = Balance.SuppressingFireDmgMult * pl.GetSkillRankDmgMult(SkillIds.SuppressingFire);
         int range = pl.GetEffectiveAttackRange();
         string visualType = pl.Equipment.GetWeaponCategory() == WeaponCategory.Bow ? "arrow" : "magic_bolt";
 

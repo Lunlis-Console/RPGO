@@ -21,10 +21,7 @@ public class InteractionService
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
-    {
-        if (conn == null) return Task.CompletedTask;
-        return _svc.Hub.SendChatToAsync(conn, channel, name, text);
-    }
+        => _svc.ChatTo(conn, channel, name, text);
 
     public async Task ProcessPendingInteraction(Player player, string interactionType)
     {

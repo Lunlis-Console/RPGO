@@ -1610,7 +1610,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$br", dr["ban_reason"] ?? "");
                 cmd.Parameters.AddWithValue("$skp", ToInt(dr["skill_points"]));
                 cmd.Parameters.AddWithValue("$ls", dr["learned_skills"] ?? "[]");
-                cmd.Parameters.AddWithValue("$cz", dr["current_zone"] ?? "main");
+                cmd.Parameters.AddWithValue("$cz", dr["current_zone"] ?? BalanceStatic.MainZoneId);
                 cmd.ExecuteNonQuery();
             }
 

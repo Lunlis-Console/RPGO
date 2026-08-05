@@ -31,6 +31,8 @@ public static class BalanceStatic
     public const double HunterInstinctCritBonus = 20.0;
     public const double VulnerableArmorIgnore = 0.30;
 
+    public const string MainZoneId = "main";
+
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;
@@ -38,4 +40,7 @@ public static class BalanceStatic
     public const int XpPerLevel = 50;
 
     public static int XpNeededForNextLevel(int level) => level * XpPerLevel;
+
+    public static bool RollPercent(double percent)
+        => System.Random.Shared.NextDouble() * 100 < percent;
 }
