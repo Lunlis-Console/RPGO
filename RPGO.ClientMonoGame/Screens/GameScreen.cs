@@ -321,6 +321,7 @@ public class GameScreen : IScreen
         _client.StatusUpdated += status =>
         {
             _hudRenderer.UpdateStatus(status);
+            _hudDraw.SetAttributePoints(status.AttributePoints);
             _statusWindow.UpdateData(status);
             _input.PlayerGoldCache = status.Gold;
             _skillsWindow.SetPlayerLevel(status.Level);
