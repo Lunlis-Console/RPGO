@@ -112,7 +112,7 @@ public class MonsterManager
             Symbol = template.Symbol,
             Level = template.Tier,
             MoveIntervalMs = _world.NextRandom(Balance.MonsterMoveMinMs, Balance.MonsterMoveMaxMs),
-            LastMoveTime = DateTime.UtcNow.AddMilliseconds(-_world.NextRandom(0, Balance.MonsterMoveMaxMs))
+            LastMoveTime = DateTime.UtcNow.AddMilliseconds(_world.NextRandom(0, Balance.MonsterMoveMaxMs * 3))
         };
         monster.Strength = template.Strength;
         monster.Endurance = template.Endurance;
@@ -251,7 +251,7 @@ public class MonsterManager
         var ctx = new MonsterMoveContext(
             _world.Map.Width, _world.Map.Height,
             IsBlocked: (x, y) => _world.Map.IsObstacle(x, y) || IsNearMerchant(x, y),
-            IsOccupied: (x, y) => IsOccupiedByMonster(x, y));
+            IsOccupied: (x, y) => false);
         return StepMonsters(monsters, players, ctx);
     }
 
@@ -260,7 +260,7 @@ public class MonsterManager
         var ctx = new MonsterMoveContext(
             map.Width, map.Height,
             IsBlocked: (x, y) => map.IsObstacle(x, y) || map.GetTile(x, y) == 0 || map.GetTile(x, y) == 255,
-            IsOccupied: (x, y) => InstanceOccupied(monsters, x, y));
+            IsOccupied: (x, y) => false);
         StepMonsters(monsters, players, ctx);
     }
 
@@ -268,6 +268,9 @@ public class MonsterManager
         int MapWidth, int MapHeight,
         Func<int, int, bool> IsBlocked,
         Func<int, int, bool> IsOccupied);
+
+    private static int GetMovePhase(Monster m)
+        => Math.Abs(m.Id.GetHashCode()) % Math.Max(1, m.MoveIntervalMs);
 
     private bool StepMonsters(List<Monster> monsters, List<Player> players, MonsterMoveContext ctx)
     {
@@ -295,7 +298,7 @@ public class MonsterManager
                     m.Health = m.MaxHealth;
                     m.ReturningToSpawn = false; m.StuckTicks = 0;
                     m.AggroTarget = null; m.DamageTracker.Clear();
-                    m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                    m.LastMoveTime = now.AddMilliseconds(GetMovePhase(m));
                     RemoveReturningDebuff(m);
                     anyMoved = true;
                     continue;
@@ -307,7 +310,7 @@ public class MonsterManager
                 if (nx >= 0 && nx < ctx.MapWidth && ny >= 0 && ny < ctx.MapHeight
                     && !ctx.IsBlocked(nx, ny) && !ctx.IsOccupied(nx, ny))
                 { m.X = nx; m.Y = ny; }
-                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                m.LastMoveTime = now.AddMilliseconds(GetMovePhase(m));
                 continue;
             }
 
@@ -326,7 +329,7 @@ public class MonsterManager
                       Math.Abs(m.AggroTarget.X - m.X) + Math.Abs(m.AggroTarget.Y - m.Y) > m.AggroRange))
             {
                 m.AggroTarget = null; m.StuckTicks = 0;
-                if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); }
+                if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); anyMoved = true; }
                 continue;
             }
 
@@ -337,17 +340,21 @@ public class MonsterManager
                 if (dist > m.AggroRange)
                 {
                     m.AggroTarget = null; m.StuckTicks = 0;
-                    if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); }
+                    if (m.X != m.SpawnX || m.Y != m.SpawnY) { m.ReturningToSpawn = true; ApplyReturningDebuff(m); anyMoved = true; }
                     continue;
                 }
                 if (dist <= 1)
                 {
                     if ((now - m.LastMoveTime).TotalMilliseconds >= moveMs)
                     {
-                        m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 2);
+                        m.LastMoveTime = now.AddMilliseconds(m.MoveIntervalMs + _world.NextRandom(0, Balance.MonsterMoveMaxMs * 2));
                         m.StuckTicks = 0;
                         int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
+                    }
+                    else if (Math.Abs((now - m.LastMoveTime).TotalMilliseconds) < m.MoveIntervalMs * 2)
+                    {
+                        m.LastMoveTime = now.AddMilliseconds(-GetMovePhase(m));
                     }
                     continue;
                 }
@@ -374,9 +381,10 @@ public class MonsterManager
                 {
                     m.StuckTicks++;
                     if (m.StuckTicks >= Balance.MonsterLeashStuckTicks)
-                    { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; ApplyReturningDebuff(m); }
+                    { m.ReturningToSpawn = true; m.AggroTarget = null; m.StuckTicks = 0; ApplyReturningDebuff(m); anyMoved = true; }
                 }
-                m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+                if (!m.ReturningToSpawn)
+                    m.LastMoveTime = now.AddMilliseconds(GetMovePhase(m));
                 continue;
             }
 
@@ -522,6 +530,7 @@ public class MonsterManager
                 "Возвращение", "Возвращается на точку спавна");
             m.ActiveDebuffs.Add(debuff);
         }
+        m.LastMoveTime = DateTime.MinValue;
         Task.Run(() => _svc.Combat.SendTargetDebuffUpdateAsync(m));
     }
 

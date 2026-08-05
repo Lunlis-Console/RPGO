@@ -680,14 +680,23 @@ public class GameScreen : IScreen
                 _hudRenderer.UpdateTargetDebuffs(null);
                 _ = _client.SendAsync("select_target", new { PlayerId = entity.Id });
             }
-            else if (entity.Type == "monster" && entity.DebuffTypes != null && entity.DebuffTypes.Count > 0)
+            else if (entity.Type == "monster" && entity.Id != null)
             {
-                var infos = entity.DebuffTypes.Select(t => new DebuffInfo
+                var map = _client.CurrentMap;
+                var mon = map?.Monsters.FirstOrDefault(m => m.Id.ToString() == entity.Id);
+                if (mon?.ActiveDebuffTypes is { Count: > 0 } types)
                 {
-                    Type = t, DisplayName = DebuffDisplayName(t), Description = "",
-                    RemainingMs = 0, DurationMs = 0
-                }).ToList();
-                _hudRenderer.UpdateTargetDebuffs(infos);
+                    var infos = types.Select(t => new DebuffInfo
+                    {
+                        Type = t, DisplayName = DebuffDisplayName(t), Description = "",
+                        RemainingMs = 0, DurationMs = 0
+                    }).ToList();
+                    _hudRenderer.UpdateTargetDebuffs(infos);
+                }
+                else
+                {
+                    _hudRenderer.UpdateTargetDebuffs(null);
+                }
             }
             else
             {
