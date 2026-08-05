@@ -6,12 +6,11 @@ namespace RPGGame.Server;
 
 public class PlayerDeathService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
-    public PlayerDeathService(Lazy<GameServices> svc)
+    public PlayerDeathService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     public async Task HandlePlayerDeath(Player pl, ClientConnection client)

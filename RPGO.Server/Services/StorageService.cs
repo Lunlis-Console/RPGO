@@ -51,103 +51,36 @@ public sealed class StorageService
         var inventoryItem = player.Inventory.FirstOrDefault(i => i.Id == itemId);
         if (inventoryItem == null)
         {
-            await _hub.SendToClient(client, new GameMessage
-            {
-                Type = "error",
-                Data = new { Code = ErrorCodes.ItemNotFound, Message = "Предмет не найден в инвентаре!" }
-            });
+            await _hub.SendError(client, ErrorCodes.ItemNotFound, "Предмет не найден в инвентаре!");
             return;
         }
 
-        int actualQuantity = InventoryHelper.CountByItem(player, inventoryItem);
-        if (actualQuantity != inventoryItem.Quantity)
-        {
-            Log.Warn($"[Deposit] Player {player.Name} item {inventoryItem.Id} client qty={inventoryItem.Quantity} server total={actualQuantity}");
-        }
-
         var storageItems = LoadFromDb(player.Name);
-        int currentSlots = storageItems.Count;
-        bool isStackable = Balance.MaxStackForType(inventoryItem.Type) > 1;
+        int canDeposit = Math.Min(quantity, inventoryItem.Quantity);
 
-        if (isStackable)
+        int remaining = InventoryHelper.AddToStackable(storageItems, inventoryItem, canDeposit,
+            slotLimit: Balance.StorageSlots);
+
+        if (remaining > 0)
+            await _hub.SendError(client, ErrorCodes.NoSpace, "Склад заполнен!");
+
+        int deposited = canDeposit - Math.Abs(remaining);
+        if (remaining < 0) deposited = canDeposit;
+
+        if (deposited > 0)
         {
-            int maxStack = Balance.MaxStackForType(inventoryItem.Type);
-            int canDeposit = Math.Min(quantity, inventoryItem.Quantity);
-            int remaining = canDeposit;
-
-            // Пытаемся добавить в существующий стек
-            foreach (var si in storageItems.Where(s => InventoryHelper.StackMatch(s, inventoryItem) && s.Quantity < maxStack))
-            {
-                if (remaining <= 0) break;
-                int room = maxStack - si.Quantity;
-                int add = Math.Min(room, remaining);
-                si.Quantity += add;
-                remaining -= add;
-            }
-
-            // Остаток — новые записи
-            while (remaining > 0)
-            {
-                if (currentSlots >= Balance.StorageSlots)
-                {
-                    await _hub.SendToClient(client, new GameMessage
-                    {
-                        Type = "error",
-                        Data = new { Code = ErrorCodes.NoSpace, Message = "Склад заполнен!" }
-                    });
-                    break;
-                }
-                int take = Math.Min(maxStack, remaining);
-                var clone = inventoryItem.Clone();
-                clone.Id = Guid.NewGuid().ToString();
-                clone.Quantity = take;
-                clone.MaxStack = maxStack;
-                storageItems.Add(clone);
-                currentSlots++;
-                remaining -= take;
-            }
-
-            int deposited = canDeposit - remaining;
-            if (deposited > 0)
-            {
+            if (InventoryHelper.StackCapFor(inventoryItem) > 1)
                 InventoryHelper.RemoveQuantity(player, inventoryItem, deposited);
-            }
-        }
-        else
-        {
-            int toDeposit = Math.Min(quantity, inventoryItem.Quantity);
-            int deposited = 0;
-            for (int k = 0; k < toDeposit; k++)
-            {
-                if (currentSlots >= Balance.StorageSlots)
-                {
-                    await _hub.SendToClient(client, new GameMessage
-                    {
-                        Type = "error",
-                        Data = new { Code = ErrorCodes.NoSpace, Message = "Склад заполнен!" }
-                    });
-                    break;
-                }
-                var clone = inventoryItem.Clone();
-                clone.Id = Guid.NewGuid().ToString();
-                clone.Quantity = 1;
-                clone.MaxStack = 1;
-                storageItems.Add(clone);
-                currentSlots++;
-                deposited++;
-            }
-
-            if (deposited > 0)
-            {
+            else
                 InventoryHelper.RemoveFromRecord(player, inventoryItem.Id, deposited);
-            }
         }
 
-        // Атомарное сохранение: инвентарь и склад пишутся одной транзакцией,
-        // чтобы при вылете/перезапуске предметы не пропадали и не дублировались.
-        DatabaseManager.SavePlayerProgress(player, storageItems);
-        await SendStorageUpdate(client, player, storageItems);
-        await _hub.SendInventoryAndStatus(client, player);
+        if (deposited > 0)
+        {
+            DatabaseManager.SavePlayerProgress(player, storageItems);
+            await SendStorageUpdate(client, player, storageItems);
+            await _hub.SendInventoryAndStatus(client, player);
+        }
     }
 
     public async Task WithdrawAsync(Player player, string itemId, int quantity)
@@ -159,62 +92,14 @@ public sealed class StorageService
         var storageItem = storageItems.FirstOrDefault(i => i.Id == itemId);
         if (storageItem == null)
         {
-            await _hub.SendToClient(client, new GameMessage
-            {
-                Type = "error",
-                Data = new { Code = ErrorCodes.ItemNotFound, Message = "Предмет не найден на складе!" }
-            });
+            await _hub.SendError(client, ErrorCodes.ItemNotFound, "Предмет не найден на складе!");
             return;
         }
 
         int toWithdraw = Math.Min(quantity, storageItem.Quantity);
         if (toWithdraw <= 0) return;
 
-        bool isStackable = Balance.MaxStackForType(storageItem.Type) > 1;
-
-        if (isStackable)
-        {
-            int maxStack = Balance.MaxStackForType(storageItem.Type);
-            int remaining = toWithdraw;
-
-            // Пытаемся добавить в существующий стек инвентаря
-            var existingStacks = player.Inventory
-                .Where(i => InventoryHelper.StackMatch(i, storageItem) && i.Quantity < maxStack)
-                .OrderByDescending(i => i.Quantity)
-                .ToList();
-
-            foreach (var stack in existingStacks)
-            {
-                if (remaining <= 0) break;
-                int room = maxStack - stack.Quantity;
-                int add = Math.Min(room, remaining);
-                stack.Quantity += add;
-                remaining -= add;
-            }
-
-            // Остаток — новые записи в инвентарь
-            while (remaining > 0)
-            {
-                int take = Math.Min(maxStack, remaining);
-                var clone = storageItem.Clone();
-                clone.Id = Guid.NewGuid().ToString();
-                clone.Quantity = take;
-                clone.MaxStack = maxStack;
-                player.Inventory.Add(clone);
-                remaining -= take;
-            }
-        }
-        else
-        {
-            for (int i = 0; i < toWithdraw; i++)
-            {
-                var clone = storageItem.Clone();
-                clone.Id = Guid.NewGuid().ToString();
-                clone.Quantity = 1;
-                clone.MaxStack = 1;
-                player.Inventory.Add(clone);
-            }
-        }
+        InventoryHelper.AddToStackable(player.Inventory, storageItem, toWithdraw);
 
         storageItem.Quantity -= toWithdraw;
         if (storageItem.Quantity <= 0)

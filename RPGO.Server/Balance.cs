@@ -59,15 +59,15 @@ public static class Balance
     public const double AgilityDrK = 30.0;
     public const int MinAttackIntervalMs = 300;
 
-    public const int MinDamage = 1;
-    public const int ChanceRollMax = 100;
+    public const int MinDamage = BalanceStatic.MinDamage;
+    public const int ChanceRollMax = BalanceStatic.ChanceRollMax;
 
-    // ===== ОПЫТ / УРОВНИ =====
-    public const int MaxLevel = 50;
-    public const int XpPerLevel = 50;
-    public const int MaxHealthPerLevel = 10;
+    // ===== ОПЫТ / УРОВНИ (определены в BalanceStatic, дублируются для удобства серверного кода) =====
+    public const int MaxLevel = BalanceStatic.MaxLevel;
+    public const int XpPerLevel = BalanceStatic.XpPerLevel;
+    public const int MaxHealthPerLevel = BalanceStatic.MaxHealthPerLevel;
     public const int MaxHealthPerEndurance = 5;
-    public const int AttributePointsPerLevel = 3;
+    public const int AttributePointsPerLevel = BalanceStatic.AttributePointsPerLevel;
 
     // ===== СМЕРТЬ =====
     public const double DeathHealthFraction = 0.5;
@@ -158,7 +158,7 @@ public static class Balance
     public const string MainZoneId = BalanceStatic.MainZoneId;
 
     // ===== ЦИКЛЫ СЕРВЕРА =====
-    public const int LoopMonsterWanderMs = 1500;
+    public const int LoopMonsterWanderMs = 50;
     // Цикл перемещения должен тикать быстрее самого быстрого MoveIntervalMs (500 / Speed),
     // иначе серверный каденс (шаг = ceil(MoveIntervalMs / Loop) * Loop) отстаёт от
     // клиентской интерполяции (1000 / MoveIntervalMs): персонаж то телепортируется, то стоит.
@@ -280,14 +280,14 @@ public static class Balance
     public const int SuppressingFireDurationMs = 10000;
     public const double SuppressingFireDmgMult = 0.60;
     public const double SuppressingFireSpeedPenalty = 0.12;
-    public const double VulnerableArmorIgnore = 0.30;
-    public const double ExtraArrowChance = 7.0;
-    public const double BowAccuracyBonus = 15.0;
-    public const double MeleeEvadeBonus = 15.0;
-    public const int BowRangeBonus = 1;
-    public const double CloseRangeArmorPenMax = 0.25;
-    public const int CloseRangeArmorPenDist = 2;
-    public const double HunterInstinctCritBonus = 20.0;
+    public const double VulnerableArmorIgnore = BalanceStatic.VulnerableArmorIgnore;
+    public const double ExtraArrowChance = BalanceStatic.ExtraArrowChance;
+    public const double BowAccuracyBonus = BalanceStatic.BowAccuracyBonus;
+    public const double MeleeEvadeBonus = BalanceStatic.MeleeEvadeBonus;
+    public const int BowRangeBonus = BalanceStatic.BowRangeBonus;
+    public const double CloseRangeArmorPenMax = BalanceStatic.CloseRangeArmorPenMax;
+    public const int CloseRangeArmorPenDist = BalanceStatic.CloseRangeArmorPenDist;
+    public const double HunterInstinctCritBonus = BalanceStatic.HunterInstinctCritBonus;
 
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;

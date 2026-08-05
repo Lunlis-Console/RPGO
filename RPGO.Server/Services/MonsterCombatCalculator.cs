@@ -5,12 +5,11 @@ namespace RPGGame.Server;
 
 public class MonsterCombatCalculator
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
-    public MonsterCombatCalculator(Lazy<GameServices> svc)
+    public MonsterCombatCalculator(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
@@ -40,8 +39,8 @@ public class MonsterCombatCalculator
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
     {
         int rolledAttack = attacker.RollAttackDamage();
-        double effectiveAttackerAttack = GetEffectiveAttack(attacker, rolledAttack);
-        double effectiveDefenderDefense = GetEffectiveDefense(defender);
+        double effectiveAttack = GetEffectiveAttack(attacker, rolledAttack);
+        double effectiveDefense = GetEffectiveDefense(defender);
         double accuracyReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
         double passiveAccuracyBonus = 0;
@@ -60,42 +59,32 @@ public class MonsterCombatCalculator
             armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
         }
 
-        double evadeChance = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
+        double defenderEvade = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
         if (isMelee && defender is Player plDef)
-            evadeChance += plDef.GetMeleeEvadeBonus();
+            defenderEvade += plDef.GetMeleeEvadeBonus();
 
-        bool defenderEvaded = Balance.RollPercent(evadeChance);
-        if (defenderEvaded)
-            return (0, 0, false, false, true, false, false);
+        var (evaded, parried, blocked) = CombatMath.RollDefense(defenderEvade, defender.GetParryChance(), defender.GetBlockChance(), isMelee);
 
-        bool defenderParried = isMelee && Balance.RollPercent(defender.GetParryChance());
-        if (defenderParried)
-            return (0, 0, false, false, false, true, false);
+        if (evaded) return (0, 0, false, false, true, false, false);
+        if (parried) return (0, 0, false, false, false, true, false);
 
-        bool defenderBlocked = Balance.RollPercent(defender.GetBlockChance());
-        int attackerDamage = 0;
         bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
-        double def = effectiveDefenderDefense * (1.0 - Math.Min(armorPenExtra, 1.0));
-        int baseDamage = Math.Max(Balance.MinDamage, (int)(effectiveAttackerAttack - def));
-        attackerDamage = isCrit ? (int)(baseDamage * attacker.GetCritDamage()) : baseDamage;
-        attackerDamage = ApplyDmgReduction(attacker, attackerDamage);
-
-        if (defenderBlocked)
-        {
-            int blockValue = defender.GetBlockValue();
-            attackerDamage = Math.Max(Balance.MinDamage, attackerDamage - blockValue);
-        }
+        int damage = CombatMath.CalcFinalDamage(
+            (int)effectiveAttack, (int)effectiveDefense,
+            armorPen: armorPenExtra, isCrit, critMult: attacker.GetCritDamage(),
+            block: blocked ? defender.GetBlockValue() : 0);
+        damage = ApplyDmgReduction(attacker, damage);
 
         if (applyDefenderDamage && defender is Monster mon && !mon.ReturningToSpawn)
         {
-            mon.Health -= attackerDamage;
+            mon.Health -= damage;
             mon.LastDamagedTime = DateTime.UtcNow;
             if (attacker is Player pl)
-                mon.DamageTracker.AddOrUpdate(pl.Id, attackerDamage, (k, old) => old + attackerDamage);
+                mon.DamageTracker.AddOrUpdate(pl.Id, damage, (k, old) => old + damage);
         }
         bool targetDead = defender.Health <= 0;
 
-        return (attackerDamage, 0, targetDead, isCrit, false, false, defenderBlocked);
+        return (damage, 0, targetDead, isCrit, false, false, blocked);
     }
 
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
@@ -103,26 +92,18 @@ public class MonsterCombatCalculator
     {
         if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
 
-        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        var (evaded, parried, blocked) = CombatMath.RollDefense(
+            target.GetEvadeChance(), target.GetParryChance(), target.GetBlockChance());
+
         if (evaded) return (0, false, true, false, false);
-
-        bool parried = Balance.RollPercent(target.GetParryChance());
         if (parried) return (0, false, false, true, false);
-
-        bool blocked = Balance.RollPercent(target.GetBlockChance());
 
         bool crit = Balance.RollPercent(attacker.GetCritChance());
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
         int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
-        int finalDmg = crit ? (int)(baseDmg * attacker.GetCritDamage()) : baseDmg;
-        double offHandFraction = attacker.GetOffHandDamageFraction();
-        finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * offHandFraction));
-
-        if (blocked)
-        {
-            int blockValue = target.GetBlockValue();
-            finalDmg = Math.Max(Balance.MinDamage, finalDmg - blockValue);
-        }
+        int finalDmg = CombatMath.ApplyCrit(baseDmg, crit, attacker.GetCritDamage());
+        finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * attacker.GetOffHandDamageFraction()));
+        if (blocked) finalDmg = CombatMath.ApplyBlock(finalDmg, target.GetBlockValue());
 
         return (finalDmg, crit, false, false, blocked);
     }

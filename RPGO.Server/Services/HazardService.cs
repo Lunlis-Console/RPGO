@@ -10,8 +10,7 @@ namespace RPGGame.Server;
 /// </summary>
 public class HazardService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
     internal MonsterManager Monsters => _svc.Monsters;
     internal KillService KillService => _svc.KillService;
@@ -19,9 +18,9 @@ public class HazardService
     internal GameWorld World => _svc.World;
     internal INetworkHub Hub => _svc.Hub;
 
-    public HazardService(Lazy<GameServices> svc)
+    public HazardService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     public async Task RunHazardTickLoop(CancellationToken ct)

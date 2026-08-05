@@ -12,12 +12,11 @@ namespace RPGGame.Server;
 /// </summary>
 public class InteractionService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly GameServices _svc;
 
-    public InteractionService(Lazy<GameServices> svc)
+    public InteractionService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = (GameServices)svc;
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)

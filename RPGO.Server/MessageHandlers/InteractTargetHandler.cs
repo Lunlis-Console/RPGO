@@ -163,11 +163,7 @@ public class InteractTargetHandler : BaseHandler
 
         if (bestX < 0)
         {
-            await SendToClient(connection, new GameMessage
-            {
-                Type = "error",
-                Data = new { Code = ErrorCodes.NoFreeCell, Message = "Нет свободной клетки рядом с целью." }
-            });
+            await SendError(connection, ErrorCodes.NoFreeCell, "Нет свободной клетки рядом с целью.");
             return;
         }
 

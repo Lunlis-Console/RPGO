@@ -10,8 +10,7 @@ namespace RPGGame.Server;
 /// </summary>
 public class PvPService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
     internal MonsterManager Monsters => _svc.Monsters;
     internal KillService KillService => _svc.KillService;
@@ -20,9 +19,9 @@ public class PvPService
     internal INetworkHub Hub => _svc.Hub;
     internal ProjectileManager Projectiles => _svc.Projectiles;
 
-    public PvPService(Lazy<GameServices> svc)
+    public PvPService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
@@ -38,9 +37,8 @@ public class PvPService
 
     private static PvPDefenseRoll RollPvPDefense(Player target, int dist)
     {
-        bool evaded = Balance.RollPercent(target.GetEvadeChance());
-        bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
-        bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
+        bool isMelee = dist <= 1;
+        var (evaded, parried, blocked) = CombatMath.RollDefense(target.GetEvadeChance(), target.GetParryChance(), target.GetBlockChance(), isMelee);
         return new PvPDefenseRoll(evaded, parried, blocked);
     }
 

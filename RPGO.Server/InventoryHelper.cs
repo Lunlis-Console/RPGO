@@ -12,39 +12,51 @@ public static class InventoryHelper
 
     public static bool StackMatch(Item a, Item b) => StackKey(a) == StackKey(b);
 
+    public static int StackCapFor(Item item) => Balance.MaxStackForType(item.Type);
+
+    // Добавляет предметы в целевой список, заполняя существующие стеки и
+    // создавая новые записи при необходимости. Возвращает оставшееся количество
+    // (0 = все влезло).
+    public static int AddToStackable(List<Item> target, Item reference, int quantity,
+        int? slotLimit = null)
+    {
+        int cap = StackCapFor(reference);
+        int remaining = quantity;
+
+        if (cap > 1)
+        {
+            foreach (var existing in target.Where(s => StackMatch(s, reference) && s.Quantity < cap))
+            {
+                if (remaining <= 0) break;
+                int room = cap - existing.Quantity;
+                int add = Math.Min(room, remaining);
+                existing.Quantity += add;
+                remaining -= add;
+            }
+        }
+
+        while (remaining > 0)
+        {
+            if (slotLimit.HasValue && target.Count >= slotLimit.Value)
+                break;
+
+            int take = cap > 1 ? Math.Min(cap, remaining) : 1;
+            var clone = reference.Clone();
+            clone.Id = Guid.NewGuid().ToString();
+            clone.Quantity = take;
+            clone.MaxStack = cap;
+            target.Add(clone);
+            remaining -= take;
+        }
+
+        return remaining;
+    }
+
     // Добавляет предмет в инвентарь игрока, стакая стакаемые предметы
     // (MaxStack > 1) по StackKey в памяти.
     public static void AddItem(Player player, Item item)
     {
-        int qty = Math.Max(1, item.Quantity);
-        int cap = Balance.MaxStackForType(item.Type);
-
-        if (cap > 1)
-        {
-            var stack = player.Inventory
-                .Where(i => i.Quantity < cap && StackMatch(i, item))
-                .OrderByDescending(i => i.Quantity)
-                .FirstOrDefault();
-
-            if (stack != null)
-            {
-                int room = cap - stack.Quantity;
-                int add = Math.Min(room, qty);
-                stack.Quantity += add;
-                qty -= add;
-            }
-        }
-
-        while (qty > 0)
-        {
-            int take = cap > 1 ? Math.Min(cap, qty) : 1;
-            var clone = item.Clone();
-            clone.Id = Guid.NewGuid().ToString();
-            clone.Quantity = take;
-            clone.MaxStack = cap;
-            player.Inventory.Add(clone);
-            qty -= take;
-        }
+        AddToStackable(player.Inventory, item, Math.Max(1, item.Quantity));
     }
 
     // Списывает qty штук предметов, подходящих под reference (по StackKey).

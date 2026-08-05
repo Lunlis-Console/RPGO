@@ -108,31 +108,45 @@ partial class Program
 
         // Создаём сетевой хаб
         var hub = new GameServer(world);
+        var persistence = new PersistenceService();
+        var storage = new StorageService(world, hub);
 
-        // Связываем циклические зависимости
+        // GameServices создаётся ДО циклически зависимых сервисов
+        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
+            trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
+            auth: null!, zones: zones, persistence, clientBuild, storage);
+
+        // Связываем зависимости, требующие GameServices
         killService.SetHub(hub);
         projectiles.SetHub(hub);
         dialogue.SetHub(hub);
         party.SetHub(hub);
         world.SetDependencies(hub, player => { Services.Persistence.EnqueueSave(player); return true; });
 
-        // Lazy<GameServices> для разрыва циклических зависимостей:
-        // CombatService, InteractionService, AuthService, InstanceManager
-        // получают Lazy и резолвят GameServices при первом обращении.
-        var servicesLazy = new Lazy<GameServices>(() => Services);
-
-        // Создаём сервисы с циклическими зависимостями
-        var combat = new CombatService(servicesLazy);
-        var pvp = new PvPService(servicesLazy);
-        var hazard = new HazardService(servicesLazy);
-        var interactions = new InteractionService(servicesLazy);
-        var playerDeath = new PlayerDeathService(servicesLazy);
-        var monsterCombat = new MonsterCombatCalculator(servicesLazy);
-        var monsterAttacks = new MonsterAttackService(servicesLazy);
-        var auth = new AuthService(servicesLazy);
-        var instances = new InstanceManager(servicesLazy);
+        // Сервисы с циклическими зависимостями: GameServices уже создан,
+        // передаём IGameServices напрямую — без Lazy<>
+        var combat = new CombatService(Services);
+        var pvp = new PvPService(Services);
+        var hazard = new HazardService(Services);
+        var interactions = new InteractionService(Services);
+        var playerDeath = new PlayerDeathService(Services);
+        var monsterCombat = new MonsterCombatCalculator(Services);
+        var monsterAttacks = new MonsterAttackService(Services);
+        var auth = new AuthService(Services);
+        var instances = new InstanceManager(Services);
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
+
+        // Устанавливаем циклические сервисы на GameServices
+        Services.Combat = combat;
+        Services.PvP = pvp;
+        Services.Hazard = hazard;
+        Services.Interactions = interactions;
+        Services.PlayerDeath = playerDeath;
+        Services.MonsterCombat = monsterCombat;
+        Services.MonsterAttacks = monsterAttacks;
+        Services.Instances = instances;
+        Services.Auth = auth;
 
         // Загружаем первую карту подземелья как шаблон для инстансов
         var dungeonFiles = Directory.GetFiles(contentDir, "dungeon_*.tmj", SearchOption.TopDirectoryOnly);
@@ -147,8 +161,6 @@ partial class Program
                 instances.SetDungeonTemplate(dungeonTemplate, dungeonSpawns);
             }
         }
-        var persistence = new PersistenceService();
-        var storage = new StorageService(world, hub);
 
         // Вычисляем позицию склада рядом с торговцем
         int storageX = merchant.MerchantX + 1;
@@ -176,18 +188,13 @@ partial class Program
         storage.SetPosition(storageX, storageY);
         Log.Info($"Склад размещён на ({storageX}, {storageY})");
 
-        // Единственное создание GameServices
-        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
-            trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
-            combat, pvp, hazard, interactions, auth, zones, instances, persistence, clientBuild, storage, playerDeath, monsterCombat, monsterAttacks);
-
         hub.SetServices(Services);
         monsters.SetServices(Services);
         dialogue.SetServices(Services);
         projectiles.SetServices(Services);
         killService.SetGameServices(Services);
 
-        MessageHandlerRegistry.RegisterAll(Services);
+        Services.MessageHandlers.RegisterAll(Services);
         hub.LoadNpcCache();
         persistence.Start();
 
@@ -268,7 +275,7 @@ partial class Program
                 // восстанавливает игрока и сам привязывает его к соединению.
                 if (message.Type == "reconnect")
                 {
-                    if (MessageHandlerRegistry.TryGet("reconnect", out var reconnectHandler))
+                    if (Services.MessageHandlers.TryGet("reconnect", out var reconnectHandler))
                         await reconnectHandler.Handle(connection, message, null);
                     authenticated = connection.Player != null;
                     continue;
@@ -337,7 +344,7 @@ partial class Program
                 return player;
             }
 
-            if (MessageHandlerRegistry.TryGet(message.Type, out var handler))
+            if (Services.MessageHandlers.TryGet(message.Type, out var handler))
             {
                 await handler.Handle(connection, message, player);
                 return player;
@@ -353,45 +360,7 @@ partial class Program
         return player;
     }
 
-    public static async Task ReloadContent(ClientConnection? connection = null)
-    {
-        try
-        {
-            Log.Info("Перезагрузка данных на сервере...");
-            Services.Merchant.Initialize();
-            Services.Quests.Initialize();
-            Services.Dialogue.LoadAll();
-            Services.Loot.LoadFromDatabase();
-            Services.Monsters.Initialize();
-            Services.Collectibles.Initialize();
-            Services.Hub.LoadNpcCache();
-
-            await Services.Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
-
-            if (connection != null)
-            {
-                await Services.Hub.SendToClient(connection, new GameMessage
-                {
-                    Type = "chat",
-                    Data = new { Name = "Система", Text = "Обновление завершено." }
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Ошибка обновления: {ex.Message}", ex);
-            if (connection != null)
-            {
-                await Services.Hub.SendToClient(connection, new GameMessage
-                {
-                    Type = "chat",
-                    Data = new { Name = "Система", Text = "Ошибка обновления: " + ex.Message }
-                });
-            }
-        }
-    }
-
-    /// <summary>
+    /// </summary> <summary>
     /// Создаёт и запускает тестового бота (персонаж «Тест»). Вызывается при
     /// старте с --bot, либо из консоли командой «bot start».
     /// </summary>

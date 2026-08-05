@@ -6,12 +6,11 @@ namespace RPGGame.Server;
 
 public class MonsterAttackService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
-    public MonsterAttackService(Lazy<GameServices> svc)
+    public MonsterAttackService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     public async Task MonsterAttackTick()

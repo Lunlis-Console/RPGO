@@ -352,10 +352,6 @@ public class MonsterManager
                         int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
                     }
-                    else if (Math.Abs((now - m.LastMoveTime).TotalMilliseconds) < m.MoveIntervalMs * 2)
-                    {
-                        m.LastMoveTime = now.AddMilliseconds(-GetMovePhase(m));
-                    }
                     continue;
                 }
                 int stpX = Math.Sign(m.AggroTarget.X - m.X), stpY = Math.Sign(m.AggroTarget.Y - m.Y);
@@ -399,7 +395,7 @@ public class MonsterManager
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
             if (ctx.IsBlocked(wnx, wny) || ctx.IsOccupied(wnx, wny)) continue;
             m.X = wnx; m.Y = wny;
-            m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs) / 3);
+            m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs));
             anyMoved = true;
         }
 

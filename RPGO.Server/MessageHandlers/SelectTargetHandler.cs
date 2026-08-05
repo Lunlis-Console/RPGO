@@ -36,11 +36,7 @@ public class SelectTargetHandler : BaseHandler
         var target = Svc.Monsters.FindMonsterById(monsterId);
         if (target == null)
         {
-            await SendToClient(connection, new GameMessage
-            {
-                Type = "error",
-                Data = new { Code = ErrorCodes.TargetNotFound, Message = "Цель не найдена!" }
-            });
+            await SendError(connection, ErrorCodes.TargetNotFound, "Цель не найдена!");
             return;
         }
 

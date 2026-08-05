@@ -14,12 +14,11 @@ namespace RPGGame.Server;
 /// </summary>
 public class AuthService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly GameServices _svc;
 
-    public AuthService(Lazy<GameServices> svc)
+    public AuthService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = (GameServices)svc;
     }
 
     public async Task<bool> HandleAuthMessage(ClientConnection connection, GameMessage message, INetworkHub hub)

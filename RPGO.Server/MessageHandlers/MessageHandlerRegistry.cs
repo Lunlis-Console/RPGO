@@ -8,19 +8,19 @@ namespace RPGGame.Server.MessageHandlers;
 /// Реестр обработчиков сообщений. Заменяет большой switch в Program.Handlers.cs.
 /// Диспетчеризация по message.Type через Dictionary.
 /// </summary>
-public static class MessageHandlerRegistry
+public class MessageHandlerRegistry
 {
-    private static readonly Dictionary<string, IMessageHandler> _handlers = new();
+    private readonly Dictionary<string, IMessageHandler> _handlers = new();
 
-    public static void Register(string type, IMessageHandler handler)
+    public void Register(string type, IMessageHandler handler)
     {
         _handlers[type] = handler;
     }
 
-    public static bool TryGet(string type, out IMessageHandler handler)
+    public bool TryGet(string type, out IMessageHandler handler)
         => _handlers.TryGetValue(type, out handler!);
 
-    public static void RegisterAll(GameServices svc)
+    public void RegisterAll(GameServices svc)
     {
         Register("ping", new PingHandler(svc));
         Register("reconnect", new ReconnectHandler(svc));

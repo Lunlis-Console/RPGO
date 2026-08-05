@@ -54,4 +54,31 @@ public class GameMessage
         Type = "player_death",
         Data = new { LostGold = lostGold }
     };
+
+    /// <summary>Сообщение об ошибке.</summary>
+    public static GameMessage Error(string code, string message) => new()
+    {
+        Type = "error",
+        Data = new { Code = code, Message = message }
+    };
+
+    /// <summary>Боевое состояние (вход/выход из боя).</summary>
+    public static GameMessage CombatState(bool inCombat, string? targetId = null, string? targetName = null,
+        int targetHp = 0, int targetMaxHp = 0, int targetX = 0, int targetY = 0, bool isPvP = false,
+        object? targetDebuffs = null) => new()
+    {
+        Type = "combat_state",
+        Data = new
+        {
+            InCombat = inCombat,
+            TargetId = targetId,
+            TargetName = targetName,
+            TargetHp = targetHp,
+            TargetMaxHp = targetMaxHp,
+            TargetX = targetX,
+            TargetY = targetY,
+            IsPvP = isPvP,
+            TargetDebuffs = targetDebuffs
+        }
+    };
 }

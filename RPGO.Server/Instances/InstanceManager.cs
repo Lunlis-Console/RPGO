@@ -7,8 +7,7 @@ namespace RPGGame.Server.Instances;
 
 public class InstanceManager
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
     private readonly Dictionary<Guid, ActiveInstance> _instances = new();
     private readonly object _lock = new();
     private readonly List<InstanceTemplate> _templates = new();
@@ -19,9 +18,9 @@ public class InstanceManager
 
     public IReadOnlyList<InstanceTemplate> Templates => _templates;
 
-    public InstanceManager(Lazy<GameServices> svc)
+    public InstanceManager(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     public void SetDungeonTemplate(GameMap map, DungeonSpawnData? spawns)

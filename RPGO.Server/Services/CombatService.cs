@@ -11,8 +11,7 @@ namespace RPGGame.Server;
 /// </summary>
 public class CombatService
 {
-    private readonly Lazy<GameServices> _svcLazy;
-    private GameServices _svc => _svcLazy.Value;
+    private readonly IGameServices _svc;
 
     // Доступ к сервисам для skill-экзекуторов
     internal MonsterManager Monsters => _svc.Monsters;
@@ -23,9 +22,9 @@ public class CombatService
     internal INetworkHub Hub => _svc.Hub;
     internal ProjectileManager Projectiles => _svc.Projectiles;
 
-    public CombatService(Lazy<GameServices> svc)
+    public CombatService(IGameServices svc)
     {
-        _svcLazy = svc;
+        _svc = svc;
     }
 
     private Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)

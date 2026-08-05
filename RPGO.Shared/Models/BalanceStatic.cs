@@ -33,6 +33,9 @@ public static class BalanceStatic
 
     public const string MainZoneId = "main";
 
+    public const int MinDamage = 1;
+    public const int ChanceRollMax = 100;
+
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;

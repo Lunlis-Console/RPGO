@@ -1,4 +1,5 @@
 using RPGGame.Server.Instances;
+using RPGGame.Server.MessageHandlers;
 using RPGGame.Server.Network;
 using RPGGame.Server.Services;
 using RPGGame.Shared.Models;
@@ -27,19 +28,20 @@ public sealed class GameServices : IGameServices
     public KillService KillService { get; }
     public PathfindingService Pathfinding { get; }
     public DebuffManager Debuffs { get; }
-    public CombatService Combat { get; }
-    public PvPService PvP { get; }
-    public HazardService Hazard { get; }
-    public InteractionService Interactions { get; }
-    public AuthService Auth { get; }
+    public CombatService Combat { get; set; }
+    public PvPService PvP { get; set; }
+    public HazardService Hazard { get; set; }
+    public InteractionService Interactions { get; set; }
+    public AuthService Auth { get; set; }
     public ZoneManager Zones { get; }
-    public InstanceManager Instances { get; }
+    public InstanceManager Instances { get; set; }
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
-    public PlayerDeathService PlayerDeath { get; }
-    public MonsterCombatCalculator MonsterCombat { get; }
-    public MonsterAttackService MonsterAttacks { get; }
+    public PlayerDeathService PlayerDeath { get; set; }
+    public MonsterCombatCalculator MonsterCombat { get; set; }
+    public MonsterAttackService MonsterAttacks { get; set; }
+    public MessageHandlerRegistry MessageHandlers { get; }
 
     public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
     {
@@ -66,22 +68,14 @@ public sealed class GameServices : IGameServices
         KillService killService,
         PathfindingService pathfinding,
         DebuffManager debuffs,
-        CombatService combat,
-        PvPService pvp,
-        HazardService hazard,
-        InteractionService interactions,
         AuthService auth,
         ZoneManager zones,
-        InstanceManager instances,
         PersistenceService persistence,
         ClientBuildService clientBuild,
-        StorageService storage,
-        PlayerDeathService playerDeath,
-        MonsterCombatCalculator monsterCombat,
-        MonsterAttackService monsterAttacks)
+        StorageService storage)
     {
         World = world;
-        pathfinding.Services = this; // патфайндинг получит доступ к зонам/порталам/NPC
+        pathfinding.Services = this;
         Hub = hub;
         Monsters = monsters;
         Loot = loot;
@@ -96,19 +90,12 @@ public sealed class GameServices : IGameServices
         KillService = killService;
         Pathfinding = pathfinding;
         Debuffs = debuffs;
-        Combat = combat;
-        PvP = pvp;
-        Hazard = hazard;
-        Interactions = interactions;
         Auth = auth;
         Zones = zones;
-        Instances = instances;
         Persistence = persistence;
         ClientBuild = clientBuild;
         Storage = storage;
-        PlayerDeath = playerDeath;
-        MonsterCombat = monsterCombat;
-        MonsterAttacks = monsterAttacks;
+        MessageHandlers = new MessageHandlerRegistry();
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)
