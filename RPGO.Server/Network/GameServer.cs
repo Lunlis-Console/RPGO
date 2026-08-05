@@ -237,14 +237,9 @@ public sealed class GameServer : INetworkHub
                 Width = zoneMap.Width,
                 Height = zoneMap.Height,
                 Players = sameZonePlayers,
-                Merchant = (zoneId == Balance.MainZoneId) ? merchant : null,
-                Board = (zoneId == Balance.MainZoneId) ? board : null,
-                StorageChest = (zoneId == Balance.MainZoneId) ? new ChestPosition
-                {
-                    X = svc.Storage.StorageX,
-                    Y = svc.Storage.StorageY,
-                    IsLocked = false
-                } : null,
+                Merchant = BuildMerchantForZone(zoneId, merchant),
+                Board = BuildBoardForZone(zoneId, board),
+                StorageChest = BuildStorageForZone(zoneId),
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
                 Corpses = nearbyCorpses,
@@ -806,5 +801,41 @@ public sealed class GameServer : INetworkHub
                 ObjectTileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).ObjectTileWidth
             }
         });
+    }
+
+    private static MerchantPosition? BuildMerchantForZone(string zoneId, MerchantPosition defaultMerchant)
+    {
+        var svc = Program.Services;
+        if (svc == null) return defaultMerchant;
+        var tiled = svc.Zones.GetTiledNpcs(zoneId);
+        var mt = tiled.FirstOrDefault(n =>
+            string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
+        return mt != null
+            ? new MerchantPosition { X = mt.X, Y = mt.Y, Name = defaultMerchant.Name }
+            : defaultMerchant;
+    }
+
+    private static QuestBoardPosition? BuildBoardForZone(string zoneId, QuestBoardPosition? defaultBoard)
+    {
+        var svc = Program.Services;
+        if (svc == null || defaultBoard == null) return defaultBoard;
+        var tiled = svc.Zones.GetTiledNpcs(zoneId);
+        var bt = tiled.FirstOrDefault(n =>
+            string.Equals(n.Type, "board", StringComparison.OrdinalIgnoreCase));
+        return bt != null
+            ? new QuestBoardPosition { X = bt.X, Y = bt.Y, Name = defaultBoard.Name }
+            : defaultBoard;
+    }
+
+    private static ChestPosition? BuildStorageForZone(string zoneId)
+    {
+        var svc = Program.Services;
+        if (svc == null) return null;
+        var tiled = svc.Zones.GetTiledNpcs(zoneId);
+        var st = tiled.FirstOrDefault(n =>
+            string.Equals(n.Type, "storage", StringComparison.OrdinalIgnoreCase));
+        return st != null
+            ? new ChestPosition { X = st.X, Y = st.Y, IsLocked = false }
+            : null;
     }
 }

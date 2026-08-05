@@ -7,7 +7,7 @@ public class TiledMapLoaderTests
     [Fact]
     public void ExtractObjectLayer_Wordlmap_HasTreesInTreeTilesetRange()
     {
-        string mapPath = Path.Combine(AppContext.BaseDirectory, "wordlmap.tmj");
+        string mapPath = Path.Combine(AppContext.BaseDirectory, "zone_main.tmj");
         Assert.True(File.Exists(mapPath), $"Карта не найдена: {mapPath}");
 
         var map = TiledMapLoader.Load(mapPath);

@@ -26,7 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\RPGO.ClientMonoGame\Content\wordlmap.tmj" Link="wordlmap.tmj" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\RPGO.ClientMonoGame\Content\zone_main.tmj" Link="zone_main.tmj" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -46,9 +46,11 @@ public class CollectibleManager
         _world = world;
     }
 
-    public void Initialize(List<TiledSpawn>? spawns = null)
+    public void Initialize(List<TiledSpawn>? spawns = null, string zoneId = "")
     {
-        _world.ClearCollectibles();
+        if (string.IsNullOrEmpty(zoneId))
+            zoneId = Balance.MainZoneId;
+        _world.ClearCollectiblesInZone(zoneId);
 
         if (spawns != null && spawns.Count > 0)
         {
@@ -57,7 +59,7 @@ public class CollectibleManager
             {
                 var tpl = _templates.FirstOrDefault(t => string.Equals(t.Name, s.Name, StringComparison.OrdinalIgnoreCase));
                 if (tpl.ItemName == null)
-                    continue; // не коллекционка (имя не совпало)
+                    continue;
 
                 if (_world.Map.IsObstacle(s.X, s.Y))
                 {
@@ -73,18 +75,18 @@ public class CollectibleManager
                     Symbol = tpl.Symbol,
                     X = s.X,
                     Y = s.Y,
-                    ZoneId = Balance.MainZoneId
+                    ZoneId = zoneId
                 });
                 spawned++;
             }
-            Log.Info($"Спавн коллекционок из точек: {spawned}");
+            Log.Info($"Спавн коллекционок из точек в зоне '{zoneId}': {spawned}");
         }
         else
         {
             foreach (var template in _templates)
             {
                 for (int i = 0; i < template.Count; i++)
-                    SpawnOne(template.Name, template.ItemName, template.Symbol, Balance.MainZoneId);
+                    SpawnOne(template.Name, template.ItemName, template.Symbol, zoneId);
             }
         }
     }

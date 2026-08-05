@@ -25,6 +25,12 @@ public class ZoneManager
     public IReadOnlyDictionary<string, Zone> Zones => _zones;
     public IReadOnlyList<WorldPortal> Portals => _portals;
 
+    public void RegisterZone(string id, int width, int height)
+    {
+        _zones[id] = new Zone { Id = id, Name = id, Width = width, Height = height, SpawnX = width / 2, SpawnY = height / 2 };
+        _maps[id] = new GameMap(width, height);
+    }
+
     /// <summary>
     /// Главная зона использует карту мира (GameWorld.Map): тайлы и препятствия
     /// должны быть общими для рендера, патфайндинга и движения.

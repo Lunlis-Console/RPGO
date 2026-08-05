@@ -330,7 +330,7 @@ public class InteractionService
             var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
             if (next.X < 0 || next.X >= zoneMap.Width
                 || next.Y < 0 || next.Y >= zoneMap.Height
-                || _svc.World.Map.IsObstacle(next.X, next.Y))
+                || zoneMap.IsObstacle(next.X, next.Y))
             {
                 pl.Movement.Stop();
                 continue;

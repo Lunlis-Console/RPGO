@@ -61,11 +61,26 @@ partial class Program
         zones.LoadAll();
 
         Log.Info("Загрузка Tiled-карт...");
-        List<TiledSpawn>? spawns = null;
+        var contentDir = Path.Combine(AppContext.BaseDirectory, "Content");
+        var allSpawns = new List<TiledSpawn>();
+        var allCollectibleSpawns = new Dictionary<string, List<TiledSpawn>>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            spawns = LoadTiledZone(zones, "wordlmap.tmj", Balance.MainZoneId);
-            LoadTiledZone(zones, "arena_1.tmj", "arena");
+            // Конвенция имён: zone_{id}.tmj — зона, dungeon_*.tmj — шаблоны инстансов.
+            // *_text.tmj и прочие вспомогательные файлы пропускаются.
+            foreach (var file in Directory.GetFiles(contentDir, "zone_*.tmj", SearchOption.TopDirectoryOnly))
+            {
+                string fname = Path.GetFileName(file);
+                string zoneId = Path.GetFileNameWithoutExtension(fname).Substring("zone_".Length);
+
+                var zoneSpawns = LoadTiledZone(zones, fname, zoneId);
+                if (zoneSpawns == null) continue;
+
+                allSpawns.AddRange(zoneSpawns);
+                if (!allCollectibleSpawns.ContainsKey(zoneId))
+                    allCollectibleSpawns[zoneId] = new List<TiledSpawn>();
+                allCollectibleSpawns[zoneId].AddRange(zoneSpawns);
+            }
         }
         catch (Exception ex)
         {
@@ -86,8 +101,10 @@ partial class Program
         dialogue.LoadAll();
 
         Log.Info("Загрузка монстров...");
+        var spawns = allSpawns.Count > 0 ? allSpawns : null;
         monsters.Initialize(spawns);
-        collectibles.Initialize(spawns);
+        foreach (var (zoneId, zoneCollectSpawns) in allCollectibleSpawns)
+            collectibles.Initialize(zoneCollectSpawns, zoneId);
 
         // Создаём сетевой хаб
         var hub = new GameServer(world);
@@ -115,13 +132,18 @@ partial class Program
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
 
-        // Загружаем карту подземелья как шаблон для инстанса (должно быть после создания instances)
-        var dungeonTemplate = LoadTiledMap("dungeon_1.tmj");
-        if (dungeonTemplate != null)
+        // Загружаем первую карту подземелья как шаблон для инстансов
+        var dungeonFiles = Directory.GetFiles(contentDir, "dungeon_*.tmj", SearchOption.TopDirectoryOnly);
+        if (dungeonFiles.Length > 0)
         {
-            var tiledData = TiledMapLoader.Load(Path.Combine(AppContext.BaseDirectory, "Content", "dungeon_1.tmj"));
-            var dungeonSpawns = TiledMapLoader.ExtractDungeonObjects(tiledData);
-            instances.SetDungeonTemplate(dungeonTemplate, dungeonSpawns);
+            var dungeonFile = dungeonFiles[0];
+            var dungeonTemplate = LoadTiledMap(Path.GetFileName(dungeonFile));
+            if (dungeonTemplate != null)
+            {
+                var tiledData = TiledMapLoader.Load(dungeonFile);
+                var dungeonSpawns = TiledMapLoader.ExtractDungeonObjects(tiledData);
+                instances.SetDungeonTemplate(dungeonTemplate, dungeonSpawns);
+            }
         }
         var persistence = new PersistenceService();
         var storage = new StorageService(world, hub);
@@ -593,6 +615,7 @@ partial class Program
     /// <summary>
     /// Загружает Tiled-карту (Content/{fileName}) и применяет её к зоне:
     /// тайлы, препятствия, тайл-конфигурация и размер карты зоны.
+    /// Если зоны нет в БД — авто-регистрирует с размерами из карты.
     /// </summary>
     private static List<TiledSpawn>? LoadTiledZone(ZoneManager zones, string fileName, string zoneId)
     {
@@ -604,6 +627,14 @@ partial class Program
         }
 
         var tiledMap = TiledMapLoader.Load(tiledPath);
+
+        // Авто-регистрация зоны, если её нет в БД
+        if (zoneId != Balance.MainZoneId && zones.GetZone(zoneId) == null)
+        {
+            zones.RegisterZone(zoneId, tiledMap.Width, tiledMap.Height);
+            Log.Info($"Зона '{zoneId}' авто-зарегистрирована: {tiledMap.Width}x{tiledMap.Height}");
+        }
+
         var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
         var gameMap = zones.CreateOrReplaceMap(zoneId, tiledMap.Width, tiledMap.Height);
         gameMap.SetTiles(tileData);

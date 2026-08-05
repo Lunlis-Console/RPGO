@@ -143,6 +143,10 @@ public class MapRenderer
 
     public (int X, int Y) CameraCenter => ((int)Math.Floor(_camX), (int)Math.Floor(_camY));
 
+    private bool _cameraNeedsSnap = true;
+
+    public void SnapCameraNextFrame() => _cameraNeedsSnap = true;
+
     // Базовые размеры клеток (квадратные, как тайлы в тайлсете 32x32)
     private const float BaseCellW = 22f;
     private const float BaseCellH = 22f;
@@ -469,6 +473,8 @@ private sealed class RemotePlayerState
             _currentMap = null;
             _spatialHash.Clear();
         }
+        _moveTargetX = _moveTargetY = -1;
+        ClearPathCache();
     }
 
     public bool IsMapLoaded
@@ -1010,10 +1016,18 @@ private sealed class RemotePlayerState
         if (me == null && _visPos.TryGetValue($"merchant", out var m))
         { targetX = m.X; targetY = m.Y; }
 
-        // frame-independent экспоненциальное сглаживание; 10 → реакция ~0.1s
-        float k = 1f - MathF.Exp(-10f * dt);
-        _camX += (targetX - _camX) * k;
-        _camY += (targetY - _camY) * k;
+        if (_cameraNeedsSnap && me != null)
+        {
+            _camX = targetX;
+            _camY = targetY;
+            _cameraNeedsSnap = false;
+        }
+        else
+        {
+            float k = 1f - MathF.Exp(-10f * dt);
+            _camX += (targetX - _camX) * k;
+            _camY += (targetY - _camY) * k;
+        }
 
         int centerX = (int)Math.Floor(_camX);
         int centerY = (int)Math.Floor(_camY);

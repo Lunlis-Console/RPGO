@@ -396,6 +396,12 @@ public sealed class GameWorld
         lock (_collectibleLock) _collectibles.Clear();
     }
 
+    public void ClearCollectiblesInZone(string zoneId)
+    {
+        lock (_collectibleLock) _collectibles.RemoveAll(c =>
+            string.Equals(c.ZoneId, zoneId, StringComparison.OrdinalIgnoreCase));
+    }
+
     public void AddCollectible(Collectible collectible)
     {
         lock (_collectibleLock) _collectibles.Add(collectible);

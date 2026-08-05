@@ -132,6 +132,7 @@ public class GameScreen : IScreen
         _client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
             _mapRenderer.ClearMap();
+            _mapRenderer.SnapCameraNextFrame();
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
         };
