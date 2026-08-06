@@ -18,6 +18,7 @@ public class ClientConnection
     public long LastPingSeq { get; set; } = 0;
     public bool IsReconnecting { get; set; } = false;
     public string? SessionToken { get; set; }
+    public bool IsMuted { get; set; }
 
     /// <summary>
     /// Клиент получил приветствие (welcome/reconnect_ok). До этого момента

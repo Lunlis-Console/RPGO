@@ -14,6 +14,12 @@ public class ChatHandler : BaseHandler
     {
         if (player == null) return;
 
+        if (connection.IsMuted)
+        {
+            await SendSystem(connection, "Р’С‹ Р·Р°РіР»СѓС€РµРЅС‹ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј.");
+            return;
+        }
+
         string? text = null;
         if (message.Data is string str)
         {
@@ -39,12 +45,6 @@ public class ChatHandler : BaseHandler
 
         Log.Debug($"CHAT {player.Name}: {text}");
 
-        if (text.StartsWith("/reload", StringComparison.OrdinalIgnoreCase))
-        {
-            await ReloadContent(connection);
-            return;
-        }
-
         if (text.StartsWith("/"))
         {
             if (await AdminCommands.TryHandle(connection, player, text, Svc))
@@ -56,15 +56,15 @@ public class ChatHandler : BaseHandler
 
     private async Task RouteMessage(Player player, string text)
     {
-        // Команды проверяем по точному первому слову (с пробелом или концу строки),
-        // чтобы "/world" не ловился как "/w", а "/party" не как "/p".
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ),
+        // пїЅпїЅпїЅпїЅпїЅ "/world" пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ "/w", пїЅ "/party" пїЅпїЅ пїЅпїЅпїЅ "/p".
         if (HasPrefix(text, "/w") || HasPrefix(text, "/whisper") || HasPrefix(text, "/tell"))
         {
             var after = StripPrefix(text).TrimStart();
             var sp = after.IndexOf(' ');
             if (sp < 0)
             {
-                await SystemToSelf(player, "Использование: /w <ник> <сообщение>");
+                await SystemToSelf(player, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: /w <пїЅпїЅпїЅ> <пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ>");
                 return;
             }
             var target = after.Substring(0, sp).Trim();
@@ -82,7 +82,7 @@ public class ChatHandler : BaseHandler
 
         if (HasPrefix(text, "/g") || HasPrefix(text, "/guild"))
         {
-            await SystemToSelf(player, "Гильдии пока не реализованы.");
+            await SystemToSelf(player, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -107,7 +107,7 @@ public class ChatHandler : BaseHandler
             return;
         }
 
-        // По умолчанию — локальный канал (мир живее)
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
         await SendChatLocalAsync(player, ChatChannel.Local, player.Name, text);
     }
 
@@ -115,7 +115,7 @@ public class ChatHandler : BaseHandler
     {
         if (!text.StartsWith(cmd, StringComparison.OrdinalIgnoreCase))
             return false;
-        // Точное совпадение команды или команда + пробел
+        // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ + пїЅпїЅпїЅпїЅпїЅпїЅ
         return text.Length == cmd.Length || text[cmd.Length] == ' ';
     }
 
@@ -129,6 +129,6 @@ public class ChatHandler : BaseHandler
     {
         var conn = World.FindClientByPlayer(player);
         if (conn != null)
-            await SendChatToAsync(conn, ChatChannel.System, "Система", msg);
+            await SendChatToAsync(conn, ChatChannel.System, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", msg);
     }
 }

@@ -36,6 +36,9 @@ public abstract class BaseHandler : IMessageHandler
     protected Task SendChatToAsync(ClientConnection connection, ChatChannel channel, string from, string text, string? to = null)
         => Hub.SendChatToAsync(connection, channel, from, text, to);
 
+    protected Task SendSystem(ClientConnection connection, string msg)
+        => Hub.SendChatToAsync(connection, ChatChannel.System, "Система", msg);
+
     protected async Task SendChatLocalAsync(Player sender, ChatChannel channel, string from, string text)
     {
         int view = World.Map.ViewRadius;

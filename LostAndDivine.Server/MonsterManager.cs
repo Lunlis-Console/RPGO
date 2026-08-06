@@ -69,8 +69,8 @@ public class MonsterManager
         SpawnMannequins();
     }
 
-    /// <summary>Спавн монстра по точке из Tiled (точный шаблон, без масштабирования от дистанции).</summary>
-    private bool SpawnNamedMonster(int x, int y, string name)
+    /// <summary>Спавн монстра по имени шаблона (для админ-команд).</summary>
+    public bool SpawnNamedMonster(int x, int y, string name)
     {
         if (_world.Map.IsObstacle(x, y))
         {
