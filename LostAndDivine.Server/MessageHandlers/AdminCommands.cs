@@ -26,6 +26,8 @@ public static class AdminCommands
                 return await HandleItem(connection, player, args, svc);
             case "/tp":
                 return await HandleTeleport(connection, player, args, svc);
+            case "/help":
+                return await HandleHelp(player, svc);
             case "/kick":
                 return await HandleKick(player, args, svc);
             case "/ban":
@@ -280,5 +282,23 @@ public static class AdminCommands
         var conn = svc.World.FindClientByPlayer(player);
         if (conn != null)
             await svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", msg);
+    }
+
+    private static async Task<bool> HandleHelp(Player player, GameServices svc)
+    {
+        var lines = new[]
+        {
+            "/help — список команд",
+            "/gold <количество> — выдать себе золото",
+            "/item <id> [количество] — выдать предмет",
+            "/tp <x> <y> или /tp <имя> или /tp <zone> <x> <y> — телепортация",
+            "/kick <имя> — кикнуть игрока",
+            "/ban <имя> [причина] — заблокировать игрока",
+            "/unban <имя> — разблокировать игрока",
+            "/level <уровень> [имя_игрока] — изменить уровень",
+        };
+        foreach (var line in lines)
+            await SystemToSelf(player, svc, line);
+        return true;
     }
 }
