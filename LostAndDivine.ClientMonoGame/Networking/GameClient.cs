@@ -32,6 +32,7 @@ public sealed class GameClient
 
     // Состояние игрока
     public string PlayerName { get; internal set; } = "Игрок";
+    public string PlayerClass { get; internal set; } = "";
     public int PlayerLevel { get; internal set; } = 1;
     public WorldMap? CurrentMap { get; internal set; }
     public StatusData? Status { get; internal set; }

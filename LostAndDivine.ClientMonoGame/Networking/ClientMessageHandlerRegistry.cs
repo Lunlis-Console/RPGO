@@ -123,6 +123,7 @@ internal static class ClientMessageHandlerRegistry
     {
         var wel = m.Deserialize<WelcomeData>();
         c.PlayerName = wel?.PlayerName ?? "Игрок";
+        c.PlayerClass = wel?.ClassName ?? "";
         c.RaiseWelcomeReceived();
     }
 

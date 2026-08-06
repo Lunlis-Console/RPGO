@@ -165,7 +165,7 @@ public class AuthService
         await _svc.Hub.SendToClient(connection, new GameMessage
         {
             Type = "welcome",
-            Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name }
+            Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name, ClassName = player.Class.DisplayName() }
         });
 
         connection.WelcomeSent = true;

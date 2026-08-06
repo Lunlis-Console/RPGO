@@ -47,7 +47,12 @@ public class StatusWindow : GameWindow
         Visible = false;
     }
 
-    public void UpdateData(StatusData data) => _data = data;
+    public void UpdateData(StatusData data)
+    {
+        if (string.IsNullOrEmpty(data.ClassName) && !string.IsNullOrEmpty(GameMain.Instance?.Client.PlayerClass))
+            data.ClassName = GameMain.Instance.Client.PlayerClass;
+        _data = data;
+    }
 
     private int Viewport => Height - TitleH - 8;
     private int MaxScroll() => Math.Max(0, _contentHeight - Viewport);

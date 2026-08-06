@@ -16,6 +16,7 @@ public sealed class WelcomeData
 {
     public string? Message { get; set; }
     public string? PlayerName { get; set; }
+    public string? ClassName { get; set; }
 }
 
 public sealed class ChatData
