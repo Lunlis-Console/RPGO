@@ -295,16 +295,20 @@ public class Player : ICombatant
     /// </summary>
     public bool TryLevelUp()
     {
-        if (Level >= BalanceStatic.MaxLevel) return false;
-        int needed = BalanceStatic.XpNeededForNextLevel(Level);
-        if (Experience < needed) return false;
-        Level++;
-        Experience -= needed;
-        MaxHealth += BalanceStatic.MaxHealthPerLevel;
-        Health = MaxHealth;
-        AttributePoints += BalanceStatic.AttributePointsPerLevel;
-        if (Level % 2 == 0)
-            SkillPoints++;
-        return true;
+        bool leveled = false;
+        while (Level < BalanceStatic.MaxLevel)
+        {
+            int needed = BalanceStatic.XpNeededForNextLevel(Level);
+            if (Experience < needed) break;
+            Level++;
+            Experience -= needed;
+            MaxHealth += BalanceStatic.MaxHealthPerLevel;
+            Health = MaxHealth;
+            AttributePoints += BalanceStatic.AttributePointsPerLevel;
+            if (Level % 2 == 0)
+                SkillPoints++;
+            leveled = true;
+        }
+        return leveled;
     }
 }
