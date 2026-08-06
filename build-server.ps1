@@ -75,7 +75,7 @@ cd "$(dirname "$0")"
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 ./LostAndDivine.Server
 '@
-    Set-Content -Path (Join-Path $publishDir "start.sh") -Value $startContent -NoNewline
+    Set-Content -Path (Join-Path $publishDir "start.sh") -Value ($startContent -replace "`r`n", "`n") -NoNewline
     Write-Host "  Created start.sh"
 } else {
     $startContent = @'

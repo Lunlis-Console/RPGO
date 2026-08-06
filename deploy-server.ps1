@@ -123,7 +123,7 @@ cd lost-and-divine
 chmod +x LostAndDivine.Server start.sh
 echo "Server files ready in /root/lost-and-divine/"
 echo "Run: screen -S lost-and-divine ./start.sh"
-'@ | Set-Content -Path $setupScript -NoNewline
+'@ -replace "`r`n", "`n" | Set-Content -Path $setupScript -NoNewline
 
 scp $setupScript root@${ServerIp}:/root/lost-and-divine-setup.sh
 ssh root@${ServerIp} "sed -i 's/\r$//' /root/lost-and-divine-setup.sh; bash /root/lost-and-divine-setup.sh"
