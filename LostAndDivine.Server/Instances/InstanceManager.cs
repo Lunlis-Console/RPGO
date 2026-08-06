@@ -722,10 +722,7 @@ public class InstanceManager
                     MonsterName = "Сундук подземелья",
                     DamagePercent = 100,
                     Gold = inst.ChestGold,
-                    Items = inst.ChestLootItems.Select(i => new
-                    {
-                        i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
-                    }).ToList()
+                    Items = inst.ChestLootItems.Select(i => ItemPayload(i)).ToList()
                 }
             });
             return true;
@@ -750,13 +747,26 @@ public class InstanceManager
                 MonsterName = "Сундук подземелья",
                 DamagePercent = 100,
                 Gold = goldReward,
-                Items = inst.ChestLootItems.Select(i => new
-                {
-                    i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
-                }).ToList()
+                Items = inst.ChestLootItems.Select(i => ItemPayload(i)).ToList()
             }
         });
         Log.Info($"{player.Name} открыл сундук в инстансе {inst.Id}");
         return true;
     }
+
+    private static object ItemPayload(Item i) => new
+    {
+        i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
+        i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
+        BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
+        BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
+        BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
+        BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+        BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
+        BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
+        BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+        i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
+        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
+    };
 }
