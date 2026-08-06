@@ -206,13 +206,14 @@ public class ChatRenderer
     {
         // Вкладки сверху
         var allRect = GetTabRect(x, y, 0);
-        if (pressed && allRect.Contains(mx, my)) { ActiveTab = null; _unread.Clear(); ApplyTabPrefix(); return true; }
+        if (pressed && allRect.Contains(mx, my)) { ActiveTab = null; _scrollOffset = 0; _unread.Clear(); ApplyTabPrefix(); return true; }
         for (int i = 0; i < _tabs.Length; i++)
         {
             var r = GetTabRect(x, y, i + 1);
             if (pressed && r.Contains(mx, my))
             {
                 ActiveTab = _tabs[i];
+                _scrollOffset = 0;
                 _unread[_tabs[i]] = 0;
                 ApplyTabPrefix();
                 return true;
@@ -317,10 +318,10 @@ public class ChatRenderer
             msgY += lineH;
         }
 
-        if (_scrollOffset > 0)
+        int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
+        if (_scrollOffset > 0 && maxScroll > 0)
         {
-            int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
-            float ratio = maxScroll > 0 ? (float)_scrollOffset / maxScroll : 0f;
+            float ratio = (float)_scrollOffset / maxScroll;
             int trackH = (int)msgH;
             int thumbH = Math.Max(12, (int)(trackH * ((float)visibleLines / Math.Max(1, wrapped.Count))));
             int thumbY = (int)(msgTop + (1f - ratio) * (trackH - thumbH));
