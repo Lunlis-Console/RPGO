@@ -1048,9 +1048,6 @@ private sealed class RemotePlayerState
         DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
         DrawDeathMarkers(sb);
         DrawObjectLayer(sb, offsetX, offsetY, areaW, areaH);
-        int viewH = _viewEndY - _viewStartY + 1;
-        int legendY = (int)(_gridOY + viewH * _cellH + 4);
-        DrawLegend(sb, font, fontSmall, offsetX, legendY);
     }
 
     private void UpdateVisualInterpolation(WorldMap map)
@@ -1907,24 +1904,6 @@ private sealed class RemotePlayerState
             };
             DrawRect(sb, tx + 1, ty + 1, _cellW - 2, _cellH - 2, hc, 2);
         }
-    }
-
-    private void DrawLegend(SpriteBatch sb, SpriteFont font, SpriteFont fontSmall, float offsetX, float legendY)
-    {
-        void Legend(float x, string sym, Color symColor, string label)
-        {
-            sb.DrawString(font, sym, new Vector2(offsetX + x, legendY), symColor);
-            sb.DrawString(fontSmall, label, new Vector2(offsetX + x + 12, legendY + 2), Color.Black);
-        }
-        Legend(4, "P", Color.Goldenrod, "вы");
-        Legend(50, "$", Color.Gold, "торговец");
-        Legend(130, "Q", Color.MediumPurple, "доска заданий");
-        Legend(250, "*", Color.LimeGreen, "сбор");
-        Legend(140, "■", Color.Green, "легкий");
-        Legend(200, "■", Color.Gray, "равный");
-        Legend(260, "■", Color.Orange, "сложный");
-        Legend(320, "■", Color.Red, "опасный");
-        Legend(380, "P", new Color(110, 230, 130), "группа");
     }
 
     private void DrawRect(SpriteBatch sb, float x, float y, float w, float h, Color color, int thickness = 1)
