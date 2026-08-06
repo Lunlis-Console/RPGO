@@ -447,6 +447,7 @@ public sealed class GameServer : INetworkHub
             Data = new
             {
                 player.Name,
+                ClassName = player.Class.DisplayName(),
                 player.Level,
                 player.Health,
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
