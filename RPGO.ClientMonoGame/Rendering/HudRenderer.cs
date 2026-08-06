@@ -481,20 +481,32 @@ public class HudRenderer
         }
     }
 
-    public void DrawPlayerStatusPanel(SpriteBatch sb, float x, float y)
+    public float DrawPlayerStatusPanel(SpriteBatch sb, float x, float y)
     {
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (font == null || _status == null) return;
+        if (font == null || _status == null) return 0;
 
         int barH = 18;
         int barGap = 3;
         int barsTotalH = barH * 3 + barGap * 2;
-        int square = barsTotalH; // квадрат в высоту = сумме трёх баров
+        int square = barsTotalH;
         int barW = 200;
         int gap = 8;
 
+        // Имя слева над квадратом уровня
+        string playerName = GameMain.Instance?.Client.PlayerName ?? "";
+        int nameH = 0;
+        if (!string.IsNullOrEmpty(playerName))
+        {
+            var nameSize = font.MeasureString(playerName);
+            nameH = (int)nameSize.Y + 2;
+            sb.DrawString(font, playerName, new Vector2(x, y), new Color(220, 200, 120));
+        }
+
+        float panelY = y + nameH;
+
         // Квадрат с уровнем
-        var sqRect = new Rectangle((int)x, (int)y, square, square);
+        var sqRect = new Rectangle((int)x, (int)panelY, square, square);
         sb.Draw(SpriteCache.Pixel, sqRect, new Color(40, 44, 58));
         UIHelper.DrawRectOutline(sb, sqRect, new Color(90, 95, 115));
         string lvl = _status.Level.ToString();
@@ -506,7 +518,7 @@ public class HudRenderer
 
         // Бары справа от квадрата
         int bx = (int)x + square + gap;
-        int by = (int)y;
+        int by = (int)panelY;
 
         DrawBar(sb, font, bx, by, barW, barH, _status.Health, _status.MaxHealth, new Color(200, 50, 50), "Здоровье");
         by += barH + barGap;
@@ -514,6 +526,7 @@ public class HudRenderer
         by += barH + barGap;
         int need = _status.Level * 50;
         DrawBar(sb, font, bx, by, barW, barH, _status.Experience, need, new Color(90, 180, 90), "Опыт");
+        return (by + barH) - y;
     }
 
     private void DrawBar(SpriteBatch sb, SpriteFont font, float x, float y, float w, float h, int value, int max, Color fillColor, string label)
@@ -733,6 +746,18 @@ public class HudRenderer
             int ty = 4;
             Color tc = totalSec < 60 ? new Color(220, 60, 60) : new Color(255, 200, 80);
             sb.DrawString(font, timer, new Vector2(tx, ty), tc);
+        }
+
+        // Ping — bottom-right, above hotbar
+        int ping = GameMain.Instance?.Network.PingMs ?? 0;
+        if (ping > 0)
+        {
+            var pfont = SpriteCache.FontSmall ?? font;
+            Color pc = ping < 60 ? Color.LimeGreen : (ping < 120 ? Color.Yellow : Color.OrangeRed);
+            string pStr = $"{ping}ms";
+            var ps = pfont.MeasureString(pStr);
+            int screenH = GameMain.Instance?.Graphics?.PreferredBackBufferHeight ?? 720;
+            sb.DrawString(pfont, pStr, new Vector2(screenW - ps.X - 10, screenH - 80), pc);
         }
     }
 

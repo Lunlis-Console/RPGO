@@ -15,6 +15,7 @@ public class LoginScreen : IScreen
     private int _selectedField = -1;
     private string _statusMessage = "Не подключено";
     private Color _statusColor = Color.Red;
+    private DateTime _lastActionTime = DateTime.MinValue;
 
     private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тест. аккаунт", "Обновления" };
     private Rectangle[] _buttonRects = new Rectangle[5];
@@ -92,13 +93,40 @@ public class LoginScreen : IScreen
                     _values[_selectedField] += c;
                 }
             }
+            bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
             for (int k = (int)Keys.D0; k <= (int)Keys.D9; k++)
             {
                 if (keyboard.IsKeyDown((Keys)k) && _prevKeyboard.IsKeyUp((Keys)k))
-                    _values[_selectedField] += (char)('0' + k - (int)Keys.D0);
+                {
+                    if (shift)
+                    {
+                        _values[_selectedField] += (k - (int)Keys.D0) switch
+                        {
+                            0 => ')', 1 => '!', 2 => '@', 3 => '#', 4 => '$',
+                            5 => '%', 6 => '^', 7 => '&', 8 => '*', 9 => '(',
+                            _ => (char)('0' + k - (int)Keys.D0)
+                        };
+                    }
+                    else
+                        _values[_selectedField] += (char)('0' + k - (int)Keys.D0);
+                }
             }
-            if (keyboard.IsKeyDown(Keys.OemPeriod) && _prevKeyboard.IsKeyUp(Keys.OemPeriod))
-                _values[_selectedField] += '.';
+            void TryKey(Keys key, char normal, char shifted)
+            {
+                if (keyboard.IsKeyDown(key) && _prevKeyboard.IsKeyUp(key))
+                    _values[_selectedField] += shift ? shifted : normal;
+            }
+            TryKey(Keys.OemMinus, '-', '_');
+            TryKey(Keys.OemPlus, '=', '+');
+            TryKey(Keys.OemOpenBrackets, '[', '{');
+            TryKey(Keys.OemCloseBrackets, ']', '}');
+            TryKey(Keys.OemPipe, '\\', '|');
+            TryKey(Keys.OemSemicolon, ';', ':');
+            TryKey(Keys.OemQuotes, '\'', '"');
+            TryKey(Keys.OemTilde, '`', '~');
+            TryKey(Keys.OemComma, ',', '<');
+            TryKey(Keys.OemPeriod, '.', '>');
+            TryKey(Keys.OemQuestion, '/', '?');
             if (keyboard.IsKeyDown(Keys.Back) && _prevKeyboard.IsKeyUp(Keys.Back) && _values[_selectedField].Length > 0)
                 _values[_selectedField] = _values[_selectedField][..^1];
         }
@@ -114,10 +142,16 @@ public class LoginScreen : IScreen
             }
 
             // Клик по кнопкам
-            for (int i = 0; i < 5; i++)
+            if ((DateTime.Now - _lastActionTime).TotalMilliseconds > 1500)
             {
-                if (_buttonRects[i].Contains(mouse.X, mouse.Y))
-                    HandleButton(i);
+                for (int i = 0; i < 5; i++)
+                {
+                    if (_buttonRects[i].Contains(mouse.X, mouse.Y))
+                    {
+                        _lastActionTime = DateTime.Now;
+                        HandleButton(i);
+                    }
+                }
             }
 
             // Клик по иконке настроек

@@ -9,7 +9,12 @@ param(
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
-Write-Host "=== 1. Building server for $Runtime ==="
+Write-Host "=== 0. Building client ==="
+& "$root\build-client-build.ps1"
+if ($LASTEXITCODE -ne 0) { throw "Client build failed" }
+Write-Host "  Client zip: dist\RPGO-client-win-x64.zip (для раздачи друзьям)"
+
+Write-Host "`n=== 1. Building server for $Runtime ==="
 & "$root\build-server.ps1" -Runtime $Runtime -NoZip
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
@@ -40,6 +45,15 @@ foreach ($src in $mapSources) {
 }
 if (-not $tmjCopied) {
     Write-Host "  WARNING: No .tmj map files found!"
+}
+
+# Copy client build for auto-updater
+$clientBuildSrc = Join-Path $root "RPGO.Server\client_build"
+if (Test-Path $clientBuildSrc) {
+    $clientBuildDest = Join-Path $publishDir "client_build"
+    if (Test-Path $clientBuildDest) { Remove-Item -Recurse -Force $clientBuildDest }
+    Copy-Item -Recurse $clientBuildSrc $clientBuildDest
+    Write-Host "  Copied client_build/ for auto-updater"
 }
 
 # Create zip

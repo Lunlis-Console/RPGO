@@ -1,5 +1,6 @@
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 
 namespace RPGGame.ClientMonoGame.Networking;
@@ -19,6 +20,8 @@ public class NetworkManager
     private int _missedPongs = 0;
     private long _lastPingSeq = 0;
     private DateTime _lastPongTime = DateTime.UtcNow;
+    private readonly ConcurrentDictionary<long, long> _pingTimestamps = new();
+    public int PingMs { get; private set; }
 
     private string _serverIp = "127.0.0.1";
     private string? _sessionToken;
@@ -120,10 +123,17 @@ public class NetworkManager
         switch (message.Type)
         {
             case "pong":
-            case "ping":
+                {
+                    var pong = message.Deserialize<PongMessage>();
+                    if (pong != null && _pingTimestamps.TryRemove(pong.Seq, out long sentMs))
+                    {
+                        PingMs = (int)(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - sentMs);
+                    }
+                }
                 _missedPongs = 0;
                 _lastPongTime = DateTime.UtcNow;
                 return true;
+            case "ping":
 
             case "kick":
                 SystemMessage?.Invoke("Вы были отключены");
@@ -175,7 +185,9 @@ public class NetworkManager
             try
             {
                 _lastPingSeq = Interlocked.Increment(ref _lastPingSeq);
-                var ping = new PingMessage(_lastPingSeq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                _pingTimestamps[_lastPingSeq] = nowMs;
+                var ping = new PingMessage(_lastPingSeq, nowMs);
                 await SendAsync(new GameMessage { Type = "ping", Data = ping });
 
                 await Task.Delay(5000, token);

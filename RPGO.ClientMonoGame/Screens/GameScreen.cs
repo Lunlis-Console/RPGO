@@ -1092,14 +1092,14 @@ public class GameScreen : IScreen
         _minimap.Draw(spriteBatch, _minimap.GetPanelRect(w), mmCenter.X, mmCenter.Y);
         _hudDraw.DrawInstanceLeaveButton(spriteBatch, w);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
-        _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
-        float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + 60 + 4, w - 16);
+        float panelH = _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);
+        float debuffH = _hudRenderer.DrawPlayerDebuffs(spriteBatch, 8, topH + 8 + panelH + 4, w - 16);
         _hudRenderer.SetSelectedEntity(_mapRenderer.GetSelectedEntity());
         _hudRenderer.DrawTargetBar(spriteBatch, w);
         _hudRenderer.DrawTargetDebuffs(spriteBatch, w, 64 + 18 + 4);
         _hudRenderer.DrawZoneIndicator(spriteBatch, w);
         _hudDraw.DrawTargetButtons(spriteBatch, w, GameMain.Instance!);
-        int partyY = topH + 8 + 60 + 4 + (int)debuffH + 4;
+        int partyY = topH + 8 + (int)panelH + 4 + (int)debuffH + 4;
         _hudDraw.DrawPartyPanel(spriteBatch, 8, partyY, 240, GameMain.Instance!);
         _hudRenderer.DrawDebuffTooltip(spriteBatch);
 

@@ -248,11 +248,12 @@ internal static class AccountRepository
     {
         var insertAccount = connection.CreateCommand();
         insertAccount.CommandText = @"
-            INSERT OR IGNORE INTO accounts (login, password_hash, created_at, last_login, is_admin)
-            VALUES ($login, $hash, $created, $last, $admin)";
+            INSERT INTO accounts (login, password_hash, player_name, created_at, last_login, is_admin)
+            VALUES ($login, $hash, $name, $created, $last, $admin)";
 
         insertAccount.Parameters.AddWithValue("$login", account.Login);
         insertAccount.Parameters.AddWithValue("$hash", account.PasswordHash);
+        insertAccount.Parameters.AddWithValue("$name", account.Login);
         insertAccount.Parameters.AddWithValue("$created", account.CreatedAt.ToString("o"));
         insertAccount.Parameters.AddWithValue("$last", account.LastLogin.ToString("o"));
         insertAccount.Parameters.AddWithValue("$admin", account.IsAdmin ? 1 : 0);
