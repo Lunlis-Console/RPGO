@@ -338,9 +338,11 @@ partial class Program
     {
         try
         {
-            if (message.Type is "register" or "login_auth")
+            if (message.Type is "register" or "login_auth" or "character_select" or "character_create" or "character_delete")
             {
-                await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
+                var isAuth = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
+                if (isAuth)
+                    player = connection.Player;
                 return player;
             }
 

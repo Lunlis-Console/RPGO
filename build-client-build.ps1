@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $clientProj = Join-Path $root "RPGO.ClientMonoGame\RPGO.ClientMonoGame.csproj"
 $clientBuildDir = Join-Path $root "RPGO.Server\client_build"
+if (-not (Test-Path $clientBuildDir)) { New-Item -ItemType Directory -Path $clientBuildDir | Out-Null }
 $versionFile = Join-Path $clientBuildDir "version.txt"
 $manifestFile = Join-Path $clientBuildDir "manifest.json"
 $filesDir = Join-Path $clientBuildDir "files"

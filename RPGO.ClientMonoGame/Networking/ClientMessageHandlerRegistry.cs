@@ -1,6 +1,7 @@
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.ClientMonoGame.Windows;
+using RPGGame.ClientMonoGame.Screens;
 using System.Text.Json;
 
 namespace RPGGame.ClientMonoGame.Networking;
@@ -67,6 +68,7 @@ internal static class ClientMessageHandlerRegistry
         ["mail_result"] = HandleMailResult,
         ["storage_open"] = HandleStorageOpen,
         ["storage_update"] = HandleStorageUpdate,
+        ["character_list"] = HandleCharacterList,
     };
 
     public static bool TryHandle(GameClient client, GameMessage message)
@@ -93,7 +95,26 @@ internal static class ClientMessageHandlerRegistry
                 c.SessionToken = token;
                 c.PlayerId = pid;
                 GameMain.Instance?.Network.SetSession(token ?? "", pid);
-                _ = c.SendAsync("skills_request", null);
+
+                if (authEl.TryGetProperty("characters", out var charsEl) && charsEl.ValueKind == JsonValueKind.Array)
+                {
+                    var slots = new List<CharacterSlot>();
+                    foreach (var ch in charsEl.EnumerateArray())
+                    {
+                        slots.Add(new CharacterSlot
+                        {
+                            Name = ch.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                            Level = ch.TryGetProperty("level", out var l) ? l.GetInt32() : 1,
+                            ClassName = ch.TryGetProperty("className", out var cl) ? cl.GetString() ?? "" : "",
+                            Zone = ch.TryGetProperty("zone", out var z) ? z.GetString() ?? "" : ""
+                        });
+                    }
+                    c.RaiseCharacterListUpdated(slots.ToArray());
+                }
+                else if (pid != Guid.Empty)
+                {
+                    _ = c.SendAsync("skills_request", null);
+                }
             }
         }
     }
@@ -776,5 +797,33 @@ internal static class ClientMessageHandlerRegistry
         var data = m.Deserialize<StorageData>();
         if (data != null)
             c.RaiseStorageUpdated(data);
+    }
+
+    private static void HandleCharacterList(GameClient c, GameMessage m)
+    {
+        if (m.Data is JsonElement el)
+        {
+            if (el.TryGetProperty("Error", out var errEl))
+            {
+                c.RaiseSystemMessage(errEl.GetString() ?? "Ошибка");
+                return;
+            }
+
+            var slots = new List<CharacterSlot>();
+            if (el.TryGetProperty("characters", out var charsEl) && charsEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var ch in charsEl.EnumerateArray())
+                {
+                    slots.Add(new CharacterSlot
+                    {
+                        Name = ch.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                        Level = ch.TryGetProperty("level", out var l) ? l.GetInt32() : 1,
+                        ClassName = ch.TryGetProperty("className", out var cl) ? cl.GetString() ?? "" : "",
+                        Zone = ch.TryGetProperty("zone", out var z) ? z.GetString() ?? "" : ""
+                    });
+                }
+            }
+            c.RaiseCharacterListUpdated(slots.ToArray());
+        }
     }
 }

@@ -24,7 +24,7 @@ public sealed class WindowManager
     {
         foreach (var w in _windows)
         {
-            if (w.Visible && GetRect(w).Contains(x, y))
+            if (w != null && w.Visible && GetRect(w).Contains(x, y))
                 return true;
         }
         return false;
@@ -36,7 +36,7 @@ public sealed class WindowManager
         for (int i = idx + 1; i < _windows.Count; i++)
         {
             var w = _windows[i];
-            if (w.Visible && GetRect(w).Contains(x, y))
+            if (w != null && w.Visible && GetRect(w).Contains(x, y))
                 return true;
         }
         return false;
@@ -46,21 +46,21 @@ public sealed class WindowManager
     {
         bool clicked = mouse.LeftButton == ButtonState.Pressed;
 
-        var modal = _windows.LastOrDefault(w => w.Visible && w.IsModal);
+        var modal = _windows.LastOrDefault(w => w != null && w.Visible && w.IsModal);
 
         // Если какое-либо окно выполняет внутренний drag-n-drop —
         // не меняем z-order и не гасим кнопки мыши у перетаскивающего окна,
         // иначе drag прервётся при переходе курсора на другое окно.
         bool anyDragging = false;
         foreach (var w in _windows)
-            if (w.Visible && w.IsDragging) { anyDragging = true; break; }
+            if (w != null && w.Visible && w.IsDragging) { anyDragging = true; break; }
 
         GameWindow? toFront = null;
         // Копируем список, т.к. Update окна может изменить _windows (BringToFront)
         var snapshot = _windows.ToList();
         foreach (var w in snapshot)
         {
-            if (!w.Visible) continue;
+            if (w == null || !w.Visible) continue;
 
             bool covered = IsCovered(w, mouse.X, mouse.Y);
             bool blockedByModal = modal != null && w != modal;
@@ -84,7 +84,7 @@ public sealed class WindowManager
         // Не поднимаем окно поверх модального диалога. Важно: модальное окно
         // могло открыться внутри этого же кадра (например, QuantityDialog по
         // клику в TradeWindow), поэтому проверяем наличие в самый последний момент.
-        bool hasModalNow = _windows.Any(w => w.Visible && w.IsModal);
+        bool hasModalNow = _windows.Any(w => w != null && w.Visible && w.IsModal);
         if (!anyDragging && toFront != null && !hasModalNow)
             BringToFront(toFront);
     }
@@ -92,6 +92,6 @@ public sealed class WindowManager
     public void Draw(GameTime gameTime, SpriteBatch sb)
     {
         foreach (var w in _windows.ToList())
-            w.Draw(sb);
+            if (w != null) w.Draw(sb);
     }
 }

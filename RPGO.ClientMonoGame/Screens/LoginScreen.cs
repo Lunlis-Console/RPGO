@@ -2,23 +2,23 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using RPGGame.ClientMonoGame.Rendering;
+using System.Linq;
 
 namespace RPGGame.ClientMonoGame.Screens;
 
 public class LoginScreen : IScreen
 {
-    private readonly string[] _labels = { "IP:", "Логин:", "Пароль:", "Имя:" };
-    private readonly string[] _defaults = { "127.0.0.1", "", "", "" };
-    private readonly string[] _values = new string[4];
+    private readonly string[] _labels = { "IP:", "Логин:", "Пароль:" };
+    private readonly string[] _defaults = { "127.0.0.1", "", "" };
+    private readonly string[] _values = new string[3];
 
     private int _selectedField = -1;
     private string _statusMessage = "Не подключено";
     private Color _statusColor = Color.Red;
-    private string _systemMessage = "";
 
     private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тест. аккаунт", "Обновления" };
     private Rectangle[] _buttonRects = new Rectangle[5];
-    private Rectangle[] _fieldRects = new Rectangle[4];
+    private         Rectangle[] _fieldRects = new Rectangle[3];
 
     private KeyboardState _prevKeyboard;
     private MouseState _prevMouse;
@@ -27,7 +27,7 @@ public class LoginScreen : IScreen
 
     public LoginScreen(string? statusMessage = null)
     {
-        Array.Copy(_defaults, _values, 4);
+        Array.Copy(_defaults, _values, 3);
         _values[0] = SettingsManager.Load().ServerIp;
         RebuildLayout();
 
@@ -59,7 +59,7 @@ public class LoginScreen : IScreen
         int centerX = w / 2;
         int startY = h / 2 - 120;
 
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 3; i++)
             _fieldRects[i] = new Rectangle(centerX - 60, startY + i * 45, 200, 30);
 
         _buttonRects[0] = new Rectangle(centerX + 160, startY, 130, 30);
@@ -107,7 +107,7 @@ public class LoginScreen : IScreen
         if (mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released)
         {
             _selectedField = -1;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 3; i++)
             {
                 if (_fieldRects[i].Contains(mouse.X, mouse.Y))
                     _selectedField = i;
@@ -161,6 +161,18 @@ public class LoginScreen : IScreen
                 break;
 
             case 1: // Вход
+                if (string.IsNullOrWhiteSpace(_values[1]) || _values[1].Length < 3)
+                {
+                    _statusMessage = "Логин должен быть не менее 3 символов";
+                    _statusColor = Color.OrangeRed;
+                    return;
+                }
+                if (string.IsNullOrWhiteSpace(_values[2]))
+                {
+                    _statusMessage = "Пароль не может быть пустым";
+                    _statusColor = Color.OrangeRed;
+                    return;
+                }
                 if (!network.IsConnected)
                 {
                     bool connected = await network.ConnectAsync(ip, 7777);
@@ -178,6 +190,14 @@ public class LoginScreen : IScreen
                 break;
 
             case 2: // Регистрация
+            {
+                string? valError = ValidateRegistration(_values[1], _values[2]);
+                if (valError != null)
+                {
+                    _statusMessage = valError;
+                    _statusColor = Color.OrangeRed;
+                    return;
+                }
                 if (!network.IsConnected)
                 {
                     bool connected2 = await network.ConnectAsync(ip, 7777);
@@ -193,17 +213,17 @@ public class LoginScreen : IScreen
                 {
                     Login = _values[1],
                     Password = _values[2],
-                    PlayerName = string.IsNullOrWhiteSpace(_values[3]) ? _values[1] : _values[3]
+                    PlayerName = _values[1]
                 });
                 _statusMessage = "Регистрация...";
                 _statusColor = Color.Yellow;
+            }
                 break;
 
             case 3: // Тестовый аккаунт (test / 123)
                 _values[0] = ip;
                 _values[1] = "test";
                 _values[2] = "123";
-                _values[3] = "test";
                 if (!network.IsConnected)
                 {
                     bool connected3 = await network.ConnectAsync(ip, 7777);
@@ -261,7 +281,7 @@ public class LoginScreen : IScreen
         spriteBatch.DrawString(font, subtitle, new Vector2(centerX - subSize.X / 2, startY - 30), Color.White);
 
         // Поля ввода
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 3; i++)
         {
             // Label
             spriteBatch.DrawString(font, _labels[i], new Vector2(_fieldRects[i].X - 70, _fieldRects[i].Y + 5), Color.LightGray);
@@ -281,21 +301,35 @@ public class LoginScreen : IScreen
 
         for (int i = 0; i < 5; i++)
         {
-            spriteBatch.Draw(SpriteCache.Pixel, _buttonRects[i], btnBgColors[i]);
-            DrawBorder(spriteBatch, _buttonRects[i], Color.White);
+            var r = _buttonRects[i];
+            bool hover = r.Contains(_prevMouse.X, _prevMouse.Y);
+            bool press = hover && _prevMouse.LeftButton == ButtonState.Pressed;
+
+            var color = btnBgColors[i];
+            if (press)
+                color = LerpColor(color, Color.Black, 0.3f);
+            else if (hover)
+                color = Brighten(color, 40);
+
+            var drawRect = press ? new Rectangle(r.X + 1, r.Y + 1, r.Width - 2, r.Height - 2) : r;
+            spriteBatch.Draw(SpriteCache.Pixel, drawRect, color);
+            DrawBorder(spriteBatch, drawRect, hover ? Color.White : new Color(180, 180, 200));
             var btnSize = font.MeasureString(_buttonLabels[i]);
             spriteBatch.DrawString(font, _buttonLabels[i],
-                new Vector2(_buttonRects[i].X + (_buttonRects[i].Width - btnSize.X) / 2,
-                            _buttonRects[i].Y + (_buttonRects[i].Height - btnSize.Y) / 2),
+                new Vector2(drawRect.X + (drawRect.Width - btnSize.X) / 2,
+                            drawRect.Y + (drawRect.Height - btnSize.Y) / 2),
                 Color.White);
         }
 
-        // Статус
-        spriteBatch.DrawString(font, _statusMessage, new Vector2(centerX - 100, startY + 210), _statusColor);
-
-        // Системное сообщение
-        if (!string.IsNullOrEmpty(_systemMessage))
-            spriteBatch.DrawString(font, _systemMessage, new Vector2(centerX - 150, startY + 240), Color.Yellow);
+        // Статус-бар
+        {
+            int sbarH = 40;
+            var sbarRect = new Rectangle(0, h - sbarH, w, sbarH);
+            spriteBatch.Draw(SpriteCache.Pixel, sbarRect, new Color(16, 16, 28, 230));
+            DrawBorder(spriteBatch, sbarRect, new Color(60, 60, 80));
+            var stSize = font.MeasureString(_statusMessage);
+            spriteBatch.DrawString(font, _statusMessage, new Vector2((w - stSize.X) / 2, h - sbarH + (sbarH - stSize.Y) / 2), _statusColor);
+        }
 
         // Подсказка
         spriteBatch.DrawString(font, "Enter — быстрый вход  |  Tab — переключение полей  |  «Тестовый аккаунт» — test/123",
@@ -348,9 +382,43 @@ public class LoginScreen : IScreen
         }
     }
 
+    private static Color Brighten(Color c, int amount)
+    {
+        int R(int v) => Math.Min(255, v + amount);
+        return new Color(R(c.R), R(c.G), R(c.B), c.A);
+    }
+
+    private static Color LerpColor(Color a, Color b, float t)
+    {
+        int L(int va, int vb) => (int)(va + (vb - va) * t);
+        return new Color(L(a.R, b.R), L(a.G, b.G), L(a.B, b.B), a.A);
+    }
+
+    private static string? ValidateRegistration(string login, string password)
+    {
+        if (string.IsNullOrWhiteSpace(login) || login.Length < 3 || login.Length > 20)
+            return "Логин: от 3 до 20 символов";
+        if (login.Any(c => char.IsWhiteSpace(c)))
+            return "Логин не должен содержать пробелы";
+        if (!login.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9'))
+            return "Логин: только латинские буквы и цифры";
+
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 6 || password.Length > 50)
+            return "Пароль: от 6 до 50 символов";
+        if (password.Any(c => char.IsWhiteSpace(c)))
+            return "Пароль не должен содержать пробелы";
+        if (!password.Any(char.IsUpper))
+            return "Пароль: минимум одна заглавная буква";
+        if (!password.Any(c => !char.IsLetterOrDigit(c)))
+            return "Пароль: минимум один спецсимвол (!№;% и т.д.)";
+
+        return null;
+    }
+
     private void OnSystemMessage(string msg)
     {
-        _systemMessage = msg;
+        _statusMessage = msg;
+        _statusColor = Color.Yellow;
     }
 
     private void OnError(string msg)

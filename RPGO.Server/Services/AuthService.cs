@@ -8,10 +8,6 @@ using System.Text.Json;
 
 namespace RPGGame.Server;
 
-/// <summary>
-/// Обработка регистрации и входа игроков.
-/// Вынесена из Program.Auth.cs.
-/// </summary>
 public class AuthService
 {
     private readonly GameServices _svc;
@@ -42,9 +38,9 @@ public class AuthService
                         await hub.SendToClient(connection, new GameMessage
                         {
                             Type = "auth_response",
-                            Data = new { Success = true, Message = $"Регистрация успешна! Добро пожаловать, {account.PlayerName}!" }
+                            Data = new { Success = true, Message = "Регистрация успешна! Теперь войдите в аккаунт." }
                         });
-                        Log.Info($"Зарегистрирован новый игрок: {account.Login} ({account.PlayerName})");
+                        Log.Info($"Зарегистрирован новый аккаунт: {account.Login}");
                         return false;
                     }
                     else
@@ -52,7 +48,7 @@ public class AuthService
                         await hub.SendToClient(connection, new GameMessage
                         {
                             Type = "auth_response",
-                            Data = new { Success = false, Message = "Ошибка регистрации. Логин или имя уже заняты." }
+                            Data = new { Success = false, Message = "Ошибка регистрации. Логин уже занят." }
                         });
                     }
                 }
@@ -79,55 +75,34 @@ public class AuthService
                             return false;
                         }
 
-                        var existingSession = _svc.World.GetConnectionByPlayerName(account.PlayerName);
-                        if (existingSession != null)
-                        {
-                            await hub.SendToClient(connection, new GameMessage
-                            {
-                                Type = "auth_response",
-                                Data = new { Success = false, Message = "Этот аккаунт уже в игре. Выйдите из другого клиента и повторите вход." }
-                            });
-                            Log.Info($"Попытка повторного входа: {account.Login} ({account.PlayerName}) уже в игре ({existingSession.Endpoint})");
-                            return false;
-                        }
+                        var characters = CharacterRepository.ListForAccount(account.Login);
+                        var sessionToken = SessionManager.CreateToken(account.Login);
 
-                        var player = PlayerFactory.FromAccount(account, _svc);
-
-                        _svc.World.AddPlayer(player);
-                        connection.Player = player;
-
-                        var sessionToken = SessionManager.CreateToken(player.Name);
+                        connection.AuthenticatedLogin = account.Login;
+                        connection.SessionToken = sessionToken;
+                        connection.IsAdmin = account.IsAdmin;
 
                         await hub.SendToClient(connection, new GameMessage
                         {
                             Type = "auth_response",
-                            Data = new { Success = true, Message = $"Добро пожаловать, {player.Name}!", session_token = sessionToken, player_id = player.Id }
+                            Data = new
+                            {
+                                Success = true,
+                                Message = "Авторизация успешна",
+                                session_token = sessionToken,
+                                login = account.Login,
+                                characters = characters.Select(c => new
+                                {
+                                    name = c.Name,
+                                    level = c.Level,
+                                    className = c.Class,
+                                    zone = c.Zone
+                                }).ToArray()
+                            }
                         });
 
-                        await hub.SendToClient(connection, new GameMessage
-                        {
-                            Type = "welcome",
-                            Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name }
-                        });
-
-                        // Только после welcome клиент создаёт GameScreen и подписывается
-                        // на MapUpdated — иначе первый map_update с тайлами будет потерян.
-                        connection.WelcomeSent = true;
-
-                        Log.Info($"Игрок {player.Name} вошел в мир на позиции ({player.X}, {player.Y})");
-                        await hub.BroadcastMapAsync();
-                        await hub.SendQuestLog(connection, player);
-                        await hub.SendHotbar(connection, player);
-                        await hub.SendInventoryAndStatus(connection, player);
-
-                        int unreadCount = MailRepository.CountUnread(player.Name);
-                        await hub.SendToClient(connection, new GameMessage
-                        {
-                            Type = "mail_unread",
-                            Data = new { Count = unreadCount }
-                        });
-
-                        return true;
+                        Log.Info($"Аккаунт {account.Login} авторизован. {characters.Count} персонажей.");
+                        return false;
                     }
                     else
                     {
@@ -139,8 +114,224 @@ public class AuthService
                     }
                 }
                 break;
+
+            case "character_select":
+                return await HandleCharacterSelect(connection, message, hub);
+
+            case "character_create":
+                return await HandleCharacterCreate(connection, message, hub);
+
+            case "character_delete":
+                await HandleCharacterDelete(connection, message, hub);
+                break;
         }
 
         return false;
+    }
+
+    public async Task<bool> SpawnPlayer(ClientConnection connection, string characterName)
+    {
+        var ch = CharacterRepository.LoadByName(characterName);
+        if (ch == null)
+            return false;
+
+        var existingSession = _svc.World.GetConnectionByPlayerName(ch.Name);
+        if (existingSession != null)
+        {
+            await _svc.Hub.SendToClient(connection, new GameMessage
+            {
+                Type = "auth_response",
+                Data = new { Success = false, Message = "Этот персонаж уже в игре." }
+            });
+            return false;
+        }
+
+        var player = PlayerFactory.FromCharacter(ch, _svc);
+        player.IsAdmin = connection.IsAdmin;
+
+        _svc.World.AddPlayer(player);
+        connection.Player = player;
+        connection.LastPongReceived = DateTime.UtcNow;
+
+        var playerSessionToken = SessionManager.CreateToken(player.Name);
+        connection.SessionToken = playerSessionToken;
+
+        await _svc.Hub.SendToClient(connection, new GameMessage
+        {
+            Type = "auth_response",
+            Data = new { Success = true, Message = $"Добро пожаловать, {player.Name}!", session_token = playerSessionToken, player_id = player.Id }
+        });
+
+        await _svc.Hub.SendToClient(connection, new GameMessage
+        {
+            Type = "welcome",
+            Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name }
+        });
+
+        connection.WelcomeSent = true;
+
+        Log.Info($"Игрок {player.Name} вошел в мир на позиции ({player.X}, {player.Y})");
+        await _svc.Hub.BroadcastMapAsync();
+        await _svc.Hub.SendQuestLog(connection, player);
+        await _svc.Hub.SendHotbar(connection, player);
+        await _svc.Hub.SendInventoryAndStatus(connection, player);
+
+        int unreadCount = MailRepository.CountUnread(player.Name);
+        await _svc.Hub.SendToClient(connection, new GameMessage
+        {
+            Type = "mail_unread",
+            Data = new { Count = unreadCount }
+        });
+
+        return true;
+    }
+
+    private async Task<bool> HandleCharacterSelect(ClientConnection connection, GameMessage message, INetworkHub hub)
+    {
+        var json = JsonSerializer.Serialize(message.Data);
+        var el = JsonDocument.Parse(json).RootElement;
+        string? name = el.TryGetProperty("Name", out var n) ? n.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Имя персонажа не указано" }
+            });
+            return false;
+        }
+
+        var ch = CharacterRepository.LoadByName(name);
+        if (ch == null || ch.AccountLogin != connection.AuthenticatedLogin)
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Персонаж не найден" }
+            });
+            return false;
+        }
+
+        return await SpawnPlayer(connection, name);
+    }
+
+    private async Task<bool> HandleCharacterCreate(ClientConnection connection, GameMessage message, INetworkHub hub)
+    {
+        var json = JsonSerializer.Serialize(message.Data);
+        var el = JsonDocument.Parse(json).RootElement;
+        string? name = el.TryGetProperty("Name", out var n) ? n.GetString() : null;
+        int classVal = el.TryGetProperty("Class", out var c) ? c.GetInt32() : 0;
+
+        if (string.IsNullOrWhiteSpace(name) || name.Length < 3 || name.Length > 20)
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Имя должно быть от 3 до 20 символов" }
+            });
+            return false;
+        }
+
+        if (!name.All(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9'))
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Имя: только латинские буквы и цифры" }
+            });
+            return false;
+        }
+
+        if (CharacterRepository.NameTaken(name))
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Имя уже занято" }
+            });
+            return false;
+        }
+
+        if (connection.AuthenticatedLogin == null)
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Не авторизован" }
+            });
+            return false;
+        }
+
+        var cls = (CharacterClass)classVal;
+        var ch = CharacterRepository.Create(connection.AuthenticatedLogin, name, cls);
+
+        var characters = CharacterRepository.ListForAccount(connection.AuthenticatedLogin);
+        await hub.SendToClient(connection, new GameMessage
+        {
+            Type = "character_list",
+            Data = new
+            {
+                Created = true,
+                Name = ch.Name,
+                characters = characters.Select(c2 => new
+                {
+                    name = c2.Name,
+                    level = c2.Level,
+                    className = c2.Class,
+                    zone = c2.Zone
+                }).ToArray()
+            }
+        });
+
+        return await SpawnPlayer(connection, name);
+    }
+
+    private async Task HandleCharacterDelete(ClientConnection connection, GameMessage message, INetworkHub hub)
+    {
+        var json = JsonSerializer.Serialize(message.Data);
+        var el = JsonDocument.Parse(json).RootElement;
+        string? name = el.TryGetProperty("Name", out var n) ? n.GetString() : null;
+
+        if (string.IsNullOrWhiteSpace(name) || connection.AuthenticatedLogin == null)
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Неверный запрос" }
+            });
+            return;
+        }
+
+        var ch = CharacterRepository.LoadByName(name);
+        if (ch == null || ch.AccountLogin != connection.AuthenticatedLogin)
+        {
+            await hub.SendToClient(connection, new GameMessage
+            {
+                Type = "character_list",
+                Data = new { Error = "Персонаж не найден" }
+            });
+            return;
+        }
+
+        CharacterRepository.DeleteCharacter(name);
+
+        var characters = CharacterRepository.ListForAccount(connection.AuthenticatedLogin);
+        await hub.SendToClient(connection, new GameMessage
+        {
+            Type = "character_list",
+            Data = new
+            {
+                Deleted = true,
+                Name = name,
+                characters = characters.Select(c2 => new
+                {
+                    name = c2.Name,
+                    level = c2.Level,
+                    className = c2.Class,
+                    zone = c2.Zone
+                }).ToArray()
+            }
+        });
     }
 }

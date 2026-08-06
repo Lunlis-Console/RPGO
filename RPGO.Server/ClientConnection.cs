@@ -9,6 +9,8 @@ public class ClientConnection
     public TcpClient Client { get; }
     public string Endpoint { get; }
     public Player? Player { get; set; }
+    public string? AuthenticatedLogin { get; set; }
+    public bool IsAdmin { get; set; }
     public SemaphoreSlim WriteLock { get; } = new(1, 1);
 
     // Heartbeat tracking

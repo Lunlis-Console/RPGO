@@ -1,6 +1,7 @@
 using RPGGame.Shared.Models;
 using RPGGame.Shared.Network;
 using RPGGame.ClientMonoGame.Windows;
+using RPGGame.ClientMonoGame.Screens;
 using System.Text.Json;
 
 namespace RPGGame.ClientMonoGame.Networking;
@@ -115,6 +116,8 @@ public sealed class GameClient
     public event Action<bool, string>? MailResultReceived;
     public event Action<int>? MailUnreadReceived;
 
+    public event Action<CharacterSlot[]>? CharacterListUpdated;
+
     public void Initialize(Action uiCallback)
     {
         _uiAction = uiCallback;
@@ -172,6 +175,8 @@ public sealed class GameClient
     internal void RaisePlayerAttackPerformed(string hand, string? skillId, int? targetX = null, int? targetY = null) => Ui(() => PlayerAttackPerformed?.Invoke(hand, skillId, targetX, targetY));
     internal void RaiseRemotePlayerFacing(string playerName, string facing) => Ui(() => RemotePlayerFacing?.Invoke(playerName, facing));
     internal void RaiseProjectileHit(string id, double x, double y) => Ui(() => ProjectileHit?.Invoke(id, x, y));
+    internal void RaiseCharacterListUpdated(CharacterSlot[] chars) => Ui(() => CharacterListUpdated?.Invoke(chars));
+
     internal void RaiseMailListReceived(string folder, List<MailEntry> messages) => Ui(() => MailListReceived?.Invoke(folder, messages));
     internal void RaiseMailDetailReceived(MailEntry msg) => Ui(() => MailDetailReceived?.Invoke(msg));
     internal void RaiseMailUnreadReceived(int count) => Ui(() => MailUnreadReceived?.Invoke(count));
@@ -184,6 +189,15 @@ public sealed class GameClient
         var msg = new GameMessage { Type = type, Data = data };
         return GameMain.Instance?.Network.SendAsync(msg) ?? Task.CompletedTask;
     }
+
+    public void SelectCharacter(string name)
+        => _ = SendAsync("character_select", new { Name = name });
+
+    public void CreateCharacter(string name, int classVal)
+        => _ = SendAsync("character_create", new { Name = name, Class = classVal });
+
+    public void DeleteCharacter(string name)
+        => _ = SendAsync("character_delete", new { Name = name });
 
     public void Authenticate(string login, string password)
     {

@@ -75,7 +75,7 @@ internal static class FriendRepository
     {
         using var conn = Db.Open();
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM accounts WHERE player_name = $name LIMIT 1";
+        cmd.CommandText = "SELECT 1 FROM characters WHERE player_name = $name LIMIT 1";
         cmd.Parameters.AddWithValue("$name", playerName);
         return cmd.ExecuteScalar() != null;
     }

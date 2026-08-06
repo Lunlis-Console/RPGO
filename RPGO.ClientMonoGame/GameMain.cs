@@ -101,6 +101,13 @@ public class GameMain : Game
         _screens = new ScreenManager();
         _screens.ShowLogin();
 
+        Client.CharacterListUpdated += chars =>
+        {
+            if (_screens.CurrentScreen is CharacterSelectScreen cs)
+                cs.SetCharacters(chars);
+            else if (!_screens.IsGameActive)
+                _screens.ShowCharacterSelect(chars);
+        };
         Client.WelcomeReceived += () => _screens.ShowGame();
         Client.SystemMessage += msg => Logger.Info($"System: {msg}");
         Client.Disconnected += reason => _pendingDisconnectReason = reason;

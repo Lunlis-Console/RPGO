@@ -49,9 +49,8 @@ public class ReconnectHandler : BaseHandler
         Player? loadedPlayer;
         if (!World.TryGetPlayerByName(playerName, out loadedPlayer) || loadedPlayer == null)
         {
-            // После перезапуска сервера мир пуст — восстанавливаем игрока из БД.
-            var account = DatabaseManager.GetAccountByPlayerName(playerName);
-            if (account == null || account.IsBanned)
+            var ch = CharacterRepository.LoadByName(playerName);
+            if (ch == null)
             {
                 await SendToClient(connection, new GameMessage
                 {
@@ -62,7 +61,7 @@ public class ReconnectHandler : BaseHandler
             }
 
             Log.Info($"[Reconnect] World empty, reloading {playerName} from DB");
-            loadedPlayer = PlayerFactory.FromAccount(account, Svc);
+            loadedPlayer = PlayerFactory.FromCharacter(ch, Svc);
             World.AddPlayer(loadedPlayer);
         }
 

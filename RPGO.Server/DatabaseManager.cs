@@ -23,66 +23,13 @@ public static class DatabaseManager
             ContentDbSeeder.CopyContentFromRuntimeIfNew(Db.ContentConnectionString, Db.RuntimePath);
 
         Log.Info("База данных инициализирована");
-        MigrateFromJsonIfNeeded();
-    }
-
-    private static void MigrateFromJsonIfNeeded()
-    {
-        var oldFile = "accounts.json";
-        if (!File.Exists(oldFile)) return;
-
-        try
-        {
-            Log.Info("Найден accounts.json, перенос в SQLite...");
-            string json = File.ReadAllText(oldFile, System.Text.Encoding.UTF8);
-            var accounts = System.Text.Json.JsonSerializer.Deserialize<List<Account>>(json) ?? new List<Account>();
-
-            using var conn = Db.Open();
-            foreach (var account in accounts)
-            {
-                var cmd = conn.CreateCommand();
-                cmd.CommandText = @"
-                    INSERT OR IGNORE INTO accounts (login, password_hash, player_name, level, experience,
-                        health, max_health, gold, created_at, last_login,
-                        strength, endurance, agility, cunning, intellect, wisdom, attribute_points, speed, is_admin)
-                    VALUES ($login, $hash, $name, $level, $exp, $hp, $maxhp, $gold, $created, $last,
-                        $str, $end, $agi, $cun, $intel, $wis, $ap, $spd, $admin)";
-                cmd.Parameters.AddWithValue("$login", account.Login);
-                cmd.Parameters.AddWithValue("$hash", account.PasswordHash);
-                cmd.Parameters.AddWithValue("$name", account.PlayerName);
-                cmd.Parameters.AddWithValue("$level", account.PlayerData.Level);
-                cmd.Parameters.AddWithValue("$exp", account.PlayerData.Experience);
-                cmd.Parameters.AddWithValue("$hp", account.PlayerData.Health);
-                cmd.Parameters.AddWithValue("$maxhp", account.PlayerData.MaxHealth);
-                cmd.Parameters.AddWithValue("$gold", account.PlayerData.Gold);
-                cmd.Parameters.AddWithValue("$created", account.CreatedAt.ToString("o"));
-                cmd.Parameters.AddWithValue("$last", account.LastLogin.ToString("o"));
-                cmd.Parameters.AddWithValue("$str", account.PlayerData.Strength);
-                cmd.Parameters.AddWithValue("$end", account.PlayerData.Endurance);
-                cmd.Parameters.AddWithValue("$agi", account.PlayerData.Agility);
-                cmd.Parameters.AddWithValue("$cun", account.PlayerData.Cunning);
-                cmd.Parameters.AddWithValue("$intel", account.PlayerData.Intellect);
-                cmd.Parameters.AddWithValue("$wis", account.PlayerData.Wisdom);
-                cmd.Parameters.AddWithValue("$ap", account.PlayerData.AttributePoints);
-                cmd.Parameters.AddWithValue("$spd", account.PlayerData.Speed);
-                cmd.Parameters.AddWithValue("$admin", account.IsAdmin ? 1 : 0);
-                cmd.ExecuteNonQuery();
-            }
-
-            File.Move(oldFile, oldFile + ".bak");
-            Log.Info($"Перенесено {accounts.Count} аккаунтов. Файл переименован в accounts.json.bak");
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"Ошибка миграции: {ex.Message}", ex);
-        }
     }
 
     // === Account ===
     public static void CreateTestAccountIfNeeded() => AccountRepository.CreateTestAccountIfNeeded();
     public static string HashPassword(string password) => AccountRepository.HashPassword(password);
     public static int GetAccountCount() => AccountRepository.GetCount();
-    public static (bool Success, Account? Account) Register(string login, string password, string playerName) => AccountRepository.Register(login, password, playerName);
+    public static (bool Success, Account? Account) Register(string login, string password, string playerName) => AccountRepository.Register(login, password);
     public static (bool Success, Account? Account) Login(string login, string password) => AccountRepository.Login(login, password);
     public static void SavePlayerProgress(Player player, List<Item>? storageItems = null) => AccountRepository.SavePlayerProgress(player, storageItems);
     public static void SetAdmin(string login, bool isAdmin) => AccountRepository.SetAdmin(login, isAdmin);

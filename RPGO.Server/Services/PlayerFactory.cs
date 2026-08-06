@@ -2,26 +2,21 @@ using RPGGame.Shared.Models;
 
 namespace RPGGame.Server.Services;
 
-/// <summary>
-/// Строит игрока из сохранённых данных аккаунта. Общая логика для входа (login)
-/// и переподключения после перезапуска сервера.
-/// </summary>
 public static class PlayerFactory
 {
-    public static Player FromAccount(Account account, GameServices svc)
+    public static Player FromCharacter(CharacterModel ch, GameServices svc)
     {
-        string savedZone = account.PlayerData.CurrentZoneId;
+        string savedZone = ch.CurrentZoneId;
 
-        // После перезапуска инстансы не существуют — возвращаем на главную карту.
         bool zoneGone = svc.Zones.GetZone(savedZone) == null
                         && !savedZone.Equals(Balance.MainZoneId, StringComparison.OrdinalIgnoreCase);
         string zoneId = zoneGone ? Balance.MainZoneId : savedZone;
 
         int spawnX, spawnY;
-        if (!zoneGone && account.PlayerData.X >= 0 && account.PlayerData.Y >= 0)
+        if (!zoneGone && ch.X >= 0 && ch.Y >= 0)
         {
-            spawnX = account.PlayerData.X;
-            spawnY = account.PlayerData.Y;
+            spawnX = ch.X;
+            spawnY = ch.Y;
         }
         else
         {
@@ -38,36 +33,34 @@ public static class PlayerFactory
 
         var player = new Player
         {
-            Name = account.PlayerName,
+            Name = ch.Name,
             X = spawnX,
             Y = spawnY,
-            Level = account.PlayerData.Level,
-            Experience = account.PlayerData.Experience,
-            Health = account.PlayerData.Health,
-            MaxHealth = account.PlayerData.MaxHealth,
-            Gold = account.PlayerData.Gold,
-            Strength = account.PlayerData.Strength,
-            Endurance = account.PlayerData.Endurance,
-            Agility = account.PlayerData.Agility,
-            Cunning = account.PlayerData.Cunning,
-            Intellect = account.PlayerData.Intellect,
-            Wisdom = account.PlayerData.Wisdom,
-            AttributePoints = account.PlayerData.AttributePoints,
-            Speed = account.PlayerData.Speed,
-            Inventory = account.PlayerData.Inventory,
-            Equipment = account.PlayerData.Equipment,
-            ActiveQuests = account.PlayerData.ActiveQuests,
-            CompletedQuestIds = account.PlayerData.CompletedQuestIds,
-            HotbarSlots = account.PlayerData.HotbarSlots,
-            SkillPoints = account.PlayerData.SkillPoints,
-            LearnedSkills = account.PlayerData.LearnedSkills,
-            SkillRanks = account.PlayerData.SkillRanks,
-            Mana = account.PlayerData.Mana,
-            MaxMana = Balance.MaxMana(account.PlayerData.Wisdom),
-            IsAdmin = account.IsAdmin,
+            Level = ch.Level,
+            Experience = ch.Experience,
+            Health = ch.Health,
+            MaxHealth = ch.MaxHealth,
+            Gold = ch.Gold,
+            Strength = ch.Strength,
+            Endurance = ch.Endurance,
+            Agility = ch.Agility,
+            Cunning = ch.Cunning,
+            Intellect = ch.Intellect,
+            Wisdom = ch.Wisdom,
+            AttributePoints = ch.AttributePoints,
+            Speed = ch.Speed,
+            Inventory = ch.Inventory,
+            Equipment = ch.Equipment,
+            ActiveQuests = ch.ActiveQuests,
+            CompletedQuestIds = ch.CompletedQuestIds,
+            HotbarSlots = ch.HotbarSlots,
+            SkillPoints = ch.SkillPoints,
+            LearnedSkills = ch.LearnedSkills,
+            SkillRanks = ch.SkillRanks,
+            Mana = ch.Mana,
+            MaxMana = Balance.MaxMana(ch.Wisdom),
             CurrentZoneId = zoneId
         };
-        // Mana загружается из сохранённых данных (не восстанавливается при входе)
 
         if (player.Name.Equals("test", StringComparison.OrdinalIgnoreCase)
             || player.Name.Equals("тест", StringComparison.OrdinalIgnoreCase))

@@ -97,6 +97,23 @@ public class TestBot : IDisposable
     {
         switch (msg.Type)
         {
+            case "auth_response":
+                if (msg.Data is JsonElement ae)
+                {
+                    bool ok = ae.TryGetProperty("Success", out var s) && s.GetBoolean();
+                    if (ok && ae.TryGetProperty("characters", out var chars) && chars.ValueKind == JsonValueKind.Array)
+                    {
+                        string? firstChar = null;
+                        foreach (var ch in chars.EnumerateArray())
+                        {
+                            firstChar = ch.TryGetProperty("name", out var n) ? n.GetString() : null;
+                            break;
+                        }
+                        if (firstChar != null)
+                            await SendAsync(new GameMessage { Type = "character_select", Data = new { Name = firstChar } });
+                    }
+                }
+                break;
             case "welcome":
                 Log.Info($"[Бот {Name}] Вошёл в мир");
                 break;
