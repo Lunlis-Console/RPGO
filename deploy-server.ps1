@@ -72,7 +72,14 @@ $setupScript = Join-Path $env:TEMP "rpgo-setup.sh"
 @'
 #!/bin/bash
 cd /root
-rm -rf rpgo-server
+
+# Backup databases if they exist
+if [ -d rpgo-server ]; then
+    cp rpgo-server/game.db /root/game.db.bak 2>/dev/null
+    cp rpgo-server/content.db /root/content.db.bak 2>/dev/null
+    rm -rf rpgo-server
+fi
+
 mkdir -p rpgo-server
 python3 << 'PYEOF'
 import zipfile, os
@@ -85,6 +92,19 @@ for f in z.namelist():
             out.write(z.read(f))
 z.close()
 PYEOF
+
+# Restore databases from backup
+if [ -f /root/game.db.bak ]; then
+    cp /root/game.db.bak /root/rpgo-server/game.db
+    rm /root/game.db.bak
+    echo "Restored game.db from backup"
+fi
+if [ -f /root/content.db.bak ]; then
+    cp /root/content.db.bak /root/rpgo-server/content.db
+    rm /root/content.db.bak
+    echo "Restored content.db from backup"
+fi
+
 cd rpgo-server
 chmod +x RPGO.Server start.sh
 echo "Server files ready in /root/rpgo-server/"
