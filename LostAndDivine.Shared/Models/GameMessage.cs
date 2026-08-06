@@ -1,0 +1,84 @@
+using System.Text.Json.Serialization;
+
+namespace LostAndDivine.Shared.Models;
+
+public class GameMessage
+{
+    [JsonPropertyName("t")]
+    public string Type { get; set; } = "";
+
+    [JsonPropertyName("d")]
+    public object? Data { get; set; }
+
+    /// <summary>Сброс боевого состояния (выход из боя).</summary>
+    public static GameMessage ResetCombat() => new()
+    {
+        Type = "combat_state",
+        Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
+    };
+
+    /// <summary>Обновление HP монстра.</summary>
+    public static GameMessage CombatUpdate(string name, int health, int maxHealth) => new()
+    {
+        Type = "combat_update",
+        Data = new { MonsterName = name, MonsterHealth = health, MonsterMaxHealth = maxHealth }
+    };
+
+    /// <summary>Сообщение в чат.</summary>
+    public static GameMessage Chat(string name, string text) => new()
+    {
+        Type = "chat",
+        Data = new { Name = name, Text = text }
+    };
+
+    /// <summary>Системное сообщение в чат.</summary>
+    public static GameMessage SystemChat(string text) => Chat("Система", text);
+
+    /// <summary>Урон (монстр>игрок или игрок>монстр).</summary>
+    public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null, string? result = null) => new()
+    {
+        Type = "damage",
+        Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit, Result = result }
+    };
+
+    /// <summary>Обновление дебаффов цели (монстра) для HUD.</summary>
+    public static GameMessage TargetDebuffUpdate(object debuffs) => new()
+    {
+        Type = "target_debuff_update",
+        Data = new { Debuffs = debuffs }
+    };
+
+    /// <summary>Уведомление клиенту о смерти игрока (death screen + задержка).</summary>
+    public static GameMessage PlayerDeath(int lostGold) => new()
+    {
+        Type = "player_death",
+        Data = new { LostGold = lostGold }
+    };
+
+    /// <summary>Сообщение об ошибке.</summary>
+    public static GameMessage Error(string code, string message) => new()
+    {
+        Type = "error",
+        Data = new { Code = code, Message = message }
+    };
+
+    /// <summary>Боевое состояние (вход/выход из боя).</summary>
+    public static GameMessage CombatState(bool inCombat, string? targetId = null, string? targetName = null,
+        int targetHp = 0, int targetMaxHp = 0, int targetX = 0, int targetY = 0, bool isPvP = false,
+        object? targetDebuffs = null) => new()
+    {
+        Type = "combat_state",
+        Data = new
+        {
+            InCombat = inCombat,
+            TargetId = targetId,
+            TargetName = targetName,
+            TargetHp = targetHp,
+            TargetMaxHp = targetMaxHp,
+            TargetX = targetX,
+            TargetY = targetY,
+            IsPvP = isPvP,
+            TargetDebuffs = targetDebuffs
+        }
+    };
+}

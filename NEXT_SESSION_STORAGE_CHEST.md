@@ -22,12 +22,12 @@
 ## Проверенные факты (якоря против галлюцинаций)
 
 ### Спрайт
-- Файл: `RPGO.ClientMonoGame/Content/Sprites/SpriteSheets/Chest_SS.png`, 768x64 px → 12 кадров по 64x64.
+- Файл: `LostAndDivine.ClientMonoGame/Content/Sprites/SpriteSheets/Chest_SS.png`, 768x64 px → 12 кадров по 64x64.
   **Карта кадров:** idx0 = склад закрыт, idx1 = склад открыт, idx2 = инстанс закрыт, idx3 = инстанс открыт.
-- Ключ загрузки (embedded resource): `RPGGame.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png`.
-  В `RPGO.ClientMonoGame.csproj` подключено `Content\Sprites\**\*.*` как EmbeddedResource.
+- Ключ загрузки (embedded resource): `LostAndDivine.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png`.
+  В `LostAndDivine.ClientMonoGame.csproj` подключено `Content\Sprites\**\*.*` как EmbeddedResource.
   Паттерн загрузки как в `SpriteCache.cs:103-105`:
-  `LoadTexture("chest_ss", "RPGGame.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png")`.
+  `LoadTexture("chest_ss", "LostAndDivine.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png")`.
 
 ### Карта/сущности (клиент, `Rendering/MapRenderer.cs`)
 - `RebuildSpatialHash(WorldMap map)` (:443) — строит `_spatialHash[(x,y)] = List<EntityInfo>`.
@@ -80,14 +80,14 @@
 - Клиент→сервер: `storage_deposit` `{ ItemId, Quantity }`, `storage_withdraw` `{ ItemId, Quantity }`.
 
 ### Реестры сообщений (обе стороны)
-- Сервер: `MessageHandlerRegistry.RegisterAll` (см. выше) + классы в `RPGO.Server/MessageHandlers/`.
+- Сервер: `MessageHandlerRegistry.RegisterAll` (см. выше) + классы в `LostAndDivine.Server/MessageHandlers/`.
 - Клиент: `Networking/ClientMessageHandlerRegistry.cs` — словарь `_handlers` (:14), хендлер вызывает
   `c.RaiseXxx(...)`. События объявлять в `Networking/GameClient.cs` (паттерн :46-112, `RaiseShopUpdated`
   :140 — `Ui(() => ShopUpdated?.Invoke(...))`). Подписка в `Screens/GameScreen.cs` (паттерн :374-379).
 
 ### База данных
 - `Repositories/Db.cs`: `Db.Open()` (game.db runtime), `Db.OpenContent()` (content.db), `Db.Lock`.
-- Миграции: FluentMigrator `[Migration(N)]`, классы в `RPGO.Shared/Migrations/`, `ForwardOnlyMigration`.
+- Миграции: FluentMigrator `[Migration(N)]`, классы в `LostAndDivine.Shared/Migrations/`, `ForwardOnlyMigration`.
   Следующий номер — **1032**. Пример: `1031_AddSessionTokens.cs`.
   **ВАЖНО:** `MigrationRunner.RunMigrations` прогоняет ВСЕ миграции на обеих БД (game.db и content.db).
   Создание таблицы в 1032 — ок (лишняя таблица в content.db не вредит).
@@ -97,12 +97,12 @@
   Для склада проще всего таблица `player_storage (player_name TEXT PRIMARY KEY, items_json TEXT NOT NULL)`
   с сериализацией `List<Item>` через `System.Text.Json.JsonSerializer.Serialize`
   (паттерн уже используется для `player_equipment.item_data` в `InventoryRepository.SaveEquipment` :243).
-- Стак-логика: `InventoryHelper.AddItem`/`RemoveFromRecord`/`RemoveQuantity` (`RPGO.Server/InventoryHelper.cs`),
+- Стак-логика: `InventoryHelper.AddItem`/`RemoveFromRecord`/`RemoveQuantity` (`LostAndDivine.Server/InventoryHelper.cs`),
   `Balance.MaxStackForType`, `InventoryRepository.SyncItemFromTemplate`.
   Лимит слотов склада — количество записей в списке: `Balance.StorageSlots` (например, 60).
 
 ### UI клиента (окна)
-- Окна — подклассы `GameWindow` в `RPGO.ClientMonoGame/Windows/`. Пример двупанельного + грид + drag +
+- Окна — подклассы `GameWindow` в `LostAndDivine.ClientMonoGame/Windows/`. Пример двупанельного + грид + drag +
   тултипы: `Windows/ShopWindow.cs` (GridCols/GridRows, `_slotRects`, `SpriteCache.ForItem`,
   `DrawTooltip`, `DropOnInventory`, `DragStateChanged`, `DrawScrollbar`). Паттерн инвентаря — `Windows/InventoryWindow.cs`.
 - Диалог количества: `_input.OpenQuantity(itemName, max, pricePerUnit, onConfirm, showPrice, _quantityDialog, GameMain.Instance!)`
@@ -114,7 +114,7 @@
 ## План реализации (порядок)
 1. **Shared**: `WorldMap.StorageChest`, миграция `1032_AddPlayerStorage.cs` (таблица `player_storage`).
 2. **Server**: `Balance.StorageSlots`; новый `StorageService` (+ поле в `GameServices` по паттерну
-   `Trade`/`Collectibles` — прочитай `RPGO.Server/GameServices.cs` и `Program.cs:116` перед добавлением
+   `Trade`/`Collectibles` — прочитай `LostAndDivine.Server/GameServices.cs` и `Program.cs:116` перед добавлением
    параметра в конструктор); хендлеры `StorageOpen/Deposit/Withdraw` + регистрация в Registry;
    кейс `"storage_chest"` в `InteractionService`.
 3. **Server/Program**: вычислить клетку склада рядом с торговцем, `world.Map.AddObstacle(...)`,
@@ -128,8 +128,8 @@
 7. Сборка + тесты + ручной тест.
 
 ## Верификация
-- Сборка: `dotnet build RPGO.Server` и `dotnet build RPGO.ClientMonoGame` (проверь путь к .sln/csproj).
-- Тесты: `dotnet test RPGO.Tests` (сейчас 85/85 зелёных).
+- Сборка: `dotnet build LostAndDivine.Server` и `dotnet build LostAndDivine.ClientMonoGame` (проверь путь к .sln/csproj).
+- Тесты: `dotnet test LostAndDivine.Tests` (сейчас 85/85 зелёных).
 - Ручной: запустить сервер, зайти, подойти к сундуку рядом с торговцем, клик → окно открылось;
   положить стакаемый и не-стакаемый предмет; забрать; перезапустить сервер — предметы на месте.
 - В этой среде **нет `rg`** — используй MCP-инструмент grep (не Select-String/rg в PowerShell).
@@ -137,7 +137,7 @@
 ## Чего НЕ делать
 - Не выдумывай имена сообщений/таблиц/полей — только из списка выше.
 - Не добавляй seed-строки в миграции (дублируются в обеих БД).
-- Не коммить `RPGO.Server/content.db` вслепую — код-сидинг предпочтительнее.
+- Не коммить `LostAndDivine.Server/content.db` вслепую — код-сидинг предпочтительнее.
 - Не меняй кадры 4–11 спрайт-листа и не трогай существующую логику торговца/доски.
 - Не создавай `MerchantWindow.cs` (окна магазина нет такого — есть `ShopWindow.cs`).
 - Не добавляй новое окно/сервис вне перечисленных директорий.

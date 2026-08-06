@@ -1,0 +1,71 @@
+using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Services;
+using LostAndDivine.Shared.Models;
+using LostAndDivine.Shared.Network;
+
+namespace LostAndDivine.Server.MessageHandlers;
+
+public class StatusHandler : BaseHandler
+{
+    public StatusHandler(GameServices svc) : base(svc) { }
+
+    public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
+    {
+        if (player == null) return;
+
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "status_response",
+            Data = new
+            {
+                player.Name,
+                player.Level,
+                player.Health,
+                MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
+                Mana = player.Mana,
+                MaxMana = player.MaxMana,
+                PhysAttack = GameServer.GetBuffedPhysAttack(player, Svc.Debuffs),
+                MagAttack = GameServer.GetBuffedMagAttack(player, Svc.Debuffs),
+                Defense = player.GetDefense(),
+                Resistance = player.GetResistance(),
+                CritChance = Math.Round(player.GetCritChance(), 2),
+                CritDamage = Math.Round(player.GetCritDamage(), 2),
+                EvadeChance = Math.Round(player.GetEvadeChance(), 2),
+                BlockChance = Math.Round(player.GetBlockChance(), 2),
+                ParryChance = Math.Round(player.GetParryChance(), 2),
+                player.Gold,
+                player.X,
+                player.Y,
+                player.Experience,
+                Equipped = player.Equipment.Slots
+                    .Where(kv => kv.Value != null)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value!.Name),
+                player.Strength,
+                Endurance = player.Endurance,
+                player.Agility,
+                player.Cunning,
+                Intellect = player.Intellect,
+                player.Wisdom,
+                player.AttributePoints,
+                player.SkillPoints,
+                player.Speed,
+                MoveIntervalMs = Balance.MoveIntervalMs(player.Speed),
+                AttackSpeed = GameServer.GetAttackSpeed(player, Svc.Debuffs),
+                AttackIntervalMs = GameServer.GetAttackIntervalMs(player, Svc.Debuffs),
+                WeaponDamageType = player.Equipment.GetWeaponDamageType(),
+                WeaponSpeedModifier = player.Equipment.GetWeaponSpeedModifier(),
+                IsDualWielding = player.Equipment.IsDualWielding(),
+                Breakdown = BuildBreakdown(player),
+                ActiveDebuffs = player.GetDebuffsSnapshot().Select(d => new
+                {
+                    Type = d.Type.ToString(),
+                    d.DisplayName,
+                    d.Description,
+                    Value = Math.Round(d.Value, 2),
+                    d.RemainingMs,
+                    DurationMs = d.DurationMs
+                }).ToList()
+            }
+        });
+    }
+}

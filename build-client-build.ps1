@@ -7,8 +7,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = $PSScriptRoot
-$clientProj = Join-Path $root "RPGO.ClientMonoGame\RPGO.ClientMonoGame.csproj"
-$clientBuildDir = Join-Path $root "RPGO.Server\client_build"
+$clientProj = Join-Path $root "LostAndDivine.ClientMonoGame\LostAndDivine.ClientMonoGame.csproj"
+$clientBuildDir = Join-Path $root "LostAndDivine.Server\client_build"
 if (-not (Test-Path $clientBuildDir)) { New-Item -ItemType Directory -Path $clientBuildDir | Out-Null }
 $versionFile = Join-Path $clientBuildDir "version.txt"
 $manifestFile = Join-Path $clientBuildDir "manifest.json"
@@ -62,7 +62,7 @@ Set-Content $versionFile $Version
 # --- zip for a friend ---
 if (-not $NoZip) {
     if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir | Out-Null }
-    $zip = Join-Path $distDir "RPGO-client-win-x64.zip"
+    $zip = Join-Path $distDir "LostAndDivine-client-win-x64.zip"
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Copy-Item (Join-Path $root "dist\README.txt") (Join-Path $publishDir "README.txt") -ErrorAction SilentlyContinue
     Compress-Archive -Path "$publishDir\*" -DestinationPath $zip -CompressionLevel Optimal

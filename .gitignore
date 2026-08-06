@@ -23,7 +23,7 @@ game.db-journal
 
 ## Distribution builds
 dist/
-RPGO.Server/client_build/
+LostAndDivine.Server/client_build/
 
 ## Rider / Copilot caches
 .idea/

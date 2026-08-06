@@ -1,0 +1,306 @@
+using LostAndDivine.Shared.Models;
+
+namespace LostAndDivine.Server;
+
+/// <summary>
+/// Единая точка всех магических чисел и игрового баланса сервера.
+/// </summary>
+public static class Balance
+{
+    // ===== МИР / КОНФИГ =====
+    public const int WorldWidth = 100;
+    public const int WorldHeight = 100;
+    public const int DefaultMerchantX = 50;
+    public const int DefaultMerchantY = 50;
+    public const int DefaultBoardX = 48;
+    public const int DefaultBoardY = 48;
+    public const int ViewRadius = 30;
+    public const int ServerPort = 7777;
+
+    public const int InteractRange = 1;
+    public const int AttackRange = 1;
+
+    public const int RespawnJitterMin = -3;
+    public const int RespawnJitterMax = 4;
+
+    // ===== МАНЕКЕН =====
+    public const int MannequinHealth = 10000;
+    public const int MannequinRegenDelayMs = 5000;
+    public const int MannequinOffsetX = -4;
+    public const int MannequinOffsetY = -2;
+
+    // ===== ДВИЖЕНИЕ =====
+    public const double BaseMoveMs = 500.0;
+    public const double AttackBaseMs = 2000.0;
+
+    // ===== БОЙ: АТРИБУТЫ (shared c BalanceStatic) =====
+    public const int AttackPerStrength = BalanceStatic.AttackPerStrength;
+    public const int AttackPerAgility = BalanceStatic.AttackPerAgility;
+    public const int AttackPerIntellect = BalanceStatic.AttackPerIntellect;
+    public const int DefensePerEndurance = BalanceStatic.DefensePerEndurance;
+    public const int ResistancePerWisdom = BalanceStatic.ResistancePerWisdom;
+    public const double CritChancePerCunning = BalanceStatic.CritChancePerCunning;
+    public const double CritDamagePerStrength = BalanceStatic.CritDamagePerStrength;
+    public const double EvadeChancePerCunning = BalanceStatic.EvadeChancePerCunning;
+    public const double BlockChancePerEndurance = BalanceStatic.BlockChancePerEndurance;
+    public const double ParryChancePerAgility = BalanceStatic.ParryChancePerAgility;
+    public const double ShieldBlockValueMultiplier = BalanceStatic.ShieldBlockValueMultiplier;
+
+    // Базовые боевые множители
+    public const double BaseCritChance = 1.0;
+    public const double BaseCritDamage = 1.5;
+    public const double BaseEvadeChance = 1.0;
+
+    public const int BaseDamagePerLevel = 1;
+    public const int BaseDefensePerLevel = 1;
+
+    public const int AttackSpeedBase = 1;
+    public const int AttackSpeedAgilityDivisor = 12;
+    public const double AgilityDrK = 30.0;
+    public const int MinAttackIntervalMs = 300;
+
+    public const int MinDamage = BalanceStatic.MinDamage;
+    public const int ChanceRollMax = BalanceStatic.ChanceRollMax;
+
+    // ===== ОПЫТ / УРОВНИ (определены в BalanceStatic, дублируются для удобства серверного кода) =====
+    public const int MaxLevel = BalanceStatic.MaxLevel;
+    public const int XpPerLevel = BalanceStatic.XpPerLevel;
+    public const int MaxHealthPerLevel = BalanceStatic.MaxHealthPerLevel;
+    public const int MaxHealthPerEndurance = 5;
+    public const int AttributePointsPerLevel = BalanceStatic.AttributePointsPerLevel;
+
+    // ===== СМЕРТЬ =====
+    public const double DeathHealthFraction = 0.5;
+    public const int DeathGoldLoss = 20;
+    public const int DeathDelayMs = 5000; // 5 секунд перед респауном
+
+    // ===== DUAL WIELD =====
+    public const double DualWieldSpeedBonus = 1.15;
+    public const double OffHandDamageFraction = 0.5;
+    public const double OffHandDelayFraction = 0.4;
+    public const int OffHandDelayMinMs = 150;
+
+    // ===== DUAL WIELD STATUS EFFECT =====
+    public const double DualWieldBonusValue = 0.15;
+    public const int DualWieldBuffRefreshMs = 60000;
+
+    // ===== РЕГЕНЕРАЦИЯ (игрок) =====
+    public const int PlayerRegenInCombatDelayMs = 4000;
+    public const int PlayerRegenOutOfCombatHeal = 5;
+    public const int PlayerRegenOutOfCombatTickMs = 5000;
+    public const double PlayerRegenInCombatFraction = 0.015;
+    public const int PlayerRegenInCombatTickMs = 4000;
+    public const int PlayerRegenMinHeal = 1;
+
+    // ===== МАНА (MP) =====
+    public const int ManaPerWisdom = 5;
+    public const int ManaBase = 100;
+    public const int ManaRegenOutOfCombat = 2;
+    public const int ManaRegenOutOfCombatTickMs = 2000;
+    public const double ManaRegenInCombatFraction = 0.01;
+    public const int ManaRegenInCombatTickMs = 3000;
+    public const int ManaRegenMin = 1;
+
+    // ===== РЕГЕНЕРАЦИЯ (монстр) =====
+    public const int MonsterRegenFullHealDelayMs = 5000;
+    public const int MonsterRegenInCombatDelayMs = 5000;
+    public const int MonsterRegenOutOfCombatHeal = 5;
+    public const int MonsterRegenOutOfCombatTickMs = 5000;
+    public const double MonsterRegenInCombatFraction = 0.01;
+    public const int MonsterRegenInCombatTickMs = 4000;
+    public const int MonsterRegenMinHeal = 1;
+
+    // ===== МОНСТРЫ =====
+    public const int MonsterSpawnCount = 120;
+    public const int SpawnMaxAttempts = 200;
+    public const double SpawnDifficultyPerDist = 0.015;
+    public const int SpawnSafeRadiusFromMerchant = 6;
+    public const int MonsterRespawnDelayMs = 30000;
+    public const int MonsterWanderRadius = 5;
+    public const int MonsterAggroRange = 5;
+    public const int MonsterWanderSkipChance = 40;
+    public const int MonsterLeashStuckTicks = 3;
+    public const int MonsterMoveMinMs = 400;
+    public const int MonsterMoveMaxMs = 1250;
+    public const int MonsterSpawnJitterMaxMs = 2000;
+
+    public const int MonsterAttrBase = 1;
+    public const int MonsterAttrDivisor = 2;
+    public const int MonsterAgilityPerTier = 1;
+
+    public static int MonsterTierByDistance(int dist) => dist switch
+    {
+        <= 15 => 1,
+        <= 25 => 2,
+        <= 35 => 3,
+        _     => 4
+    };
+
+    // ===== ЛУТ / ДРОП =====
+    public const int LootDropChance = 40;
+    public const int CollectibleValue = 2;
+
+    // ===== ИНВЕНТАРЬ =====
+    public const int HotbarSlots = 10;
+    public const int DefaultMaxStack = 10;
+    public const int UniqueItemMaxStack = 1;
+    public const int StorageSlots = 60;
+
+    public static int MaxStackForType(string? type)
+        => type == "consumable" || type == "collectible" || type == "trophy" || type == "material"
+            ? DefaultMaxStack : UniqueItemMaxStack;
+
+    // ===== ТОРГОВЛЯ =====
+    public const double BuybackFraction = 0.5;
+    public const double SellFraction = 0.5;
+
+    // ===== ЗОНЫ =====
+    public const string MainZoneId = BalanceStatic.MainZoneId;
+
+    // ===== ЦИКЛЫ СЕРВЕРА =====
+    public const int LoopMonsterWanderMs = 50;
+    // Цикл перемещения должен тикать быстрее самого быстрого MoveIntervalMs (500 / Speed),
+    // иначе серверный каденс (шаг = ceil(MoveIntervalMs / Loop) * Loop) отстаёт от
+    // клиентской интерполяции (1000 / MoveIntervalMs): персонаж то телепортируется, то стоит.
+    public const int LoopMovePathMs = 50;
+    public const int LoopCombatMs = 200;
+    public const int LoopMonsterAttackMs = 500;
+    public const int LoopDeathTimerMs = 500;
+    public const int LoopInstanceMs = 1000;
+    public const int LoopRespawnMs = 1000;
+    public const int LoopCorpseCleanupMs = 30_000;
+    public const int LoopSessionCleanupMs = 60_000;
+    public const int LoopDisconnectSweepMs = 2000;
+
+    // ===== ФОРМУЛЫ =====
+
+    public static int MoveIntervalMs(int speed)
+        => (int)(BaseMoveMs / Math.Max(1, speed));
+
+    public static int AttackIntervalMs(double attackSpeed)
+        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, attackSpeed)));
+
+    public static int AttackIntervalMs(double baseAgilitySpeed, double weaponSpeedMod)
+        => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod))));
+
+    public static double GetAttackSpeed(int agility)
+    {
+        double effective = AgilityDrK * agility / (AgilityDrK + agility);
+        return Math.Max(1.0, AttackSpeedBase + effective / AttackSpeedAgilityDivisor);
+    }
+
+    public static double GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
+    {
+        double baseSpeed = GetAttackSpeed(agility);
+        return Math.Max(1.0, baseSpeed * Math.Max(0.1, weaponSpeedMod));
+    }
+
+    public static int XpNeededForNextLevel(int level)
+        => level * XpPerLevel;
+
+    public static int BuyPrice(int baseValue)
+        => Math.Max(1, baseValue);
+
+    public static int SellPrice(int baseValue)
+        => Math.Max(1, (int)(baseValue * SellFraction));
+
+    public static int BuybackPrice(int baseValue)
+        => Math.Max(1, (int)(baseValue * BuybackFraction));
+
+    public static int ComputeDeathGoldLoss(int gold)
+        => Math.Min(gold, DeathGoldLoss);
+
+    public static int RespawnHealth(int maxHealth)
+        => (int)(maxHealth * DeathHealthFraction);
+
+    // ===== МАНА =====
+    public static int MaxMana(int wisdom)
+        => ManaBase + Math.Max(0, wisdom - 1) * ManaPerWisdom;
+
+    // ===== ОРУЖЕЙНЫЕ ПРОКИ =====
+    public const int WeaponProcChance = 5;       // 5% шанс прока при автоатаке
+    public const int DebuffTickMs = 1000;         // тик дебаффов каждую секунду
+
+    // Длительности дебаффов (мс)
+    public const int DaggerArmorPenDurationMs = 5000;
+    public const int AxeDamageBonusDurationMs = 5000;
+    public const int MaceDisarmDurationMs = 3000;
+    public const int HammerStunDurationMs = 3000;
+
+    // Значения дебаффов
+    public const double DaggerArmorPenValue = 0.25;
+    public const double AxeDamageBonusValue = 0.15;
+    public const double MaceDamageReductionValue = 0.15;
+    public const double HammerAccuracyReductionValue = 0.15;
+
+    // Баффы (навыки)
+    public const double AttackSpeedBonusValue = 0.30;
+    public const int AttackSpeedBonusDurationMs = 10000;
+
+    // ===== ОГЛУШЕНИЕ =====
+    public const int StunDurationMs = 3000;
+    public const int StunChanceOnHit = 50;
+
+    // ===== ОБЕДВИЖЕН =====
+    public const int RootDurationMs = 3000;
+
+    // ===== СВЯТАЯ ТРОИЦА =====
+    public const int HolyTrinityDebuffChance = 15;
+    public const int HolyTrinityHitCount = 3;
+
+    // Урон по area-of-effect (меч)
+    public const double CleaveDamageFraction = 0.5;
+
+    // Интервал между ударами комбо-навыков (мс)
+    public const int SlashHitIntervalMs = 500;
+
+    // ===== ЭТО ДУЭЛЬ! (SK0009) =====
+    public const int DuelHitCount = 6;                 // всего ударов в серии
+    public const int DuelHitIntervalMs = 250;           // интервал между комбо-ударами (быстрее базового)
+    public const double DuelFirstHitMult = 1.8;        // первый удар: +180% от базы
+    public const double DuelPerHitBonus = 0.15;        // каждый следующий удар: +15% к урону
+    public const double DuelPunishBaseMult = 7.0;      // наказание: +700% от базы
+    public const double DuelPunishPerMissMult = 0.35;  // +35% за каждый ненанесённый удар
+    public const int DuelStunMs = 3000;                // оглушение цели при наказании
+    public const int DuelPunishHitCount = DuelHitCount;
+
+    // ===== ПАССИВНЫЕ НАВЫКИ ПУТИ МЕЧА =====
+    // Кровопускание (SK0010): вампиризм от урона мечом
+    public const double LifestealFraction = 0.10;
+    // Берсерк (SK0011): +2% урона за каждые 5% потерянного HP
+    public const double BerserkDamagePer5Percent = 0.02;
+
+    // ===== ПУТЬ ЛУКА =====
+    public const int AchillesRootMs = 3000;
+    public const int TrapDurationMs = 10000;
+    public const int RetreatTiles = 3;
+    public const double SmokeAccuracyReduction = 0.40;
+    public const double AcidDotFractionPerSec = 0.20;
+    public const double AcidSlowValue = 0.10;
+    public const int SuppressingFireDurationMs = 10000;
+    public const double SuppressingFireDmgMult = 0.60;
+    public const double SuppressingFireSpeedPenalty = 0.12;
+    public const double VulnerableArmorIgnore = BalanceStatic.VulnerableArmorIgnore;
+    public const double ExtraArrowChance = BalanceStatic.ExtraArrowChance;
+    public const double BowAccuracyBonus = BalanceStatic.BowAccuracyBonus;
+    public const double MeleeEvadeBonus = BalanceStatic.MeleeEvadeBonus;
+    public const int BowRangeBonus = BalanceStatic.BowRangeBonus;
+    public const double CloseRangeArmorPenMax = BalanceStatic.CloseRangeArmorPenMax;
+    public const int CloseRangeArmorPenDist = BalanceStatic.CloseRangeArmorPenDist;
+    public const double HunterInstinctCritBonus = BalanceStatic.HunterInstinctCritBonus;
+
+    // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
+    public const int DefaultAttackRange = 1;
+    public const int BowAttackRange = 5;
+    public const int StaffAttackRange = 4;
+    public const int CasterOffhandAttackRange = 4;
+
+    // ===== СНАРЯДЫ =====
+    public const int ProjectileFlightMs = 350;
+    public const double ProjectileHitRadius = 0.5;
+    public const int ProjectileTickMs = 50;
+
+    // ===== ХЕЛПЕРЫ =====
+    public static bool RollPercent(double percent)
+        => Random.Shared.NextDouble() * 100 < percent;
+}

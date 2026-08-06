@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $root = $PSScriptRoot
-$serverProj = Join-Path $root "RPGO.Server\RPGO.Server.csproj"
+$serverProj = Join-Path $root "LostAndDivine.Server\LostAndDivine.Server.csproj"
 $distDir = Join-Path $root "dist"
 $publishDir = Join-Path $env:TEMP "rpgo-server-publish"
 
@@ -20,20 +20,20 @@ dotnet publish $serverProj -c $Config -r $Runtime --self-contained true -o $publ
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed ($LASTEXITCODE)" }
 
 # Copy runtime data
-$serverBin = Join-Path $root "RPGO.Server\bin\$Config\net8.0\$Runtime"
+$serverBin = Join-Path $root "LostAndDivine.Server\bin\$Config\net8.0\$Runtime"
 $gameDbSrc = $null
 $contentDbSrc = $null
 
 if (Test-Path (Join-Path $serverBin "game.db")) {
     $gameDbSrc = Join-Path $serverBin "game.db"
-} elseif (Test-Path (Join-Path $root "RPGO.Server\game.db")) {
-    $gameDbSrc = Join-Path $root "RPGO.Server\game.db"
+} elseif (Test-Path (Join-Path $root "LostAndDivine.Server\game.db")) {
+    $gameDbSrc = Join-Path $root "LostAndDivine.Server\game.db"
 }
 
 if (Test-Path (Join-Path $serverBin "content.db")) {
     $contentDbSrc = Join-Path $serverBin "content.db"
-} elseif (Test-Path (Join-Path $root "RPGO.Server\content.db")) {
-    $contentDbSrc = Join-Path $root "RPGO.Server\content.db"
+} elseif (Test-Path (Join-Path $root "LostAndDivine.Server\content.db")) {
+    $contentDbSrc = Join-Path $root "LostAndDivine.Server\content.db"
 }
 
 if ($gameDbSrc) {
@@ -51,10 +51,10 @@ if ($contentDbSrc) {
 $contentSrc = $null
 if (Test-Path (Join-Path $serverBin "Content")) {
     $contentSrc = Join-Path $serverBin "Content"
-} elseif (Test-Path (Join-Path $root "RPGO.Server\Content")) {
-    $contentSrc = Join-Path $root "RPGO.Server\Content"
-} elseif (Test-Path (Join-Path $root "RPGO.ClientMonoGame\Content")) {
-    $contentSrc = Join-Path $root "RPGO.ClientMonoGame\Content"
+} elseif (Test-Path (Join-Path $root "LostAndDivine.Server\Content")) {
+    $contentSrc = Join-Path $root "LostAndDivine.Server\Content"
+} elseif (Test-Path (Join-Path $root "LostAndDivine.ClientMonoGame\Content")) {
+    $contentSrc = Join-Path $root "LostAndDivine.ClientMonoGame\Content"
 }
 
 if ($contentSrc) {
@@ -73,7 +73,7 @@ if ($Runtime -eq "linux-x64") {
 #!/bin/bash
 cd "$(dirname "$0")"
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-./RPGO.Server
+./LostAndDivine.Server
 '@
     Set-Content -Path (Join-Path $publishDir "start.sh") -Value $startContent -NoNewline
     Write-Host "  Created start.sh"
@@ -81,7 +81,7 @@ export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
     $startContent = @'
 @echo off
 cd /d "%~dp0"
-RPGO.Server.exe
+LostAndDivine.Server.exe
 pause
 '@
     Set-Content -Path (Join-Path $publishDir "start.bat") -Value $startContent -NoNewline
@@ -91,7 +91,7 @@ pause
 # Zip
 if (-not $NoZip) {
     if (-not (Test-Path $distDir)) { New-Item -ItemType Directory -Path $distDir | Out-Null }
-    $zipName = "RPGO-server-$runtimeLabel-x64.zip"
+    $zipName = "LostAndDivine-server-$runtimeLabel-x64.zip"
     $zip = Join-Path $distDir $zipName
     if (Test-Path $zip) { Remove-Item -Force $zip }
     Compress-Archive -Path "$publishDir\*" -DestinationPath $zip -CompressionLevel Optimal
@@ -104,6 +104,6 @@ Write-Host "Done. Server for $Runtime is ready."
 Write-Host "  1. Extract zip on target machine"
 Write-Host "  2. Run start.sh (Linux) or start.bat (Windows)"
 if ($Runtime -eq "linux-x64") {
-    Write-Host "     On Linux first: chmod +x start.sh && chmod +x RPGO.Server"
+    Write-Host "     On Linux first: chmod +x start.sh && chmod +x LostAndDivine.Server"
 }
 Write-Host "  3. Ensure port 7777 is open"

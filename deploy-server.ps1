@@ -12,7 +12,7 @@ $root = $PSScriptRoot
 Write-Host "=== 0. Building client ==="
 & "$root\build-client-build.ps1"
 if ($LASTEXITCODE -ne 0) { throw "Client build failed" }
-Write-Host "  Client zip: dist\RPGO-client-win-x64.zip (для раздачи друзьям)"
+Write-Host "  Client zip: dist\LostAndDivine-client-win-x64.zip (для раздачи друзьям)"
 
 Write-Host "`n=== 1. Building server for $Runtime ==="
 & "$root\build-server.ps1" -Runtime $Runtime -NoZip
@@ -23,9 +23,9 @@ $publishDir = Join-Path $env:TEMP "rpgo-server-publish"
 # Ensure Content folder exists with maps
 $contentDir = Join-Path $publishDir "Content"
 $mapSources = @(
-    (Join-Path $root "RPGO.Server\Content"),
-    (Join-Path $root "RPGO.Server\bin\Release\net8.0\$Runtime\Content"),
-    (Join-Path $root "RPGO.ClientMonoGame\Content")
+    (Join-Path $root "LostAndDivine.Server\Content"),
+    (Join-Path $root "LostAndDivine.Server\bin\Release\net8.0\$Runtime\Content"),
+    (Join-Path $root "LostAndDivine.ClientMonoGame\Content")
 )
 
 $tmjCopied = $false
@@ -48,7 +48,7 @@ if (-not $tmjCopied) {
 }
 
 # Copy client build for auto-updater
-$clientBuildSrc = Join-Path $root "RPGO.Server\client_build"
+$clientBuildSrc = Join-Path $root "LostAndDivine.Server\client_build"
 if (Test-Path $clientBuildSrc) {
     $clientBuildDest = Join-Path $publishDir "client_build"
     if (Test-Path $clientBuildDest) { Remove-Item -Recurse -Force $clientBuildDest }
@@ -57,7 +57,7 @@ if (Test-Path $clientBuildSrc) {
 }
 
 # Create zip
-$zipLocal = Join-Path $root "dist\RPGO-server-linux-x64.zip"
+$zipLocal = Join-Path $root "dist\LostAndDivine-server-linux-x64.zip"
 if (Test-Path $zipLocal) { Remove-Item -Force $zipLocal }
 
 # Verify Content exists before zipping
@@ -97,7 +97,7 @@ fi
 mkdir -p rpgo-server
 python3 << 'PYEOF'
 import zipfile, os
-z = zipfile.ZipFile("/root/RPGO-server-linux-x64.zip")
+z = zipfile.ZipFile("/root/LostAndDivine-server-linux-x64.zip")
 for f in z.namelist():
     target = os.path.join("/root/rpgo-server", f.replace("\\", "/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
@@ -120,7 +120,7 @@ if [ -f /root/content.db.bak ]; then
 fi
 
 cd rpgo-server
-chmod +x RPGO.Server start.sh
+chmod +x LostAndDivine.Server start.sh
 echo "Server files ready in /root/rpgo-server/"
 echo "Run: screen -S rpgo ./start.sh"
 '@ | Set-Content -Path $setupScript -NoNewline

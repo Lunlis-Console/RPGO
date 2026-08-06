@@ -1,0 +1,138 @@
+using LostAndDivine.Server.Instances;
+using LostAndDivine.Server.MessageHandlers;
+using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Services;
+using LostAndDivine.Shared.Models;
+using LostAndDivine.Shared.Network;
+
+namespace LostAndDivine.Server;
+
+/// <summary>
+/// Единый контейнер всех сервисов сервера. Создаётся один раз в Program.Main()
+/// и передаётся всем компонентам через конструктор.
+/// </summary>
+public sealed class GameServices : IGameServices
+{
+    public GameWorld World { get; }
+    public INetworkHub Hub { get; }
+    public MonsterManager Monsters { get; }
+    public LootManager Loot { get; }
+    public CorpseManager Corpses { get; }
+    public QuestManager Quests { get; }
+    public MerchantManager Merchant { get; }
+    public CollectibleManager Collectibles { get; }
+    public TradeManager Trade { get; }
+    public DialogueManager Dialogue { get; }
+    public PartyManager Party { get; }
+    public ProjectileManager Projectiles { get; }
+    public KillService KillService { get; }
+    public PathfindingService Pathfinding { get; }
+    public DebuffManager Debuffs { get; }
+    public CombatService Combat { get; set; }
+    public PvPService PvP { get; set; }
+    public HazardService Hazard { get; set; }
+    public InteractionService Interactions { get; set; }
+    public AuthService Auth { get; set; }
+    public ZoneManager Zones { get; }
+    public InstanceManager Instances { get; set; }
+    public PersistenceService Persistence { get; }
+    public ClientBuildService ClientBuild { get; }
+    public StorageService Storage { get; }
+    public PlayerDeathService PlayerDeath { get; set; }
+    public MonsterCombatCalculator MonsterCombat { get; set; }
+    public MonsterAttackService MonsterAttacks { get; set; }
+    public MessageHandlerRegistry MessageHandlers { get; }
+
+    public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
+    {
+        if (conn == null) return Task.CompletedTask;
+        return Hub.SendChatToAsync(conn, channel, name, text);
+    }
+
+    public Task ChatToC(ClientConnection? conn, string name, string text)
+        => ChatTo(conn, ChatChannel.Combat, name, text);
+
+    public GameServices(
+        GameWorld world,
+        INetworkHub hub,
+        MonsterManager monsters,
+        LootManager loot,
+        CorpseManager corpses,
+        QuestManager quests,
+        MerchantManager merchant,
+        CollectibleManager collectibles,
+        TradeManager trade,
+        DialogueManager dialogue,
+        PartyManager party,
+        ProjectileManager projectiles,
+        KillService killService,
+        PathfindingService pathfinding,
+        DebuffManager debuffs,
+        AuthService auth,
+        ZoneManager zones,
+        PersistenceService persistence,
+        ClientBuildService clientBuild,
+        StorageService storage)
+    {
+        World = world;
+        pathfinding.Services = this;
+        Hub = hub;
+        Monsters = monsters;
+        Loot = loot;
+        Corpses = corpses;
+        Quests = quests;
+        Merchant = merchant;
+        Collectibles = collectibles;
+        Trade = trade;
+        Dialogue = dialogue;
+        Party = party;
+        Projectiles = projectiles;
+        KillService = killService;
+        Pathfinding = pathfinding;
+        Debuffs = debuffs;
+        Auth = auth;
+        Zones = zones;
+        Persistence = persistence;
+        ClientBuild = clientBuild;
+        Storage = storage;
+        MessageHandlers = new MessageHandlerRegistry();
+    }
+
+    public async Task ReloadContent(ClientConnection? connection = null)
+    {
+        try
+        {
+            Log.Info("Перезагрузка данных на сервере...");
+            Merchant.Initialize();
+            Quests.Initialize();
+            Dialogue.LoadAll();
+            Loot.LoadFromDatabase();
+            Monsters.Initialize();
+            Collectibles.Initialize();
+            Hub.LoadNpcCache();
+
+            await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
+
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Обновление завершено." }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Ошибка обновления: {ex.Message}", ex);
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Ошибка обновления: " + ex.Message }
+                });
+            }
+        }
+    }
+}
