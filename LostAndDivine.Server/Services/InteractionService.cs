@@ -74,20 +74,39 @@ public class InteractionService
                         Discount = 0,
                         Items = _svc.Merchant.ShopItems.Select(i => new
                         {
-                            i.Id, i.Name, i.Type, i.WeaponSubtype,
+                            i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity,
                             Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
                             i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
-                            i.Stock,
-                            IsBuyback = false
+                            i.Stock, i.MaxStack, IsBuyback = false,
+                            BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
+                            BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
+                            BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
+                            BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
+                            BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+                            BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
+                            BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
+                            BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+                            i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
+                            i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
                         }).ToList(),
                         Buyback = player.BuybackItems.Select(b => new
                         {
-                            b.Id, b.Name, b.Type, b.WeaponSubtype,
+                            b.Id, b.TemplateId, b.Name, b.Type, b.WeaponSubtype, b.Quantity,
                             Value = Balance.BuybackPrice(b.Value),
                             OriginalValue = b.Value,
                         b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
-                        b.Quantity, IsBuyback = true
+                        b.MaxStack, IsBuyback = true, Stock = 0,
+                            BonusStrength = b.BonusStrength, BonusEndurance = b.BonusEndurance,
+                            BonusAgility = b.BonusAgility, BonusCunning = b.BonusCunning,
+                            BonusIntellect = b.BonusIntellect, BonusWisdom = b.BonusWisdom,
+                            BonusPhysAttack = b.BonusPhysAttack, BonusMagAttack = b.BonusMagAttack,
+                            BonusDefense = b.BonusDefense, BonusResistance = b.BonusResistance,
+                            BonusCritChance = b.BonusCritChance, BonusCritDamage = b.BonusCritDamage,
+                            BonusEvadeChance = b.BonusEvadeChance, BonusAttackSpeed = b.BonusAttackSpeed,
+                            BonusBlockChance = b.BonusBlockChance, BonusParryChance = b.BonusParryChance,
+                            b.DamageType, b.RequiredLevel, b.DamageMin, b.DamageMax,
+                            b.AttackSpeedModifier, b.TwoHanded, b.AttackRange
                         }).ToList(),
                         PlayerGold = player.Gold
                     }
