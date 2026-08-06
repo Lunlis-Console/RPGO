@@ -157,7 +157,7 @@ public static class MailRepository
     {
         using var conn = Db.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM accounts WHERE player_name = $name";
+        cmd.CommandText = "SELECT COUNT(*) FROM characters WHERE player_name = $name";
         cmd.Parameters.AddWithValue("$name", playerName);
         return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
     }
