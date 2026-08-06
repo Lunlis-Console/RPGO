@@ -88,7 +88,8 @@ public class InventoryWindow : GameWindow
 
     public void UpdateData(InventoryData data)
     {
-        if (data?.Items != null)
+        if (data == null) return;
+        if (data.Items != null)
         {
             var newQty = new Dictionary<string, int>();
             foreach (var item in data.Items)

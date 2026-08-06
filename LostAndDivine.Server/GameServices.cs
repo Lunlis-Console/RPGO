@@ -28,19 +28,19 @@ public sealed class GameServices : IGameServices
     public KillService KillService { get; }
     public PathfindingService Pathfinding { get; }
     public DebuffManager Debuffs { get; }
-    public CombatService Combat { get; set; }
-    public PvPService PvP { get; set; }
-    public HazardService Hazard { get; set; }
-    public InteractionService Interactions { get; set; }
-    public AuthService Auth { get; set; }
+    public CombatService Combat { get; set; } = null!;
+    public PvPService PvP { get; set; } = null!;
+    public HazardService Hazard { get; set; } = null!;
+    public InteractionService Interactions { get; set; } = null!;
+    public AuthService Auth { get; set; } = null!;
     public ZoneManager Zones { get; }
-    public InstanceManager Instances { get; set; }
+    public InstanceManager Instances { get; set; } = null!;
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
-    public PlayerDeathService PlayerDeath { get; set; }
-    public MonsterCombatCalculator MonsterCombat { get; set; }
-    public MonsterAttackService MonsterAttacks { get; set; }
+    public PlayerDeathService PlayerDeath { get; set; } = null!;
+    public MonsterCombatCalculator MonsterCombat { get; set; } = null!;
+    public MonsterAttackService MonsterAttacks { get; set; } = null!;
     public MessageHandlerRegistry MessageHandlers { get; }
 
     public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)

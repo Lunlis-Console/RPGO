@@ -10,7 +10,7 @@ public enum ItemQuality
 
 public static class ItemQualityExtensions
 {
-    public static ItemQuality ParseFromDescription(string description)
+    public static ItemQuality ParseFromDescription(string? description)
     {
         if (string.IsNullOrEmpty(description)) return ItemQuality.Common;
         if (description.Contains("Необычный")) return ItemQuality.Uncommon;
