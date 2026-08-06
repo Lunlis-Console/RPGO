@@ -1837,8 +1837,9 @@ private sealed class RemotePlayerState
             Color pvpEnemyColor = new Color(220, 60, 60);
             Color nickColor = p.Name == _playerName
                 ? Color.Goldenrod
-                : (_partyMemberNames.Contains(p.Name) ? groupColor
-                    : (map.PvPEnabled ? pvpEnemyColor : Color.LightGray));
+                : (p.IsAdmin ? new Color(0, 255, 200)
+                    : (_partyMemberNames.Contains(p.Name) ? groupColor
+                        : (map.PvPEnabled ? pvpEnemyColor : Color.LightGray)));
 
             string nick = $"{p.Name} [{p.Level}]";
             var nickSize = fontSmall.MeasureString(nick);

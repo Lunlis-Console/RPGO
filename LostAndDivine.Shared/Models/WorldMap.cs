@@ -1,8 +1,8 @@
 namespace LostAndDivine.Shared.Models;
 
 /// <summary>
-/// DTO, отправляемое клиенту (позиции сущностей + размеры мира). Не является игровым
-/// состоянием — размеры заполняются сервером из GameMap при отправке.
+/// DTO, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ + пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ). пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+/// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ GameMap пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
 /// </summary>
 public class WorldMap
 {
@@ -17,7 +17,7 @@ public class WorldMap
     public List<CorpsePosition> Corpses { get; set; } = new();
     public List<NpcPosition> Npcs { get; set; } = new();
 
-    // Зона
+    // пїЅпїЅпїЅпїЅ
     public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public string ZoneName { get; set; } = "";
     public bool PvPEnabled { get; set; }
@@ -29,7 +29,7 @@ public class WorldMap
 
     public List<HazardPosition> Hazards { get; set; } = new();
 
-    // Тайл-карта
+    // пїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅ
     public string? TileMapId { get; set; }
     public byte[]? TileData { get; set; }
     public byte[]? ObstacleData { get; set; }
@@ -37,7 +37,7 @@ public class WorldMap
     public int TileHeight { get; set; } = 32;
     public string? TilesetId { get; set; }
 
-    // Слой объектов (деревья и т.п.), рисуется поверх сущностей
+    // пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅ.пїЅ.), пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public byte[]? ObjectData { get; set; }
     public string? ObjectTilesetId { get; set; }
     public int ObjectTileWidth { get; set; }
@@ -58,13 +58,14 @@ public class PlayerPosition
     public string ShieldSubtype { get; set; } = "";
     public bool IsTwoHanded { get; set; }
     public bool IsDead { get; set; }
+    public bool IsAdmin { get; set; }
 }
 
 public class MerchantPosition
 {
     public int X { get; set; }
     public int Y { get; set; }
-    public string Name { get; set; } = "Торговец";
+    public string Name { get; set; } = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ";
 }
 
 public class CollectiblePosition
