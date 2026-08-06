@@ -126,6 +126,6 @@ echo "Run: screen -S lost-and-divine ./start.sh"
 '@ | Set-Content -Path $setupScript -NoNewline
 
 scp $setupScript root@${ServerIp}:/root/lost-and-divine-setup.sh
-ssh root@${ServerIp} "bash /root/lost-and-divine-setup.sh"
+ssh root@${ServerIp} "sed -i 's/\r$//' /root/lost-and-divine-setup.sh; bash /root/lost-and-divine-setup.sh"
 
 Write-Host "`n=== Done ==="
