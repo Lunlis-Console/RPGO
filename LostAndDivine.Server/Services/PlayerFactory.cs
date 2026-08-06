@@ -34,6 +34,7 @@ public static class PlayerFactory
         var player = new Player
         {
             Name = ch.Name,
+            Class = ch.Class,
             X = spawnX,
             Y = spawnY,
             Level = ch.Level,

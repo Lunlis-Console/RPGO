@@ -30,6 +30,7 @@ public sealed class ChatData
 public sealed class StatusData
 {
     public string? Name { get; set; }
+    public string? ClassName { get; set; }
     public int Level { get; set; }
     public int Health { get; set; }
     public int MaxHealth { get; set; }

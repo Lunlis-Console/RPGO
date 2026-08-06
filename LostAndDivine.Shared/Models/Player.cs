@@ -5,7 +5,8 @@ namespace LostAndDivine.Shared.Models;
 public class Player : ICombatant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    public string Name { get; set; } = "Незнакомец";
+    public string Name { get; set; } = "Р‘РµР·С‹РјСЏРЅРЅС‹Р№";
+    public CharacterClass Class { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
     public int Health { get; set; } = 100;
@@ -14,14 +15,14 @@ public class Player : ICombatant
     public int Experience { get; set; }
     public int Gold { get; set; }
 
-    // Мана (MP)
+    // пїЅпїЅпїЅпїЅ (MP)
     public int Mana { get; set; } = 100;
     public int MaxMana { get; set; } = 100;
 
-    // Кулдауны навыков: skillId -> время последнего применения (UTC) (потокобезопасная)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: skillId -> пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (UTC) (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> LastSkillUse { get; set; } = new();
 
-    // Очередь прекаста/боя: skillId в порядке применения (без дублей, потокобезопасная)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅ: skillId пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public List<string> QueuedSkillIds { get; set; } = new();
     public object QueuedSkillIdsLock { get; } = new();
 
@@ -29,31 +30,31 @@ public class Player : ICombatant
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
 
-    // История выполненных квестов (для цепочек и условий диалогов)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public List<string> CompletedQuestIds { get; set; } = new();
 
-    // Первичные атрибуты (качаются с уровнем)
-    public int Strength { get; set; } = 1;   // +физ.атака, +крит урон
-    public int Endurance { get; set; } = 1;  // +MaxHP, +сопротивление физ.эффектам
-    public int Agility { get; set; } = 1;    // +физ.атака, +скорость атаки
-    public int Cunning { get; set; } = 1;    // +шанс крита, +уклонение
-    public int Intellect { get; set; } = 1;  // +маг.атака, +шанс маг.эффекта
-    public int Wisdom { get; set; } = 1;     // +MaxMP, +сопротивление маг.эффектам
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+    public int Strength { get; set; } = 1;   // +пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅ, +пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
+    public int Endurance { get; set; } = 1;  // +MaxHP, +пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    public int Agility { get; set; } = 1;    // +пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅ, +пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+    public int Cunning { get; set; } = 1;    // +пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, +пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    public int Intellect { get; set; } = 1;  // +пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅ, +пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    public int Wisdom { get; set; } = 1;     // +MaxMP, +пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ.пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
     public List<string> LearnedSkills { get; set; } = new();
-    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > ранг прокачки
+    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-    // Базовые боевые параметры (редактируются позже бонусами экипировки/умений)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅ)
     public double BaseCritChance { get; set; } = 1.0;   // %
-    public double BaseCritDamage { get; set; } = 1.5;   // множитель
+    public double BaseCritDamage { get; set; } = 1.5;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public double BaseEvadeChance { get; set; } = 1.0;  // %
     public double BaseBlockChance { get; set; } = 0.0;  // %
     public double BaseParryChance { get; set; } = 0.0;  // %
 
-    // --- Производные боевые характеристики ---
+    // --- пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ---
 
-    // Эффективные атрибуты (с учётом бонусов экипировки)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public int GetEffStrength() => Strength + Equipment.GetBonusStrength();
     public int GetEffEndurance() => Endurance + Equipment.GetBonusEndurance();
     public int GetEffAgility() => Agility + Equipment.GetBonusAgility();
@@ -103,15 +104,15 @@ public class Player : ICombatant
            + Equipment.GetBonusParryChance()
            + GetReflexesParryBonus();
 
-    // Пассивный навык «Рефлексы» (SK0008): +10% шанс парирования при двух одноручных оружиях.
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0008): +10% пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
     public double GetReflexesParryBonus()
     {
         if (!LearnedSkills.Contains(SkillIds.Reflexes)) return 0;
         return Equipment.IsDualWielding() ? 10.0 * GetPassiveRankMult(SkillIds.Reflexes) : 0.0;
     }
 
-    // Пассивный навык «Амбидекстр» (SK0003): доля урона левой руки от правой.
-    // Ранг 1: +25% (итого 75%), ранг 2: +40% (90%), ранг 3: +50% (100% — как правая рука).
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0003): пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
+    // пїЅпїЅпїЅпїЅ 1: +25% (пїЅпїЅпїЅпїЅпїЅ 75%), пїЅпїЅпїЅпїЅ 2: +40% (90%), пїЅпїЅпїЅпїЅ 3: +50% (100% пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ).
     public double GetOffHandDamageFraction()
     {
         if (!LearnedSkills.Contains(SkillIds.Ambidextrous)) return Equipment.OffHandDamageFraction;
@@ -124,7 +125,7 @@ public class Player : ICombatant
         return Math.Min(1.0, Equipment.OffHandDamageFraction + bonus);
     }
 
-    // Максимальная атака для удара второй рукой (аналог GetTotalAttack, но по оффхенд-оружию).
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ GetTotalAttack, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ).
     public int GetOffHandTotalAttack(int dist)
     {
         var offHand = Equipment.GetOffHandWeapon();
@@ -141,7 +142,7 @@ public class Player : ICombatant
     private bool UsesMagicAttack(int dist)
         => Equipment.GetWeaponCategory() is WeaponCategory.Staff or WeaponCategory.Grimoire or WeaponCategory.Sphere;
 
-    // Совместимость с ICombatant (физ. атака/защита) — без расстояния (ближний бой по умолчанию)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ ICombatant (пїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
     public int GetTotalAttack() => GetTotalAttack(1);
@@ -159,7 +160,7 @@ public class Player : ICombatant
     public int GetTotalAttack(int dist)
         => (int)(((UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage()) * GetBerserkMultiplier());
 
-    // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья.
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0011): +2% пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ 5% пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
     public double GetBerserkMultiplier()
     {
         if (!LearnedSkills.Contains(SkillIds.Berserk)) return 1.0;
@@ -169,17 +170,17 @@ public class Player : ICombatant
         return 1.0 + BalanceStatic.BerserkDamagePer5Percent * GetPassiveRankMult(SkillIds.Berserk) * (percentMissing / 5.0);
     }
 
-    // ----- Ранги навыков -----
+    // ----- пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ -----
 
     public int GetSkillRank(string skillId) => SkillRanks.TryGetValue(skillId, out int r) ? r : 1;
 
-    /// <summary>Множитель урона активного навыка от ранга (+12% за ранг выше 1-го).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (+12% пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ 1-пїЅпїЅ).</summary>
     public double GetSkillRankDmgMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.12;
 
-    /// <summary>Множитель кулдауна от ранга (–8% за ранг).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅ8% пїЅпїЅ пїЅпїЅпїЅпїЅ).</summary>
     public double GetSkillRankCdMult(string skillId) => 1.0 - (GetSkillRank(skillId) - 1) * 0.08;
 
-    /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (+33% пїЅпїЅ пїЅпїЅпїЅпїЅ).</summary>
     public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;
 
     public bool IsWieldingBow()
@@ -188,32 +189,32 @@ public class Player : ICombatant
     public int GetEffectiveAttackRange()
         => Equipment.GetWeaponAttackRange() + GetBowRangeBonus();
 
-    /// <summary>«Вам подарочек» (SK0017): шанс доп. стрелы.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0017): пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅ.</summary>
     public double GetExtraArrowChance()
     {
         if (!LearnedSkills.Contains(SkillIds.ExtraArrow) || !IsWieldingBow()) return 0;
         return BalanceStatic.ExtraArrowChance * GetPassiveRankMult(SkillIds.ExtraArrow);
     }
 
-    /// <summary>«Белке в глаз» (SK0018): бонус точности (вычитается из уклона цели).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ (SK0018): пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ).</summary>
     public double GetBowAccuracyBonus()
     {
         if (!LearnedSkills.Contains(SkillIds.BowAccuracy) || !IsWieldingBow()) return 0;
         return BalanceStatic.BowAccuracyBonus * GetPassiveRankMult(SkillIds.BowAccuracy);
     }
 
-    /// <summary>«Руками не трогать» (SK0019): +уклон против ближнего боя.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0019): +пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ.</summary>
     public double GetMeleeEvadeBonus()
     {
         if (!LearnedSkills.Contains(SkillIds.MeleeEvade)) return 0;
         return BalanceStatic.MeleeEvadeBonus * GetPassiveRankMult(SkillIds.MeleeEvade);
     }
 
-    /// <summary>«Дальний прицел» (SK0020): бонус дальности лука.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (SK0020): пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.</summary>
     public int GetBowRangeBonus()
         => LearnedSkills.Contains(SkillIds.LongRangeSight) && IsWieldingBow() ? BalanceStatic.BowRangeBonus : 0;
 
-    /// <summary>«Дальний прицел»: пробитие брони чем ближе цель (дист ? 2).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ ? 2).</summary>
     public double GetCloseRangeArmorPen(int dist)
     {
         if (!LearnedSkills.Contains(SkillIds.LongRangeSight) || !IsWieldingBow()) return 0;
@@ -223,7 +224,7 @@ public class Player : ICombatant
         return BalanceStatic.CloseRangeArmorPenMax * GetPassiveRankMult(SkillIds.LongRangeSight) * Math.Clamp(t, 0, 1);
     }
 
-    /// <summary>«Охотничий инстинкт» (SK0021): бонус крита по ослабленным целям.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (SK0021): пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.</summary>
     public double GetHunterInstinctCritBonus(ICombatant target)
     {
         if (!LearnedSkills.Contains(SkillIds.HuntingInstinct) || !IsWieldingBow()) return 0;
@@ -242,55 +243,55 @@ public class Player : ICombatant
     public int GetMaxAttackDamage(int dist)
         => (UsesMagicAttack(dist) ? GetMagAttack() : GetPhysAttack()) + Equipment.GetWeaponMaxDamage();
 
-    public int Speed { get; set; } = 1;   // определяет интервал перемещения
+    public int Speed { get; set; } = 1;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 
-    // Регенерация
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public DateTime LastDamagedTime { get; set; } = DateTime.MinValue;
     public DateTime LastRegenTime { get; set; } = DateTime.MinValue;
 
-    // Компоненты состояний
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public MovementState Movement { get; set; } = new();
     public CombatState Combat { get; set; } = new();
     public InteractionState Interaction { get; set; } = new();
     public DialogueState Dialogue { get; set; } = new();
 
-    // Направление взгляда (для cleave и т.д.)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ cleave пїЅ пїЅ.пїЅ.)
     public string Facing { get; set; } = "down";
 
-    // Активные дебаффы (потокобезопасный доступ через DebuffsLock)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ DebuffsLock)
     public List<ActiveDebuff> ActiveDebuffs { get; set; } = new();
     public object DebuffsLock { get; } = new();
 
-    /// <summary>Возвращает снимок списка дебаффов (потокобезопасно).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ).</summary>
     public List<ActiveDebuff> GetDebuffsSnapshot()
     {
         lock (DebuffsLock) return new List<ActiveDebuff>(ActiveDebuffs);
     }
 
-    // Панель быстрого доступа (10 слотов, хранятся ID предметов)
+    // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (10 пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
 
     public List<Item> BuybackItems { get; set; } = new();
 
-    // Пати
+    // пїЅпїЅпїЅпїЅ
     public Guid? PartyId { get; set; }
 
-    // Обмен
+    // пїЅпїЅпїЅпїЅпїЅ
     public bool IsTrading { get; set; }
 
-    // Администрирование
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public bool IsAdmin { get; set; }
 
-    // Зона
+    // пїЅпїЅпїЅпїЅ
     public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
 
-    // Смерть: флаг + время (для задержки 5с перед респауном)
+    // пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅ + пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ 5пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public bool IsDead { get; set; }
     public DateTime DeathTime { get; set; }
 
     /// <summary>
-    /// Проверяет, достаточно ли опыта для повышения уровня.
-    /// Если да — повышает уровень, возвращает true.
+    /// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.
+    /// пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ true.
     /// </summary>
     public bool TryLevelUp()
     {

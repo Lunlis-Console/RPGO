@@ -195,9 +195,11 @@ public class StatusWindow : GameWindow
 
         int infoX = cx + portrait + 12;
         DrawText(sb, _data.Name ?? "????", infoX, cy + 4, TitleGold);
-        DrawText(sb, $"Уровень {_data.Level}", infoX, cy + 26, StatColor);
-        DrawText(sb, $"Золото: {_data.Gold}", infoX, cy + 48, new Color(220, 200, 80));
-        DrawText(sb, $"Опыт: {_data.Experience}", infoX, cy + 70, DimColor);
+        if (!string.IsNullOrEmpty(_data.ClassName))
+            DrawText(sb, _data.ClassName, infoX, cy + 26, new Color(160, 200, 220));
+        DrawText(sb, $"Уровень {_data.Level}", infoX, cy + 48, StatColor);
+        DrawText(sb, $"Золото: {_data.Gold}", infoX, cy + 70, new Color(220, 200, 80));
+        DrawText(sb, $"Опыт: {_data.Experience}", infoX, cy + 92, DimColor);
 
         // Полоски HP/MP под портретом
         int barX = cx;
