@@ -839,8 +839,10 @@ public sealed class GameServer : INetworkHub
         var tiled = svc.Zones.GetTiledNpcs(zoneId);
         var st = tiled.FirstOrDefault(n =>
             string.Equals(n.Type, "storage", StringComparison.OrdinalIgnoreCase));
-        return st != null
-            ? new ChestPosition { X = st.X, Y = st.Y, IsLocked = false }
-            : null;
+        if (st != null)
+            return new ChestPosition { X = st.X, Y = st.Y, IsLocked = false };
+        if (zoneId == Balance.MainZoneId)
+            return new ChestPosition { X = svc.Storage.StorageX, Y = svc.Storage.StorageY, IsLocked = false };
+        return null;
     }
 }
