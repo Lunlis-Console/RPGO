@@ -53,20 +53,9 @@ public class MerchantManager
             MerchantX = DatabaseManager.GetWorldConfigInt("merchant_x", 50);
             MerchantY = DatabaseManager.GetWorldConfigInt("merchant_y", 50);
         }
-        var merchant = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "merchant");
-        var stockIds = merchant != null ? DatabaseManager.LoadMerchantStock(merchant.Id) : new List<string>();
-
         var allItems = DatabaseManager.LoadItems();
-        if (stockIds.Count > 0)
-        {
-            var set = new HashSet<string>(stockIds);
-            ShopItems = allItems.Where(i => set.Contains(i.Id)).ToList();
-        }
-        else
-        {
-            // Дефолтный ассортимент до первого редактирования в editor
-            ShopItems = allItems.Where(i => i.Type != "collectible").ToList();
-        }
+        // Показываем все предметы кроме собираемых (collectible)
+        ShopItems = allItems.Where(i => i.Type != "collectible").ToList();
         Log.Info($"Загружено предметов магазина: {ShopItems.Count}");
     }
 
