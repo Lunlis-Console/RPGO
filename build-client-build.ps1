@@ -14,7 +14,7 @@ $versionFile = Join-Path $clientBuildDir "version.txt"
 $manifestFile = Join-Path $clientBuildDir "manifest.json"
 $filesDir = Join-Path $clientBuildDir "files"
 $distDir = Join-Path $root "dist"
-$publishDir = Join-Path $env:TEMP "rpgo-client-publish"
+$publishDir = Join-Path $env:TEMP "lost-and-divine-client-publish"
 
 # --- version: param or auto-increment patch ---
 if (-not $Version) {

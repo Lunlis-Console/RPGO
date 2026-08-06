@@ -3,7 +3,7 @@ param(
     [string]$ServerIp,
     [string]$Runtime = "linux-x64",
     [string]$User = "root",
-    [string]$RemoteDir = "/root/rpgo-server"
+    [string]$RemoteDir = "/root/lost-and-divine"
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +18,7 @@ Write-Host "`n=== 1. Building server for $Runtime ==="
 & "$root\build-server.ps1" -Runtime $Runtime -NoZip
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
-$publishDir = Join-Path $env:TEMP "rpgo-server-publish"
+$publishDir = Join-Path $env:TEMP "lost-and-divine-server-publish"
 
 # Ensure Content folder exists with maps
 $contentDir = Join-Path $publishDir "Content"
@@ -82,24 +82,24 @@ Write-Host "`n=== 2. Uploading to $ServerIp ==="
 scp $zipLocal ${User}@${ServerIp}:/root/
 Write-Host "`n=== 3. Extracting and restarting on server ==="
 
-$setupScript = Join-Path $env:TEMP "rpgo-setup.sh"
+$setupScript = Join-Path $env:TEMP "lost-and-divine-setup.sh"
 @'
 #!/bin/bash
 cd /root
 
 # Backup databases if they exist
-if [ -d rpgo-server ]; then
-    cp rpgo-server/game.db /root/game.db.bak 2>/dev/null
-    cp rpgo-server/content.db /root/content.db.bak 2>/dev/null
-    rm -rf rpgo-server
+if [ -d lost-and-divine ]; then
+    cp lost-and-divine/game.db /root/game.db.bak 2>/dev/null
+    cp lost-and-divine/content.db /root/content.db.bak 2>/dev/null
+    rm -rf lost-and-divine
 fi
 
-mkdir -p rpgo-server
+mkdir -p lost-and-divine
 python3 << 'PYEOF'
 import zipfile, os
 z = zipfile.ZipFile("/root/LostAndDivine-server-linux-x64.zip")
 for f in z.namelist():
-    target = os.path.join("/root/rpgo-server", f.replace("\\", "/"))
+    target = os.path.join("/root/lost-and-divine", f.replace("\\", "/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
     if not f.endswith("/"):
         with open(target, "wb") as out:
@@ -109,23 +109,23 @@ PYEOF
 
 # Restore databases from backup
 if [ -f /root/game.db.bak ]; then
-    cp /root/game.db.bak /root/rpgo-server/game.db
+    cp /root/game.db.bak /root/lost-and-divine/game.db
     rm /root/game.db.bak
     echo "Restored game.db from backup"
 fi
 if [ -f /root/content.db.bak ]; then
-    cp /root/content.db.bak /root/rpgo-server/content.db
+    cp /root/content.db.bak /root/lost-and-divine/content.db
     rm /root/content.db.bak
     echo "Restored content.db from backup"
 fi
 
-cd rpgo-server
+cd lost-and-divine
 chmod +x LostAndDivine.Server start.sh
-echo "Server files ready in /root/rpgo-server/"
-echo "Run: screen -S rpgo ./start.sh"
+echo "Server files ready in /root/lost-and-divine/"
+echo "Run: screen -S lost-and-divine ./start.sh"
 '@ | Set-Content -Path $setupScript -NoNewline
 
-scp $setupScript root@${ServerIp}:/root/rpgo-setup.sh
-ssh root@${ServerIp} "bash /root/rpgo-setup.sh"
+scp $setupScript root@${ServerIp}:/root/lost-and-divine-setup.sh
+ssh root@${ServerIp} "bash /root/lost-and-divine-setup.sh"
 
 Write-Host "`n=== Done ==="

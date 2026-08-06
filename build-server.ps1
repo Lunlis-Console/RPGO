@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $serverProj = Join-Path $root "LostAndDivine.Server\LostAndDivine.Server.csproj"
 $distDir = Join-Path $root "dist"
-$publishDir = Join-Path $env:TEMP "rpgo-server-publish"
+$publishDir = Join-Path $env:TEMP "lost-and-divine-server-publish"
 
 $runtimeLabel = if ($Runtime -eq "linux-x64") { "linux" } else { "win" }
 
