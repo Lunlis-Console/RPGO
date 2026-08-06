@@ -763,9 +763,12 @@ public sealed class GameServer : INetworkHub
 
     public async Task KickPlayer(ClientConnection connection, string reason)
     {
+        if (connection.SessionToken != null)
+            SessionManager.Revoke(connection.SessionToken);
+        connection.SessionToken = null;
         await SendToClient(connection, new GameMessage
         {
-            Type = "disconnect",
+            Type = "kick",
             Data = new { Reason = reason }
         });
         _world.DisconnectPlayer(connection);
