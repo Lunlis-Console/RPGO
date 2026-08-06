@@ -102,6 +102,22 @@ public abstract class BaseHandler : IMessageHandler
     protected Task SendInventoryAndStatus(ClientConnection connection, Player player, bool fromUnequip = false)
         => Hub.SendInventoryAndStatus(connection, player, fromUnequip);
 
+    protected static object MakeItemPayload(Item i) => new
+    {
+        i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
+        i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
+        BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
+        BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
+        BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
+        BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+        BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
+        BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
+        BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+        i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
+        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
+    };
+
     protected Task SendQuestLog(ClientConnection connection, Player player)
         => Hub.SendQuestLog(connection, player);
 

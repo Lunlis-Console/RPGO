@@ -20,14 +20,14 @@ public class LootCorpseHandler : BaseHandler
             corpseId = Guid.Parse(cidEl.GetString()!);
         else
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Неверный ID трупа");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID пїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
         var corpse = Svc.Corpses.FindCorpseById(corpseId);
         if (corpse == null)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Труп не найден или уже собран");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
@@ -36,7 +36,7 @@ public class LootCorpseHandler : BaseHandler
         {
             player.Movement.Path.Clear();
 
-            // Выбираем лучшую клетку из 4 сторон рядом с трупом (cardinal, не по диагонали)
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ 4 пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (cardinal, пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
             int[] dx = { 0, 0, -1, 1 };
             int[] dy = { -1, 1, 0, 0 };
             int bestX = -1, bestY = -1;
@@ -58,14 +58,14 @@ public class LootCorpseHandler : BaseHandler
 
             if (bestX < 0)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Нет свободной клетки рядом с трупом");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
                 return;
             }
 
             var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY, player.CurrentZoneId);
             if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ");
                 return;
             }
             player.Movement.Path = path;
@@ -74,12 +74,12 @@ public class LootCorpseHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "Вы подходите к трупу..." }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ..." }
             });
             return;
         }
 
-        // Проверка: только участники боя (или члены их пати) могут лутать
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         if (corpse.Contributors.Count > 0 && !corpse.Contributors.ContainsKey(player.Id))
         {
             bool sameParty = false;
@@ -94,7 +94,7 @@ public class LootCorpseHandler : BaseHandler
             }
             if (!sameParty)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не участвовали в этом бою!");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ!");
                 return;
             }
         }
@@ -106,11 +106,11 @@ public class LootCorpseHandler : BaseHandler
     {
         if (!corpse.PlayerLoot.TryGetValue(player.Id, out var myLoot) || myLoot == null)
         {
-            Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — нет персонального лута");
+            Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ {corpse.MonsterName} пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ");
             await hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "У этого трупа нет лута для вас." }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ." }
             });
             await hub.SendInventoryAndStatus(connection, player);
             return;
@@ -119,11 +119,11 @@ public class LootCorpseHandler : BaseHandler
         if (myLoot.Gold == 0 && myLoot.Items.Count == 0)
         {
             TryRemoveCorpseIfEmpty(corpse, corpses);
-            Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — лут уже забран");
+            Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ {corpse.MonsterName} пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             await hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "Вы уже забрали весь свой лут." }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ." }
             });
             await hub.SendInventoryAndStatus(connection, player);
             return;
@@ -135,18 +135,18 @@ public class LootCorpseHandler : BaseHandler
             player.Gold += gold;
             myLoot.Gold = 0;
             TryRemoveCorpseIfEmpty(corpse, corpses);
-            string pctText = myLoot.DamagePercent > 0 ? $" ({myLoot.DamagePercent}% урона)" : "";
-            Log.Info($"{player.Name} забрал {gold} зол. с трупа {corpse.MonsterName}{pctText} (только золото, предметов нет)");
+            string pctText = myLoot.DamagePercent > 0 ? $" ({myLoot.DamagePercent}% пїЅпїЅпїЅпїЅпїЅ)" : "";
+            Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ {gold} пїЅпїЅпїЅ. пїЅ пїЅпїЅпїЅпїЅпїЅ {corpse.MonsterName}{pctText} (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ)");
             await hub.SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = $"Вы забрали {gold} золота{pctText}." }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {gold} пїЅпїЅпїЅпїЅпїЅпїЅ{pctText}." }
             });
             await hub.SendInventoryAndStatus(connection, player);
             return;
         }
 
-        Log.Debug($"{player.Name} открыл труп {corpse.MonsterName}: {myLoot.Items.Count} предм., {myLoot.Gold} зол.");
+        Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ {corpse.MonsterName}: {myLoot.Items.Count} пїЅпїЅпїЅпїЅпїЅ., {myLoot.Gold} пїЅпїЅпїЅ.");
         await hub.SendToClient(connection, new GameMessage
         {
             Type = "loot_corpse",
@@ -156,10 +156,7 @@ public class LootCorpseHandler : BaseHandler
                 MonsterName = corpse.MonsterName,
                 Gold = myLoot.Gold,
                 DamagePercent = myLoot.DamagePercent,
-                Items = myLoot.Items.Select(i => new
-                {
-                    i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description
-                }).ToList()
+                Items = myLoot.Items.Select(i => MakeItemPayload(i)).ToList()
             }
         });
     }

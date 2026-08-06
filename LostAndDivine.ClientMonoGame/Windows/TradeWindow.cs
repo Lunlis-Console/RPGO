@@ -958,15 +958,34 @@ namespace LostAndDivine.ClientMonoGame.Windows
 
         private void DrawTooltip(SpriteBatch sb, TradeItemData item, MouseState mouse)
         {
-            var lines = ItemTooltip.BuildLinesForTrade(
-                item.Name ?? "", item.Type ?? "", item.Value,
-                item.Attack, item.Defense, item.MaxHealthBonus, item.HealAmount, item.RestoreMana,
-                item.Description ?? "");
+            var it = ToItem(item);
+            var lines = ItemTooltip.BuildLines(it);
             var g = GameMain.Instance;
             int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
             int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
             TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
         }
+
+        private static Item ToItem(TradeItemData d) => new()
+        {
+            Id = d.Id ?? "", TemplateId = d.TemplateId ?? "", Name = d.Name ?? "",
+            Type = d.Type ?? "", WeaponSubtype = d.WeaponSubtype ?? "",
+            Quantity = d.Quantity, Value = d.Value, Description = d.Description ?? "",
+            MaxHealthBonus = d.MaxHealthBonus, HealAmount = d.HealAmount,
+            RestoreMana = d.RestoreMana, MaxStack = d.MaxStack,
+            BonusStrength = d.BonusStrength, BonusEndurance = d.BonusEndurance,
+            BonusAgility = d.BonusAgility, BonusCunning = d.BonusCunning,
+            BonusIntellect = d.BonusIntellect, BonusWisdom = d.BonusWisdom,
+            BonusPhysAttack = d.BonusPhysAttack, BonusMagAttack = d.BonusMagAttack,
+            BonusDefense = d.BonusDefense, BonusResistance = d.BonusResistance,
+            BonusCritChance = d.BonusCritChance, BonusCritDamage = d.BonusCritDamage,
+            BonusEvadeChance = d.BonusEvadeChance, BonusAttackSpeed = d.BonusAttackSpeed,
+            BonusBlockChance = d.BonusBlockChance, BonusParryChance = d.BonusParryChance,
+            DamageType = d.DamageType, RequiredLevel = d.RequiredLevel,
+            DamageMin = d.DamageMin, DamageMax = d.DamageMax,
+            AttackSpeedModifier = d.AttackSpeedModifier, TwoHanded = d.TwoHanded,
+            AttackRange = d.AttackRange
+        };
 
         private void NotifyOfferChanged()
         {

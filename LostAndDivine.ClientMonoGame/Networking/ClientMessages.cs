@@ -141,6 +141,29 @@ public sealed class TradeItemData
     public int HealAmount { get; set; }
     public int RestoreMana { get; set; }
     public int MaxStack { get; set; }
+    public int BonusStrength { get; set; }
+    public int BonusEndurance { get; set; }
+    public int BonusAgility { get; set; }
+    public int BonusCunning { get; set; }
+    public int BonusIntellect { get; set; }
+    public int BonusWisdom { get; set; }
+    public int BonusPhysAttack { get; set; }
+    public int BonusMagAttack { get; set; }
+    public int BonusDefense { get; set; }
+    public int BonusResistance { get; set; }
+    public double BonusCritChance { get; set; }
+    public double BonusCritDamage { get; set; }
+    public double BonusEvadeChance { get; set; }
+    public double BonusAttackSpeed { get; set; }
+    public double BonusBlockChance { get; set; }
+    public double BonusParryChance { get; set; }
+    public string DamageType { get; set; } = "";
+    public int RequiredLevel { get; set; }
+    public int DamageMin { get; set; }
+    public int DamageMax { get; set; }
+    public double AttackSpeedModifier { get; set; } = 1.0;
+    public bool TwoHanded { get; set; }
+    public int AttackRange { get; set; } = 1;
 
     /// <summary>Создаёт копию предмета с указанным количеством.</summary>
     public TradeItemData WithQuantity(int qty) => new()
@@ -149,7 +172,19 @@ public sealed class TradeItemData
         WeaponSubtype = WeaponSubtype,
         Value = Value, Description = Description, Attack = Attack,
         Defense = Defense, MaxHealthBonus = MaxHealthBonus, HealAmount = HealAmount,
-        MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana
+        MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana,
+        BonusStrength = BonusStrength, BonusEndurance = BonusEndurance,
+        BonusAgility = BonusAgility, BonusCunning = BonusCunning,
+        BonusIntellect = BonusIntellect, BonusWisdom = BonusWisdom,
+        BonusPhysAttack = BonusPhysAttack, BonusMagAttack = BonusMagAttack,
+        BonusDefense = BonusDefense, BonusResistance = BonusResistance,
+        BonusCritChance = BonusCritChance, BonusCritDamage = BonusCritDamage,
+        BonusEvadeChance = BonusEvadeChance, BonusAttackSpeed = BonusAttackSpeed,
+        BonusBlockChance = BonusBlockChance, BonusParryChance = BonusParryChance,
+        DamageType = DamageType, RequiredLevel = RequiredLevel,
+        DamageMin = DamageMin, DamageMax = DamageMax,
+        AttackSpeedModifier = AttackSpeedModifier, TwoHanded = TwoHanded,
+        AttackRange = AttackRange
     };
 }
 
@@ -251,9 +286,38 @@ public sealed class ClientSkillInfo
 public sealed class LootItemInfo
 {
     public string Id { get; set; } = "";
+    public string TemplateId { get; set; } = "";
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
     public string WeaponSubtype { get; set; } = "";
+    public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public string Description { get; set; } = "";
+    public int MaxHealthBonus { get; set; }
+    public int HealAmount { get; set; }
+    public int RestoreMana { get; set; }
+    public int MaxStack { get; set; } = 10;
+    public int BonusStrength { get; set; }
+    public int BonusEndurance { get; set; }
+    public int BonusAgility { get; set; }
+    public int BonusCunning { get; set; }
+    public int BonusIntellect { get; set; }
+    public int BonusWisdom { get; set; }
+    public int BonusPhysAttack { get; set; }
+    public int BonusMagAttack { get; set; }
+    public int BonusDefense { get; set; }
+    public int BonusResistance { get; set; }
+    public double BonusCritChance { get; set; }
+    public double BonusCritDamage { get; set; }
+    public double BonusEvadeChance { get; set; }
+    public double BonusAttackSpeed { get; set; }
+    public double BonusBlockChance { get; set; }
+    public double BonusParryChance { get; set; }
+    public string DamageType { get; set; } = "";
+    public int RequiredLevel { get; set; }
+    public int DamageMin { get; set; }
+    public int DamageMax { get; set; }
+    public double AttackSpeedModifier { get; set; } = 1.0;
+    public bool TwoHanded { get; set; }
+    public int AttackRange { get; set; } = 1;
 }

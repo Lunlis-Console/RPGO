@@ -582,19 +582,38 @@ internal static class ClientMessageHandlerRegistry
             {
                 foreach (var iel in itemsEl.EnumerateArray())
                 {
-                    items.Add(new LootItemInfo
-                    {
-                        Id = iel.TryGetProperty("Id", out var idP) ? (idP.GetString() ?? "") : "",
-                        Name = iel.TryGetProperty("Name", out var nmP) ? (nmP.GetString() ?? "") : "",
-                        Type = iel.TryGetProperty("Type", out var tpP) ? (tpP.GetString() ?? "") : "",
-                        WeaponSubtype = iel.TryGetProperty("WeaponSubtype", out var wsP) ? (wsP.GetString() ?? "") : "",
-                        Value = iel.TryGetProperty("Value", out var vP) ? vP.GetInt32() : 0,
-                        Description = iel.TryGetProperty("Description", out var dP) ? (dP.GetString() ?? "") : ""
-                    });
+                    items.Add(ParseLootItem(iel));
                 }
             }
             c.RaiseLootReceived(corpseId, monsterName, dmgPct, items, gold);
         }
+    }
+
+    private static LootItemInfo ParseLootItem(JsonElement el)
+    {
+        int I(string k, int d = 0) => el.TryGetProperty(k, out var p) ? p.GetInt32() : d;
+        double D(string k, double d = 0) => el.TryGetProperty(k, out var p) ? p.GetDouble() : d;
+        bool B(string k) => el.TryGetProperty(k, out var p) && p.GetBoolean();
+        string S(string k, string d = "") => el.TryGetProperty(k, out var p) ? (p.GetString() ?? d) : d;
+        return new LootItemInfo
+        {
+            Id = S("Id"), TemplateId = S("TemplateId"), Name = S("Name"), Type = S("Type"),
+            WeaponSubtype = S("WeaponSubtype"), Quantity = I("Quantity", 1), Value = I("Value"),
+            Description = S("Description"), MaxHealthBonus = I("MaxHealthBonus"),
+            HealAmount = I("HealAmount"), RestoreMana = I("RestoreMana"), MaxStack = I("MaxStack", 10),
+            BonusStrength = I("BonusStrength"), BonusEndurance = I("BonusEndurance"),
+            BonusAgility = I("BonusAgility"), BonusCunning = I("BonusCunning"),
+            BonusIntellect = I("BonusIntellect"), BonusWisdom = I("BonusWisdom"),
+            BonusPhysAttack = I("BonusPhysAttack"), BonusMagAttack = I("BonusMagAttack"),
+            BonusDefense = I("BonusDefense"), BonusResistance = I("BonusResistance"),
+            BonusCritChance = D("BonusCritChance"), BonusCritDamage = D("BonusCritDamage"),
+            BonusEvadeChance = D("BonusEvadeChance"), BonusAttackSpeed = D("BonusAttackSpeed"),
+            BonusBlockChance = D("BonusBlockChance"), BonusParryChance = D("BonusParryChance"),
+            DamageType = S("DamageType"), RequiredLevel = I("RequiredLevel"),
+            DamageMin = I("DamageMin"), DamageMax = I("DamageMax"),
+            AttackSpeedModifier = D("AttackSpeedModifier", 1.0), TwoHanded = B("TwoHanded"),
+            AttackRange = I("AttackRange", 1)
+        };
     }
 
     private static void HandleBoardOpen(GameClient c, GameMessage m)

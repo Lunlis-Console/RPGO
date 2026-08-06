@@ -241,7 +241,8 @@ public class LootWindow : GameWindow
 
     private void DrawTooltip(SpriteBatch sb, LootItemInfo item, MouseState mouse)
     {
-        var lines = ItemTooltip.BuildLinesForLoot(item.Name, item.Type, item.Value, item.Description);
+        var it = ToItem(item);
+        var lines = ItemTooltip.BuildLines(it);
         var g = GameMain.Instance;
         int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
         int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
@@ -252,14 +253,22 @@ public class LootWindow : GameWindow
     {
         return new Item
         {
-            Id = info.Id,
-            Name = info.Name,
-            Type = info.Type,
-            Value = info.Value,
-            HealAmount = 0,
-            Description = info.Description,
-            BonusPhysAttack = 0,
-            BonusDefense = 0
+            Id = info.Id, TemplateId = info.TemplateId, Name = info.Name, Type = info.Type,
+            WeaponSubtype = info.WeaponSubtype, Quantity = info.Quantity, Value = info.Value,
+            Description = info.Description, MaxHealthBonus = info.MaxHealthBonus,
+            HealAmount = info.HealAmount, RestoreMana = info.RestoreMana,
+            MaxStack = info.MaxStack, BonusStrength = info.BonusStrength,
+            BonusEndurance = info.BonusEndurance, BonusAgility = info.BonusAgility,
+            BonusCunning = info.BonusCunning, BonusIntellect = info.BonusIntellect,
+            BonusWisdom = info.BonusWisdom, BonusPhysAttack = info.BonusPhysAttack,
+            BonusMagAttack = info.BonusMagAttack, BonusDefense = info.BonusDefense,
+            BonusResistance = info.BonusResistance, BonusCritChance = info.BonusCritChance,
+            BonusCritDamage = info.BonusCritDamage, BonusEvadeChance = info.BonusEvadeChance,
+            BonusAttackSpeed = info.BonusAttackSpeed, BonusBlockChance = info.BonusBlockChance,
+            BonusParryChance = info.BonusParryChance, DamageType = info.DamageType,
+            RequiredLevel = info.RequiredLevel, DamageMin = info.DamageMin,
+            DamageMax = info.DamageMax, AttackSpeedModifier = info.AttackSpeedModifier,
+            TwoHanded = info.TwoHanded, AttackRange = info.AttackRange
         };
     }
 }

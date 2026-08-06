@@ -18,14 +18,14 @@ public class TradeOfferHandler : BaseHandler
         var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
-            Log.Warn($"TRADE OFFER: нет сессии у {player.Name} (id={player.Id})");
-            await SendError(connection, ErrorCodes.InvalidRequest, "Нет активного обмена.");
+            Log.Warn($"TRADE OFFER: пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ {player.Name} (id={player.Id})");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (session.BothConfirmed)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Обмен уже подтверждён.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -54,16 +54,16 @@ public class TradeOfferHandler : BaseHandler
         var other = session.GetOther(player);
         if (other == null) return;
 
-        Log.Debug($"TRADE OFFER от {player.Name}: " +
+        Log.Debug($"TRADE OFFER пїЅпїЅ {player.Name}: " +
             string.Join(", ", myEntries.Select(e => $"{e.ItemId}x{e.Quantity}")) +
-            $" | золото={myGold}");
+            $" | пїЅпїЅпїЅпїЅпїЅпїЅ={myGold}");
 
         if (!ValidateOffer(player, myEntries, myGold))
         {
             var details = string.Join("; ", myEntries.Select(e =>
-                $"{e.ItemId}: нужно {e.Quantity}, есть {player.Inventory.FirstOrDefault(i => i.Id == e.ItemId)?.Quantity ?? 0}"));
-            Log.Warn($"TRADE OFFER НЕ прошёл валидацию у {player.Name}: {details}");
-            await SendError(connection, ErrorCodes.InvalidRequest, "Некоторые предметы недоступны или количество превышено.");
+                $"{e.ItemId}: пїЅпїЅпїЅпїЅпїЅ {e.Quantity}, пїЅпїЅпїЅпїЅ {player.Inventory.FirstOrDefault(i => i.Id == e.ItemId)?.Quantity ?? 0}"));
+            Log.Warn($"TRADE OFFER пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ {player.Name}: {details}");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -108,7 +108,7 @@ public class TradeOfferHandler : BaseHandler
         }
 
         int totalItems = myEntries.Sum(e => e.Quantity);
-        Log.Debug($"Трейд предложение: {player.Name} предложил {totalItems} предметов ({myEntries.Count} типов), {myGold} золота");
+        Log.Debug($"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {totalItems} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ({myEntries.Count} пїЅпїЅпїЅпїЅпїЅ), {myGold} пїЅпїЅпїЅпїЅпїЅпїЅ");
     }
 
     private static bool ValidateOffer(Player player, List<TradeOfferEntry> entries, int gold)
@@ -132,7 +132,17 @@ public class TradeOfferHandler : BaseHandler
             {
                 i!.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description,
                 i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.MaxStack,
-                Quantity = entries.First(x => x.ItemId == i.Id).Quantity
+                Quantity = entries.First(x => x.ItemId == i.Id).Quantity,
+                BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
+                BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
+                BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
+                BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
+                BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+                BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
+                BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
+                BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+                i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
+                i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
             })
             .ToList();
 
