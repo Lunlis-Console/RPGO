@@ -239,7 +239,7 @@ internal static class AccountRepository
     {
         using var conn = Db.Open();
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT login FROM accounts WHERE player_name = $name";
+        cmd.CommandText = "SELECT account_login FROM characters WHERE player_name = $name";
         cmd.Parameters.AddWithValue("$name", playerName);
         return cmd.ExecuteScalar() as string;
     }
