@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using LostAndDivine.Server.Instances;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.MessageHandlers;
@@ -8,12 +8,18 @@ using LostAndDivine.Shared.Network;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
-
+ 
 namespace LostAndDivine.Server;
 
 partial class Program
 {
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleOutputCP(uint codePage);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetConsoleCP(uint codePage);
     public static GameServices Services { get; internal set; } = null!;
     private static GameServerHost? _host;
     private static TestBot? _testBot;
@@ -26,23 +32,25 @@ partial class Program
 
     static async Task Main(string[] args)
     {
+        SetConsoleOutputCP(65001);
+        SetConsoleCP(65001);
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.InputEncoding = System.Text.Encoding.UTF8;
 
         Log.Init();
 
-        Log.Info("������������� ���� ������...");
+        Log.Info("Инициализация базы данных...");
         DatabaseManager.Initialize();
         DatabaseManager.CreateTestAccountIfNeeded();
 
-        Log.Info("�������� ��������� ������� (����������)...");
+        Log.Info("Загрузка манифеста клиента (обновления)...");
         var clientBuild = new ClientBuildService();
         clientBuild.Initialize();
 
-        Log.Info("�������� �������� ����...");
+        Log.Info("Создание игрового мира...");
         var world = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
 
-        // ������ ��������� (������� ����� ��� ������������)
+        // Базовые сервисы (создаются раньше зависимостей)
         var monsters = new MonsterManager(world);
         var loot = new LootManager(world);
         var corpses = new CorpseManager();
@@ -57,20 +65,20 @@ partial class Program
         var dialogue = new DialogueManager(world, quests, merchant);
         var pathfinding = new PathfindingService(world, merchant, quests);
         var zones = new ZoneManager();
-        zones.SetMainMap(world.Map); // main-���� = ����� ���� (����� + �����������)
+        zones.SetMainMap(world.Map); // main-зона = основная карта (тайлы + препятствия)
 
-        Log.Info("�������� ������ (��������, ������, ����)...");
+        Log.Info("Загрузка сервисов (монстры, квесты, лут)...");
         loot.LoadFromDatabase();
         zones.LoadAll();
 
-        Log.Info("�������� Tiled-����...");
+        Log.Info("Загрузка Tiled-карт...");
         var contentDir = Path.Combine(AppContext.BaseDirectory, "Content");
         var allSpawns = new List<TiledSpawn>();
         var allCollectibleSpawns = new Dictionary<string, List<TiledSpawn>>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            // ��������� ���: zone_{id}.tmj � ����, dungeon_*.tmj � ������� ���������.
-            // *_text.tmj � ������ ��������������� ����� ������������.
+            // Правило имён: zone_{id}.tmj в зону, dungeon_*.tmj в общие подземелья.
+            // *_text.tmj в режиме вспомогательной карты игнорируются.
             foreach (var file in Directory.GetFiles(contentDir, "zone_*.tmj", SearchOption.TopDirectoryOnly))
             {
                 string fname = Path.GetFileName(file);
@@ -87,10 +95,10 @@ partial class Program
         }
         catch (Exception ex)
         {
-            Log.Error("������ �������� Tiled-����", ex);
+            Log.Error("Ошибка загрузки Tiled-карт", ex);
         }
 
-        // ������� ��������, ����� ������� � �������� ������� �� Tiled-���� (������� � �� ��)
+        // Мёртвые торговцы, чтобы квесты и предметы мерчанта из Tiled-карт (работает и с ИИ)
         var tiledNpcs = zones.GetAllTiledNpcs();
         var merchantTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
         if (merchantTiled != null) merchant.SetTiledPosition(merchantTiled.X, merchantTiled.Y);
@@ -103,31 +111,31 @@ partial class Program
         quests.Initialize();
         dialogue.LoadAll();
 
-        Log.Info("�������� ��������...");
+        Log.Info("Инициализация монстров...");
         var spawns = allSpawns.Count > 0 ? allSpawns : null;
         monsters.Initialize(spawns);
         foreach (var (zoneId, zoneCollectSpawns) in allCollectibleSpawns)
             collectibles.Initialize(zoneCollectSpawns, zoneId);
 
-        // ������ ������� ���
+        // Собираем ядро сети
         var hub = new GameServer(world);
         var persistence = new PersistenceService();
         var storage = new StorageService(world, hub);
 
-        // GameServices �������� �� ���������� ��������� ��������
+        // GameServices собирает по крупицам сервисы воедино
         Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
             auth: null!, zones: zones, persistence, clientBuild, storage);
 
-        // ��������� �����������, ��������� GameServices
+        // Внедряем зависимости, насыщаем GameServices
         killService.SetHub(hub);
         projectiles.SetHub(hub);
         dialogue.SetHub(hub);
         party.SetHub(hub);
         world.SetDependencies(hub, player => { Services.Persistence.EnqueueSave(player); return true; });
 
-        // ������� � ������������ �������������: GameServices ��� ������,
-        // ������� IGameServices �������� � ��� Lazy<>
+        // Циклы с рекурсивной зависимостью: GameServices сам себя,
+        // поэтому IGameServices сделано через Lazy<>
         var combat = new CombatService(Services);
         var pvp = new PvPService(Services);
         var hazard = new HazardService(Services);
@@ -140,7 +148,7 @@ partial class Program
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
 
-        // ������������� ����������� ������� �� GameServices
+        // GameServices собирает по крупицам сервисы воедино
         Services.Combat = combat;
         Services.PvP = pvp;
         Services.Hazard = hazard;
@@ -151,7 +159,7 @@ partial class Program
         Services.Instances = instances;
         Services.Auth = auth;
 
-        // ��������� ������ ����� ���������� ��� ������ ��� ���������
+        // Подгружаем карты всех подземелий для быстрой загрузки
         var dungeonFiles = Directory.GetFiles(contentDir, "dungeon_*.tmj", SearchOption.TopDirectoryOnly);
         if (dungeonFiles.Length > 0)
         {
@@ -165,12 +173,12 @@ partial class Program
             }
         }
 
-        // ��������� ������� ������ ����� � ���������
+        // Установка сундука склада в локации
         int storageX = merchant.MerchantX + 1;
         int storageY = merchant.MerchantY;
         if (world.Map.IsObstacle(storageX, storageY))
         {
-            // ���� ��������� ������ ����� � ���������
+            // Если позиция склада занята в локации
             int[] dx = { 0, 0, -1, 1, 1, -1, 1, -1 };
             int[] dy = { -1, 1, 0, 0, -1, -1, 1, 1 };
             storageX = merchant.MerchantX;
@@ -189,7 +197,7 @@ partial class Program
         }
         world.Map.AddObstacle(storageX, storageY);
         storage.SetPosition(storageX, storageY);
-        Log.Info($"����� �������� �� ({storageX}, {storageY})");
+        Log.Info($"Склад размещён на ({storageX}, {storageY})");
 
         hub.SetServices(Services);
         monsters.SetServices(Services);
@@ -201,12 +209,12 @@ partial class Program
         hub.LoadNpcCache();
         persistence.Start();
 
-        // Heartbeat-������: �������� ������-������� (~60�) � ����������
-        // �������� ���������� (������� 3 ping = 15� �������).
+        // Heartbeat-сервис: эмитирует keep-alive (~60с) и убивает
+        // зомби-соединения (пропуск 3 ping = 15с таймаут).
         var heartbeat = new HeartbeatHandler(world, hub, persistence);
         _ = heartbeat.StartAsync(CancellationToken.None);
 
-        // Graceful shutdown: ��������� �������� ��� ��������� �������
+        // Graceful shutdown: ловим сигналы для гашения сервера
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
@@ -214,27 +222,27 @@ partial class Program
         };
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            // ��������� �����: ���������� ������������� ������� ��� ������ ��������
+            // Последний шанс: принудительно сбрасываем очередь на диск
             try { Services?.Persistence.FlushNow(); } catch { }
         };
 
-        // ������ ������� �����
+        // Запуск игрового мира
         _host = new GameServerHost(Services);
         _ = Task.Run(() => _host.StartAsync());
 
         TcpListener server = new TcpListener(IPAddress.Any, Balance.ServerPort);
         server.Start();
 
-        Log.Info($"������ ������� �� ����� {Balance.ServerPort}");
-        Log.Info($"����: {DateTime.Now}");
-        Log.Info($"�����: {Balance.WorldWidth}x{Balance.WorldHeight}");
-        Log.Info($"�������: {DatabaseManager.GetAccountCount()}");
-        Log.Info("IP ������ ��� �����������:");
+        Log.Info($"Сервер запущен на порту {Balance.ServerPort}");
+        Log.Info($"Дата: {DateTime.Now}");
+        Log.Info($"Карта: {Balance.WorldWidth}x{Balance.WorldHeight}");
+        Log.Info($"Игроков: {DatabaseManager.GetAccountCount()}");
+        Log.Info("IP адреса для подключения:");
         foreach (var ip in GetLocalIPs())
             Log.Info($"  {ip}");
-        Log.Info("�������� �����������...");
+        Log.Info("Ожидание подключений...");
 
-        // ��������� �������: ������� �� stdin (���, ������ ������� � �.�.)
+        // Консоль сервера: команды из stdin (чат, боты, остановка и т.д.)
         if (args.Any(a => a.Equals("--bot", StringComparison.OrdinalIgnoreCase)))
         {
             StartTestBot();
@@ -287,15 +295,15 @@ partial class Program
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"���������� �������: {connection.Endpoint}");
+                    Log.Info($"Отключение клиента: {connection.Endpoint}");
                     return;
                 }
 
                 if (await Services.ClientBuild.HandleUnauthenticatedAsync(connection, message, Services.Hub))
                     continue;
 
-                // ��������������� �������� �� �����������: ReconnectHandler
-                // ��������������� ������ � ��� ����������� ��� � ����������.
+                // Аутентификация клиента на подключение: ReconnectHandler
+                // Аутентифицирует сессию в том состоянии как и сохраняли.
                 if (message.Type == "reconnect")
                 {
                     if (Services.MessageHandlers.TryGet("reconnect", out var reconnectHandler))
@@ -312,7 +320,7 @@ partial class Program
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"���������� �������: {connection.Endpoint}");
+                    Log.Info($"Отключение клиента: {connection.Endpoint}");
                     break;
                 }
 
@@ -321,34 +329,34 @@ partial class Program
         }
         catch (Exception ex)
         {
-            Log.Error($"������: {ex.Message}", ex);
+            Log.Error($"Ошибка: {ex.Message}", ex);
         }
         finally
         {
             if (player != null)
             {
                 var tradeSession = Services.Trade.GetSession(player.Id);
-                if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "���������� �������");
+                if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "Отключение клиента");
                 player.IsTrading = false;
 
                 bool stillInWorld = Services.World.TryGetPlayerByName(player.Name, out var wp)
                     && ReferenceEquals(wp, player);
                 if (stillInWorld)
                 {
-                    // ����� ����������: ����� ������� � ���� (�������, ������, �������),
-                    // ����� �������� ��������������� ������ ��� ������ ���������.
-                    // ��������� ������� � ������� sweep'�� ����� ��������� ����.
+                    // Логик отключения: игрок вышел из мира (вылетел, упал, убился),
+                    // ждём переподключения канала для сессии восстания.
+                    // ждём переподключения канала для сессии восстания.
                     Services.World.MarkPendingReconnect(player);
                     Services.World.RemoveClient(connection);
-                    Log.Info($"����� {player.Name} ���������� (���� ��������������� �������)");
+                    Log.Info($"Игрок {player.Name} отключился (ждём переподключения канала)");
                 }
                 else
                 {
-                    // ������: LogoutHandler ��� ������ ������ �� ���� � ������ �����.
+                    // Однако: LogoutHandler не ставил галку на мир и плавно гасит.
                     await Services.Party.LeavePartyAsync(player);
                     Services.Instances.RemovePlayer(player);
                     Services.Persistence.EnqueueSave(player);
-                    Log.Info($"����� {player.Name} ����� �� ���� (logout)");
+                    Log.Info($"Игрок {player.Name} вышел из мира (logout)");
                     await Services.Hub.BroadcastMapAsync();
                 }
             }
@@ -375,19 +383,19 @@ partial class Program
                 return player;
             }
 
-            Log.Warn($"����������� ��� ���������: {message.Type}");
+            Log.Warn($"Неизвестный тип сообщения: {message.Type}");
         }
         catch (Exception ex)
         {
-            Log.Error($"������ ��������� {message.Type}", ex);
+            Log.Error($"Ошибка обработки {message.Type}", ex);
         }
 
         return player;
     }
 
-    /// </summary> <summary>
-    /// ������ � ��������� ��������� ���� (�������� �����). ���������� ���
-    /// ������ � --bot, ���� �� ������� �������� �bot start�.
+    /// <summary>
+    /// Боты и отладочный игровой мир (тестовый игрок). Загружаются при
+    /// запуске с --bot, либо из консоли командой 'bot start'.
     /// </summary>
     private static void StartTestBot()
     {
@@ -395,30 +403,30 @@ partial class Program
         {
             if (_testBot != null)
             {
-                Log.Warn("�������� ��� ��� �������.");
+                Log.Warn("Тестовый бот уже запущен.");
                 return;
             }
 
-            var bot = new TestBot("127.0.0.1", Balance.ServerPort, "test", "123", "����");
+            var bot = new TestBot("127.0.0.1", Balance.ServerPort, "test", "123", "Бот");
             _testBot = bot;
             _ = Task.Run(() => bot.StartAsync());
-            Log.Info("�������� ��� �����������, �����: test / 123");
+            Log.Info("Тестовый бот подключился, логин: test / 123");
         }
     }
 
     /// <summary>
-    /// ������� �������: ������ ������� �� stdin (���� Serilog ����� � stdout �
-    /// ��� �� �����������) � ��������� ��.
+    /// Серверная консоль: читает команды из stdin (пока Serilog пишет в stdout и
+    /// сам не блокируется) и выполняет их.
     /// </summary>
     private static async Task ServerConsoleLoop()
     {
-        Log.Info("��������� �������: ������� 'help' ��� ������ ������.");
+        Log.Info("Консоль сервера: введите 'help' для списка команд.");
 
         if (!ConsoleManager.IsInteractiveConsole())
         {
-            // ����/����� �������������� (��������, ������ �� �������) � ����������
-            // ������� ReadLine, ��� ������� �������.
-            ConsoleManager.InputActive = false;
+            // Штат/Канал неинтерактивен (например, запущен из скрипта) и используем
+            // Штат/Канал неинтерактивен (например, запущен из скрипта) и используем
+            // простой ReadLine, без приставок истории.
             while (true)
             {
                 string? line;
@@ -430,7 +438,7 @@ partial class Program
                 if (line.Length == 0) continue;
 
                 try { await HandleServerCommand(line); }
-                catch (Exception ex) { Log.Error($"[Console] ������: {ex.Message}", ex); }
+                catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
             }
             return;
         }
@@ -454,7 +462,7 @@ partial class Program
 
                 if (line.Length == 0) continue;
                 try { await HandleServerCommand(line); }
-                catch (Exception ex) { Log.Error($"[Console] ������: {ex.Message}", ex); }
+                catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
             }
             else if (key.Key == ConsoleKey.Backspace)
             {
@@ -488,23 +496,23 @@ partial class Program
         switch (cmd)
         {
             case "help":
-                Log.Info("������� �������:");
-                Log.Info("  players              � ������ ������-�������");
-                Log.Info("  bot help             � ������� ��������� ����");
-                Log.Info("  bot start / bot stop � ���������/���������� ���� �� ����");
-                Log.Info("  stop                 � ���������� ������");
+                Log.Info("Онлайн: пусто");
+                Log.Info("  players              - список онлайн-игроков");
+                Log.Info("Консоль сервера: введите 'help' для списка команд.");
+                Log.Info("  bot start / bot stop - запустить/остановить бота на сервер");
+                Log.Info("  stop                 - остановить сервер");
                 break;
 
             case "players":
                 var online = Services.World.GetPlayersSnapshot();
                 if (online.Count == 0)
                 {
-                    Log.Info("������: ������");
+                    Log.Info("Онлайн: пусто");
                 }
                 else
                 {
-                    var desc = string.Join(", ", online.Select(p => $"{p.Name} (������� {p.Level})"));
-                    Log.Info($"������ ({online.Count}): {desc}");
+                    var desc = string.Join(", ", online.Select(p => $"{p.Name} (уровень {p.Level})"));
+                    Log.Info($"Онлайн ({online.Count}): {desc}");
                 }
                 break;
 
@@ -521,29 +529,29 @@ partial class Program
                     lock (_botLock) { current = _testBot; _testBot = null; }
                     if (current == null)
                     {
-                        Log.Warn("�������� ��� �� �������.");
+                        Log.Warn("Тестовый бот не запущен.");
                         return;
                     }
                     current.Stop();
-                    Log.Info("�������� ��� ����������.");
+                    Log.Info("Тестовый бот остановлен.");
                     return;
                 }
                 if (sub.Length == 0 || sub.Equals("help", StringComparison.OrdinalIgnoreCase))
                 {
-                    Log.Info("������� ���� (�������� �����):");
-                    Log.Info("  bot start                      � ��������� ���� (������� ������)");
-                    Log.Info("  bot stop                       � ���������� ����");
-                    Log.Info("  bot say <�����>                � ������� � ��������� ���");
-                    Log.Info("  bot whisper <�����> <�����>    � ������ ���������");
-                    Log.Info("  bot invite <�����>             � ���������� � ������");
-                    Log.Info("  bot leave                      � ����� �� ������");
-                    Log.Info("  bot trade <�����>              � ��������� �����");
-                    Log.Info("  bot trade_cancel               � �������� �����");
-                    Log.Info("  bot mail <�����> <����>        � ��������� ������");
-                    Log.Info("    [-- <tid>x<����������> ...]  � � ����������� ���������� (����. -- I0002x2 I0501x1)");
-                    Log.Info("  bot move <x> <y>               � �������������");
-                    Log.Info("  bot logout                     � ����� �� ����");
-                    Log.Info("  (����������� � ������ � ������� ������ ��� ��������� �������������)");
+                    Log.Info("Команды бота (тестовый игрок):");
+                    Log.Info("  bot start                      - запустить бота (тестовый логин)");
+                    Log.Info("  bot stop                       - остановить бота");
+                    Log.Info("  bot say <текст>                - сказать в глобальный чат");
+                    Log.Info("  bot whisper <игрок> <текст>    - личное сообщение");
+                    Log.Info("  bot invite <игрок>             - пригласить в группу");
+                    Log.Info("  bot leave                      - выйти из группы");
+                    Log.Info("  bot trade <игрок>              - предложить обмен");
+                    Log.Info("  bot trade_cancel               - отменить обмен");
+                    Log.Info("  bot mail <игрок> <тема>        - отправить письмо");
+                    Log.Info("    [-- <tid>x<количество> ...]  - с вложенными предметами (напр. -- I0002x2 I0501x1)");
+                    Log.Info("  bot move <x> <y>               - телепортироваться");
+                    Log.Info("  bot logout                     - выход из мира");
+                    Log.Info("  (набирается в чате и прочих окнах без помех взаимодействия)");
                     return;
                 }
 
@@ -551,12 +559,12 @@ partial class Program
                 lock (_botLock) { bot = _testBot; }
                 if (bot == null)
                 {
-                    Log.Warn("�������� ��� �� �������. ������� 'bot start'");
+                    Log.Warn("Тестовый бот не запущен. Введите 'bot start'");
                     return;
                 }
                 if (!bot.IsConnected)
                 {
-                    Log.Warn("��� �� ��������� � �������.");
+                    Log.Warn("Бот не подключён к серверу.");
                     return;
                 }
                 bot.EnqueueCommand(sub);
@@ -569,7 +577,7 @@ partial class Program
                 break;
 
             default:
-                Log.Warn($"����������� �������: {cmd}. ������� 'help'");
+                Log.Warn($"Неизвестная команда: {cmd}. Введите 'help'");
                 break;
         }
 
@@ -577,52 +585,52 @@ partial class Program
     }
 
     /// <summary>
-    /// ������������� ������: ��������� ���� ������-������� � ���������
-    /// ��������� ������� ������ ����� ������� �� ��������.
+    /// Грациозный выход: сохраняем всех онлайн-игроков и вызволяем
+    /// наружные сервисы плавно слиться с локаций.
     /// </summary>
     private static void ShutdownServer()
     {
         try
         {
-            Log.Info("��������� �������: ���������� ������ ���� ������-�������...");
+            Log.Info("  (набирается в чате и прочих окнах без помех взаимодействия)");
             foreach (var conn in Services.World.GetAllConnectionsSnapshot())
             {
                 if (conn.Player == null) continue;
                 try { Services.Persistence.EnqueueSave(conn.Player); }
-                catch (Exception ex) { Log.Warn($"������ ���������� {conn.Player.Name} ��� ���������: {ex.Message}"); }
+                catch (Exception ex) { Log.Warn($"Ошибка сохранения {conn.Player.Name} при выходе: {ex.Message}"); }
             }
             _host?.Stop();
             Services.Persistence.Stop();
-            Log.Info("������ ����������. �� ��������!");
+            Log.Info("Сервер остановлен. До свидания!");
         }
         catch (Exception ex)
         {
-            Log.Error("������ ��� ��������� �������", ex);
+            Log.Error("Ошибка при остановке сервера", ex);
         }
         Environment.Exit(0);
     }
 
     /// <summary>
-    /// ��������� Tiled-����� (Content/{fileName}) � ��������� � � ����:
-    /// �����, �����������, ����-������������ � ������ ����� ����.
-    /// ���� ���� ��� � �� � ����-������������ � ��������� �� �����.
+    /// Загружаем Tiled-карту (Content/{fileName}) и встраиваем её в зону:
+    /// плитки, препятствия, зоны-перемещения и точки спавна мобов.
+    /// Если зоны нет в зонах-перемещениях и создаём её сами.
     /// </summary>
     private static List<TiledSpawn>? LoadTiledZone(ZoneManager zones, string fileName, string zoneId)
     {
         string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
         if (!File.Exists(tiledPath))
         {
-            Log.Warn($"Tiled-����� �� �������: {tiledPath}");
+            Log.Warn($"Tiled-карта не найдена: {tiledPath}");
             return null;
         }
 
         var tiledMap = TiledMapLoader.Load(tiledPath);
 
-        // ����-����������� ����, ���� � ��� � ��
+        // Авто-регистрация зоны, если её нет в списке
         if (zoneId != Balance.MainZoneId && zones.GetZone(zoneId) == null)
         {
             zones.RegisterZone(zoneId, tiledMap.Width, tiledMap.Height);
-            Log.Info($"���� '{zoneId}' ����-����������������: {tiledMap.Width}x{tiledMap.Height}");
+            Log.Info($"Зона '{zoneId}' авто-зарегистрирована: {tiledMap.Width}x{tiledMap.Height}");
         }
 
         var tileData = TiledMapLoader.ExtractTileLayer(tiledMap);
@@ -666,7 +674,7 @@ partial class Program
             }));
         }
 
-        Log.Info($"Tiled-����� {fileName} ��������� � ���� '{zoneId}': {tiledMap.Width}x{tiledMap.Height}, ������: {tileData.Length}, �����������: {obstacles.Count}, ����� ������: {spawns.Count}, ��������: {tiledPortals.Count}");
+        Log.Info($"Tiled-карта {fileName} загружена в зону '{zoneId}': {tiledMap.Width}x{tiledMap.Height}, плиток: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}, порталов: {tiledPortals.Count}");
         return spawns;
     }
 
@@ -691,14 +699,14 @@ partial class Program
     }
 
     /// <summary>
-    /// ��������� Tiled-����� ��� standalone GameMap (��� �������� � ����).
+    /// Загружаем Tiled-карту как standalone GameMap (без привязки к зоне).
     /// </summary>
     private static GameMap? LoadTiledMap(string fileName)
     {
         string path = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
         if (!File.Exists(path))
         {
-            Log.Warn($"Tiled-����� �� �������: {path}");
+            Log.Warn($"Tiled-карта не найдена: {path}");
             return null;
         }
         var tiledMap = TiledMapLoader.Load(path);
@@ -711,7 +719,7 @@ partial class Program
         var objectLayer = TiledMapLoader.ExtractObjectLayer(tiledMap);
         if (objectLayer != null)
             map.SetObjectTiles(objectLayer);
-        Log.Info($"����� {fileName} ���������: {map.Width}x{map.Height}, �����������: {obstacles.Count}");
+        Log.Info($"Карта {fileName} загружена: {map.Width}x{map.Height}, препятствий: {obstacles.Count}");
         return map;
     }
 }
