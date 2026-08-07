@@ -1424,6 +1424,17 @@ private sealed class RemotePlayerState
                 float bpy = _gridOY + (map.Board.Y - startY) * _cellH - bSize.Y - 4;
                 sb.DrawString(bFont, map.Board.Name, new Vector2(bpx - bSize.X / 2 + 1, bpy + 1), Color.Black);
                 sb.DrawString(bFont, map.Board.Name, new Vector2(bpx - bSize.X / 2, bpy), Color.White);
+                if (!string.IsNullOrEmpty(map.Board.QuestIndicator))
+                {
+                    string icon = map.Board.QuestIndicator == "available" ? "!" : "?";
+                    Color iconColor = map.Board.QuestIndicator == "ready" ? Color.Yellow
+                                    : map.Board.QuestIndicator == "available" ? Color.Yellow
+                                    : new Color(160, 160, 160);
+                    var sz = bFont.MeasureString(icon);
+                    float px = bpx - sz.X;
+                    float py = bpy - sz.Y * 2 - 4;
+                    sb.DrawString(bFont, icon, new Vector2(px, py), iconColor, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
+                }
             }
         }
         foreach (var npc in map.Npcs ?? Enumerable.Empty<NpcPosition>())

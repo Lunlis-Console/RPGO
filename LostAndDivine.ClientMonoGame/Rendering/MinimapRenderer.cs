@@ -194,7 +194,9 @@ public class MinimapRenderer
         if (map.Merchant != null)
             DrawDot(sb, map, area, map.Merchant.X, map.Merchant.Y, new Color(255, 210, 90), 4);
         if (map.Board != null)
-            DrawDot(sb, map, area, map.Board.X, map.Board.Y, new Color(255, 210, 90), 4);
+            DrawDot(sb, map, area, map.Board.X, map.Board.Y,
+                string.IsNullOrEmpty(map.Board.QuestIndicator) ? new Color(255, 210, 90) : new Color(255, 230, 80),
+                string.IsNullOrEmpty(map.Board.QuestIndicator) ? 4 : 5);
 
         foreach (var n in map.Npcs)
         {

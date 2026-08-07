@@ -239,7 +239,9 @@ public sealed class GameServer : INetworkHub
                 Height = zoneMap.Height,
                 Players = sameZonePlayers,
                 Merchant = BuildMerchantForZone(zoneId, merchant),
-                Board = BuildBoardForZone(zoneId, board),
+                Board = BuildBoardForZone(zoneId, board) is { } b
+                    ? new QuestBoardPosition { X = b.X, Y = b.Y, Name = b.Name, QuestIndicator = GetBoardIndicator(player) }
+                    : null,
                 StorageChest = BuildStorageForZone(zoneId),
                 Monsters = nearbyMonsters,
                 Collectibles = nearbyCollectibles,
@@ -331,6 +333,20 @@ public sealed class GameServer : INetworkHub
             }
         }
         return result;
+    }
+
+    private string? GetBoardIndicator(Player player)
+    {
+        var svc = _svc;
+        // Доска показывает все доступные квесты (без привязки к NPC)
+        if (svc.Quests.GetAvailableQuests(player).Count > 0)
+            return "available";
+        // Готовые к сдаче активные квесты
+        if (player.ActiveQuests.Any(q => q.Completed))
+            return "ready";
+        if (player.ActiveQuests.Count > 0)
+            return "active";
+        return null;
     }
 
     public async Task SendQuestLog(ClientConnection connection, Player player)
