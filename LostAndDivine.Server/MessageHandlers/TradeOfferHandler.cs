@@ -18,14 +18,14 @@ public class TradeOfferHandler : BaseHandler
         var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
-            Log.Warn($"TRADE OFFER: ��� ������ � {player.Name} (id={player.Id})");
-            await SendError(connection, ErrorCodes.InvalidRequest, "��� ��������� ������.");
+            Log.Warn($"TRADE OFFER: нет сессии у {player.Name} (id={player.Id})");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Нет активного обмена.");
             return;
         }
 
         if (session.BothConfirmed)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "����� ��� ����������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Обмен уже подтверждён.");
             return;
         }
 
@@ -54,16 +54,16 @@ public class TradeOfferHandler : BaseHandler
         var other = session.GetOther(player);
         if (other == null) return;
 
-        Log.Debug($"TRADE OFFER �� {player.Name}: " +
+        Log.Debug($"TRADE OFFER от {player.Name}: " +
             string.Join(", ", myEntries.Select(e => $"{e.ItemId}x{e.Quantity}")) +
-            $" | ������={myGold}");
+            $" | золото={myGold}");
 
         if (!ValidateOffer(player, myEntries, myGold))
         {
             var details = string.Join("; ", myEntries.Select(e =>
-                $"{e.ItemId}: ����� {e.Quantity}, ���� {player.Inventory.FirstOrDefault(i => i.Id == e.ItemId)?.Quantity ?? 0}"));
-            Log.Warn($"TRADE OFFER �� ������ ��������� � {player.Name}: {details}");
-            await SendError(connection, ErrorCodes.InvalidRequest, "��������� �������� ���������� ��� ���������� ���������.");
+                $"{e.ItemId}: нужно {e.Quantity}, есть {player.Inventory.FirstOrDefault(i => i.Id == e.ItemId)?.Quantity ?? 0}"));
+            Log.Warn($"TRADE OFFER НЕ прошёл валидацию у {player.Name}: {details}");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Некоторые предметы недоступны или количество превышено.");
             return;
         }
 
@@ -108,7 +108,7 @@ public class TradeOfferHandler : BaseHandler
         }
 
         int totalItems = myEntries.Sum(e => e.Quantity);
-        Log.Debug($"����� �����������: {player.Name} ��������� {totalItems} ��������� ({myEntries.Count} �����), {myGold} ������");
+        Log.Debug($"Трейд предложение: {player.Name} предложил {totalItems} предметов ({myEntries.Count} типов), {myGold} золота");
     }
 
     private static bool ValidateOffer(Player player, List<TradeOfferEntry> entries, int gold)

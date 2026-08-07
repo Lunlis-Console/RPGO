@@ -6,8 +6,8 @@ using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// ������ ������� ������������� ������� (������� / ������� � ���).
-/// ������ ��� �� ��� �� ����� ������, ������� ��� ����������.
+/// Отмена очереди заготовленных навыков (прекаст / очередь в бою).
+/// Клиент шлёт по ЛКМ по слоту навыка, который уже заготовлен.
 /// </summary>
 public class CancelSkillHandler : BaseHandler
 {
@@ -22,7 +22,7 @@ public class CancelSkillHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "���", Text = "������� ������� �������." }
+            Data = new { Name = "Бой", Text = "Очередь навыков очищена." }
         });
     }
 }

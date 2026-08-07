@@ -16,7 +16,7 @@ public class CollectHandler : BaseHandler
         var lootItem = Svc.Collectibles.TryCollect(player.X, player.Y, player.CurrentZoneId);
         if (lootItem == null)
         {
-            await SendError(connection, ErrorCodes.NothingToCollect, "����� ������ ��������.");
+            await SendError(connection, ErrorCodes.NothingToCollect, "Здесь нечего собирать.");
             return;
         }
 
@@ -24,19 +24,19 @@ public class CollectHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"[����] �� �������: {lootItem.Name}!" }
+            Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
         });
 
         var collectResults = Svc.Quests.IncrementCollectProgress(player, lootItem.Id);
         foreach (var (title, current, target, completed) in collectResults)
         {
             string msg = completed
-                ? $"[�������] {title}: {current}/{target} � ������� ���������! ��������� �� ����� �������, ����� �����."
-                : $"[�������] {title}: {current}/{target}";
+                ? $"[Задание] {title}: {current}/{target} — задание выполнено! Вернитесь на доску заданий, чтобы сдать."
+                : $"[Задание] {title}: {current}/{target}";
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = msg }
+                Data = new { Name = "Система", Text = msg }
             });
         }
 

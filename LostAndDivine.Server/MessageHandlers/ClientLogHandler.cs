@@ -7,8 +7,8 @@ using System.Text.Json;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// ��������� ���� �� ������� � �������������� �� � ��������� ���-����
-/// (logs/server-*.log), ������� ������ ������ ��� �������� �������.
+/// Принимает логи от клиента и перенаправляет их в серверный лог-файл
+/// (logs/server-*.log), помечая именем игрока для удобства отладки.
 /// </summary>
 public class ClientLogHandler : BaseHandler
 {

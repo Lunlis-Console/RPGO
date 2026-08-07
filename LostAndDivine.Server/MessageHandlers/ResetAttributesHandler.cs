@@ -24,7 +24,7 @@ public class ResetAttributesHandler : BaseHandler
 
         if (totalSpent == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "��� ����������� ��������� ��� ������!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Нет потраченных атрибутов для сброса!");
             return;
         }
 
@@ -41,13 +41,13 @@ public class ResetAttributesHandler : BaseHandler
         if (player.Mana > player.MaxMana) player.Mana = player.MaxMana;
         player.AttributePoints += totalSpent;
 
-        Log.Info($"{player.Name} ������� ��������. ���������� {totalSpent} �����. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
+        Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
         Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�������� ��������! ���������� {totalSpent} �����." }
+            Data = new { Name = "Система", Text = $"Атрибуты сброшены! Возвращено {totalSpent} очков." }
         });
         await SendInventoryAndStatus(connection, player);
     }

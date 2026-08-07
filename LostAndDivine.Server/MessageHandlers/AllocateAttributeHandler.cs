@@ -34,7 +34,7 @@ public class AllocateAttributeHandler : BaseHandler
         if (!valid) return;
         if (beforeVal >= 50)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"{attrName} ��� ������ ��������� (50)!");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{attrName} уже достиг максимума (50)!");
             return;
         }
 
@@ -49,12 +49,12 @@ public class AllocateAttributeHandler : BaseHandler
         }
 
         player.AttributePoints--;
-        Log.Debug($"{player.Name} ������� {attrName} (+1). �����: {player.AttributePoints}");
+        Log.Debug($"{player.Name} повысил {attrName} (+1). Очков: {player.AttributePoints}");
         Svc.Persistence.EnqueueSave(player);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"+1 {attrName}. �������� �����: {player.AttributePoints}" }
+            Data = new { Name = "Система", Text = $"+1 {attrName}. Осталось очков: {player.AttributePoints}" }
         });
         await SendInventoryAndStatus(connection, player);
     }

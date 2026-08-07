@@ -27,11 +27,11 @@ public class BuybackHandler : BaseHandler
         var first = player.BuybackItems.FirstOrDefault(i => i.Id == bbItemId);
         if (first == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "������� �� ������ ��� ������!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден для выкупа!");
             return;
         }
 
-        // ���������� ��� ������ ������ ���� �� ����
+        // Группируем все записи выкупа того же типа
         var matches = player.BuybackItems.Where(i =>
             i.Name == first.Name && i.Type == first.Type &&
             i.BonusPhysAttack == first.BonusPhysAttack && i.BonusDefense == first.BonusDefense &&
@@ -45,7 +45,7 @@ public class BuybackHandler : BaseHandler
 
         if (player.Gold < totalCost)
         {
-            await SendError(connection, ErrorCodes.InsufficientGold, $"������������ ������! �����: {totalCost}");
+            await SendError(connection, ErrorCodes.InsufficientGold, $"Недостаточно золота! Нужно: {totalCost}");
             return;
         }
 
@@ -68,11 +68,11 @@ public class BuybackHandler : BaseHandler
             remaining -= take;
         }
 
-        Log.Info($"{player.Name} ������� {first.Name} x{toBuy} �� {totalCost} ������");
+        Log.Info($"{player.Name} выкупил {first.Name} x{toBuy} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�� �������� {first.Name} x{toBuy} �� {totalCost} ������" }
+            Data = new { Name = "Система", Text = $"Вы выкупили {first.Name} x{toBuy} за {totalCost} золота" }
         });
         await SendToClient(connection, new GameMessage
         {

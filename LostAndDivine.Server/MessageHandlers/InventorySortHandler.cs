@@ -33,7 +33,7 @@ public class InventorySortHandler : BaseHandler
                     if (byId.TryGetValue(id, out var q) && q.Count > 0)
                         sorted.Add(q.Dequeue());
                 }
-                // ��������� ���������� (��, ��� �� ������ � Order, ���� ��������� ����� ������)
+                // Добавляем оставшиеся (те, что не попали в Order, либо дубликаты сверх списка)
                 foreach (var it in remaining)
                     if (!sorted.Contains(it)) sorted.Add(it);
                 player.Inventory = sorted;

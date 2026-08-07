@@ -112,6 +112,17 @@ public class ClientBuildService
                 Log.Info($"Отдан файл обновления: {req.Path} ({total} байт)");
                 return true;
             }
+
+            case "ping":
+            {
+                var ping = Deserialize<PingMessage>(message.Data);
+                await hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "pong",
+                    Data = new PongMessage(ping?.Seq ?? 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                });
+                return true;
+            }
         }
 
         return false;

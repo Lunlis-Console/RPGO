@@ -56,15 +56,15 @@ public class ChatHandler : BaseHandler
 
     private async Task RouteMessage(Player player, string text)
     {
-        // ������� ��������� �� ������� ������� ����� (� �������� ��� ����� ������),
-        // ����� "/world" �� ������� ��� "/w", � "/party" �� ��� "/p".
+        // Команды проверяем по точному первому слову (с пробелом или концу строки),
+        // чтобы "/world" не ловился как "/w", а "/party" не как "/p".
         if (HasPrefix(text, "/w") || HasPrefix(text, "/whisper") || HasPrefix(text, "/tell"))
         {
             var after = StripPrefix(text).TrimStart();
             var sp = after.IndexOf(' ');
             if (sp < 0)
             {
-                await SystemToSelf(player, "�������������: /w <���> <���������>");
+                await SystemToSelf(player, "Использование: /w <ник> <сообщение>");
                 return;
             }
             var target = after.Substring(0, sp).Trim();
@@ -82,7 +82,7 @@ public class ChatHandler : BaseHandler
 
         if (HasPrefix(text, "/g") || HasPrefix(text, "/guild"))
         {
-            await SystemToSelf(player, "������� ���� �� �����������.");
+            await SystemToSelf(player, "Гильдии пока не реализованы.");
             return;
         }
 
@@ -107,7 +107,7 @@ public class ChatHandler : BaseHandler
             return;
         }
 
-        // �� ��������� � ��������� ����� (��� �����)
+        // По умолчанию — локальный канал (мир живее)
         await SendChatLocalAsync(player, ChatChannel.Local, player.Name, text);
     }
 
@@ -115,7 +115,7 @@ public class ChatHandler : BaseHandler
     {
         if (!text.StartsWith(cmd, StringComparison.OrdinalIgnoreCase))
             return false;
-        // ������ ���������� ������� ��� ������� + ������
+        // Точное совпадение команды или команда + пробел
         return text.Length == cmd.Length || text[cmd.Length] == ' ';
     }
 
@@ -129,6 +129,6 @@ public class ChatHandler : BaseHandler
     {
         var conn = World.FindClientByPlayer(player);
         if (conn != null)
-            await SendChatToAsync(conn, ChatChannel.System, "�������", msg);
+            await SendChatToAsync(conn, ChatChannel.System, "Система", msg);
     }
 }

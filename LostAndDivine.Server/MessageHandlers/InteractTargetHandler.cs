@@ -36,7 +36,7 @@ public class InteractTargetHandler : BaseHandler
 
             if (interMonster == null || interMonster.Health <= 0)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "������ �� ������!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "Монстр не найден!");
                 return;
             }
 
@@ -45,7 +45,7 @@ public class InteractTargetHandler : BaseHandler
             var w = player.Equipment[EquipmentSlots.RightHand];
             Log.Debug($"[Interact] {player.Name} -> {interMonster.Name}: weapon='{w?.Name ?? "null"}' AttackRange={w?.AttackRange ?? -1} TemplateId='{w?.TemplateId ?? ""}'");
 
-            Log.Debug($"{player.Name} ������� � ��� � {interMonster.Name} ({interMonster.X},{interMonster.Y})");
+            Log.Debug($"{player.Name} вступил в бой с {interMonster.Name} ({interMonster.X},{interMonster.Y})");
 
             await SendToClient(connection, new GameMessage
             {
@@ -64,7 +64,7 @@ public class InteractTargetHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "���", Text = $"���: {interMonster.Name} [{interMonster.Level}] ({interMonster.Health}/{interMonster.MaxHealth})" }
+                Data = new { Name = "Бой", Text = $"Бой: {interMonster.Name} [{interMonster.Level}] ({interMonster.Health}/{interMonster.MaxHealth})" }
             });
             await BroadcastMapAsync();
             return;
@@ -72,7 +72,7 @@ public class InteractTargetHandler : BaseHandler
 
         if (entityType == "player")
         {
-            // ������� ����
+            // Находим цель
             Player? targetPlayer = null;
             if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid pid))
                 targetPlayer = Svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == pid && p.CurrentZoneId == player.CurrentZoneId);
@@ -81,13 +81,13 @@ public class InteractTargetHandler : BaseHandler
 
             if (targetPlayer == null || targetPlayer.IsDead)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "����� �� ������!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
                 return;
             }
 
             if (targetPlayer.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "������ ������� ����!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "Нельзя выбрать себя!");
                 return;
             }
 
@@ -114,17 +114,17 @@ public class InteractTargetHandler : BaseHandler
                 await SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "���", Text = $"PvP ���: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
+                    Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
                 });
             }
 
-            // ��� ������� ������� ���� (� ����� ������)
+            // Шлём текущие дебаффы цели (в любом режиме)
             await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
             await BroadcastMapAsync();
             return;
         }
 
-        // ��-������� � ��-������: �������, �����, ����������
+        // Не-монстры и не-игроки: магазин, доска, собиратель
         player.Combat.Cancel();
 
         int distToTarget = Math.Abs(player.X - targetX) + Math.Abs(player.Y - targetY);
@@ -163,7 +163,7 @@ public class InteractTargetHandler : BaseHandler
 
         if (bestX < 0)
         {
-            await SendError(connection, ErrorCodes.NoFreeCell, "��� ��������� ������ ����� � �����.");
+            await SendError(connection, ErrorCodes.NoFreeCell, "Нет свободной клетки рядом с целью.");
             return;
         }
 
@@ -172,14 +172,14 @@ public class InteractTargetHandler : BaseHandler
         {
             player.Movement.SetPath(path);
             player.Interaction.Begin(entityType, targetX, targetY, null);
-            Log.Debug($"{player.Name} ��� � {entityType} ({targetX},{targetY}), ���� {path.Count} �����");
+            Log.Debug($"{player.Name} идёт к {entityType} ({targetX},{targetY}), путь {path.Count} шагов");
         }
         else
         {
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = "���� �� ������!" }
+                Data = new { Name = "Система", Text = "Путь не найден!" }
             });
         }
     }

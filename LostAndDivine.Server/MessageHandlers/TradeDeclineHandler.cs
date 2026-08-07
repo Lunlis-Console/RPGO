@@ -27,10 +27,10 @@ public class TradeDeclineHandler : BaseHandler
             await SendToClient(inviterConn, new GameMessage
             {
                 Type = "trade_declined",
-                Data = new { TargetName = player.Name, Message = $"{player.Name} ��������� �� ������." }
+                Data = new { TargetName = player.Name, Message = $"{player.Name} отказался от обмена." }
             });
         }
 
-        Log.Info($"����� �������: {player.Name} ��������(�) ������ �� {inviterName}");
+        Log.Info($"Трейд отклонён: {player.Name} отклонил(а) запрос от {inviterName}");
     }
 }

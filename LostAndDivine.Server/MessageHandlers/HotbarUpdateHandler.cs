@@ -25,7 +25,7 @@ public class HotbarUpdateHandler : BaseHandler
             {
                 while (slots.Count < Balance.HotbarSlots) slots.Add(null);
                 player.HotbarSlots = slots.Take(Balance.HotbarSlots).ToList();
-                // ��������� �����, ����� ������ �� ��������� ��� ������ ��� ����������� logout
+                // Сохраняем сразу, чтобы хотбар не потерялся при выходе без корректного logout
                 Svc.Persistence.EnqueueSave(player);
             }
         }

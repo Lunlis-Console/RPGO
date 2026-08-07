@@ -17,7 +17,7 @@ public class LogoutHandler : BaseHandler
             {
                 Svc.Persistence.EnqueueSave(player);
                 World.RemovePlayer(player);
-                Log.Info($"{player.Name} ����� �� ���� (�������� �������)");
+                Log.Info($"{player.Name} вышел из игры (прогресс сохранён)");
             }
             catch (Exception ex)
             {
@@ -27,7 +27,7 @@ public class LogoutHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = "��� �������� �������. �� �������!" }
+                Data = new { Name = "Система", Text = "Ваш прогресс сохранён. До встречи!" }
             });
         }
 

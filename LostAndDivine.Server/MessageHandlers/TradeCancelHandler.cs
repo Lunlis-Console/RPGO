@@ -25,7 +25,7 @@ public class TradeCancelHandler : BaseHandler
         var closeMsg = new GameMessage
         {
             Type = "trade_close",
-            Data = new { Message = "����� ������." }
+            Data = new { Message = "Обмен отменён." }
         };
 
         var initiatorConn = World.FindClientByPlayer(session.Initiator);
@@ -34,6 +34,6 @@ public class TradeCancelHandler : BaseHandler
         if (initiatorConn != null) await SendToClient(initiatorConn, closeMsg);
         if (partnerConn != null) await SendToClient(partnerConn, closeMsg);
 
-        Svc.Trade.CancelSession(session, $"������ ������� {player.Name}");
+        Svc.Trade.CancelSession(session, $"отменён игроком {player.Name}");
     }
 }

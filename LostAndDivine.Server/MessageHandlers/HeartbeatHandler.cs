@@ -37,7 +37,7 @@ public class HeartbeatHandler : BackgroundService
                 SessionManager.Cleanup();
 
                 _tick++;
-                if (_tick % 12 == 0) // ������ ~60s
+                if (_tick % 12 == 0) // каждые ~60s
                     AutoSaveAll();
             }
             catch (Exception ex)

@@ -17,7 +17,7 @@ public class ResetSkillsHandler : BaseHandler
         int refunded = player.LearnedSkills.Count;
         if (refunded == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "��� ��������� ������� ��� ������!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Нет изученных навыков для сброса!");
             return;
         }
 
@@ -25,13 +25,13 @@ public class ResetSkillsHandler : BaseHandler
         player.SkillRanks.Clear();
         player.SkillPoints = player.Level / 2;
 
-        Log.Info($"{player.Name} ������� ������. ���������� {player.SkillPoints} �����.");
+        Log.Info($"{player.Name} сбросил навыки. Возвращено {player.SkillPoints} очков.");
         Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"������ ��������! ��� ���� ������� ���������� ({player.SkillPoints})." }
+            Data = new { Name = "Система", Text = $"Навыки сброшены! Все очки навыков возвращены ({player.SkillPoints})." }
         });
         await Hub.SendSkills(connection);
     }

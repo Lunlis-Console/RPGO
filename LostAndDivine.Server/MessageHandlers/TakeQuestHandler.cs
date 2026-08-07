@@ -21,26 +21,26 @@ public class TakeQuestHandler : BaseHandler
 
         if (!Svc.Quests.IsAtBoard(player.X, player.Y))
         {
-            await SendError(connection, ErrorCodes.NotAtBoard, "����� ������� ������. ��������� � ���, ����� ����� �������.");
+            await SendError(connection, ErrorCodes.NotAtBoard, "Доска заданий далеко. Подойдите к ней, чтобы взять задание.");
             return;
         }
 
         if (questId == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotSpecified, "������� �� �������.");
+            await SendError(connection, ErrorCodes.QuestNotSpecified, "Задание не указано.");
             return;
         }
 
         if (player.ActiveQuests.Any(q => q.QuestId == questId))
         {
-            await SendError(connection, ErrorCodes.QuestAlreadyTaken, "�� ��� ����� ��� �������.");
+            await SendError(connection, ErrorCodes.QuestAlreadyTaken, "Вы уже взяли это задание.");
             return;
         }
 
         var def = Svc.Quests.FindQuest(questId);
         if (def == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotFound, "������ ������� �� ����������.");
+            await SendError(connection, ErrorCodes.QuestNotFound, "Такого задания не существует.");
             return;
         }
 
@@ -48,16 +48,16 @@ public class TakeQuestHandler : BaseHandler
         {
             if (player.Level < def.MinLevel)
             {
-                await SendError(connection, ErrorCodes.QuestNotAvailable, $"��� ������� ������� {def.MinLevel} ������.");
+                await SendError(connection, ErrorCodes.QuestNotAvailable, $"Это задание требует {def.MinLevel} уровня.");
                 return;
             }
             if (!string.IsNullOrEmpty(def.PrerequisiteQuestId) &&
                 !player.CompletedQuestIds.Contains(def.PrerequisiteQuestId))
             {
-                await SendError(connection, ErrorCodes.QuestNotAvailable, "������� ��������� ���������� ������� �������.");
+                await SendError(connection, ErrorCodes.QuestNotAvailable, "Сначала выполните предыдущее задание цепочки.");
                 return;
             }
-            await SendError(connection, ErrorCodes.QuestNotAvailable, "��� ������� ������ ����������.");
+            await SendError(connection, ErrorCodes.QuestNotAvailable, "Это задание сейчас недоступно.");
             return;
         }
 
@@ -65,14 +65,14 @@ public class TakeQuestHandler : BaseHandler
         var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
         int currentProgress = prog?.Current ?? 0;
         bool alreadyCompleted = prog?.Completed ?? false;
-        Log.Info($"{player.Name} ���� �������: {def.Title} (��������: {currentProgress}/{def.Target})");
+        Log.Info($"{player.Name} взял задание: {def.Title} (прогресс: {currentProgress}/{def.Target})");
 
         if (alreadyCompleted)
         {
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = $"������� �������: {def.Title} � ��� ���������! ������ ��� �� �����." }
+                Data = new { Name = "Система", Text = $"Задание принято: {def.Title} — уже выполнено! Сдайте его на доске." }
             });
         }
         else
@@ -80,7 +80,7 @@ public class TakeQuestHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = $"������� �������: {def.Title} � {def.Description} (��������: {currentProgress}/{def.Target})" }
+                Data = new { Name = "Система", Text = $"Задание принято: {def.Title} — {def.Description} (прогресс: {currentProgress}/{def.Target})" }
             });
         }
         await SendQuestLog(connection, player);

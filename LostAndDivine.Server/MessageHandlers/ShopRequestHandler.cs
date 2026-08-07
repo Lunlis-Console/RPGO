@@ -20,7 +20,7 @@ public class ShopRequestHandler : BaseHandler
             {
                 MerchantX = Svc.Merchant.MerchantX,
                 MerchantY = Svc.Merchant.MerchantY,
-                MerchantName = "��������",
+                MerchantName = "Торговец",
                 Discount = 0,
                 Items = Svc.Merchant.ShopItems.Select(i => new
                 {

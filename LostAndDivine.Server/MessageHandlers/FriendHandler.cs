@@ -7,8 +7,8 @@ using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// ���������� ������� ������: list / add / remove.
-/// ��������� ���� "friend" � ����� Action � Data.
+/// Управление списком друзей: list / add / remove.
+/// Сообщения типа "friend" с полем Action в Data.
 /// </summary>
 public class FriendHandler : BaseHandler
 {
@@ -54,26 +54,26 @@ public class FriendHandler : BaseHandler
         targetName = (targetName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(targetName))
         {
-            await SendResult(connection, false, "������� ��� ������");
+            await SendResult(connection, false, "Укажите имя игрока");
             return;
         }
 
         if (targetName.Equals(player.Name, StringComparison.OrdinalIgnoreCase))
         {
-            await SendResult(connection, false, "������ �������� ����");
+            await SendResult(connection, false, "Нельзя добавить себя");
             return;
         }
 
-        // �������� ������ ������������ � �� (���������� �� ����, � ���� �� ������ ��� ���)
+        // Персонаж должен существовать в БД (независимо от того, в сети он сейчас или нет)
         if (!DatabaseManager.PlayerNameExists(targetName))
         {
-            await SendResult(connection, false, $"�������� �{targetName}� �� ������");
+            await SendResult(connection, false, $"Персонаж «{targetName}» не найден");
             return;
         }
 
         if (DatabaseManager.FriendExists(player.Name, targetName))
         {
-            await SendResult(connection, false, $"�{targetName}� ��� � �������");
+            await SendResult(connection, false, $"«{targetName}» уже в друзьях");
             return;
         }
 
@@ -81,16 +81,16 @@ public class FriendHandler : BaseHandler
         if (currentCount >= DatabaseManager.MaxFriends)
         {
             await SendResult(connection, false,
-                $"��������� ����� ������ ({DatabaseManager.MaxFriends}). ������� ������� ����-��.");
+                $"Достигнут лимит друзей ({DatabaseManager.MaxFriends}). Сначала удалите кого-то.");
             return;
         }
 
         DatabaseManager.AddFriend(player.Name, targetName);
-        await SendResult(connection, true, $"�{targetName}� ��������(�) � ������");
+        await SendResult(connection, true, $"«{targetName}» добавлен(а) в друзья");
 
-        // ��������� ������ � ����
+        // Обновляем список у себя
         await SendFriendListAsync(connection, player);
-        // � � �����, ���� �� ������ � ����
+        // И у друга, если он сейчас в сети
         if (World.TryGetPlayerByName(targetName, out var target) && target != null)
         {
             var targetConn = World.FindClientByPlayer(target);
@@ -103,12 +103,12 @@ public class FriendHandler : BaseHandler
     {
         if (string.IsNullOrWhiteSpace(targetName))
         {
-            await SendResult(connection, false, "������� ��� ������");
+            await SendResult(connection, false, "Укажите имя игрока");
             return;
         }
 
         DatabaseManager.RemoveFriend(player.Name, targetName);
-        await SendResult(connection, true, $"�{targetName}� �����(�) �� ������");
+        await SendResult(connection, true, $"«{targetName}» удалён(а) из друзей");
 
         await SendFriendListAsync(connection, player);
         if (World.TryGetPlayerByName(targetName, out var target) && target != null)

@@ -13,7 +13,7 @@ public class UseItemHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "������ ������������ �� ����� ������!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя использовать во время обмена!"); return; }
         if (message.Data is not JsonElement useEl) return;
 
         string? useItemId = useEl.ValueKind == JsonValueKind.String
@@ -25,7 +25,7 @@ public class UseItemHandler : BaseHandler
         var item = player.Inventory.FirstOrDefault(i => i.Id == useItemId);
         if (item == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "������� �� ������!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
             return;
         }
 
@@ -35,7 +35,7 @@ public class UseItemHandler : BaseHandler
             int healed = Math.Min(item.HealAmount, effectiveMax - player.Health);
             player.Health += healed;
             InventoryHelper.RemoveFromRecord(player, useItemId, 1);
-            Log.Debug($"{player.Name} ����������� {item.Name}, ������������� {healed} HP");
+            Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {healed} HP");
             var healMsg = new GameMessage
             {
                 Type = "heal",
@@ -46,7 +46,7 @@ public class UseItemHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = $"�� ������������ {item.Name}. ������������� {healed} HP. ({player.Health}/{effectiveMax})" }
+                Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {healed} HP. ({player.Health}/{effectiveMax})" }
             });
             await SendInventoryAndStatus(connection, player);
         }
@@ -54,23 +54,23 @@ public class UseItemHandler : BaseHandler
         {
             if (player.Mana >= player.MaxMana)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "���� � ��� ������!");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Мана и так полная!");
                 return;
             }
             int restored = Math.Min(item.RestoreMana, player.MaxMana - player.Mana);
             player.Mana += restored;
             InventoryHelper.RemoveFromRecord(player, useItemId, 1);
-            Log.Debug($"{player.Name} ����������� {item.Name}, ������������� {restored} MP");
+            Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {restored} MP");
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "�������", Text = $"�� ������������ {item.Name}. ������������� {restored} MP. ({player.Mana}/{player.MaxMana})" }
+                Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {restored} MP. ({player.Mana}/{player.MaxMana})" }
             });
             await SendInventoryAndStatus(connection, player);
         }
         else
         {
-            await SendError(connection, ErrorCodes.ItemNotEquippable, "���� ������� ������ ������������!");
+            await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя использовать!");
         }
     }
 }

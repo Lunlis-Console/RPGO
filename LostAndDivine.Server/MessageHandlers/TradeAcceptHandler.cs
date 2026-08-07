@@ -19,32 +19,32 @@ public class TradeAcceptHandler : BaseHandler
         string? inviterName = el.TryGetProperty("InviterName", out var invN) ? invN.GetString() : null;
         if (string.IsNullOrEmpty(inviterName))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "��� �������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Нет запроса.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(player))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "�� ��� � ������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Вы уже в обмене.");
             return;
         }
 
         if (!World.TryGetPlayerByName(inviterName, out var inviter) || inviter == null)
         {
-            await SendError(connection, ErrorCodes.TargetNotFound, "����� �� ������.");
+            await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(inviter))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} ��� � ������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} уже в обмене.");
             return;
         }
 
         int dist = Math.Abs(player.X - inviter.X) + Math.Abs(player.Y - inviter.Y);
         if (dist > 1)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "����� ������� ������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Игрок слишком далеко.");
             return;
         }
 
@@ -95,7 +95,7 @@ public class TradeAcceptHandler : BaseHandler
             });
         }
 
-        Log.Info($"����� �����: {inviter.Name} - {player.Name}");
+        Log.Info($"Трейд начат: {inviter.Name} - {player.Name}");
     }
 
     private static (List<object> items, int gold) BuildInventoryData(Player player)

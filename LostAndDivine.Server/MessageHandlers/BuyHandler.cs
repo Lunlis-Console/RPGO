@@ -27,7 +27,7 @@ public class BuyHandler : BaseHandler
         var template = Svc.Merchant.FindItem(buyItemId);
         if (template == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "������� �� ������!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
             return;
         }
 
@@ -39,7 +39,7 @@ public class BuyHandler : BaseHandler
 
         if (player.Gold < totalCost)
         {
-            await SendError(connection, ErrorCodes.InsufficientGold, $"������������ ������! �����: {totalCost}");
+            await SendError(connection, ErrorCodes.InsufficientGold, $"Недостаточно золота! Нужно: {totalCost}");
             return;
         }
 
@@ -47,11 +47,11 @@ public class BuyHandler : BaseHandler
         var newItem = Svc.Merchant.CreatePlayerCopy(template);
         newItem.Quantity = qty;
         InventoryHelper.AddItem(player, newItem);
-        Log.Info($"{player.Name} ����� {template.Name} x{qty} �� {totalCost} ������");
+        Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�� ������ {template.Name} x{qty} �� {totalCost} ������" }
+            Data = new { Name = "Система", Text = $"Вы купили {template.Name} x{qty} за {totalCost} золота" }
         });
         await SendToClient(connection, new GameMessage
         {

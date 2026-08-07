@@ -10,59 +10,59 @@ public class GameMessage
     [JsonPropertyName("d")]
     public object? Data { get; set; }
 
-    /// <summary>����� ������� ��������� (����� �� ���).</summary>
+    /// <summary>Сброс боевого состояния (выход из боя).</summary>
     public static GameMessage ResetCombat() => new()
     {
         Type = "combat_state",
         Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
     };
 
-    /// <summary>���������� HP �������.</summary>
+    /// <summary>Обновление HP монстра.</summary>
     public static GameMessage CombatUpdate(string name, int health, int maxHealth) => new()
     {
         Type = "combat_update",
         Data = new { MonsterName = name, MonsterHealth = health, MonsterMaxHealth = maxHealth }
     };
 
-    /// <summary>��������� � ���.</summary>
+    /// <summary>Сообщение в чат.</summary>
     public static GameMessage Chat(string name, string text) => new()
     {
         Type = "chat",
         Data = new { Name = name, Text = text }
     };
 
-    /// <summary>��������� ��������� � ���.</summary>
-    public static GameMessage SystemChat(string text) => Chat("�������", text);
+    /// <summary>Системное сообщение в чат.</summary>
+    public static GameMessage SystemChat(string text) => Chat("Система", text);
 
-    /// <summary>���� (������>����� ��� �����>������).</summary>
+    /// <summary>Урон (монстр>игрок или игрок>монстр).</summary>
     public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null, string? result = null) => new()
     {
         Type = "damage",
         Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit, Result = result }
     };
 
-    /// <summary>���������� �������� ���� (�������) ��� HUD.</summary>
+    /// <summary>Обновление дебаффов цели (монстра) для HUD.</summary>
     public static GameMessage TargetDebuffUpdate(object debuffs) => new()
     {
         Type = "target_debuff_update",
         Data = new { Debuffs = debuffs }
     };
 
-    /// <summary>����������� ������� � ������ ������ (death screen + ��������).</summary>
+    /// <summary>Уведомление клиенту о смерти игрока (death screen + задержка).</summary>
     public static GameMessage PlayerDeath(int lostGold) => new()
     {
         Type = "player_death",
         Data = new { LostGold = lostGold }
     };
 
-    /// <summary>��������� �� ������.</summary>
+    /// <summary>Сообщение об ошибке.</summary>
     public static GameMessage Error(string code, string message) => new()
     {
         Type = "error",
         Data = new { Code = code, Message = message }
     };
 
-    /// <summary>������ ��������� (����/����� �� ���).</summary>
+    /// <summary>Боевое состояние (вход/выход из боя).</summary>
     public static GameMessage CombatState(bool inCombat, string? targetId = null, string? targetName = null,
         int targetHp = 0, int targetMaxHp = 0, int targetX = 0, int targetY = 0, bool isPvP = false,
         object? targetDebuffs = null) => new()

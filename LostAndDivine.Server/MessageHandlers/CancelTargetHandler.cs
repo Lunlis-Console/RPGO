@@ -17,7 +17,7 @@ public class CancelTargetHandler : BaseHandler
         if (player.Combat.HasTarget)
         {
             var prevTarget = Svc.Monsters.FindMonsterById(player.Combat.TargetMonsterId!.Value);
-            Log.Debug($"{player.Name} ������� ����: {prevTarget?.Name ?? "?"}");
+            Log.Debug($"{player.Name} отменил цель: {prevTarget?.Name ?? "?"}");
             player.Combat.Cancel();
             player.QueuedSkillIds.Clear();
             await UseSkillHandler.SendSkillQueue(connection, player, Hub);

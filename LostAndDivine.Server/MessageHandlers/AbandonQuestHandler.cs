@@ -21,30 +21,30 @@ public class AbandonQuestHandler : BaseHandler
 
         if (questId == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotSpecified, "������� �� �������.");
+            await SendError(connection, ErrorCodes.QuestNotSpecified, "Задание не указано.");
             return;
         }
 
         var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == questId);
         if (prog == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotActive, "� ��� ��� ����� �������.");
+            await SendError(connection, ErrorCodes.QuestNotActive, "У вас нет этого задания.");
             return;
         }
 
         if (prog.Completed)
         {
-            await SendError(connection, ErrorCodes.QuestNotActive, "������� ������� ������ ��������.");
+            await SendError(connection, ErrorCodes.QuestNotActive, "Сданное задание нельзя отменить.");
             return;
         }
 
         var def = Svc.Quests.FindQuest(questId);
         player.ActiveQuests.Remove(prog);
-        Log.Info($"{player.Name} ��������� �� ������� {def?.Title ?? questId}");
+        Log.Info($"{player.Name} отказался от задания {def?.Title ?? questId}");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�� ���������� �� �������: {def?.Title ?? questId}." }
+            Data = new { Name = "Система", Text = $"Вы отказались от задания: {def?.Title ?? questId}." }
         });
 
         await SendQuestLog(connection, player);

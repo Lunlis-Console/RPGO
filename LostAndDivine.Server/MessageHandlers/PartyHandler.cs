@@ -24,7 +24,7 @@ public class PartyHandler : BaseHandler
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������� ��� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Укажите имя игрока");
                 return;
             }
 
@@ -33,37 +33,37 @@ public class PartyHandler : BaseHandler
                 var myParty = Svc.Party.GetParty(player.PartyId.Value);
                 if (myParty == null || myParty.LeaderId != player.Id)
                 {
-                    await SendError(connection, ErrorCodes.InvalidRequest, "� ������ ����� ���������� ������ �����");
+                    await SendError(connection, ErrorCodes.InvalidRequest, "В группу может приглашать только лидер");
                     return;
                 }
                 if (myParty.Members.Count >= 5)
                 {
-                    await SendError(connection, ErrorCodes.InvalidRequest, "������ ������ (����. 5)");
+                    await SendError(connection, ErrorCodes.InvalidRequest, "Группа полная (макс. 5)");
                     return;
                 }
             }
 
             if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"����� {targetName} �� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Игрок {targetName} не найден");
                 return;
             }
 
             if (target.PartyId.HasValue)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} ��� � ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} уже в группе");
                 return;
             }
 
             if (Svc.Trade.IsInTrade(target))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} ������ ����� �������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} сейчас занят обменом");
                 return;
             }
 
             if (target.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������ ���������� ����");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя пригласить себя");
                 return;
             }
 
@@ -90,7 +90,7 @@ public class PartyHandler : BaseHandler
 
             if (!World.TryGetPlayerByName(inviterName, out var inviter) || inviter == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������������ ����� �� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Пригласивший игрок не найден");
                 return;
             }
 
@@ -101,7 +101,7 @@ public class PartyHandler : BaseHandler
                 {
                     if (existingParty.Members.Count >= 5)
                     {
-                        await SendError(connection, ErrorCodes.InvalidRequest, "������ ������ (����. 5)");
+                        await SendError(connection, ErrorCodes.InvalidRequest, "Группа полная (макс. 5)");
                         return;
                     }
 
@@ -116,7 +116,7 @@ public class PartyHandler : BaseHandler
             var party = Svc.Party.CreateParty(inviter, player);
             if (party != null)
             {
-                Log.Info($"������ �������: {inviter.Name} + {player.Name}");
+                Log.Info($"Группа создана: {inviter.Name} + {player.Name}");
                 await Svc.Party.SendPartyUpdateAsync(party);
             }
         }
@@ -142,108 +142,108 @@ public class PartyHandler : BaseHandler
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������� ��� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Укажите имя игрока");
                 return;
             }
 
             if (!player.PartyId.HasValue)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "�� �� � ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не в группе");
                 return;
             }
 
             var party = Svc.Party.GetParty(player.PartyId.Value);
             if (party == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������ �� �������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
                 return;
             }
 
             if (party.LeaderId != player.Id)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "�������� ��������� ����� ������ �����");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Передать лидерство может только лидер");
                 return;
             }
 
             if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"����� {targetName} �� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Игрок {targetName} не найден");
                 return;
             }
 
             if (target.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������ �������� ��������� ����");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя передать лидерство себе");
                 return;
             }
 
             if (!party.Members.Contains(target.Id))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} �� ������� � ����� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} не состоит в вашей группе");
                 return;
             }
 
             party.LeaderId = target.Id;
             party.LeaderName = target.Name;
-            Log.Info($"{player.Name} ������� ��������� {target.Name}");
+            Log.Info($"{player.Name} передал лидерство {target.Name}");
             await Svc.Party.SendPartyUpdateAsync(party);
 
             var targetConn = World.FindClientByPlayer(target);
             if (targetConn != null)
-                await SendToClient(targetConn, GameMessage.SystemChat("�� ������ ����� ������."));
+                await SendToClient(targetConn, GameMessage.SystemChat("Вы теперь лидер группы."));
         }
         else if (action == "party_kick")
         {
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������� ��� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Укажите имя игрока");
                 return;
             }
 
             if (!player.PartyId.HasValue)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "�� �� � ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не в группе");
                 return;
             }
 
             var party = Svc.Party.GetParty(player.PartyId.Value);
             if (party == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������ �� �������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Группа не найдена");
                 return;
             }
 
             if (party.LeaderId != player.Id)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "��������� ����� ������ �����");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Исключить может только лидер");
                 return;
             }
 
             if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"����� {targetName} �� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"Игрок {targetName} не найден");
                 return;
             }
 
             if (target.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "������ ��������� ����");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя исключить себя");
                 return;
             }
 
             if (!party.Members.Contains(target.Id))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} �� ������� � ����� ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} не состоит в вашей группе");
                 return;
             }
 
-            Log.Info($"{player.Name} �������� {target.Name} �� ������");
+            Log.Info($"{player.Name} исключил {target.Name} из группы");
 
-            // ����������� �������� ������
+            // Исключённый покидает группу
             Svc.Party.LeaveParty(target);
 
-            // ���������� ������������
+            // Уведомляем исключённого
             var targetConn = World.FindClientByPlayer(target);
             if (targetConn != null)
             {
@@ -252,7 +252,7 @@ public class PartyHandler : BaseHandler
                     Type = "party_disbanded",
                     Data = (object?)null
                 });
-                await SendToClient(targetConn, GameMessage.SystemChat($"�� ��������� �� ������ ({party.LeaderName})."));
+                await SendToClient(targetConn, GameMessage.SystemChat($"Вы исключены из группы ({party.LeaderName})."));
             }
 
             if (party.Members.Count >= 2)
@@ -268,7 +268,7 @@ public class PartyHandler : BaseHandler
         {
             if (!player.PartyId.HasValue)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "�� �� � ������");
+                await SendError(connection, ErrorCodes.InvalidRequest, "Вы не в группе");
                 return;
             }
 
@@ -277,18 +277,18 @@ public class PartyHandler : BaseHandler
 
             if (party != null)
             {
-                Log.Info($"{player.Name} ������� ����");
+                Log.Info($"{player.Name} покинул пати");
 
                 if (party.Members.Count >= 2)
                 {
-                    // ������ ����: ��� ���������� ������ (� �������� ����� �������)
+                    // Группа жива: шлём обновлённый состав (с возможно новым лидером)
                     await Svc.Party.SendPartyUpdateAsync(party);
                 }
                 else
                 {
-                    // ������ ��������� (������� 1 ��� 0): DisbandAndNotifyAsync
-                    // ������� party_disbanded ����������. ������ �������� (��� �� �
-                    // Members) ��� ��������, ����� � ���� � HUD ����� ������ ������.
+                    // Группа распущена (остался 1 или 0): DisbandAndNotifyAsync
+                    // разошлёт party_disbanded оставшимся. Самому ушедшему (уже не в
+                    // Members) шлём отдельно, иначе у него в HUD висит панель группы.
                     await DisbandNotifySelf(connection);
                     await Svc.Party.DisbandAndNotifyAsync(party.Id);
                 }

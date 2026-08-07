@@ -12,19 +12,19 @@ public class SellAllTrophiesHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "������ ��������� �� ����� ������!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя продавать во время обмена!"); return; }
 
         var trophies = player.Inventory.Where(i => i.Type == "trophy").ToList();
         if (trophies.Count == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "� ��� ��� ������� ��� �������!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "У вас нет трофеев для продажи!");
             return;
         }
 
         int totalQty = trophies.Sum(i => i.Quantity);
         int totalGain = 0;
 
-        // ���������� ������ �� ���� ��� ����������� buyback (������ ��� � ��������� ������)
+        // Группируем трофеи по типу для корректного buyback (каждый тип — отдельная запись)
         var byType = trophies.GroupBy(i => new {
             i.Name, i.Type, i.Value, i.Description,
             i.BonusPhysAttack, i.BonusDefense, i.MaxHealthBonus, i.HealAmount, i.RestoreMana
@@ -38,11 +38,11 @@ public class SellAllTrophiesHandler : BaseHandler
             player.Gold += groupGain;
             totalGain += groupGain;
 
-            // ������� �� ���������
+            // Удаляем из инвентаря
             foreach (var item in group)
                 player.Inventory.Remove(item);
 
-            // Buyback: ���� ������ �� ������
+            // Buyback: одна запись на группу
             var first = group.First();
             var buybackCopy = first.Clone();
             buybackCopy.Id = Guid.NewGuid().ToString();
@@ -50,11 +50,11 @@ public class SellAllTrophiesHandler : BaseHandler
             player.BuybackItems.Add(buybackCopy);
         }
 
-        Log.Info($"{player.Name} ������ ��� ������ x{totalQty} �� {totalGain} ������");
+        Log.Info($"{player.Name} продал все трофеи x{totalQty} за {totalGain} золота");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�� ������� ��� ������ x{totalQty} �� {totalGain} ������" }
+            Data = new { Name = "Система", Text = $"Вы продали все трофеи x{totalQty} за {totalGain} золота" }
         });
         await SendToClient(connection, new GameMessage
         {

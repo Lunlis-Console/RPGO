@@ -21,13 +21,13 @@ public class CompleteQuestHandler : BaseHandler
 
         if (!Svc.Quests.IsAtBoard(player.X, player.Y))
         {
-            await SendError(connection, ErrorCodes.NotAtBoard, "��������� � ����� �������, ����� ����� �������.");
+            await SendError(connection, ErrorCodes.NotAtBoard, "Вернитесь к доске заданий, чтобы сдать задание.");
             return;
         }
 
         if (questId == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotSpecified, "������� �� �������.");
+            await SendError(connection, ErrorCodes.QuestNotSpecified, "Задание не указано.");
             return;
         }
 
@@ -42,14 +42,14 @@ public class CompleteQuestHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = result.Message }
+            Data = new { Name = "Система", Text = result.Message }
         });
 
         if (result.LeveledUp)
         {
-            string skillMsg = player.Level % 2 == 0 ? $" +1 ���� �������." : "";
-            Log.Info($"{player.Name} ������� ������� �� {player.Level}! +{BalanceStatic.AttributePointsPerLevel} ����� ���������{skillMsg}");
-            await SendToClient(connection, GameMessage.SystemChat($"������� �������! �� ������ ������� {player.Level}! +{BalanceStatic.AttributePointsPerLevel} ����� ���������.{skillMsg} HP �������������."));
+            string skillMsg = player.Level % 2 == 0 ? $" +1 очко навыков." : "";
+            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов{skillMsg}");
+            await SendToClient(connection, GameMessage.SystemChat($"Уровень повышен! Вы теперь уровень {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов.{skillMsg} HP восстановлены."));
         }
 
         await SendQuestLog(connection, player);

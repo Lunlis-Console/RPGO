@@ -23,7 +23,7 @@ public class SelectTargetHandler : BaseHandler
                 .FirstOrDefault(p => p.Id == playerTargetId && p.CurrentZoneId == player.CurrentZoneId);
             if (targetPlayer == null || targetPlayer.IsDead)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "����� �� ������!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
                 return;
             }
             await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
@@ -36,21 +36,21 @@ public class SelectTargetHandler : BaseHandler
         var target = Svc.Monsters.FindMonsterById(monsterId);
         if (target == null)
         {
-            await SendError(connection, ErrorCodes.TargetNotFound, "���� �� �������!");
+            await SendError(connection, ErrorCodes.TargetNotFound, "Цель не найдена!");
             return;
         }
 
         if (target.Health <= 0)
         {
-            await SendError(connection, ErrorCodes.TargetDead, "���� ������ ��� ����!");
+            await SendError(connection, ErrorCodes.TargetDead, "Этот монстр уже мёртв!");
             return;
         }
 
         bool wasInCombat = player.Combat.InCombat;
         player.Combat.Enter(target.Id, player.Movement);
-        // ��� ������������ ���� � ��� � ����� �������. ������� ��� ������ ����� �����������.
+        // При переключении цели в бою — сброс очереди. Прекаст при первом входе сохраняется.
         if (wasInCombat) player.QueuedSkillIds.Clear();
-        Log.Debug($"{player.Name} ������ ����: {target.Name} ({target.X},{target.Y})");
+        Log.Debug($"{player.Name} выбрал цель: {target.Name} ({target.X},{target.Y})");
         await SendToClient(connection, new GameMessage
         {
             Type = "combat_state",
@@ -77,7 +77,7 @@ public class SelectTargetHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "���", Text = $"����: {target.Name} [{target.Level}] ({target.Health}/{target.MaxHealth}) � ��������� ������� ��� �����������." }
+            Data = new { Name = "Бой", Text = $"Цель: {target.Name} [{target.Level}] ({target.Health}/{target.MaxHealth}) — автоатака начнётся при приближении." }
         });
     }
 }

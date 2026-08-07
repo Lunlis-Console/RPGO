@@ -18,7 +18,7 @@ public class ReconnectHandler : BaseHandler
         var req = JsonSerializer.Deserialize<ReconnectRequest>(el.GetRawText());
         if (req == null)
         {
-            await SendError(connection, "invalid_request", "�������� ������ �������");
+            await SendError(connection, "invalid_request", "Неверный формат запроса");
             return;
         }
 
@@ -65,8 +65,8 @@ public class ReconnectHandler : BaseHandler
             World.AddPlayer(loadedPlayer);
         }
 
-        // ����� ���������������: ������� ����� pending, ����� ������� sweep
-        // �� ������������� ����������, � ����� ������ ����������� �����.
+        // Игрок переподключился: снимаем метку pending, чтобы фоновый sweep
+        // не финализировал дисконнект, и выдаём свежий одноразовый токен.
         World.CancelPendingReconnect(loadedPlayer);
         SessionManager.Revoke(req.Token);
         var newToken = SessionManager.CreateToken(playerName);
@@ -87,8 +87,8 @@ public class ReconnectHandler : BaseHandler
         await Hub.SendHotbar(connection, loadedPlayer);
         await Hub.SendSkills(connection);
 
-        // ����� ���������� ������ ����� (� ������ ���������� ����� �� ����������
-        // �� ��� ����� ����, ������� ������ ������� � �����, � �������� ������� ����).
+        // Сразу отправляем свежую карту (у нового соединения тайлы не отправлены
+        // ни для одной зоны, поэтому клиент получит и тайлы, и сущности текущей зоны).
         await Hub.BroadcastMapAsync();
 
         int unreadCount = MailRepository.CountUnread(playerName);

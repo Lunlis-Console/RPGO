@@ -18,14 +18,14 @@ public class TradeConfirmHandler : BaseHandler
         var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
-            Log.Warn($"TRADE CONFIRM: ��� ������ � {player.Name} (id={player.Id})");
-            await SendError(connection, ErrorCodes.InvalidRequest, "��� ��������� ������.");
+            Log.Warn($"TRADE CONFIRM: нет сессии у {player.Name} (id={player.Id})");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Нет активного обмена.");
             return;
         }
 
         if (session.BothConfirmed)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "����� ��� ����������.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "Обмен уже подтверждён.");
             return;
         }
 
@@ -80,7 +80,7 @@ public class TradeConfirmHandler : BaseHandler
         if (!ValidateFinalOffer(initiator, session.InitiatorItemIds, session.InitiatorGold) ||
             !ValidateFinalOffer(partner, session.PartnerItemIds, session.PartnerGold))
         {
-            await NotifyError(session, "�������� ����������. ����� ������.");
+            await NotifyError(session, "Предметы изменились. Обмен отменён.");
             Svc.Trade.CancelSession(session, "validation failed");
             return;
         }
@@ -88,7 +88,7 @@ public class TradeConfirmHandler : BaseHandler
         int initiatorGold = Math.Min(session.InitiatorGold, initiator.Gold);
         int partnerGold = Math.Min(session.PartnerGold, partner.Gold);
 
-        // ��������� �������� � ���������� � ����� �� �������
+        // Списываем предметы у инициатора и кладём их партнёру
         foreach (var e in session.InitiatorItemIds)
         {
             var proto = initiator.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
@@ -98,7 +98,7 @@ public class TradeConfirmHandler : BaseHandler
             InventoryHelper.AddItem(partner, copy);
         }
 
-        // ��������� �������� � ������� � ����� �� ����������
+        // Списываем предметы у партнёра и кладём их инициатору
         foreach (var e in session.PartnerItemIds)
         {
             var proto = partner.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
@@ -122,7 +122,7 @@ public class TradeConfirmHandler : BaseHandler
         var completeMsg = new GameMessage
         {
             Type = "trade_complete",
-            Data = new { Success = true, Message = "����� ������� ��������!" }
+            Data = new { Success = true, Message = "Обмен успешно завершён!" }
         };
 
         if (initiatorConn != null)
@@ -141,9 +141,9 @@ public class TradeConfirmHandler : BaseHandler
 
         int iniTotal = session.InitiatorItemIds.Sum(e => e.Quantity);
         int parTotal = session.PartnerItemIds.Sum(e => e.Quantity);
-        Log.Info($"����� ��������: {initiator.Name} - {partner.Name} | " +
-                 $"{initiator.Name} ����� {iniTotal} ��������� + {initiatorGold} ������; " +
-                 $"{partner.Name} ����� {parTotal} ��������� + {partnerGold} ������");
+        Log.Info($"ТРЕЙД ВЫПОЛНЕН: {initiator.Name} - {partner.Name} | " +
+                 $"{initiator.Name} отдал {iniTotal} предметов + {initiatorGold} золота; " +
+                 $"{partner.Name} отдал {parTotal} предметов + {partnerGold} золота");
     }
 
     private static Item MakeCopy(Item proto, int qty)

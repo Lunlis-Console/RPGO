@@ -5,7 +5,7 @@ using LostAndDivine.Shared.Models;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// ������ ����� ��������� � ������������ ��������� ����� select_target.
+/// Ручная атака отключена — используется автоатака через select_target.
 /// </summary>
 public class AttackHandler : BaseHandler
 {
@@ -17,7 +17,7 @@ public class AttackHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = "������� ��� �� �������, ����� ������� ���� ��� �����." }
+            Data = new { Name = "Система", Text = "Нажмите ЛКМ на монстра, чтобы выбрать цель для атаки." }
         });
     }
 }

@@ -21,12 +21,12 @@ public class MoveToHandler : BaseHandler
         if (Svc.Trade.IsInTrade(player))
         {
             var session = Svc.Trade.GetSession(player.Id);
-            if (session != null) Svc.Trade.CancelSession(session, $"{player.Name} ����� ��������");
+            if (session != null) Svc.Trade.CancelSession(session, $"{player.Name} начал движение");
             player.IsTrading = false;
             await SendToClient(connection, new GameMessage
             {
                 Type = "trade_close",
-                Data = new { Message = "����� ������: �� ������." }
+                Data = new { Message = "Обмен отменён: вы отошли." }
             });
             var other = session?.GetOther(player);
             if (other != null)
@@ -37,13 +37,13 @@ public class MoveToHandler : BaseHandler
                     await SendToClient(otherConn, new GameMessage
                     {
                         Type = "trade_close",
-                        Data = new { Message = $"����� ������: {player.Name} ������." }
+                        Data = new { Message = $"Обмен отменён: {player.Name} отошёл." }
                     });
             }
             return;
         }
 
-        // ���� �� ����� �������� ���� �����
+        // Клик по карте отменяет цель атаки
         if (player.Combat.HasTarget)
         {
             player.Combat.Cancel();
@@ -64,7 +64,7 @@ public class MoveToHandler : BaseHandler
 
         if (path.Count == 0 && !(player.X == moveToData.X && player.Y == moveToData.Y))
         {
-            await SendError(connection, ErrorCodes.PathNotFound, "���� �� ������!");
+            await SendError(connection, ErrorCodes.PathNotFound, "Путь не найден!");
         }
     }
 }

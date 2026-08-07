@@ -13,7 +13,7 @@ public class SellHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "������ ��������� �� ����� ������!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя продавать во время обмена!"); return; }
         if (message.Data is not JsonElement sellEl) return;
 
         string? sellItemId = sellEl.ValueKind == JsonValueKind.String
@@ -28,13 +28,13 @@ public class SellHandler : BaseHandler
         var first = player.Inventory.FirstOrDefault(i => i.Id == sellItemId);
         if (first == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotInInventory, "������� �� ������ � ����� ���������!");
+            await SendError(connection, ErrorCodes.ItemNotInInventory, "Предмет не найден в вашем инвентаре!");
             return;
         }
 
-        // ������� ��������� ���������� �� ���� ���������� ������� ���������
-        // (��������� �������� ����� ���� � ���������� �������, ���� � ��� ��� TemplateId
-        //  ��� ���� ���������� ��������� MaxStack).
+        // Считаем доступное количество по всем подходящим записям инвентаря
+        // (стакаемые предметы могут быть в нескольких строках, если у них нет TemplateId
+        //  или если количество превышает MaxStack).
         string? tid = null;
         bool hasTemplate = !string.IsNullOrEmpty(first.TemplateId);
         if (hasTemplate)
@@ -51,7 +51,7 @@ public class SellHandler : BaseHandler
         int totalGain = toSell * sellPrice;
         player.Gold += totalGain;
 
-        // ��������� ��������� ���������� �� ���� ���������� �������
+        // Списываем проданное количество по всем подходящим записям
         int remaining = toSell;
         foreach (var item in player.Inventory.ToList())
         {
@@ -75,11 +75,11 @@ public class SellHandler : BaseHandler
         buybackCopy.Id = Guid.NewGuid().ToString();
         buybackCopy.Quantity = toSell;
         player.BuybackItems.Add(buybackCopy);
-        Log.Info($"{player.Name} ������ {first.Name} x{toSell} �� {totalGain} ������");
+        Log.Info($"{player.Name} продал {first.Name} x{toSell} за {totalGain} золота");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "�������", Text = $"�� ������� {first.Name} x{toSell} �� {totalGain} ������" }
+            Data = new { Name = "Система", Text = $"Вы продали {first.Name} x{toSell} за {totalGain} золота" }
         });
         await SendToClient(connection, new GameMessage
         {

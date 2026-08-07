@@ -19,7 +19,7 @@ public class PlayerData
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
     public List<string> LearnedSkills { get; set; } = new();
-    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > ���� (1=������)
+    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > ранг (1=изучен)
     public int Speed { get; set; } = 1;
     public List<Item> Inventory { get; set; } = new();
     public Equipment Equipment { get; set; } = new();
@@ -98,7 +98,7 @@ public class Item
     public int MaxStack { get; set; } = 10;
     public bool IsBuyback { get; set; }
 
-    // ������ � ��������� ���������
+    // Бонусы к первичным атрибутам
     public int BonusStrength { get; set; }
     public int BonusEndurance { get; set; }
     public int BonusAgility { get; set; }
@@ -106,7 +106,7 @@ public class Item
     public int BonusIntellect { get; set; }
     public int BonusWisdom { get; set; }
 
-    // ������ � ��������� ���������������
+    // Бонусы к вторичным характеристикам
     public int BonusPhysAttack { get; set; }
     public int BonusMagAttack { get; set; }
     public int BonusDefense { get; set; }
@@ -118,35 +118,35 @@ public class Item
     public double BonusBlockChance { get; set; }
     public double BonusParryChance { get; set; }
 
-    // ��� ����� ������
+    // Тип урона оружия
     public string DamageType { get; set; } = "";
 
-    // ������ ������
+    // Подтип оружия
     public string WeaponSubtype { get; set; } = "";
 
-    // ��������� ������ (��������� �� WeaponSubtype)
+    // Категория оружия (выводится из WeaponSubtype)
     public WeaponCategory Category => WeaponCategoryExtensions.Parse(WeaponSubtype);
 
-    // ����� ������ (��������� �� Category)
+    // Класс оружия (выводится из Category)
     public ItemClass Class => Category.GetItemClass();
 
-    // ��������� ������� (0 = ��� �����������)
+    // Требуемый уровень (0 = без ограничений)
     public int RequiredLevel { get; set; }
 
-    // �������� ����� ������
+    // Диапазон урона оружия
     public int DamageMin { get; set; }
     public int DamageMax { get; set; }
 
-    // ����������� �������� ����� ������
+    // Модификатор скорости атаки оружия
     public double AttackSpeedModifier { get; set; } = 1.0;
 
-    // ��������� ������
+    // Двуручное оружие
     public bool TwoHanded { get; set; }
 
-    // ��������� ����� (1 = ������� ���, 3 = ��� � �.�.)
+    // Дальность атаки (1 = ближний бой, 3 = лук и т.д.)
     public int AttackRange { get; set; } = 1;
 
-    // �������� �������� (Common/Uncommon/Rare/Epic) � ������������ �� ��������
+    // Качество предмета (Common/Uncommon/Rare/Epic) — определяется из описания
     public ItemQuality Quality => ItemQualityExtensions.ParseFromDescription(Description);
 
     public Item Clone() => (Item)MemberwiseClone();

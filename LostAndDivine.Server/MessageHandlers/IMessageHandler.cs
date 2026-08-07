@@ -5,9 +5,9 @@ using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// ���������� ������ ���� ��������� ��������� �� �������.
-/// �������� �������� GameWorld ����� ����������� (��� �������������),
-/// � ������ ��������� (message.Data) ������������� ��������, ������ Handle.
+/// Обработчик одного типа входящего сообщения от клиента.
+/// Хендлеры получают GameWorld через конструктор (для тестируемости),
+/// а данные сообщения (message.Data) десериализуют локально, внутри Handle.
 /// </summary>
 public interface IMessageHandler
 {
