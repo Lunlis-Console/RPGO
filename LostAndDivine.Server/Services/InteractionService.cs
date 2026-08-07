@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;

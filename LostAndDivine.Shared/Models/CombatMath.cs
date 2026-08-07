@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 /// <summary>
 /// Чистые функции боевой математики. Статические, без зависимостей, тестируемые.

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Repositories;
+п»їusing LostAndDivine.Server.Repositories;
 
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
@@ -59,7 +59,7 @@ public class MailHandler : BaseHandler
         string body = el.TryGetProperty("Body", out var bd) ? (bd.GetString() ?? "") : "";
         int gold = el.TryGetProperty("GoldAmount", out var ga) ? ga.GetInt32() : 0;
 
-        // Обратная совместимость: одиночное вложение полями ItemId/ItemQuantity
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ ItemId/ItemQuantity
         var attachments = new List<Item>();
         if (el.TryGetProperty("Attachments", out var attEl) && attEl.ValueKind == JsonValueKind.Array)
         {
@@ -72,7 +72,7 @@ public class MailHandler : BaseHandler
                 var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == tid);
                 if (invItem == null)
                 {
-                    await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
+                    await SendError(connection, "mail_error", "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
                     return;
                 }
                 var proto = invItem.Clone();
@@ -92,7 +92,7 @@ public class MailHandler : BaseHandler
         var invItem = player.Inventory.FirstOrDefault(i => i.TemplateId == attachItemId);
         if (invItem == null)
         {
-            await SendError(connection, "mail_error", "Предмет не найден в инвентаре.");
+            await SendError(connection, "mail_error", "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
         var proto = invItem.Clone();
@@ -111,7 +111,7 @@ public class MailHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "mail_result",
-            Data = new { Success = true, Message = "Письмо отправлено.", MailId = id }
+            Data = new { Success = true, Message = "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.", MailId = id }
         });
 
         await SendInventoryAndStatus(connection, player);
@@ -128,8 +128,8 @@ public class MailHandler : BaseHandler
                     Type = "mail_unread",
                     Data = new { Count = unread }
                 });
-                await SendChatToAsync(recipientConn, Shared.Network.ChatChannel.System, "Почта",
-                    $"Новое письмо от {player.Name}!");
+                await SendChatToAsync(recipientConn, Shared.Network.ChatChannel.System, "пїЅпїЅпїЅпїЅпїЅ",
+                    $"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ {player.Name}!");
             }
         }
     }
@@ -173,27 +173,27 @@ public class MailHandler : BaseHandler
         var mail = MailRepository.GetById(mailId);
         if (mail == null || mail.RecipientName != player.Name)
         {
-            await SendError(connection, "mail_error", "Письмо не найдено.");
+            await SendError(connection, "mail_error", "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (mail.TakenAt != "")
         {
-            await SendError(connection, "mail_error", "Вложение уже получено.");
+            await SendError(connection, "mail_error", "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         bool ok = MailManager.TakeAttachment(player, mail);
         if (!ok)
         {
-            await SendError(connection, "mail_error", "Не удалось забрать вложение.");
+            await SendError(connection, "mail_error", "пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         await SendToClient(connection, new GameMessage
         {
             Type = "mail_result",
-            Data = new { Success = true, Message = "Вложение получено." }
+            Data = new { Success = true, Message = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ." }
         });
 
         await SendToClient(connection, new GameMessage
@@ -220,7 +220,7 @@ public class MailHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "mail_result",
-            Data = new { Success = true, Message = "Письмо удалено." }
+            Data = new { Success = true, Message = "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ." }
         });
 
         int unread = MailRepository.CountUnread(player.Name);

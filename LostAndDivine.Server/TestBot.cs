@@ -1,4 +1,4 @@
-using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using System.Collections.Concurrent;
 using System.Net.Sockets;

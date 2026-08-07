@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 public enum ItemQuality
 {

@@ -1,0 +1,17 @@
+﻿# Force UTF-8 for all source files
+*.cs text encoding=UTF-8
+*.json text encoding=UTF-8
+*.tmj text encoding=UTF-8
+*.xml text encoding=UTF-8
+*.csproj text encoding=UTF-8
+*.md text encoding=UTF-8
+*.txt text encoding=UTF-8
+*.ps1 text encoding=UTF-8
+*.sh text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.ico binary
+*.dll binary
+*.exe binary

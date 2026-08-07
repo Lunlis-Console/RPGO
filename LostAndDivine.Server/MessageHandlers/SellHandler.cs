@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -13,7 +13,7 @@ public class SellHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя продавать во время обмена!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!"); return; }
         if (message.Data is not JsonElement sellEl) return;
 
         string? sellItemId = sellEl.ValueKind == JsonValueKind.String
@@ -28,13 +28,13 @@ public class SellHandler : BaseHandler
         var first = player.Inventory.FirstOrDefault(i => i.Id == sellItemId);
         if (first == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotInInventory, "Предмет не найден в вашем инвентаре!");
+            await SendError(connection, ErrorCodes.ItemNotInInventory, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
-        // Считаем доступное количество по всем подходящим записям инвентаря
-        // (стакаемые предметы могут быть в нескольких строках, если у них нет TemplateId
-        //  или если количество превышает MaxStack).
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        // (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ TemplateId
+        //  пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ MaxStack).
         string? tid = null;
         bool hasTemplate = !string.IsNullOrEmpty(first.TemplateId);
         if (hasTemplate)
@@ -51,7 +51,7 @@ public class SellHandler : BaseHandler
         int totalGain = toSell * sellPrice;
         player.Gold += totalGain;
 
-        // Списываем проданное количество по всем подходящим записям
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         int remaining = toSell;
         foreach (var item in player.Inventory.ToList())
         {
@@ -75,11 +75,11 @@ public class SellHandler : BaseHandler
         buybackCopy.Id = Guid.NewGuid().ToString();
         buybackCopy.Quantity = toSell;
         player.BuybackItems.Add(buybackCopy);
-        Log.Info($"{player.Name} продал {first.Name} x{toSell} за {totalGain} золота");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ {first.Name} x{toSell} пїЅпїЅ {totalGain} пїЅпїЅпїЅпїЅпїЅпїЅ");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Вы продали {first.Name} x{toSell} за {totalGain} золота" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {first.Name} x{toSell} пїЅпїЅ {totalGain} пїЅпїЅпїЅпїЅпїЅпїЅ" }
         });
         await SendToClient(connection, new GameMessage
         {

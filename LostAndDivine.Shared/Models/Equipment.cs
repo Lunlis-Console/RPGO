@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 /// <summary>
 /// Снаряжение персонажа. Хранит предметы по слотам (см. EquipmentSlots).

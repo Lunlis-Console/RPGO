@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 /// <summary>
 /// Состояние перемещения игрока: текущая позиция задаётся в Player (X/Y),

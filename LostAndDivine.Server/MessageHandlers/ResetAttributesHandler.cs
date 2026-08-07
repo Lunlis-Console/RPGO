@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -24,7 +24,7 @@ public class ResetAttributesHandler : BaseHandler
 
         if (totalSpent == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Нет потраченных атрибутов для сброса!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
@@ -41,13 +41,13 @@ public class ResetAttributesHandler : BaseHandler
         if (player.Mana > player.MaxMana) player.Mana = player.MaxMana;
         player.AttributePoints += totalSpent;
 
-        Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {totalSpent} пїЅпїЅпїЅпїЅпїЅ. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");
         Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Атрибуты сброшены! Возвращено {totalSpent} очков." }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {totalSpent} пїЅпїЅпїЅпїЅпїЅ." }
         });
         await SendInventoryAndStatus(connection, player);
     }

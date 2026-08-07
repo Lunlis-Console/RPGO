@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 /// <summary>
 /// Описание одного слота экипировки. Единый источник истины для сервера,

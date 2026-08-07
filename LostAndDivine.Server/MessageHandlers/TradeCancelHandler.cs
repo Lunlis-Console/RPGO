@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -25,7 +25,7 @@ public class TradeCancelHandler : BaseHandler
         var closeMsg = new GameMessage
         {
             Type = "trade_close",
-            Data = new { Message = "Обмен отменён." }
+            Data = new { Message = "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ." }
         };
 
         var initiatorConn = World.FindClientByPlayer(session.Initiator);
@@ -34,6 +34,6 @@ public class TradeCancelHandler : BaseHandler
         if (initiatorConn != null) await SendToClient(initiatorConn, closeMsg);
         if (partnerConn != null) await SendToClient(partnerConn, closeMsg);
 
-        Svc.Trade.CancelSession(session, $"отменён игроком {player.Name}");
+        Svc.Trade.CancelSession(session, $"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {player.Name}");
     }
 }

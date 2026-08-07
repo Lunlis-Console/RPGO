@@ -1,4 +1,4 @@
-namespace LostAndDivine.Server;
+﻿namespace LostAndDivine.Server;
 
 /// <summary>
 /// Синхронизирует вывод логов с вводом команд в консоли сервера. Без этого

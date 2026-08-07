@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Network;
+﻿namespace LostAndDivine.Shared.Network;
 
 /// <summary>
 /// Информация об одном друге для отображения в списке.

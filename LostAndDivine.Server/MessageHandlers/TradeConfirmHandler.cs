@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -18,14 +18,14 @@ public class TradeConfirmHandler : BaseHandler
         var session = Svc.Trade.GetSession(player.Id);
         if (session == null)
         {
-            Log.Warn($"TRADE CONFIRM: нет сессии у {player.Name} (id={player.Id})");
-            await SendError(connection, ErrorCodes.InvalidRequest, "Нет активного обмена.");
+            Log.Warn($"TRADE CONFIRM: пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ {player.Name} (id={player.Id})");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (session.BothConfirmed)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Обмен уже подтверждён.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -80,7 +80,7 @@ public class TradeConfirmHandler : BaseHandler
         if (!ValidateFinalOffer(initiator, session.InitiatorItemIds, session.InitiatorGold) ||
             !ValidateFinalOffer(partner, session.PartnerItemIds, session.PartnerGold))
         {
-            await NotifyError(session, "Предметы изменились. Обмен отменён.");
+            await NotifyError(session, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             Svc.Trade.CancelSession(session, "validation failed");
             return;
         }
@@ -88,7 +88,7 @@ public class TradeConfirmHandler : BaseHandler
         int initiatorGold = Math.Min(session.InitiatorGold, initiator.Gold);
         int partnerGold = Math.Min(session.PartnerGold, partner.Gold);
 
-        // Списываем предметы у инициатора и кладём их партнёру
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         foreach (var e in session.InitiatorItemIds)
         {
             var proto = initiator.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
@@ -98,7 +98,7 @@ public class TradeConfirmHandler : BaseHandler
             InventoryHelper.AddItem(partner, copy);
         }
 
-        // Списываем предметы у партнёра и кладём их инициатору
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         foreach (var e in session.PartnerItemIds)
         {
             var proto = partner.Inventory.FirstOrDefault(i => i.Id == e.ItemId);
@@ -122,7 +122,7 @@ public class TradeConfirmHandler : BaseHandler
         var completeMsg = new GameMessage
         {
             Type = "trade_complete",
-            Data = new { Success = true, Message = "Обмен успешно завершён!" }
+            Data = new { Success = true, Message = "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!" }
         };
 
         if (initiatorConn != null)
@@ -141,9 +141,9 @@ public class TradeConfirmHandler : BaseHandler
 
         int iniTotal = session.InitiatorItemIds.Sum(e => e.Quantity);
         int parTotal = session.PartnerItemIds.Sum(e => e.Quantity);
-        Log.Info($"ТРЕЙД ВЫПОЛНЕН: {initiator.Name} - {partner.Name} | " +
-                 $"{initiator.Name} отдал {iniTotal} предметов + {initiatorGold} золота; " +
-                 $"{partner.Name} отдал {parTotal} предметов + {partnerGold} золота");
+        Log.Info($"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {initiator.Name} - {partner.Name} | " +
+                 $"{initiator.Name} пїЅпїЅпїЅпїЅпїЅ {iniTotal} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ + {initiatorGold} пїЅпїЅпїЅпїЅпїЅпїЅ; " +
+                 $"{partner.Name} пїЅпїЅпїЅпїЅпїЅ {parTotal} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ + {partnerGold} пїЅпїЅпїЅпїЅпїЅпїЅ");
     }
 
     private static Item MakeCopy(Item proto, int qty)

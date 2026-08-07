@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -27,7 +27,7 @@ public class BuyHandler : BaseHandler
         var template = Svc.Merchant.FindItem(buyItemId);
         if (template == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
@@ -39,7 +39,7 @@ public class BuyHandler : BaseHandler
 
         if (player.Gold < totalCost)
         {
-            await SendError(connection, ErrorCodes.InsufficientGold, $"Недостаточно золота! Нужно: {totalCost}");
+            await SendError(connection, ErrorCodes.InsufficientGold, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅпїЅпїЅ: {totalCost}");
             return;
         }
 
@@ -47,11 +47,11 @@ public class BuyHandler : BaseHandler
         var newItem = Svc.Merchant.CreatePlayerCopy(template);
         newItem.Quantity = qty;
         InventoryHelper.AddItem(player, newItem);
-        Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅ {template.Name} x{qty} пїЅпїЅ {totalCost} пїЅпїЅпїЅпїЅпїЅпїЅ");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Вы купили {template.Name} x{qty} за {totalCost} золота" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ {template.Name} x{qty} пїЅпїЅ {totalCost} пїЅпїЅпїЅпїЅпїЅпїЅ" }
         });
         await SendToClient(connection, new GameMessage
         {

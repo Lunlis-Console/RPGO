@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -27,7 +27,7 @@ public class DropItemHandler : BaseHandler
         var proto = player.Inventory.FirstOrDefault(i => i.Id == dropId);
         if (proto == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotInInventory, "Предмет не найден в вашем инвентаре!");
+            await SendError(connection, ErrorCodes.ItemNotInInventory, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
@@ -35,7 +35,7 @@ public class DropItemHandler : BaseHandler
         int removed = Math.Min(quantity, available);
         InventoryHelper.RemoveFromRecord(player, dropId, removed);
 
-        Log.Info($"{player.Name} выбросил {proto.Name} x{removed}");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {proto.Name} x{removed}");
         await SendInventoryAndStatus(connection, player);
     }
 }

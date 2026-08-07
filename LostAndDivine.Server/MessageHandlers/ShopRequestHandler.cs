@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -20,7 +20,7 @@ public class ShopRequestHandler : BaseHandler
             {
                 MerchantX = Svc.Merchant.MerchantX,
                 MerchantY = Svc.Merchant.MerchantY,
-                MerchantName = "Торговец",
+                MerchantName = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ",
                 Discount = 0,
                 Items = Svc.Merchant.ShopItems.Select(i => new
                 {

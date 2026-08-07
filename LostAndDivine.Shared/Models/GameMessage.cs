@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+п»їusing System.Text.Json.Serialization;
 
 namespace LostAndDivine.Shared.Models;
 
@@ -10,59 +10,59 @@ public class GameMessage
     [JsonPropertyName("d")]
     public object? Data { get; set; }
 
-    /// <summary>Сброс боевого состояния (выход из боя).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ).</summary>
     public static GameMessage ResetCombat() => new()
     {
         Type = "combat_state",
         Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
     };
 
-    /// <summary>Обновление HP монстра.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ HP пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.</summary>
     public static GameMessage CombatUpdate(string name, int health, int maxHealth) => new()
     {
         Type = "combat_update",
         Data = new { MonsterName = name, MonsterHealth = health, MonsterMaxHealth = maxHealth }
     };
 
-    /// <summary>Сообщение в чат.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ.</summary>
     public static GameMessage Chat(string name, string text) => new()
     {
         Type = "chat",
         Data = new { Name = name, Text = text }
     };
 
-    /// <summary>Системное сообщение в чат.</summary>
-    public static GameMessage SystemChat(string text) => Chat("Система", text);
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ.</summary>
+    public static GameMessage SystemChat(string text) => Chat("пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", text);
 
-    /// <summary>Урон (монстр>игрок или игрок>монстр).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ>пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ>пїЅпїЅпїЅпїЅпїЅпїЅ).</summary>
     public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null, string? result = null) => new()
     {
         Type = "damage",
         Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit, Result = result }
     };
 
-    /// <summary>Обновление дебаффов цели (монстра) для HUD.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅ HUD.</summary>
     public static GameMessage TargetDebuffUpdate(object debuffs) => new()
     {
         Type = "target_debuff_update",
         Data = new { Debuffs = debuffs }
     };
 
-    /// <summary>Уведомление клиенту о смерти игрока (death screen + задержка).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (death screen + пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ).</summary>
     public static GameMessage PlayerDeath(int lostGold) => new()
     {
         Type = "player_death",
         Data = new { LostGold = lostGold }
     };
 
-    /// <summary>Сообщение об ошибке.</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.</summary>
     public static GameMessage Error(string code, string message) => new()
     {
         Type = "error",
         Data = new { Code = code, Message = message }
     };
 
-    /// <summary>Боевое состояние (вход/выход из боя).</summary>
+    /// <summary>пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅ).</summary>
     public static GameMessage CombatState(bool inCombat, string? targetId = null, string? targetName = null,
         int targetHp = 0, int targetMaxHp = 0, int targetX = 0, int targetY = 0, bool isPvP = false,
         object? targetDebuffs = null) => new()

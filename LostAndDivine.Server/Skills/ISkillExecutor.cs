@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+﻿using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server.Skills;

@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared;
+﻿namespace LostAndDivine.Shared;
 
 public static class SkillIds
 {

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -27,10 +27,10 @@ public class TradeDeclineHandler : BaseHandler
             await SendToClient(inviterConn, new GameMessage
             {
                 Type = "trade_declined",
-                Data = new { TargetName = player.Name, Message = $"{player.Name} отказался от обмена." }
+                Data = new { TargetName = player.Name, Message = $"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ." }
             });
         }
 
-        Log.Info($"Трейд отклонён: {player.Name} отклонил(а) запрос от {inviterName}");
+        Log.Info($"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ(пїЅ) пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ {inviterName}");
     }
 }

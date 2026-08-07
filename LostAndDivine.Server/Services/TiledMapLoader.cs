@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server.Services;

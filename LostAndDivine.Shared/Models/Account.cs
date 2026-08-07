@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+п»їnamespace LostAndDivine.Shared.Models;
 
 public class PlayerData
 {
@@ -19,7 +19,7 @@ public class PlayerData
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
     public List<string> LearnedSkills { get; set; } = new();
-    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > ранг (1=изучен)
+    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > пїЅпїЅпїЅпїЅ (1=пїЅпїЅпїЅпїЅпїЅпїЅ)
     public int Speed { get; set; } = 1;
     public List<Item> Inventory { get; set; } = new();
     public Equipment Equipment { get; set; } = new();
@@ -98,7 +98,7 @@ public class Item
     public int MaxStack { get; set; } = 10;
     public bool IsBuyback { get; set; }
 
-    // Бонусы к первичным атрибутам
+    // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public int BonusStrength { get; set; }
     public int BonusEndurance { get; set; }
     public int BonusAgility { get; set; }
@@ -106,7 +106,7 @@ public class Item
     public int BonusIntellect { get; set; }
     public int BonusWisdom { get; set; }
 
-    // Бонусы к вторичным характеристикам
+    // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public int BonusPhysAttack { get; set; }
     public int BonusMagAttack { get; set; }
     public int BonusDefense { get; set; }
@@ -118,35 +118,35 @@ public class Item
     public double BonusBlockChance { get; set; }
     public double BonusParryChance { get; set; }
 
-    // Тип урона оружия
+    // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public string DamageType { get; set; } = "";
 
-    // Подтип оружия
+    // пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public string WeaponSubtype { get; set; } = "";
 
-    // Категория оружия (выводится из WeaponSubtype)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ WeaponSubtype)
     public WeaponCategory Category => WeaponCategoryExtensions.Parse(WeaponSubtype);
 
-    // Класс оружия (выводится из Category)
+    // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ Category)
     public ItemClass Class => Category.GetItemClass();
 
-    // Требуемый уровень (0 = без ограничений)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (0 = пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
     public int RequiredLevel { get; set; }
 
-    // Диапазон урона оружия
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public int DamageMin { get; set; }
     public int DamageMax { get; set; }
 
-    // Модификатор скорости атаки оружия
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public double AttackSpeedModifier { get; set; } = 1.0;
 
-    // Двуручное оружие
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
     public bool TwoHanded { get; set; }
 
-    // Дальность атаки (1 = ближний бой, 3 = лук и т.д.)
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (1 = пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ, 3 = пїЅпїЅпїЅ пїЅ пїЅ.пїЅ.)
     public int AttackRange { get; set; } = 1;
 
-    // Качество предмета (Common/Uncommon/Rare/Epic) — определяется из описания
+    // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (Common/Uncommon/Rare/Epic) пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
     public ItemQuality Quality => ItemQualityExtensions.ParseFromDescription(Description);
 
     public Item Clone() => (Item)MemberwiseClone();

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -13,7 +13,7 @@ public class EquipHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя надеть во время обмена!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!"); return; }
         if (message.Data is not JsonElement equipEl) return;
 
         string? equipItemId = equipEl.ValueKind == JsonValueKind.String
@@ -25,25 +25,25 @@ public class EquipHandler : BaseHandler
         var item = player.Inventory.FirstOrDefault(i => i.Id == equipItemId);
         if (item == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         if (!EquipmentSlots.IsEquippableType(item.Type))
         {
-            await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя надеть!");
+            await SendError(connection, ErrorCodes.ItemNotEquippable, "пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         if (item.RequiredLevel > player.Level)
         {
-            await SendError(connection, ErrorCodes.ItemLevelTooLow, $"Требуется уровень {item.RequiredLevel}!");
+            await SendError(connection, ErrorCodes.ItemLevelTooLow, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {item.RequiredLevel}!");
             return;
         }
 
         bool twoHanded = EquipmentSlots.IsTwoHanded(item.Type, item.TwoHanded);
 
-        // Целевой слот: явный (из клиента) или первый подходящий
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅ (пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         string? targetSlot = equipEl.TryGetProperty("TargetSlot", out var ts) ? ts.GetString() : null;
 
         var validSlots = EquipmentSlots.SlotsForItemType(item.Type);
@@ -52,39 +52,39 @@ public class EquipHandler : BaseHandler
         {
             if (!validSlots.Contains(targetSlot))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Предмет нельзя надеть в этот слот.");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.");
                 return;
             }
             if (twoHanded && targetSlot != EquipmentSlots.RightHand)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Двуручное оружие можно надеть только в правую руку.");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ.");
                 return;
             }
             slotsToFill = new List<string> { targetSlot };
         }
         else
         {
-            // Для оружия/колец — первая свободная; иначе первая подходящая
+            // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ/пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             if (item.Type == "weapon" || item.Type == "ring")
                 slotsToFill = validSlots.Where(s => player.Equipment[s] == null).Take(1).ToList();
             else
                 slotsToFill = validSlots.Take(1).ToList();
 
             if (slotsToFill.Count == 0)
-                slotsToFill = validSlots.Take(1).ToList(); // все заняты — заменим первую
+                slotsToFill = validSlots.Take(1).ToList(); // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         }
 
-        // Слот не должен быть заблокирован двуручным оружием
+        // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         foreach (var s in slotsToFill)
         {
             if (EquipmentSlots.IsBlockedByTwoHanded(s, player.Equipment))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Слот заблокирован двуручным оружием.");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
                 return;
             }
         }
 
-        // Из стека надеваем ровно одну штуку; остаток остаётся в инвентаре.
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         Item equipped;
         if (item.Quantity > 1)
         {
@@ -107,7 +107,7 @@ public class EquipHandler : BaseHandler
             if (old != null && old.Id != equipped.Id) returned.Add(old);
         }
 
-        // Двуручное оружие освобождает левую руку
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
         if (twoHanded)
         {
             var leftOld = player.Equipment[EquipmentSlots.LeftHand];
@@ -121,14 +121,14 @@ public class EquipHandler : BaseHandler
         foreach (var r in returned)
             InventoryHelper.AddItem(player, r);
 
-        Log.Debug($"{player.Name} надел {equipped.Name} (слоты: {string.Join(",", slotsToFill)})");
+        Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅ {equipped.Name} (пїЅпїЅпїЅпїЅпїЅ: {string.Join(",", slotsToFill)})");
         string msg = returned.Count > 0
-            ? $"Вы надели {equipped.Name}, сняв {string.Join(", ", returned.Select(r => r.Name))}"
-            : $"Вы надели {equipped.Name}";
+            ? $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ {equipped.Name}, пїЅпїЅпїЅпїЅ {string.Join(", ", returned.Select(r => r.Name))}"
+            : $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ {equipped.Name}";
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = msg }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = msg }
         });
         await SendInventoryAndStatus(connection, player);
     }

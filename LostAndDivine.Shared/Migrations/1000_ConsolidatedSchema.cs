@@ -1,4 +1,4 @@
-using FluentMigrator;
+﻿using FluentMigrator;
 
 namespace LostAndDivine.Shared.Migrations;
 

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Commands;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -21,12 +21,12 @@ public class MoveToHandler : BaseHandler
         if (Svc.Trade.IsInTrade(player))
         {
             var session = Svc.Trade.GetSession(player.Id);
-            if (session != null) Svc.Trade.CancelSession(session, $"{player.Name} начал движение");
+            if (session != null) Svc.Trade.CancelSession(session, $"{player.Name} пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
             player.IsTrading = false;
             await SendToClient(connection, new GameMessage
             {
                 Type = "trade_close",
-                Data = new { Message = "Обмен отменён: вы отошли." }
+                Data = new { Message = "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ." }
             });
             var other = session?.GetOther(player);
             if (other != null)
@@ -37,13 +37,13 @@ public class MoveToHandler : BaseHandler
                     await SendToClient(otherConn, new GameMessage
                     {
                         Type = "trade_close",
-                        Data = new { Message = $"Обмен отменён: {player.Name} отошёл." }
+                        Data = new { Message = $"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: {player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ." }
                     });
             }
             return;
         }
 
-        // Клик по карте отменяет цель атаки
+        // пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
         if (player.Combat.HasTarget)
         {
             player.Combat.Cancel();
@@ -64,7 +64,7 @@ public class MoveToHandler : BaseHandler
 
         if (path.Count == 0 && !(player.X == moveToData.X && player.Y == moveToData.Y))
         {
-            await SendError(connection, ErrorCodes.PathNotFound, "Путь не найден!");
+            await SendError(connection, ErrorCodes.PathNotFound, "пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
         }
     }
 }

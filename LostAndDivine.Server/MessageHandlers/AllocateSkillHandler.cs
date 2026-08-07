@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -22,42 +22,42 @@ public class AllocateSkillHandler : BaseHandler
         var skill = allSkills.FirstOrDefault(s => s.Id == skillId);
         if (skill == null)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Навык не найден!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         bool alreadyLearned = player.LearnedSkills.Contains(skillId);
         int currentRank = player.GetSkillRank(skillId);
 
-        // Апгрейд (уже изучен + есть куда расти)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ + пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ)
         if (alreadyLearned)
         {
             if (currentRank >= skill.MaxRank)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"Навык «{skill.Name}» уже максимального ранга ({skill.MaxRank})!");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"пїЅпїЅпїЅпїЅпїЅ пїЅ{skill.Name}пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ ({skill.MaxRank})!");
                 return;
             }
         }
         else
         {
-            // Проверка условий изучения
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             if (player.Level < skill.MinLevel)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, $"Требуется уровень {skill.MinLevel}!");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {skill.MinLevel}!");
                 return;
             }
             if (!string.IsNullOrEmpty(skill.ParentId) && !player.LearnedSkills.Contains(skill.ParentId))
             {
                 var parent = allSkills.FirstOrDefault(s => s.Id == skill.ParentId);
                 string parentName = parent?.Name ?? skill.ParentId;
-                await SendError(connection, ErrorCodes.InvalidRequest, $"Сначала изучите «{parentName}»!");
+                await SendError(connection, ErrorCodes.InvalidRequest, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ{parentName}пїЅ!");
                 return;
             }
         }
 
         if (player.SkillPoints < skill.SkillPointCost)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"Недостаточно очков навыков! Нужно: {skill.SkillPointCost}, есть: {player.SkillPoints}");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅпїЅпїЅ: {skill.SkillPointCost}, пїЅпїЅпїЅпїЅ: {player.SkillPoints}");
             return;
         }
 
@@ -68,13 +68,13 @@ public class AllocateSkillHandler : BaseHandler
             player.LearnedSkills.Add(skillId);
         player.SkillRanks[skillId] = newRank;
 
-        Log.Info($"{player.Name} улучшил «{skill.Name}» до ранга {newRank}/{skill.MaxRank}. Очков: {player.SkillPoints}");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ{skill.Name}пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ {newRank}/{skill.MaxRank}. пїЅпїЅпїЅпїЅпїЅ: {player.SkillPoints}");
         Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"«{skill.Name}» — ранг {newRank}/{skill.MaxRank}! Осталось очков: {player.SkillPoints}" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅ{skill.Name}пїЅ пїЅ пїЅпїЅпїЅпїЅ {newRank}/{skill.MaxRank}! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: {player.SkillPoints}" }
         });
         await SendInventoryAndStatus(connection, player);
         await Hub.SendSkills(connection);

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -16,7 +16,7 @@ public class CollectHandler : BaseHandler
         var lootItem = Svc.Collectibles.TryCollect(player.X, player.Y, player.CurrentZoneId);
         if (lootItem == null)
         {
-            await SendError(connection, ErrorCodes.NothingToCollect, "Здесь нечего собирать.");
+            await SendError(connection, ErrorCodes.NothingToCollect, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -24,19 +24,19 @@ public class CollectHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"[пїЅпїЅпїЅпїЅ] пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {lootItem.Name}!" }
         });
 
         var collectResults = Svc.Quests.IncrementCollectProgress(player, lootItem.Id);
         foreach (var (title, current, target, completed) in collectResults)
         {
             string msg = completed
-                ? $"[Задание] {title}: {current}/{target} — задание выполнено! Вернитесь на доску заданий, чтобы сдать."
-                : $"[Задание] {title}: {current}/{target}";
+                ? $"[пїЅпїЅпїЅпїЅпїЅпїЅпїЅ] {title}: {current}/{target} пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ."
+                : $"[пїЅпїЅпїЅпїЅпїЅпїЅпїЅ] {title}: {current}/{target}";
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = msg }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = msg }
             });
         }
 

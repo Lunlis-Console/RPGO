@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
 using LostAndDivine.ClientMonoGame.Input;
 using LostAndDivine.ClientMonoGame.Networking;

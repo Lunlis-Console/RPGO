@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Network;
+﻿namespace LostAndDivine.Shared.Network;
 
 /// <summary>Запись манифеста клиента: файл в client_build/files.</summary>
 public class UpdateFileEntry

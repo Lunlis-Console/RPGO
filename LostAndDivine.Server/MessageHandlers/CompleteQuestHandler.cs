@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -21,13 +21,13 @@ public class CompleteQuestHandler : BaseHandler
 
         if (!Svc.Quests.IsAtBoard(player.X, player.Y))
         {
-            await SendError(connection, ErrorCodes.NotAtBoard, "Вернитесь к доске заданий, чтобы сдать задание.");
+            await SendError(connection, ErrorCodes.NotAtBoard, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (questId == null)
         {
-            await SendError(connection, ErrorCodes.QuestNotSpecified, "Задание не указано.");
+            await SendError(connection, ErrorCodes.QuestNotSpecified, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -42,14 +42,14 @@ public class CompleteQuestHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = result.Message }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = result.Message }
         });
 
         if (result.LeveledUp)
         {
-            string skillMsg = player.Level % 2 == 0 ? $" +1 очко навыков." : "";
-            Log.Info($"{player.Name} повысил уровень до {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов{skillMsg}");
-            await SendToClient(connection, GameMessage.SystemChat($"Уровень повышен! Вы теперь уровень {player.Level}! +{BalanceStatic.AttributePointsPerLevel} очков атрибутов.{skillMsg} HP восстановлены."));
+            string skillMsg = player.Level % 2 == 0 ? $" +1 пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ." : "";
+            Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ {player.Level}! +{BalanceStatic.AttributePointsPerLevel} пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ{skillMsg}");
+            await SendToClient(connection, GameMessage.SystemChat($"пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {player.Level}! +{BalanceStatic.AttributePointsPerLevel} пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.{skillMsg} HP пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ."));
         }
 
         await SendQuestLog(connection, player);

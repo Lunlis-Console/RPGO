@@ -1,4 +1,4 @@
-using Serilog;
+﻿using Serilog;
 using System.Text;
 
 namespace LostAndDivine.Server;

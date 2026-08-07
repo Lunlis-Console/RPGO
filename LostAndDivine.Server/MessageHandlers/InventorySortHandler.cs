@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -33,7 +33,7 @@ public class InventorySortHandler : BaseHandler
                     if (byId.TryGetValue(id, out var q) && q.Count > 0)
                         sorted.Add(q.Dequeue());
                 }
-                // Добавляем оставшиеся (те, что не попали в Order, либо дубликаты сверх списка)
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅ, пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ Order, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
                 foreach (var it in remaining)
                     if (!sorted.Contains(it)) sorted.Add(it);
                 player.Inventory = sorted;

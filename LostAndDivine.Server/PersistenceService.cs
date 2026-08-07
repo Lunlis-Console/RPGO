@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Shared.Models;
 

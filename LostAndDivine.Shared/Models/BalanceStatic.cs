@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Models;
+﻿namespace LostAndDivine.Shared.Models;
 
 /// <summary>
 /// Статические константы для формул атрибутов/характеристик.

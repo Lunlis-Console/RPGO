@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -18,7 +18,7 @@ public class TakeLootHandler : BaseHandler
         Guid corpseId;
         if (!data.TryGetProperty("CorpseId", out var cidEl) || cidEl.ValueKind != JsonValueKind.String)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Неверный ID трупа");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ID пїЅпїЅпїЅпїЅпїЅ");
             return;
         }
         corpseId = Guid.Parse(cidEl.GetString()!);
@@ -26,7 +26,7 @@ public class TakeLootHandler : BaseHandler
         var corpse = Svc.Corpses.FindCorpseById(corpseId);
         if (corpse == null)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Труп не найден или уже собран");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
@@ -68,14 +68,14 @@ public class TakeLootHandler : BaseHandler
 
             if (bestX < 0)
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Нет свободной клетки рядом с трупом");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
                 return;
             }
 
             var path = Svc.Pathfinding.FindPath(player.X, player.Y, bestX, bestY, player.CurrentZoneId);
             if (path.Count == 0 && (player.X != bestX || player.Y != bestY))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Невозможно подойти к трупу");
+                await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ");
                 return;
             }
             player.Movement.Path = path;
@@ -87,7 +87,7 @@ public class TakeLootHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "Вы подходите к трупу..." }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ..." }
             });
             return;
         }
@@ -110,10 +110,10 @@ public class TakeLootHandler : BaseHandler
             }
         }
 
-        // Определяем персональный лут
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ
         if (!corpse.PlayerLoot.TryGetValue(player.Id, out var myLoot) || myLoot == null)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "У этого трупа нет лута для вас");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ");
             return;
         }
 
@@ -122,7 +122,7 @@ public class TakeLootHandler : BaseHandler
         if (takeGold && myLoot.Gold > 0)
         {
             player.Gold += myLoot.Gold;
-            takenNames.Add($"{myLoot.Gold} золота");
+            takenNames.Add($"{myLoot.Gold} пїЅпїЅпїЅпїЅпїЅпїЅ");
             myLoot.Gold = 0;
         }
 
@@ -137,7 +137,7 @@ public class TakeLootHandler : BaseHandler
             takenNames.Add(item.Name);
         }
 
-        // Удаляем труп если у всех игроков лут пустой
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
         bool allEmpty = corpse.PlayerLoot.Count > 0
             ? corpse.PlayerLoot.Values.All(v => v.Gold == 0 && v.Items.Count == 0)
             : corpse.Loot.Count == 0 && corpse.GoldReward == 0;
@@ -146,15 +146,15 @@ public class TakeLootHandler : BaseHandler
 
         string lootText = takenNames.Count > 0
             ? string.Join(", ", takenNames)
-            : "Ничего не выбрано";
+            : "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ";
 
-        string pctText = myLoot.DamagePercent > 0 ? $" ({myLoot.DamagePercent}% урона)" : "";
-        Log.Info($"{player.Name} забрал с трупа {corpse.MonsterName}: {lootText} | Доля: {pctText} | Остаток: {myLoot.Gold} зол., {myLoot.Items.Count} предм. | Труп {(allEmpty ? "удалён" : "остался")}");
+        string pctText = myLoot.DamagePercent > 0 ? $" ({myLoot.DamagePercent}% пїЅпїЅпїЅпїЅпїЅ)" : "";
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ {corpse.MonsterName}: {lootText} | пїЅпїЅпїЅпїЅ: {pctText} | пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {myLoot.Gold} пїЅпїЅпїЅ., {myLoot.Items.Count} пїЅпїЅпїЅпїЅпїЅ. | пїЅпїЅпїЅпїЅ {(allEmpty ? "пїЅпїЅпїЅпїЅпїЅ" : "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ")}");
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Вы забрали: {lootText}" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ: {lootText}" }
         });
         await SendInventoryAndStatus(connection, player);
     }

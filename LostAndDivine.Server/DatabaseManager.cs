@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Migrations;

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using System.Text.Json;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -7,8 +7,8 @@ using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
-/// Управление списком друзей: list / add / remove.
-/// Сообщения типа "friend" с полем Action в Data.
+/// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: list / add / remove.
+/// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ "friend" пїЅ пїЅпїЅпїЅпїЅпїЅ Action пїЅ Data.
 /// </summary>
 public class FriendHandler : BaseHandler
 {
@@ -54,26 +54,26 @@ public class FriendHandler : BaseHandler
         targetName = (targetName ?? "").Trim();
         if (string.IsNullOrWhiteSpace(targetName))
         {
-            await SendResult(connection, false, "Укажите имя игрока");
+            await SendResult(connection, false, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
         if (targetName.Equals(player.Name, StringComparison.OrdinalIgnoreCase))
         {
-            await SendResult(connection, false, "Нельзя добавить себя");
+            await SendResult(connection, false, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ");
             return;
         }
 
-        // Персонаж должен существовать в БД (независимо от того, в сети он сейчас или нет)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ)
         if (!DatabaseManager.PlayerNameExists(targetName))
         {
-            await SendResult(connection, false, $"Персонаж «{targetName}» не найден");
+            await SendResult(connection, false, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ{targetName}пїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
         if (DatabaseManager.FriendExists(player.Name, targetName))
         {
-            await SendResult(connection, false, $"«{targetName}» уже в друзьях");
+            await SendResult(connection, false, $"пїЅ{targetName}пїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
@@ -81,16 +81,16 @@ public class FriendHandler : BaseHandler
         if (currentCount >= DatabaseManager.MaxFriends)
         {
             await SendResult(connection, false,
-                $"Достигнут лимит друзей ({DatabaseManager.MaxFriends}). Сначала удалите кого-то.");
+                $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ ({DatabaseManager.MaxFriends}). пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ-пїЅпїЅ.");
             return;
         }
 
         DatabaseManager.AddFriend(player.Name, targetName);
-        await SendResult(connection, true, $"«{targetName}» добавлен(а) в друзья");
+        await SendResult(connection, true, $"пїЅ{targetName}пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ(пїЅ) пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
 
-        // Обновляем список у себя
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
         await SendFriendListAsync(connection, player);
-        // И у друга, если он сейчас в сети
+        // пїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅ
         if (World.TryGetPlayerByName(targetName, out var target) && target != null)
         {
             var targetConn = World.FindClientByPlayer(target);
@@ -103,12 +103,12 @@ public class FriendHandler : BaseHandler
     {
         if (string.IsNullOrWhiteSpace(targetName))
         {
-            await SendResult(connection, false, "Укажите имя игрока");
+            await SendResult(connection, false, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
         DatabaseManager.RemoveFriend(player.Name, targetName);
-        await SendResult(connection, true, $"«{targetName}» удалён(а) из друзей");
+        await SendResult(connection, true, $"пїЅ{targetName}пїЅ пїЅпїЅпїЅпїЅпїЅ(пїЅ) пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ");
 
         await SendFriendListAsync(connection, player);
         if (World.TryGetPlayerByName(targetName, out var target) && target != null)

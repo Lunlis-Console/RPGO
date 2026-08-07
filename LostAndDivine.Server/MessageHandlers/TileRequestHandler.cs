@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+﻿using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 

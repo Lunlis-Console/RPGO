@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Hosting;
+п»їusing Microsoft.Extensions.Hosting;
 using LostAndDivine.Server.Network;
 
 using LostAndDivine.Server.Services;
@@ -37,7 +37,7 @@ public class HeartbeatHandler : BackgroundService
                 SessionManager.Cleanup();
 
                 _tick++;
-                if (_tick % 12 == 0) // каждые ~60s
+                if (_tick % 12 == 0) // пїЅпїЅпїЅпїЅпїЅпїЅ ~60s
                     AutoSaveAll();
             }
             catch (Exception ex)

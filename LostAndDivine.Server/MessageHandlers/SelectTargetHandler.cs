@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -23,7 +23,7 @@ public class SelectTargetHandler : BaseHandler
                 .FirstOrDefault(p => p.Id == playerTargetId && p.CurrentZoneId == player.CurrentZoneId);
             if (targetPlayer == null || targetPlayer.IsDead)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
                 return;
             }
             await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
@@ -36,21 +36,21 @@ public class SelectTargetHandler : BaseHandler
         var target = Svc.Monsters.FindMonsterById(monsterId);
         if (target == null)
         {
-            await SendError(connection, ErrorCodes.TargetNotFound, "Цель не найдена!");
+            await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         if (target.Health <= 0)
         {
-            await SendError(connection, ErrorCodes.TargetDead, "Этот монстр уже мёртв!");
+            await SendError(connection, ErrorCodes.TargetDead, "пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ!");
             return;
         }
 
         bool wasInCombat = player.Combat.InCombat;
         player.Combat.Enter(target.Id, player.Movement);
-        // При переключении цели в бою — сброс очереди. Прекаст при первом входе сохраняется.
+        // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ.
         if (wasInCombat) player.QueuedSkillIds.Clear();
-        Log.Debug($"{player.Name} выбрал цель: {target.Name} ({target.X},{target.Y})");
+        Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: {target.Name} ({target.X},{target.Y})");
         await SendToClient(connection, new GameMessage
         {
             Type = "combat_state",
@@ -77,7 +77,7 @@ public class SelectTargetHandler : BaseHandler
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Бой", Text = $"Цель: {target.Name} [{target.Level}] ({target.Health}/{target.MaxHealth}) — автоатака начнётся при приближении." }
+            Data = new { Name = "пїЅпїЅпїЅ", Text = $"пїЅпїЅпїЅпїЅ: {target.Name} [{target.Level}] ({target.Health}/{target.MaxHealth}) пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ." }
         });
     }
 }

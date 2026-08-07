@@ -1,4 +1,4 @@
-using LostAndDivine.Shared.Utils;
+﻿using LostAndDivine.Shared.Utils;
 
 namespace LostAndDivine.ClientMonoGame.Data;
 

@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -17,7 +17,7 @@ public class ResetSkillsHandler : BaseHandler
         int refunded = player.LearnedSkills.Count;
         if (refunded == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Нет изученных навыков для сброса!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
@@ -25,13 +25,13 @@ public class ResetSkillsHandler : BaseHandler
         player.SkillRanks.Clear();
         player.SkillPoints = player.Level / 2;
 
-        Log.Info($"{player.Name} сбросил навыки. Возвращено {player.SkillPoints} очков.");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {player.SkillPoints} пїЅпїЅпїЅпїЅпїЅ.");
         Svc.Persistence.EnqueueSave(player);
 
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Навыки сброшены! Все очки навыков возвращены ({player.SkillPoints})." }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ ({player.SkillPoints})." }
         });
         await Hub.SendSkills(connection);
     }

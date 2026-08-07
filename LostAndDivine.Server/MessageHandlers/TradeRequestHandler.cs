@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -19,32 +19,32 @@ public class TradeRequestHandler : BaseHandler
         string? targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() : null;
         if (string.IsNullOrEmpty(targetName))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Укажите игрока.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(player))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Вы уже в обмене.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (!World.TryGetPlayerByName(targetName, out var target) || target == null)
         {
-            await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден.");
+            await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(target))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} уже в обмене.");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{targetName} пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         int dist = Math.Abs(player.X - target.X) + Math.Abs(player.Y - target.Y);
         if (dist > 1)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Игрок слишком далеко.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -63,6 +63,6 @@ public class TradeRequestHandler : BaseHandler
             Data = new { TargetName = target.Name }
         });
 
-        Log.Info($"Трейд запрос: {player.Name} > {target.Name}");
+        Log.Info($"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ: {player.Name} > {target.Name}");
     }
 }

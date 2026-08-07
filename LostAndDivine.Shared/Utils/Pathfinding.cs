@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Utils;
+﻿namespace LostAndDivine.Shared.Utils;
 
 public static class Pathfinding
 {

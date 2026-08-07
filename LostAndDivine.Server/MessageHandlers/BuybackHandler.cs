@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -27,11 +27,11 @@ public class BuybackHandler : BaseHandler
         var first = player.BuybackItems.FirstOrDefault(i => i.Id == bbItemId);
         if (first == null)
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден для выкупа!");
+            await SendError(connection, ErrorCodes.ItemNotFound, "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
-        // Группируем все записи выкупа того же типа
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ
         var matches = player.BuybackItems.Where(i =>
             i.Name == first.Name && i.Type == first.Type &&
             i.BonusPhysAttack == first.BonusPhysAttack && i.BonusDefense == first.BonusDefense &&
@@ -45,7 +45,7 @@ public class BuybackHandler : BaseHandler
 
         if (player.Gold < totalCost)
         {
-            await SendError(connection, ErrorCodes.InsufficientGold, $"Недостаточно золота! Нужно: {totalCost}");
+            await SendError(connection, ErrorCodes.InsufficientGold, $"пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ! пїЅпїЅпїЅпїЅпїЅ: {totalCost}");
             return;
         }
 
@@ -68,11 +68,11 @@ public class BuybackHandler : BaseHandler
             remaining -= take;
         }
 
-        Log.Info($"{player.Name} выкупил {first.Name} x{toBuy} за {totalCost} золота");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {first.Name} x{toBuy} пїЅпїЅ {totalCost} пїЅпїЅпїЅпїЅпїЅпїЅ");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Вы выкупили {first.Name} x{toBuy} за {totalCost} золота" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ {first.Name} x{toBuy} пїЅпїЅ {totalCost} пїЅпїЅпїЅпїЅпїЅпїЅ" }
         });
         await SendToClient(connection, new GameMessage
         {

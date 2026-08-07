@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -19,32 +19,32 @@ public class TradeAcceptHandler : BaseHandler
         string? inviterName = el.TryGetProperty("InviterName", out var invN) ? invN.GetString() : null;
         if (string.IsNullOrEmpty(inviterName))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Нет запроса.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(player))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Вы уже в обмене.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (!World.TryGetPlayerByName(inviterName, out var inviter) || inviter == null)
         {
-            await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден.");
+            await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         if (Svc.Trade.IsInTrade(inviter))
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} уже в обмене.");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{inviterName} пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
         int dist = Math.Abs(player.X - inviter.X) + Math.Abs(player.Y - inviter.Y);
         if (dist > 1)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "Игрок слишком далеко.");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -95,7 +95,7 @@ public class TradeAcceptHandler : BaseHandler
             });
         }
 
-        Log.Info($"Трейд начат: {inviter.Name} - {player.Name}");
+        Log.Info($"пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: {inviter.Name} - {player.Name}");
     }
 
     private static (List<object> items, int gold) BuildInventoryData(Player player)

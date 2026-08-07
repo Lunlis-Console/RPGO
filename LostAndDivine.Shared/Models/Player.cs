@@ -1,4 +1,4 @@
-using LostAndDivine.Shared;
+﻿using LostAndDivine.Shared;
 
 namespace LostAndDivine.Shared.Models;
 

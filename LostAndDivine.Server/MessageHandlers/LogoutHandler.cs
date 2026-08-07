@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -17,7 +17,7 @@ public class LogoutHandler : BaseHandler
             {
                 Svc.Persistence.EnqueueSave(player);
                 World.RemovePlayer(player);
-                Log.Info($"{player.Name} вышел из игры (прогресс сохранён)");
+                Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ)");
             }
             catch (Exception ex)
             {
@@ -27,7 +27,7 @@ public class LogoutHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "Ваш прогресс сохранён. До встречи!" }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ. пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ!" }
             });
         }
 

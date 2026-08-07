@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -36,7 +36,7 @@ public class InteractTargetHandler : BaseHandler
 
             if (interMonster == null || interMonster.Health <= 0)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "Монстр не найден!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
                 return;
             }
 
@@ -45,7 +45,7 @@ public class InteractTargetHandler : BaseHandler
             var w = player.Equipment[EquipmentSlots.RightHand];
             Log.Debug($"[Interact] {player.Name} -> {interMonster.Name}: weapon='{w?.Name ?? "null"}' AttackRange={w?.AttackRange ?? -1} TemplateId='{w?.TemplateId ?? ""}'");
 
-            Log.Debug($"{player.Name} вступил в бой с {interMonster.Name} ({interMonster.X},{interMonster.Y})");
+            Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅ пїЅ {interMonster.Name} ({interMonster.X},{interMonster.Y})");
 
             await SendToClient(connection, new GameMessage
             {
@@ -64,7 +64,7 @@ public class InteractTargetHandler : BaseHandler
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Бой", Text = $"Бой: {interMonster.Name} [{interMonster.Level}] ({interMonster.Health}/{interMonster.MaxHealth})" }
+                Data = new { Name = "пїЅпїЅпїЅ", Text = $"пїЅпїЅпїЅ: {interMonster.Name} [{interMonster.Level}] ({interMonster.Health}/{interMonster.MaxHealth})" }
             });
             await BroadcastMapAsync();
             return;
@@ -72,7 +72,7 @@ public class InteractTargetHandler : BaseHandler
 
         if (entityType == "player")
         {
-            // Находим цель
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
             Player? targetPlayer = null;
             if (playerIdStr != null && Guid.TryParse(playerIdStr, out Guid pid))
                 targetPlayer = Svc.World.GetPlayersSnapshot().FirstOrDefault(p => p.Id == pid && p.CurrentZoneId == player.CurrentZoneId);
@@ -81,13 +81,13 @@ public class InteractTargetHandler : BaseHandler
 
             if (targetPlayer == null || targetPlayer.IsDead)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "Игрок не найден!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!");
                 return;
             }
 
             if (targetPlayer.Id == player.Id)
             {
-                await SendError(connection, ErrorCodes.TargetNotFound, "Нельзя выбрать себя!");
+                await SendError(connection, ErrorCodes.TargetNotFound, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ!");
                 return;
             }
 
@@ -114,17 +114,17 @@ public class InteractTargetHandler : BaseHandler
                 await SendToClient(connection, new GameMessage
                 {
                     Type = "chat",
-                    Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
+                    Data = new { Name = "пїЅпїЅпїЅ", Text = $"PvP пїЅпїЅпїЅ: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
                 });
             }
 
-            // Шлём текущие дебаффы цели (в любом режиме)
+            // пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
             await Svc.Combat.SendTargetPlayerDebuffUpdateAsync(targetPlayer, connection);
             await BroadcastMapAsync();
             return;
         }
 
-        // Не-монстры и не-игроки: магазин, доска, собиратель
+        // пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         player.Combat.Cancel();
 
         int distToTarget = Math.Abs(player.X - targetX) + Math.Abs(player.Y - targetY);
@@ -163,7 +163,7 @@ public class InteractTargetHandler : BaseHandler
 
         if (bestX < 0)
         {
-            await SendError(connection, ErrorCodes.NoFreeCell, "Нет свободной клетки рядом с целью.");
+            await SendError(connection, ErrorCodes.NoFreeCell, "пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ.");
             return;
         }
 
@@ -172,14 +172,14 @@ public class InteractTargetHandler : BaseHandler
         {
             player.Movement.SetPath(path);
             player.Interaction.Begin(entityType, targetX, targetY, null);
-            Log.Debug($"{player.Name} идёт к {entityType} ({targetX},{targetY}), путь {path.Count} шагов");
+            Log.Debug($"{player.Name} пїЅпїЅпїЅ пїЅ {entityType} ({targetX},{targetY}), пїЅпїЅпїЅпїЅ {path.Count} пїЅпїЅпїЅпїЅпїЅ");
         }
         else
         {
             await SendToClient(connection, new GameMessage
             {
                 Type = "chat",
-                Data = new { Name = "Система", Text = "Путь не найден!" }
+                Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = "пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!" }
             });
         }
     }

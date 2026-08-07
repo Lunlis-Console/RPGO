@@ -1,4 +1,4 @@
-namespace LostAndDivine.Shared.Network;
+﻿namespace LostAndDivine.Shared.Network;
 
 /// <summary>
 /// Коды структурированных ошибок, отправляемых клиенту в сообщении типа "error".

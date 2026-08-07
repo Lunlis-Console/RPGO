@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -25,7 +25,7 @@ public class HotbarUpdateHandler : BaseHandler
             {
                 while (slots.Count < Balance.HotbarSlots) slots.Add(null);
                 player.HotbarSlots = slots.Take(Balance.HotbarSlots).ToList();
-                // Сохраняем сразу, чтобы хотбар не потерялся при выходе без корректного logout
+                // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ logout
                 Svc.Persistence.EnqueueSave(player);
             }
         }

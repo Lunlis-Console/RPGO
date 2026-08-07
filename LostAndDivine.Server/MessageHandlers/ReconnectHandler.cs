@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Server.Services;
@@ -18,7 +18,7 @@ public class ReconnectHandler : BaseHandler
         var req = JsonSerializer.Deserialize<ReconnectRequest>(el.GetRawText());
         if (req == null)
         {
-            await SendError(connection, "invalid_request", "Неверный формат запроса");
+            await SendError(connection, "invalid_request", "пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ");
             return;
         }
 
@@ -65,8 +65,8 @@ public class ReconnectHandler : BaseHandler
             World.AddPlayer(loadedPlayer);
         }
 
-        // Игрок переподключился: снимаем метку pending, чтобы фоновый sweep
-        // не финализировал дисконнект, и выдаём свежий одноразовый токен.
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ pending, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ sweep
+        // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ.
         World.CancelPendingReconnect(loadedPlayer);
         SessionManager.Revoke(req.Token);
         var newToken = SessionManager.CreateToken(playerName);
@@ -87,8 +87,8 @@ public class ReconnectHandler : BaseHandler
         await Hub.SendHotbar(connection, loadedPlayer);
         await Hub.SendSkills(connection);
 
-        // Сразу отправляем свежую карту (у нового соединения тайлы не отправлены
-        // ни для одной зоны, поэтому клиент получит и тайлы, и сущности текущей зоны).
+        // пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ (пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+        // пїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅ, пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ).
         await Hub.BroadcastMapAsync();
 
         int unreadCount = MailRepository.CountUnread(playerName);

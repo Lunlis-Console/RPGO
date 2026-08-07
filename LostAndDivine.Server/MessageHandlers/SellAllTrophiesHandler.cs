@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -12,19 +12,19 @@ public class SellAllTrophiesHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
-        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя продавать во время обмена!"); return; }
+        if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ!"); return; }
 
         var trophies = player.Inventory.Where(i => i.Type == "trophy").ToList();
         if (trophies.Count == 0)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, "У вас нет трофеев для продажи!");
+            await SendError(connection, ErrorCodes.InvalidRequest, "пїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ!");
             return;
         }
 
         int totalQty = trophies.Sum(i => i.Quantity);
         int totalGain = 0;
 
-        // Группируем трофеи по типу для корректного buyback (каждый тип — отдельная запись)
+        // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ buyback (пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
         var byType = trophies.GroupBy(i => new {
             i.Name, i.Type, i.Value, i.Description,
             i.BonusPhysAttack, i.BonusDefense, i.MaxHealthBonus, i.HealAmount, i.RestoreMana
@@ -38,11 +38,11 @@ public class SellAllTrophiesHandler : BaseHandler
             player.Gold += groupGain;
             totalGain += groupGain;
 
-            // Удаляем из инвентаря
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             foreach (var item in group)
                 player.Inventory.Remove(item);
 
-            // Buyback: одна запись на группу
+            // Buyback: пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             var first = group.First();
             var buybackCopy = first.Clone();
             buybackCopy.Id = Guid.NewGuid().ToString();
@@ -50,11 +50,11 @@ public class SellAllTrophiesHandler : BaseHandler
             player.BuybackItems.Add(buybackCopy);
         }
 
-        Log.Info($"{player.Name} продал все трофеи x{totalQty} за {totalGain} золота");
+        Log.Info($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ x{totalQty} пїЅпїЅ {totalGain} пїЅпїЅпїЅпїЅпїЅпїЅ");
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"Вы продали все трофеи x{totalQty} за {totalGain} золота" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ x{totalQty} пїЅпїЅ {totalGain} пїЅпїЅпїЅпїЅпїЅпїЅ" }
         });
         await SendToClient(connection, new GameMessage
         {

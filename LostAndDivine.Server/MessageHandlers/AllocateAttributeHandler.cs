@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+п»їusing LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -34,7 +34,7 @@ public class AllocateAttributeHandler : BaseHandler
         if (!valid) return;
         if (beforeVal >= 50)
         {
-            await SendError(connection, ErrorCodes.InvalidRequest, $"{attrName} уже достиг максимума (50)!");
+            await SendError(connection, ErrorCodes.InvalidRequest, $"{attrName} пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (50)!");
             return;
         }
 
@@ -49,12 +49,12 @@ public class AllocateAttributeHandler : BaseHandler
         }
 
         player.AttributePoints--;
-        Log.Debug($"{player.Name} повысил {attrName} (+1). Очков: {player.AttributePoints}");
+        Log.Debug($"{player.Name} пїЅпїЅпїЅпїЅпїЅпїЅпїЅ {attrName} (+1). пїЅпїЅпїЅпїЅпїЅ: {player.AttributePoints}");
         Svc.Persistence.EnqueueSave(player);
         await SendToClient(connection, new GameMessage
         {
             Type = "chat",
-            Data = new { Name = "Система", Text = $"+1 {attrName}. Осталось очков: {player.AttributePoints}" }
+            Data = new { Name = "пїЅпїЅпїЅпїЅпїЅпїЅпїЅ", Text = $"+1 {attrName}. пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ: {player.AttributePoints}" }
         });
         await SendInventoryAndStatus(connection, player);
     }
