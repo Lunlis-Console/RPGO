@@ -88,7 +88,7 @@ public static class SpriteCache
 
         var spriteNames = new[]
         {
-            "player", "zombie", "wolf", "weapon", "water", "spyder",
+            "zombie", "wolf", "weapon", "water", "spyder",
             "snake", "skelet", "sand", "rat", "ork", "misc", "lich",
              "grass", "ashes", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
