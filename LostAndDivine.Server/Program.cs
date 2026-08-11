@@ -29,8 +29,11 @@ partial class Program
 
     static async Task Main(string[] args)
     {
-        SetConsoleOutputCP(65001);
-        SetConsoleCP(65001);
+        if (OperatingSystem.IsWindows())
+        {
+            SetConsoleOutputCP(65001);
+            SetConsoleCP(65001);
+        }
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.InputEncoding = System.Text.Encoding.UTF8;
 
