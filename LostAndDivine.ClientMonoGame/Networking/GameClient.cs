@@ -264,4 +264,23 @@ public sealed class GameClient
             Logger.Error($"HandleMessage failed for type '{message.Type}'", ex);
         }
     }
+
+    /// <summary>
+    /// Снимает ВСЕ подписки на события этого клиента, у которых обработчик принадлежит
+    /// заданному объекту (например, GameScreen). Нужно вызывать при Dispose экрана,
+    /// иначе синглтон GameClient удерживает экран в памяти (утечка при каждом входе в мир).
+    /// </summary>
+    public void UnsubscribeAll(object target)
+    {
+        foreach (var evt in typeof(GameClient).GetEvents(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
+        {
+            var field = typeof(GameClient).GetField(evt.Name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            if (field?.GetValue(this) is not MulticastDelegate md) continue;
+            foreach (var handler in md.GetInvocationList())
+            {
+                if (handler.Target == target)
+                    evt.RemoveEventHandler(this, handler);
+            }
+        }
+    }
 }

@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using LostAndDivine.Server.Instances;
+﻿using LostAndDivine.Server.Instances;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Services;
@@ -24,8 +23,6 @@ partial class Program
     private static GameServerHost? _host;
     private static TestBot? _testBot;
     private static readonly object _botLock = new();
-    private static readonly ConcurrentDictionary<string, DateTime> _lastConnectTime = new();
-    private static readonly TimeSpan ConnectThrottle = TimeSpan.FromSeconds(10);
 
     public static double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
@@ -249,29 +246,10 @@ partial class Program
         }
         _ = Task.Run(() => ServerConsoleLoop());
 
-        int connectionCount = 0;
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
-            string remoteIp = (client.Client.RemoteEndPoint as IPEndPoint)?.Address.ToString() ?? "unknown";
             Log.Info($"Подключение клиента: {client.Client.RemoteEndPoint}");
-
-            if (_lastConnectTime.TryGetValue(remoteIp, out var lastTime) &&
-                DateTime.UtcNow - lastTime < ConnectThrottle)
-            {
-                Log.Warn($"Отклонено быстрое повторное подключение с {remoteIp}");
-                client.Close();
-                continue;
-            }
-            _lastConnectTime[remoteIp] = DateTime.UtcNow;
-
-            // Периодическая очистка старых записей
-            if (++connectionCount % 50 == 0)
-            {
-                var threshold = DateTime.UtcNow - ConnectThrottle;
-                foreach (var kv in _lastConnectTime)
-                    if (kv.Value < threshold) _lastConnectTime.TryRemove(kv.Key, out _);
-            }
 
             ClientConnection connection = new ClientConnection(client);
             world.AddClient(connection);

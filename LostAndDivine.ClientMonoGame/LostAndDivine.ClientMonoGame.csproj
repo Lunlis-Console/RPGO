@@ -61,6 +61,13 @@
 
   <Target Name="BuildGameContent" BeforeTargets="BeforeCompile" Condition="Exists('$(MGCBTool)')">
     <Exec Command="&quot;$(MGCBTool)&quot; /quiet /@:&quot;$(ContentRootDir)\Content.mgcb&quot; /platform:$(MonoGamePlatform) /outputDir:&quot;$(ContentOutputDir)&quot; /intermediateDir:&quot;$(ContentRootDir)\obj\$(MonoGamePlatform)\Content&quot; /workingDir:&quot;$(ContentRootDir)&quot;" />
+    <ItemGroup>
+      <MGCBContent Include="$(ContentOutputDir)\**\*.*" Exclude="$(ContentOutputDir)\**\*.mgcb" />
+      <None Include="@(MGCBContent)">
+        <Link>Content\%(RecursiveDir)%(Filename)%(Extension)</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
   </Target>
 
 </Project>

@@ -7,7 +7,6 @@ namespace LostAndDivine.ClientMonoGame.Windows;
 
 public class LogoutConfirmWindow : GameWindow
 {
-    private float _remaining = 5f;
     private Rectangle _confirmRect = Rectangle.Empty;
     private Rectangle _cancelRect = Rectangle.Empty;
     private new MouseState _prevMouse;
@@ -24,20 +23,11 @@ public class LogoutConfirmWindow : GameWindow
         IsModal = true;
     }
 
-    public void ResetTimer() => _remaining = 5f;
+    public void ResetTimer() { }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
         if (!Visible) return;
-
-        _remaining -= (float)gameTime.ElapsedGameTime.TotalSeconds;
-        if (_remaining <= 0)
-        {
-            _remaining = 0;
-            Confirmed?.Invoke();
-            Visible = false;
-            return;
-        }
 
         RebuildLayout();
         bool clicked = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
@@ -83,7 +73,7 @@ public class LogoutConfirmWindow : GameWindow
         var s1 = font.MeasureString(line1);
         sb.DrawString(font, line1, new Vector2(X + (Width - s1.X) / 2, ContentY), Color.LightGray);
 
-        string line2 = $"Выход через {Math.Ceiling(_remaining)} сек.";
+        string line2 = "Выход только по кнопке «Выйти сейчас»";
         var s2 = font.MeasureString(line2);
         sb.DrawString(font, line2, new Vector2(X + (Width - s2.X) / 2, ContentY + 30), Color.Gold);
 

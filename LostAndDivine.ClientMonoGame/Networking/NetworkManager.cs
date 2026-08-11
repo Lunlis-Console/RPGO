@@ -134,6 +134,13 @@ public class NetworkManager
                 _lastPongTime = DateTime.UtcNow;
                 return true;
             case "ping":
+                // Сервер просит подтвердить живость канала: отвечаем pong с тем же Seq.
+                {
+                    var serverPing = message.Deserialize<PingMessage>();
+                    if (serverPing != null)
+                        _ = ReplyPongAsync(serverPing.Seq);
+                }
+                return true;
 
             case "kick":
                 SystemMessage?.Invoke("Вы были отключены");
@@ -179,9 +186,6 @@ public class NetworkManager
         var stream = _stream;
         while (!token.IsCancellationRequested)
         {
-            await Task.Delay(5000, token);
-            if (token.IsCancellationRequested) break;
-
             try
             {
                 _lastPingSeq = Interlocked.Increment(ref _lastPingSeq);
@@ -202,6 +206,7 @@ public class NetworkManager
                     }
                 }
             }
+            catch (OperationCanceledException) { break; }
             catch (Exception hbEx)
             {
                 Logger.Error("[hb] ping send error", hbEx);
@@ -211,7 +216,25 @@ public class NetworkManager
                     await HandleDisconnectAsync("Ошибка отправки ping", token, stream);
                     break;
                 }
+                try { await Task.Delay(5000, token); }
+                catch (OperationCanceledException) { break; }
             }
+        }
+    }
+
+    private async Task ReplyPongAsync(long seq)
+    {
+        try
+        {
+            await SendAsync(new GameMessage
+            {
+                Type = "pong",
+                Data = new PongMessage(seq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.Debug($"[hb] pong reply failed: {ex.Message}");
         }
     }
 
@@ -256,7 +279,7 @@ public class NetworkManager
             using var cts = new CancellationTokenSource();
             _reconnectCts = cts;
             int attempt = 0;
-            int delayMs = 1000;
+            int delayMs = 2000;
 
             while (attempt < 20 && !cts.IsCancellationRequested &&
                    DateTime.UtcNow < _reconnectDeadline)
@@ -285,7 +308,7 @@ public class NetworkManager
 
                 try { await Task.Delay(delayMs, cts.Token); }
                 catch (OperationCanceledException) { break; }
-                delayMs = Math.Min(delayMs * 2, 3000);
+                delayMs = Math.Min(delayMs * 2, 8000);
             }
 
             if (!cts.IsCancellationRequested)

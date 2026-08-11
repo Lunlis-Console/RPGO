@@ -20,6 +20,27 @@ public static class Logger
     private static readonly string _sessionFile = Path.Combine(
         _logDir, $"client_mono_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.log");
 
+    public static string SessionPath => _sessionFile;
+
+    /// <summary>
+    /// Синхронная запись в файл лога — для критических ошибок/крахов,
+    /// когда фоновый писатель может не успеть сбросить очередь.
+    /// </summary>
+    public static void Crash(string title, Exception ex)
+    {
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"[{DateTime.Now:HH:mm:ss.fff}] [FATAL] {title}");
+            sb.AppendLine(ex.ToString());
+            sb.AppendLine();
+            if (_sessionFile.Length > 0)
+                File.AppendAllText(_sessionFile, sb.ToString(), new UTF8Encoding(false));
+            Console.Error.WriteLine(sb.ToString());
+        }
+        catch { }
+    }
+
     private static readonly BlockingCollection<string> _queue = new(new ConcurrentQueue<string>(), 4096);
     private static readonly Thread _writer;
 

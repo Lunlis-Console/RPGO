@@ -446,4 +446,6 @@ public class SocialWindow : GameWindow
             sb.DrawString(font, lines[i], new Vector2(tx + pad, ty + pad + i * 18), color);
         }
     }
+
+    public void Unsubscribe() => _client.UnsubscribeAll(this);
 }

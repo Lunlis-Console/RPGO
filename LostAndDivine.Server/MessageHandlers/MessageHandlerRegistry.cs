@@ -23,6 +23,7 @@ public class MessageHandlerRegistry
     public void RegisterAll(GameServices svc)
     {
         Register("ping", new PingHandler(svc));
+        Register("pong", new PongHandler(svc));
         Register("reconnect", new ReconnectHandler(svc));
         Register("say", new ChatHandler(svc));
         Register("status", new StatusHandler(svc));

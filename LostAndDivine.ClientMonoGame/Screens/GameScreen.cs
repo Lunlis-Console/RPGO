@@ -1157,7 +1157,11 @@ public class GameScreen : IScreen
 
     public static string? CurrentCursorType { get; set; }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        _client.UnsubscribeAll(this);
+        _socialWindow.Unsubscribe();
+    }
 
     private static string DebuffDisplayName(string type) => type switch
     {
