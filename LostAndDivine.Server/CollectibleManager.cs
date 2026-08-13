@@ -81,8 +81,12 @@ public class CollectibleManager
             }
             Log.Info($"Спавн коллекционок из точек в зоне '{zoneId}': {spawned}");
         }
-        else
+        else if (zoneId == Balance.MainZoneId)
         {
+            // Случайный разброс собираемых предметов — только для основного мира.
+            // В остальных зонах собираемые предметы появляются только из явных
+            // точек спавна в Tiled-карте; иначе мусор из размеров главной карты
+            // (SpawnOne использует _world.Map) протекает в чужие зоны.
             foreach (var template in _templates)
             {
                 for (int i = 0; i < template.Count; i++)

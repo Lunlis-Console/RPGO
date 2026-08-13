@@ -63,6 +63,7 @@ internal static class CharacterRepository
             Name = playerName,
             AccountLogin = login,
             Class = cls,
+            CurrentZoneId = Balance.StartZoneId,
             Strength = s,
             Endurance = e,
             Agility = a,

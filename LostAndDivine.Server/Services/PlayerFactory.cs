@@ -25,10 +25,10 @@ public static class PlayerFactory
             int baseY = zone?.SpawnY ?? svc.Merchant.MerchantY;
             int mapW = zone?.Width ?? svc.World.Map.Width;
             int mapH = zone?.Height ?? svc.World.Map.Height;
-            spawnX = baseX + svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-            spawnY = baseY + svc.World.NextRandom(Balance.RespawnJitterMin, Balance.RespawnJitterMax);
-            spawnX = Math.Clamp(spawnX, 0, mapW - 1);
-            spawnY = Math.Clamp(spawnY, 0, mapH - 1);
+            // Первичный спавн (нет сохранённых координат) — ровно в точке зоны,
+            // без джиттера, чтобы новые игроки появлялись строго в заданном месте.
+            spawnX = Math.Clamp(baseX, 0, mapW - 1);
+            spawnY = Math.Clamp(baseY, 0, mapH - 1);
         }
 
         var player = new Player

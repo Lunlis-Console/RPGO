@@ -32,6 +32,7 @@ public static class BalanceStatic
     public const double VulnerableArmorIgnore = 0.30;
 
     public const string MainZoneId = "main";
+    public const string StartZoneId = "airship_basement";
 
     public const int MinDamage = 1;
     public const int ChanceRollMax = 100;

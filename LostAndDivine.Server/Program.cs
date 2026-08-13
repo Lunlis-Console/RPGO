@@ -656,6 +656,19 @@ partial class Program
         }
 
         Log.Info($"Tiled-карта {fileName} загружена в зону '{zoneId}': {tiledMap.Width}x{tiledMap.Height}, плиток: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}, порталов: {tiledPortals.Count}");
+
+        var playerSpawn = TiledMapLoader.ExtractPlayerSpawn(tiledMap);
+        if (playerSpawn != null)
+        {
+            var z = zones.GetZone(zoneId);
+            if (z != null)
+            {
+                z.SpawnX = playerSpawn.Value.X;
+                z.SpawnY = playerSpawn.Value.Y;
+                Log.Info($"Точка спавна игрока для зоны '{zoneId}' установлена: ({z.SpawnX}, {z.SpawnY})");
+            }
+        }
+
         return spawns;
     }
 

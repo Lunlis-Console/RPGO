@@ -156,6 +156,7 @@ public static class Balance
 
     // ===== ЗОНЫ =====
     public const string MainZoneId = BalanceStatic.MainZoneId;
+    public const string StartZoneId = BalanceStatic.StartZoneId;
 
     // ===== ЦИКЛЫ СЕРВЕРА =====
     public const int LoopMonsterWanderMs = 50;

@@ -248,8 +248,10 @@ public static class TiledMapLoader
 
             foreach (var obj in layer.Objects)
             {
-                // Порталы и NPC-объекты обрабатываются отдельно (ExtractPortals / ExtractNpcs), а не как точки спавна
-                if (NonSpawnTypes.Contains(obj.Type ?? ""))
+                // Порталы и NPC-объекты обрабатываются отдельно (ExtractPortals / ExtractNpcs), а не как точки спавна.
+                // player_spawn — это точка спавна игрока (читается ExtractPlayerSpawn), тоже не монстр.
+                if (NonSpawnTypes.Contains(obj.Type ?? "")
+                    || string.Equals(obj.Type, "player_spawn", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (string.IsNullOrEmpty(obj.Name) && string.IsNullOrEmpty(obj.Type))
@@ -441,6 +443,45 @@ public static class TiledMapLoader
             return null;
 
         return new DungeonSpawnData(playerSpawn.Value, monsterSpawns, bossSpawn.Value, chest.Value, exit.Value);
+    }
+
+    /// <summary>
+    /// Извлекает точку спавна игрока (объект типа player_spawn) из object-слоёв.
+    /// Используется зонами, чтобы новые игроки появлялись в заданной дизайнером точке,
+    /// а не в центре карты. Возвращает null, если точка не задана.
+    /// </summary>
+    public static (int X, int Y)? ExtractPlayerSpawn(TiledMapData map)
+    {
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return null;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (!string.Equals(obj.Type, "player_spawn", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int tx, ty;
+                if (obj.Point)
+                {
+                    tx = (int)Math.Floor(obj.X / map.TileWidth);
+                    ty = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    tx = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    ty = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
+                return (tx, ty);
+            }
+        }
+        return null;
     }
 
     public static string GetTilesetPngPath(TiledMapData map, string baseDir)
