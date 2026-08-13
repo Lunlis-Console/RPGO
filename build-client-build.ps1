@@ -16,18 +16,28 @@ $filesDir = Join-Path $clientBuildDir "files"
 $distDir = Join-Path $root "dist"
 $publishDir = Join-Path $env:TEMP "lost-and-divine-client-publish"
 
-# --- version: param or auto-increment patch ---
+# --- version: param has priority, otherwise commit count (deterministic) ---
 if (-not $Version) {
-    if (Test-Path $versionFile) {
-        $parts = ((Get-Content $versionFile).Trim() -split '\.')
-        if ($parts.Count -ge 3) {
-            $parts[2] = [int]$parts[2] + 1
-            $Version = $parts -join '.'
+    try {
+        $commitCount = (& git rev-list --count HEAD 2>$null | Out-String).Trim()
+        if ($commitCount -match '^\d+$') {
+            $Version = "0.1.$commitCount"
+        } else {
+            throw "git rev-list returned: '$commitCount'"
+        }
+    } catch {
+        # fallback: legacy version.txt (increment patch) or 0.1.0
+        if (Test-Path $versionFile) {
+            $parts = ((Get-Content $versionFile).Trim() -split '\.')
+            if ($parts.Count -ge 3) {
+                $parts[2] = [int]$parts[2] + 1
+                $Version = $parts -join '.'
+            } else {
+                $Version = "0.1.0"
+            }
         } else {
             $Version = "0.1.0"
         }
-    } else {
-        $Version = "0.1.0"
     }
 }
 Write-Host "Client version: $Version"
@@ -55,9 +65,6 @@ Write-Host "Manifest: $($entries.Count) files -> $manifestFile"
 if (Test-Path $filesDir) { Remove-Item -Recurse -Force $filesDir }
 Copy-Item -Recurse -Path $publishDir -Destination $filesDir
 Remove-Item (Join-Path $filesDir "version.json") -ErrorAction SilentlyContinue
-
-# --- version for next run ---
-Set-Content $versionFile $Version
 
 # --- zip for a friend ---
 if (-not $NoZip) {
