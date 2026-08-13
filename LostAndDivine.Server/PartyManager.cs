@@ -174,11 +174,11 @@ public class PartyManager
         if (party != null) await SendPartyUpdateAsync(party);
     }
 
-    public async Task DisbandAndNotifyAsync(Guid partyId)
+    public Task DisbandAndNotifyAsync(Guid partyId)
     {
         lock (_lock)
         {
-            if (!_parties.TryGetValue(partyId, out var party)) return;
+            if (!_parties.TryGetValue(partyId, out var party)) return Task.CompletedTask;
 
             foreach (var memberId in party.Members)
             {
@@ -205,6 +205,7 @@ public class PartyManager
                 }
             });
         }
+        return Task.CompletedTask;
     }
 
     private PartyInfo BuildPartyInfo(PartyData party)

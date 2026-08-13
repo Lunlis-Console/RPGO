@@ -10,13 +10,13 @@ public class HotbarUpdateHandler : BaseHandler
 {
     public HotbarUpdateHandler(GameServices svc) : base(svc) { }
 
-    public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
+    public override Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
-        if (player == null) return;
-        if (message.Data is not JsonElement hbEl) return;
+        if (player == null) return Task.CompletedTask;
+        if (message.Data is not JsonElement hbEl) return Task.CompletedTask;
 
         string? slotsJson = hbEl.TryGetProperty("Slots", out var slotsProp) ? slotsProp.GetRawText() : null;
-        if (slotsJson == null) return;
+        if (slotsJson == null) return Task.CompletedTask;
 
         try
         {
@@ -30,5 +30,6 @@ public class HotbarUpdateHandler : BaseHandler
             }
         }
         catch (Exception ex) { Log.Warn($"Hotbar update parse error: {ex.Message}"); }
+        return Task.CompletedTask;
     }
 }
