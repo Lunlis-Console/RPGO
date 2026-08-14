@@ -23,6 +23,7 @@ public class SettingsWindow : GameWindow
 
     public Action? ApplyRequested { get; set; }
     public Action? LogoutRequested { get; set; }
+    public Action? OpenChangelog { get; set; }
 
     public string SelectedMode => ModeValues[MathHelper.Clamp(_modeIndex, 0, ModeValues.Length - 1)];
     public (int w, int h) SelectedResolution => Resolutions[MathHelper.Clamp(_resIndex, 0, Resolutions.Length - 1)];
@@ -38,6 +39,8 @@ public class SettingsWindow : GameWindow
     private static readonly Color CLight = new(210, 210, 220);
     private static readonly Color CGold = new(220, 200, 120);
     private static readonly Color CArrow = new(140, 150, 170);
+    private static readonly Color CChg = new(0, 120, 215);
+    private static readonly Color CChgHover = new(40, 140, 235);
 
     public SettingsWindow()
     {
@@ -160,6 +163,17 @@ public class SettingsWindow : GameWindow
                 _prevMouse = mouse;
                 return;
             }
+
+            // Кнопка Что нового (полная ширина, ниже)
+            int chgY = y + btnH + 10;
+            var chgRect = new Rectangle(cx, chgY, cw, btnH);
+            if (chgRect.Contains(mouse.X, mouse.Y))
+            {
+                Visible = false;
+                OpenChangelog?.Invoke();
+                _prevMouse = mouse;
+                return;
+            }
         }
 
         // --- 3. drag заголовка и т.д. ---
@@ -219,6 +233,15 @@ public class SettingsWindow : GameWindow
         DrawText(sb, "Выход в меню",
             exitRect2.X + (btnW - (int)font.MeasureString("Выход в меню").X) / 2,
             exitRect2.Y + (btnH - (int)font.MeasureString("Выход в меню").Y) / 2,
+            Color.White, font);
+
+        int chgY = y + btnH + 10;
+        var chgRect = new Rectangle(cx, chgY, cw, btnH);
+        bool chgHover = chgRect.Contains(ms.X, ms.Y);
+        sb.Draw(SpriteCache.Pixel, chgRect, chgHover ? CChgHover : CChg);
+        DrawText(sb, "Что нового",
+            chgRect.X + (cw - (int)font.MeasureString("Что нового").X) / 2,
+            chgRect.Y + (btnH - (int)font.MeasureString("Что нового").Y) / 2,
             Color.White, font);
 
         // --- Dropdown: рисуется ПОСЛЕ ВСЕГО, обрезается по окну ---

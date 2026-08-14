@@ -891,12 +891,12 @@ public class GameScreen : IScreen
     private void WireChangelogEvents()
     {
         _client.ChangelogReceived += data => ShowChangelog(data);
+        _settingsWindow.OpenChangelog += () => ShowChangelog(_client.LastChangelog);
     }
 
-    private void ShowChangelog(ChangelogData data)
+    private void ShowChangelog(ChangelogData? data)
     {
         if (data?.Entries == null || data.Entries.Count == 0) return;
-        if (!ChangelogSeenStore.IsNewer(data.Version)) return;
 
         _changelogWindow.SetData(data);
         var viewport = GameMain.Instance?.GraphicsDevice.Viewport;
@@ -907,7 +907,6 @@ public class GameScreen : IScreen
         }
         _changelogWindow.Visible = true;
         _windows.BringToFront(_changelogWindow);
-        ChangelogSeenStore.WriteSeen(data.Version);
     }
 
     private void RegisterWindows()
