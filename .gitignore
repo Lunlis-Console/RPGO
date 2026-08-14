@@ -23,7 +23,8 @@ game.db-journal
 
 ## Distribution builds
 dist/
-LostAndDivine.Server/client_build/
+LostAndDivine.Server/client_build/*
+!LostAndDivine.Server/client_build/changelog.json
 
 ## Rider / Copilot caches
 .idea/
