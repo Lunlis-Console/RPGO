@@ -1088,8 +1088,9 @@ public class GameScreen : IScreen
         {
         _mapRenderer.DrawSkillEffects(spriteBatch, 0, topH, w, h - topH);
         _minimap.SetViewBounds(_mapRenderer.GetViewBounds());
-        var mmCenter = _mapRenderer.CameraCenter;
-        _minimap.Draw(spriteBatch, _minimap.GetPanelRect(w), mmCenter.X, mmCenter.Y);
+        // Координаты игрока берём из авторитетной клетки (map.Players), а не из центра камеры:
+        // камера плавно догоняет игрока и показывает отставание на шаг.
+        _minimap.Draw(spriteBatch, _minimap.GetPanelRect(w), _mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
         _hudDraw.DrawInstanceLeaveButton(spriteBatch, w);
         _hudDraw.DrawQuestTracker(spriteBatch, w, _activeQuests);
         float panelH = _hudRenderer.DrawPlayerStatusPanel(spriteBatch, 8, topH + 8);

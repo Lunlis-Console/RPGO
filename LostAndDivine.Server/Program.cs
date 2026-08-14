@@ -661,6 +661,13 @@ partial class Program
         if (tiledDoors.Count > 0)
         {
             zones.RegisterDoors(zoneId, tiledDoors);
+            // Дверь — непреодолимая пешком преграда: путь через неё невозможен,
+            // пройти можно только через взаимодействие (телепорт на клетку за дверью).
+            foreach (var door in tiledDoors)
+            {
+                if (!gameMap.IsObstacle(door.X, door.Y))
+                    gameMap.AddObstacle(door.X, door.Y);
+            }
             Log.Info($"Дверей в зоне '{zoneId}': {tiledDoors.Count}");
         }
 

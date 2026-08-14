@@ -457,14 +457,35 @@ private sealed class RemotePlayerState
 
     public void SetMap(WorldMap map)
     {
+        bool teleported = false;
         lock (_stateLock)
         {
+            var old = _currentMap;
             _currentMap = map;
             if (map != null)
+            {
+                // Телепорт: позиция локального игрока прыгнула больше чем на 1 клетку
+                // (дверь/портал). Берём поворот из серверной авторитетной позиции, иначе
+                // после прохода через дверь игрок остаётся развёрнут в сторону двери.
+                if (old != null && _playerName != null)
+                {
+                    var oldMe = old.Players.FirstOrDefault(p => p.Name == _playerName);
+                    var newMe = map.Players.FirstOrDefault(p => p.Name == _playerName);
+                    if (oldMe != null && newMe != null)
+                    {
+                        int dist = Math.Abs(newMe.X - oldMe.X) + Math.Abs(newMe.Y - oldMe.Y);
+                        teleported = dist > 1;
+                        if (teleported && !string.IsNullOrEmpty(newMe.Facing))
+                            _localFacing = newMe.Facing;
+                    }
+                }
                 RebuildSpatialHash(map);
+            }
             else
                 _spatialHash.Clear();
         }
+        if (teleported)
+            ClearSelection();
     }
 
     public void ClearMap()
@@ -917,6 +938,15 @@ private sealed class RemotePlayerState
         return me?.Y ?? (map.Merchant?.Y ?? 50);
     }
 
+    // Сколько клеток помещается во вьюпорт при текущем зуме и размере области.
+    private (int Cols, int Rows) ComputeViewCells(float areaW, float areaH)
+    {
+        float availW = areaW - LeftMargin - 4;
+        float availH = areaH - HeaderH - 4;
+        float baseCell = BaseCellW * _zoom;
+        return (Math.Max(1, (int)(availW / baseCell)), Math.Max(1, (int)(availH / baseCell)));
+    }
+
     // Вычисляет вьюпорт карты (начало/конец и размер клетки) — используется и при отрисовке, и при клике,
     // чтобы координаты клика всегда совпадали с тем, что нарисовано в текущем кадре.
     private void ComputeView(WorldMap map, int centerX, int centerY, float offsetX, float offsetY, float areaW, float areaH)
@@ -925,9 +955,7 @@ private sealed class RemotePlayerState
         float availH = areaH - HeaderH - 4;
 
         // Квадратные клетки: сколько влезет при идеальном размере
-        float baseCell = BaseCellW * _zoom;
-        int cols = Math.Max(1, (int)(availW / baseCell));
-        int rows = Math.Max(1, (int)(availH / baseCell));
+        var (cols, rows) = ComputeViewCells(areaW, areaH);
 
         // Фактический размер — берём меньший, чтобы влезло и по W и по H
         _cellW = _cellH = Math.Min(availW / cols, availH / rows);
@@ -1007,7 +1035,7 @@ private sealed class RemotePlayerState
         var fontSmall = SpriteCache.FontSmall ?? font;
         if (font == null) return;
 
-        sb.Draw(SpriteCache.Pixel, new Rectangle((int)offsetX, (int)offsetY, (int)areaW, (int)areaH), new Color(235, 240, 225));
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)offsetX, (int)offsetY, (int)areaW, (int)areaH), new Color(36, 42, 36));
 
         if (map == null)
         {
@@ -1044,6 +1072,21 @@ private sealed class RemotePlayerState
             _camY += (targetY - _camY) * k;
         }
 
+        // Прилипание камеры к границам карты: центр камеры не уходит за пределы, при которых
+        // вьюпорт вылезает за край, поэтому у края карта "замирает", а не отскакивает.
+        // Как только игрок отходит от края — камера снова следует за ним.
+        var (cols, rows) = ComputeViewCells(areaW, areaH);
+        float halfCols = cols / 2f;
+        float halfRows = rows / 2f;
+        float minCamX = halfCols;
+        float maxCamX = map.Width - halfCols;
+        float minCamY = halfRows;
+        float maxCamY = map.Height - halfRows;
+        if (maxCamX < minCamX) { float c = (map.Width - 1) / 2f; minCamX = maxCamX = c; }
+        if (maxCamY < minCamY) { float c = (map.Height - 1) / 2f; minCamY = maxCamY = c; }
+        _camX = Math.Clamp(_camX, minCamX, maxCamX);
+        _camY = Math.Clamp(_camY, minCamY, maxCamY);
+
         int centerX = (int)Math.Floor(_camX);
         int centerY = (int)Math.Floor(_camY);
         ComputeView(map, centerX, centerY, offsetX, offsetY, areaW, areaH);
@@ -1054,6 +1097,7 @@ private sealed class RemotePlayerState
         _gridOY -= subCellY;
 
         DrawTiles(sb, map, offsetX, offsetY, areaW, areaH);
+        DrawMapBorder(sb, map);
         DrawPortalsAndObjects(sb, map);
         DrawPathDots(sb, map, me);
         DrawEntities(sb, font, fontSmall, offsetX, offsetY, _viewStartX, _viewStartY, _viewEndX, _viewEndY, me);
@@ -1193,6 +1237,29 @@ private sealed class RemotePlayerState
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Рамка по границе карты. Рисуется только когда карта видна целиком (иначе край карты —
+    /// это граница экрана и рамка не нужна). Вместе с тёмным фоном за картой убирает
+    /// светлую полосу между краем экрана и тайлами.
+    /// </summary>
+    private void DrawMapBorder(SpriteBatch sb, WorldMap map)
+    {
+        bool wholeMap = _viewStartX <= 0 && _viewEndX >= map.Width - 1
+                     && _viewStartY <= 0 && _viewEndY >= map.Height - 1;
+        if (!wholeMap) return;
+
+        float gw = (_viewEndX - _viewStartX + 1) * _cellW;
+        float gh = (_viewEndY - _viewStartY + 1) * _cellH;
+        float left = _gridOX, top = _gridOY;
+        float right = left + gw, bottom = top + gh;
+        const int b = 3;
+        var color = new Color(72, 62, 46);
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)left, (int)top, (int)gw, b), color);
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)left, (int)(bottom - b), (int)gw, b), color);
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)left, (int)top, b, (int)gh), color);
+        sb.Draw(SpriteCache.Pixel, new Rectangle((int)(right - b), (int)top, b, (int)gh), color);
     }
 
     /// <summary>

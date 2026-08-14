@@ -204,6 +204,10 @@ public class InteractionService
                     player.Movement.Stop();
                     player.X = destX;
                     player.Y = destY;
+                    if (dx == 1) player.Facing = "right";
+                    else if (dx == -1) player.Facing = "left";
+                    else if (dy == 1) player.Facing = "down";
+                    else if (dy == -1) player.Facing = "up";
                     Log.Debug($"{player.Name} прошёл через дверь ({player.Interaction.X},{player.Interaction.Y}) -> ({destX},{destY})");
                     await _svc.Hub.BroadcastMapAsync();
                     break;
