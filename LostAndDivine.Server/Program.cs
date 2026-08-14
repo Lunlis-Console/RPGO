@@ -23,6 +23,7 @@ partial class Program
     private static GameServerHost? _host;
     private static TestBot? _testBot;
     private static readonly object _botLock = new();
+    private static readonly ConnectionGuard _connectionGuard = new();
 
     public static double GetAttackSpeed(Player player)
         => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
@@ -252,7 +253,15 @@ partial class Program
         while (true)
         {
             TcpClient client = await server.AcceptTcpClientAsync();
-            Log.Info($"Подключение клиента: {client.Client.RemoteEndPoint}");
+            string ip = ConnectionGuard.NormalizeIp(client.Client.RemoteEndPoint?.ToString() ?? "");
+            if (!_connectionGuard.Allow(ip))
+            {
+                Log.Debug($"Отклонено подключение (лимит/бан): {ip}");
+                try { client.Close(); } catch { }
+                continue;
+            }
+
+            Log.Debug($"TCP-подключение: {client.Client.RemoteEndPoint}");
 
             ClientConnection connection = new ClientConnection(client);
             world.AddClient(connection);
@@ -265,20 +274,25 @@ partial class Program
     {
         Player? player = null;
         bool authenticated = false;
+        int messages = 0;
 
         try
         {
             Stream stream = connection.Client.GetStream();
-            connection.Client.ReceiveTimeout = 30000;
+            connection.Client.ReceiveTimeout = 15000;
 
             while (!authenticated)
             {
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"Отключение клиента: {connection.Endpoint}");
+                    Log.Debug($"Отключение клиента: {connection.Endpoint}");
                     return;
                 }
+
+                messages++;
+                if (messages == 1)
+                    Log.Info($"Клиент подключился: {connection.Endpoint}");
 
                 if (await Services.ClientBuild.HandleUnauthenticatedAsync(connection, message, Services.Hub))
                     continue;
@@ -301,21 +315,26 @@ partial class Program
                 GameMessage? message = await NetworkHelper.ReceiveAsync<GameMessage>(stream);
                 if (message == null)
                 {
-                    Log.Info($"Отключение клиента: {connection.Endpoint}");
+                    Log.Debug($"Отключение клиента: {connection.Endpoint}");
                     break;
                 }
 
+                messages++;
                 player = await ProcessMessage(connection, message, player ?? connection.Player);
             }
         }
         catch (Exception ex)
         {
-            Log.Error($"Ошибка: {ex.Message}", ex);
+            if (player == null && messages == 0)
+                Log.Debug($"Мусорное подключение отброшено: {connection.Endpoint} ({ex.Message})");
+            else
+                Log.Error($"Ошибка: {ex.Message}", ex);
         }
         finally
         {
             if (player != null)
             {
+                _connectionGuard.RecordSuccess(ConnectionGuard.NormalizeIp(connection.Endpoint));
                 var tradeSession = Services.Trade.GetSession(player.Id);
                 if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "Отключение клиента");
                 player.IsTrading = false;
@@ -340,6 +359,10 @@ partial class Program
                     Log.Info($"Игрок {player.Name} вышел из мира (logout)");
                     await Services.Hub.BroadcastMapAsync();
                 }
+            }
+            else if (messages == 0)
+            {
+                _connectionGuard.RecordFailure(ConnectionGuard.NormalizeIp(connection.Endpoint));
             }
 
             try { connection.Client.Close(); } catch (Exception ex) { Log.Warn($"Close client: {ex.Message}"); }
