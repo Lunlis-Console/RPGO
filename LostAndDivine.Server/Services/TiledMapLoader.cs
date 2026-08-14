@@ -61,6 +61,9 @@ public record TiledSpawn(int X, int Y, string Name, string Type);
 /// <summary>Позиция NPC из Tiled: координата в тайлах, имя (id записи npcs или instance_template_id) и тип.</summary>
 public record TiledNpc(int X, int Y, string Name, string Type, string ZoneId);
 
+/// <summary>Дверь из Tiled: координата в тайлах (клетка-преграда) и отображаемое имя.</summary>
+public record TiledDoor(int X, int Y, string Name);
+
 /// <summary>Точки для данж-карт: вход игрока, спавны монстров/босса, сундук, выход.</summary>
 public record DungeonSpawnData(
     (int X, int Y) PlayerSpawn,
@@ -250,8 +253,10 @@ public static class TiledMapLoader
             {
                 // Порталы и NPC-объекты обрабатываются отдельно (ExtractPortals / ExtractNpcs), а не как точки спавна.
                 // player_spawn — это точка спавна игрока (читается ExtractPlayerSpawn), тоже не монстр.
+                // door — дверь (читается ExtractDoors), тоже не монстр.
                 if (NonSpawnTypes.Contains(obj.Type ?? "")
-                    || string.Equals(obj.Type, "player_spawn", StringComparison.OrdinalIgnoreCase))
+                    || string.Equals(obj.Type, "player_spawn", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(obj.Type, "door", StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 if (string.IsNullOrEmpty(obj.Name) && string.IsNullOrEmpty(obj.Type))
@@ -482,6 +487,47 @@ public static class TiledMapLoader
             }
         }
         return null;
+    }
+
+    /// <summary>
+    /// Извлекает двери (объекты типа door) из object-слоёв.
+    /// Дверь — это клетка-преграда, которую можно открыть взаимодействием: игрок оказывается
+    /// по ту сторону двери (на клетке, продолжающей направление подхода).
+    /// Возвращает пустой список, если дверей нет.
+    /// </summary>
+    public static List<TiledDoor> ExtractDoors(TiledMapData map)
+    {
+        var result = new List<TiledDoor>();
+        if (map.TileWidth <= 0 || map.TileHeight <= 0) return result;
+
+        foreach (var layer in map.Layers)
+        {
+            if (!layer.Visible || !string.Equals(layer.Type, "objectgroup", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            foreach (var obj in layer.Objects)
+            {
+                if (!string.Equals(obj.Type, "door", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                int tx, ty;
+                if (obj.Point)
+                {
+                    tx = (int)Math.Floor(obj.X / map.TileWidth);
+                    ty = (int)Math.Floor(obj.Y / map.TileHeight);
+                }
+                else if (obj.Width > 0 && obj.Height > 0)
+                {
+                    tx = (int)Math.Floor((obj.X + obj.Width / 2) / map.TileWidth);
+                    ty = (int)Math.Floor((obj.Y + obj.Height / 2) / map.TileHeight);
+                }
+                else continue;
+
+                if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
+                result.Add(new TiledDoor(tx, ty, obj.Name ?? "Дверь"));
+            }
+        }
+        return result;
     }
 
     public static string GetTilesetPngPath(TiledMapData map, string baseDir)

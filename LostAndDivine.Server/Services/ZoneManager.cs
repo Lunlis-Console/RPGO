@@ -18,6 +18,7 @@ public class ZoneManager
     private readonly List<WorldPortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), WorldPortal> _portalLookup = new();
     private readonly Dictionary<string, List<WorldPortal>> _portalsByZone = new();
+    private readonly Dictionary<(string Zone, int X, int Y), TiledDoor> _doors = new();
     private readonly Dictionary<string, TileConfig> _tileConfig = new();
     private readonly Dictionary<string, List<TiledNpc>> _tiledNpcs = new();
     private GameMap? _mainMap;
@@ -44,6 +45,7 @@ public class ZoneManager
         _portals.Clear();
         _portalLookup.Clear();
         _portalsByZone.Clear();
+        _doors.Clear();
 
         foreach (var zone in ZoneRepository.LoadAll())
         {
@@ -86,6 +88,30 @@ public class ZoneManager
 
     public IReadOnlyDictionary<string, List<WorldPortal>> GetAllPortalsByZone()
         => _portalsByZone;
+
+    public TiledDoor? FindDoor(string zone, int x, int y)
+        => _doors.TryGetValue((zone, x, y), out var door) ? door : null;
+
+    public IReadOnlyDictionary<string, List<TiledDoor>> GetAllDoorsByZone()
+    {
+        var byZone = new Dictionary<string, List<TiledDoor>>();
+        foreach (var kv in _doors)
+        {
+            if (!byZone.ContainsKey(kv.Key.Zone))
+                byZone[kv.Key.Zone] = new List<TiledDoor>();
+            byZone[kv.Key.Zone].Add(kv.Value);
+        }
+        return byZone;
+    }
+
+    /// <summary>
+    /// Регистрирует двери, размещённые в Tiled-картах (клетки-преграды, открываемые взаимодействием).
+    /// </summary>
+    public void RegisterDoors(string zoneId, IEnumerable<TiledDoor> doors)
+    {
+        foreach (var door in doors)
+            _doors[(zoneId, door.X, door.Y)] = door;
+    }
 
     /// <summary>
     /// Получить GameMap для зоны (создаёт дефолтную если зоны нет в БД).

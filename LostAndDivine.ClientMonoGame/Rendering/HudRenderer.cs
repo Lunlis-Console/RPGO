@@ -172,7 +172,7 @@ public class HudRenderer
         {
             "monster" => "Монстр", "merchant" => "Торговец", "npc" => "NPC",
             "collectible" => "Собираемый", "board" => "Доска заданий",
-            "player" => "Игрок", "portal" => "Портал", _ => _selectedEntity.Type
+            "player" => "Игрок", "portal" => "Портал", "door" => "Дверь", _ => _selectedEntity.Type
         };
         string lvl = _selectedEntity.Level > 0 ? $" (Ур. {_selectedEntity.Level})" : "";
         sb.DrawString(font, _selectedEntity.Name + lvl, new Vector2(x + 8, curY), Color.White);
@@ -184,6 +184,13 @@ public class HudRenderer
         if (_selectedEntity.Type == "portal" && !string.IsNullOrEmpty(_selectedEntity.Info))
         {
             sb.DrawString(fontSmall, $"Ведёт: {_selectedEntity.Info}", new Vector2(x + 8, curY), new Color(120, 160, 255));
+            curY += 18;
+        }
+
+        // Дверь: подсказка
+        if (_selectedEntity.Type == "door")
+        {
+            sb.DrawString(fontSmall, "Подойдите вплотную и нажмите, чтобы открыть", new Vector2(x + 8, curY), new Color(180, 170, 110));
             curY += 18;
         }
 

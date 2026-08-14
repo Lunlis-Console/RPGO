@@ -65,6 +65,77 @@
         }, 
         {
          "draworder":"topdown",
+         "id":5,
+         "name":"\u0414\u0432\u0435\u0440\u0438",
+         "objects":[
+                {
+                 "height":64,
+                 "id":34,
+                 "name":"\u0414\u0432\u0435\u0440\u044c",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"door",
+                 "visible":true,
+                 "width":64,
+                 "x":1344,
+                 "y":1664
+                }, 
+                {
+                 "height":64,
+                 "id":35,
+                 "name":"\u0414\u0432\u0435\u0440\u044c",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"door",
+                 "visible":true,
+                 "width":64,
+                 "x":1088,
+                 "y":1664
+                }, 
+                {
+                 "height":64,
+                 "id":36,
+                 "name":"\u0414\u0432\u0435\u0440\u044c",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"door",
+                 "visible":true,
+                 "width":64,
+                 "x":1600,
+                 "y":1664
+                }, 
+                {
+                 "height":64,
+                 "id":37,
+                 "name":"\u0414\u0432\u0435\u0440\u044c",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"door",
+                 "visible":true,
+                 "width":64,
+                 "x":1856,
+                 "y":1664
+                }, 
+                {
+                 "height":64,
+                 "id":38,
+                 "name":"\u0414\u0432\u0435\u0440\u044c",
+                 "opacity":1,
+                 "rotation":0,
+                 "type":"door",
+                 "visible":true,
+                 "width":64,
+                 "x":2048,
+                 "y":1664
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
          "id":2,
          "name":"\u041d\u0435\u043f\u0440\u043e\u0445\u043e\u0434\u0438\u043c\u0430\u044f \u043e\u0431\u043b\u0430\u0441\u0442\u044c",
          "objects":[
@@ -372,8 +443,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":5,
- "nextobjectid":34,
+ "nextlayerid":6,
+ "nextobjectid":39,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.12.2",

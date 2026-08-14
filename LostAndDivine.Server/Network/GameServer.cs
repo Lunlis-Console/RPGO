@@ -148,6 +148,7 @@ public sealed class GameServer : INetworkHub
         var playersByZone = allPlayers.GroupBy(p => p.CurrentZoneId)
             .ToDictionary(g => g.Key, g => g.ToList());
         var portalsByZone = svc.Zones.GetAllPortalsByZone();
+        var doorsByZone = svc.Zones.GetAllDoorsByZone();
         var npcsByZone = allNpcs.GroupBy(n => n.ZoneId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
@@ -174,6 +175,7 @@ public sealed class GameServer : INetworkHub
             if (!hazardsByZone.TryGetValue(zoneId, out var zoneHazards)) zoneHazards = new();
             if (!playersByZone.TryGetValue(zoneId, out var zonePlayers)) zonePlayers = new();
             if (!portalsByZone.TryGetValue(zoneId, out var zonePortals)) zonePortals = new();
+            if (!doorsByZone.TryGetValue(zoneId, out var zoneDoors)) zoneDoors = new();
             if (!npcsByZone.TryGetValue(zoneId, out var zoneNpcs)) zoneNpcs = new();
 
             var nearbyMonsters = zoneMonsters.Where(m =>
@@ -220,6 +222,15 @@ public sealed class GameServer : INetworkHub
                 })
                 .ToList();
 
+            var doors = zoneDoors
+                .Select(d => new DoorPosition
+                {
+                    X = d.X,
+                    Y = d.Y,
+                    Name = d.Name
+                })
+                .ToList();
+
             var nearbyHazards = zoneHazards
                 .Where(h => Math.Abs(h.X - player.X) <= viewRadius &&
                             Math.Abs(h.Y - player.Y) <= viewRadius)
@@ -257,6 +268,7 @@ public sealed class GameServer : INetworkHub
                 ZoneName = zone?.Name ?? zoneId,
                 PvPEnabled = isPvp,
                 Portals = portals,
+                Doors = doors,
                 TileMapId = zoneId,
                 TileData = client.HasTilesSent(zoneId) ? null : zoneMap.GetTiles(),
                 ObstacleData = client.HasTilesSent(zoneId) ? null : zoneMap.GetObstacleData(),

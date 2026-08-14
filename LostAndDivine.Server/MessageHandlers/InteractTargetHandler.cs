@@ -132,6 +132,9 @@ public class InteractTargetHandler : BaseHandler
         {
             player.Interaction.Begin(entityType, targetX, targetY, null);
             await ProcessPendingInteraction(player, entityType);
+            // Снимаем pending: иначе в следующем тике движения взаимодействие обработается повторно
+            // (например, дверь телепортнёт игрока обратно на исходную клетку).
+            player.Interaction.Clear();
             await BroadcastMapAsync();
             return;
         }

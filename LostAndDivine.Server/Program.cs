@@ -657,6 +657,13 @@ partial class Program
 
         Log.Info($"Tiled-карта {fileName} загружена в зону '{zoneId}': {tiledMap.Width}x{tiledMap.Height}, плиток: {tileData.Length}, препятствий: {obstacles.Count}, точек спавна: {spawns.Count}, порталов: {tiledPortals.Count}");
 
+        var tiledDoors = TiledMapLoader.ExtractDoors(tiledMap);
+        if (tiledDoors.Count > 0)
+        {
+            zones.RegisterDoors(zoneId, tiledDoors);
+            Log.Info($"Дверей в зоне '{zoneId}': {tiledDoors.Count}");
+        }
+
         var playerSpawn = TiledMapLoader.ExtractPlayerSpawn(tiledMap);
         if (playerSpawn != null)
         {

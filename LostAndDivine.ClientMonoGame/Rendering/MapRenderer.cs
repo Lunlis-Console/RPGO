@@ -578,6 +578,16 @@ private sealed class RemotePlayerState
             }
             list.Add(new EntityInfo { Type = "npc", Name = n.Name, X = n.X, Y = n.Y, Id = n.Id });
         }
+        foreach (var d in map.Doors ?? Enumerable.Empty<DoorPosition>())
+        {
+            var key = (d.X, d.Y);
+            if (!_spatialHash.TryGetValue(key, out var list))
+            {
+                list = new List<EntityInfo>();
+                _spatialHash[key] = list;
+            }
+            list.Add(new EntityInfo { Type = "door", Name = string.IsNullOrEmpty(d.Name) ? "Дверь" : d.Name, X = d.X, Y = d.Y });
+        }
     }
 
     public void SpawnFloatingText(float mapX, float mapY, string text, Color color, bool isCrit = false)
@@ -790,6 +800,7 @@ private sealed class RemotePlayerState
                 "collectible" => "harvest",
                 "npc" or "merchant" or "board" or "storage_chest" => "talk",
                 "chest" => "loot",
+                "door" => "portal",
                 "player" when _currentMap?.PvPEnabled == true => "attack",
                 "player" => "player",
                 _ => "main"

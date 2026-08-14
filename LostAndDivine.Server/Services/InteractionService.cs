@@ -169,6 +169,46 @@ public class InteractionService
                 await _svc.Storage.OnPlayerInteractAsync(player);
                 break;
 
+            case "door":
+                {
+                    var door = _svc.Zones.FindDoor(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
+                    if (door == null)
+                    {
+                        await ChatTo(client, ChatChannel.System, "Система", "Здесь нет двери.");
+                        break;
+                    }
+
+                    int dx = Math.Sign(player.Interaction.X - player.X);
+                    int dy = Math.Sign(player.Interaction.Y - player.Y);
+
+                    if (dx == 0 && dy == 0)
+                    {
+                        await ChatTo(client, ChatChannel.System, "Система", "Вы стоите прямо на двери.");
+                        break;
+                    }
+                    if (dx != 0 && dy != 0)
+                    {
+                        await ChatTo(client, ChatChannel.System, "Система", "Подойдите к двери вплотную.");
+                        break;
+                    }
+
+                    int destX = player.Interaction.X + dx;
+                    int destY = player.Interaction.Y + dy;
+                    var zoneMap = _svc.Zones.GetOrCreateMap(player.CurrentZoneId);
+                    if (destX < 0 || destY < 0 || destX >= zoneMap.Width || destY >= zoneMap.Height || zoneMap.IsObstacle(destX, destY))
+                    {
+                        await ChatTo(client, ChatChannel.System, "Система", "За дверью нет прохода.");
+                        break;
+                    }
+
+                    player.Movement.Stop();
+                    player.X = destX;
+                    player.Y = destY;
+                    Log.Debug($"{player.Name} прошёл через дверь ({player.Interaction.X},{player.Interaction.Y}) -> ({destX},{destY})");
+                    await _svc.Hub.BroadcastMapAsync();
+                    break;
+                }
+
             case "collectible":
                 var lootItem = _svc.Collectibles.TryCollect(player.Interaction.X, player.Interaction.Y, player.CurrentZoneId);
                 if (lootItem != null)

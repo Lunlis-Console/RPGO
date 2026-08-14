@@ -22,6 +22,7 @@ public class WorldMap
     public string ZoneName { get; set; } = "";
     public bool PvPEnabled { get; set; }
     public List<PortalPosition> Portals { get; set; } = new();
+    public List<DoorPosition> Doors { get; set; } = new();
     public PortalPosition? InstanceExitPortal { get; set; }
     public ChestPosition? InstanceChest { get; set; }
     public ChestPosition? StorageChest { get; set; }
@@ -109,6 +110,13 @@ public class PortalPosition
     public int Y { get; set; }
     public string TargetZone { get; set; } = "";
     public string TargetZoneName { get; set; } = "";
+}
+
+public class DoorPosition
+{
+    public int X { get; set; }
+    public int Y { get; set; }
+    public string Name { get; set; } = "Дверь";
 }
 
 public class ChestPosition
