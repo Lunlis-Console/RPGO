@@ -37,3 +37,18 @@ public class UpdateFileChunk
     public string Sha256 { get; set; } = "";
     public bool Done { get; set; }
 }
+
+/// <summary>Одна запись «Что нового» — версия обновления и список изменений.</summary>
+public class ChangelogEntry
+{
+    public string Version { get; set; } = "";
+    public string Date { get; set; } = "";
+    public List<string> Items { get; set; } = new();
+}
+
+/// <summary>Сообщение changelog (сервер -> клиент после welcome). Version — текущая версия сборки.</summary>
+public class ChangelogData
+{
+    public string Version { get; set; } = "";
+    public List<ChangelogEntry> Entries { get; set; } = new();
+}

@@ -168,6 +168,8 @@ public class AuthService
             Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name, ClassName = player.Class.DisplayName() }
         });
 
+        await _svc.ClientBuild.SendChangelogAsync(connection, _svc.Hub);
+
         connection.WelcomeSent = true;
 
         Log.Info($"Игрок {player.Name} вошел в мир на позиции ({player.X}, {player.Y})");

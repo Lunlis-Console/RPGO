@@ -44,12 +44,16 @@ public sealed class GameClient
     public string? SessionToken { get; internal set; }
     public Guid PlayerId { get; internal set; }
 
+    /// <summary>Последний полученный список изменений «Что нового» (для показа после входа).</summary>
+    public ChangelogData? LastChangelog { get; internal set; }
+
     // События (UI подписывается)
     public event Action? Connected;
     public event Action<string>? Disconnected;
     public event Action<string>? SystemMessage;
     public event Action<string, string, string, bool>? ChatReceived;
     public event Action? WelcomeReceived;
+    public event Action<ChangelogData>? ChangelogReceived;
     public event Action<WorldMap>? MapUpdated;
     public event Action<StatusData>? StatusUpdated;
     public event Action<InventoryData>? InventoryUpdated;
@@ -134,6 +138,11 @@ public sealed class GameClient
     // Internal event raisers for ClientMessageHandlerRegistry
     internal void RaiseSystemMessage(string msg) => Ui(() => SystemMessage?.Invoke(msg));
     internal void RaiseWelcomeReceived() => Ui(() => WelcomeReceived?.Invoke());
+    internal void RaiseChangelogReceived(ChangelogData data) => Ui(() =>
+    {
+        LastChangelog = data;
+        ChangelogReceived?.Invoke(data);
+    });
     internal void RaiseMapUpdated(WorldMap map) => Ui(() => MapUpdated?.Invoke(map));
     internal void RaiseChatReceived(string channel, string name, string text, bool isAdmin) => Ui(() => ChatReceived?.Invoke(channel, name, text, isAdmin));
     internal void RaiseErrorReceived(string text) => Ui(() => ErrorReceived?.Invoke(text));

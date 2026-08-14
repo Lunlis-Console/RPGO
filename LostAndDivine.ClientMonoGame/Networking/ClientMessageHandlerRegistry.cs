@@ -16,6 +16,7 @@ internal static class ClientMessageHandlerRegistry
     {
         ["auth_response"] = HandleAuthResponse,
         ["welcome"] = HandleWelcome,
+        ["changelog"] = HandleChangelog,
         ["map_update"] = HandleMapUpdate,
         ["chat"] = HandleChat,
         ["error"] = HandleError,
@@ -125,6 +126,13 @@ internal static class ClientMessageHandlerRegistry
         c.PlayerName = wel?.PlayerName ?? "Игрок";
         c.PlayerClass = wel?.ClassName ?? "";
         c.RaiseWelcomeReceived();
+    }
+
+    private static void HandleChangelog(GameClient c, GameMessage m)
+    {
+        var data = m.Deserialize<ChangelogData>();
+        if (data == null) return;
+        c.RaiseChangelogReceived(data);
     }
 
     private static void HandleMapUpdate(GameClient c, GameMessage m)

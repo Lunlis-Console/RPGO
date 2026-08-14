@@ -46,6 +46,7 @@ public class GameScreen : IScreen
     private readonly MailWindow _mailWindow = new();
     private readonly MailAttachmentWindow _mailAttachmentWindow = new();
     private readonly StorageWindow _storageWindow = new();
+    private readonly ChangelogWindow _changelogWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
     private int _lastPartyMemberCount;
     private HashSet<Guid> _lastPartyMemberIds = new();
@@ -90,7 +91,11 @@ public class GameScreen : IScreen
         WireDialogueEvents();
         WireDeathEvents();
         WireTradeRequestEvents();
+        WireChangelogEvents();
         RegisterWindows();
+
+        if (_client.LastChangelog != null)
+            ShowChangelog(_client.LastChangelog);
     }
 
     private void WireMapEvents()
@@ -883,6 +888,28 @@ public class GameScreen : IScreen
         _tradeRequestWindow.Declined += inviterName => _ = _client.SendAsync("trade_decline", new { InviterName = inviterName });
     }
 
+    private void WireChangelogEvents()
+    {
+        _client.ChangelogReceived += data => ShowChangelog(data);
+    }
+
+    private void ShowChangelog(ChangelogData data)
+    {
+        if (data?.Entries == null || data.Entries.Count == 0) return;
+        if (!ChangelogSeenStore.IsNewer(data.Version)) return;
+
+        _changelogWindow.SetData(data);
+        var viewport = GameMain.Instance?.GraphicsDevice.Viewport;
+        if (viewport.HasValue)
+        {
+            _changelogWindow.X = (viewport.Value.Width - _changelogWindow.Width) / 2;
+            _changelogWindow.Y = (viewport.Value.Height - _changelogWindow.Height) / 2;
+        }
+        _changelogWindow.Visible = true;
+        _windows.BringToFront(_changelogWindow);
+        ChangelogSeenStore.WriteSeen(data.Version);
+    }
+
     private void RegisterWindows()
     {
         _windows.Add(_inventoryWindow);
@@ -906,6 +933,7 @@ public class GameScreen : IScreen
         _windows.Add(_mailWindow);
         _windows.Add(_mailAttachmentWindow);
         _windows.Add(_storageWindow);
+        _windows.Add(_changelogWindow);
     }
 
     /// <summary>

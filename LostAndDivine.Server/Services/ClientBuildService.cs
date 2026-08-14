@@ -19,6 +19,9 @@ public class ClientBuildService
 
     public UpdateInfo? Info { get; private set; }
 
+    /// <summary>Список изменений «Что нового» из client_build/changelog.json.</summary>
+    public ChangelogData? Changelog { get; private set; }
+
     public void Initialize()
     {
         string baseDir = AppContext.BaseDirectory;
@@ -40,6 +43,25 @@ public class ClientBuildService
         {
             Log.Error("Ошибка чтения client_build/manifest.json", ex);
             Info = null;
+        }
+
+        try
+        {
+            string clPath = Path.Combine(dir, "changelog.json");
+            if (File.Exists(clPath))
+            {
+                var cl = JsonSerializer.Deserialize<ChangelogData>(File.ReadAllText(clPath), JsonOpts);
+                if (cl?.Entries != null && cl.Entries.Count > 0)
+                {
+                    Changelog = cl;
+                    Log.Info($"Changelog загружен: {cl.Entries.Count} записей");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Ошибка чтения client_build/changelog.json", ex);
+            Changelog = null;
         }
     }
 
@@ -126,6 +148,21 @@ public class ClientBuildService
         }
 
         return false;
+    }
+
+    /// <summary>Отправляет игроку список изменений «Что нового» (после welcome).</summary>
+    public async Task SendChangelogAsync(ClientConnection connection, INetworkHub hub)
+    {
+        if (Changelog == null) return;
+        await hub.SendToClient(connection, new GameMessage
+        {
+            Type = "changelog",
+            Data = new ChangelogData
+            {
+                Version = Info?.Version ?? Changelog.Version,
+                Entries = Changelog.Entries
+            }
+        });
     }
 
     private bool TryGetFile(string relPath, out byte[] bytes)
