@@ -4,26 +4,22 @@ namespace LostAndDivine.Server.Repositories;
 
 internal static class LootRepository
 {
-    internal static List<LootEntry> LoadAll()
+    internal static List<MonsterDrop> LoadAll()
     {
         lock (Db.Lock)
         {
-            var result = new List<LootEntry>();
+            var result = new List<MonsterDrop>();
             using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, monster_id, name, description, value, drop_chance, quest_item FROM loot_tables ORDER BY monster_id, id";
+            cmd.CommandText = "SELECT monster_id, item_id, drop_chance FROM monster_drops ORDER BY monster_id, item_id";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                result.Add(new LootEntry
+                result.Add(new MonsterDrop
                 {
-                    Id = reader.GetInt32(0),
-                    MonsterId = reader.GetString(1),
-                    Name = reader.GetString(2),
-                    Description = reader.GetString(3),
-                    Value = reader.GetInt32(4),
-                    DropChance = reader.GetInt32(5),
-                    QuestItem = !reader.IsDBNull(6) && reader.GetInt32(6) != 0,
+                    MonsterId = reader.GetString(0),
+                    ItemId = reader.GetString(1),
+                    DropChance = reader.GetInt32(2),
                 });
             }
             return result;

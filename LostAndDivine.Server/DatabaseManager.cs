@@ -49,7 +49,7 @@ public static class DatabaseManager
     public static List<MonsterTemplate> LoadMonsterTemplates() => MonsterRepository.LoadAll();
 
     // === Loot ===
-    public static List<LootEntry> LoadLootTable() => LootRepository.LoadAll();
+    public static List<MonsterDrop> LoadMonsterDrops() => LootRepository.LoadAll();
 
     // === Quests ===
     public static List<QuestDefinition> LoadQuestDefinitions() => QuestRepository.LoadDefinitions();

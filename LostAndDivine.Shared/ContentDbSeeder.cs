@@ -12,7 +12,7 @@ public static class ContentDbSeeder
     public static readonly string[] Tables =
     {
         "quests_def", "npcs", "merchant_stock", "items", "monsters", "skills",
-        "loot_tables", "world_config", "world_portals", "zones", "tile_maps", "tilesets",
+        "monster_drops", "world_config", "world_portals", "zones", "tile_maps", "tilesets",
         "instance_templates", "instance_portals", "instance_spawns"
     };
 

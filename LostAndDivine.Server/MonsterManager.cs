@@ -94,7 +94,7 @@ public class MonsterManager
     {
         int health = (int)(template.Health * mult);
         int xp = (int)(template.XpReward * mult);
-        int gold = (int)(template.GoldReward * mult);
+        int gold = RollGold(template, mult);
 
         var monster = new Monster
         {
@@ -127,6 +127,15 @@ public class MonsterManager
         monster.ParryChance = template.ParryChance;
         monster.ShieldDefense = template.ShieldDefense;
         return monster;
+    }
+
+    /// <summary>Случайное золото за убийство в диапазоне [gold_reward, gold_max] с масштабом mult. gold_max=0 → ровно gold_reward.</summary>
+    private int RollGold(MonsterTemplate template, double mult)
+    {
+        int min = (int)(template.GoldReward * mult);
+        int max = (int)(template.GoldMax * mult);
+        if (template.GoldMax <= 0 || max <= min) return min;
+        return _world.NextRandom(min, max + 1);
     }
 
     public void SpawnMannequins()

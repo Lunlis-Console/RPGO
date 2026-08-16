@@ -26,7 +26,7 @@ public class QuestManager
     /// <summary>Id NPC-доски (задаётся в БД); квесты с таким выдающим показываются на доске.</summary>
     public string BoardNpcId { get; private set; } = "N0002";
 
-    // Предметы с флагом quest_item (шаблоны) и названия квестового лута (loot_tables)
+    // Предметы с флагом quest_item (шаблоны items.quest_item)
     private readonly HashSet<string> _questItemIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _questItemNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _questItemsLock = new();
@@ -71,19 +71,17 @@ public class QuestManager
     }
 
     /// <summary>
-    /// Перезагружает наборы квестовых предметов (шаблоны items.quest_item и лут
-    /// loot_tables.quest_item). Вызывается при старте и горячей перезагрузке.
+    /// Перезагружает наборы квестовых предметов (шаблоны items.quest_item).
+    /// Вызывается при старте и горячей перезагрузке.
     /// </summary>
     public void ReloadQuestItems()
     {
         var ids = DatabaseManager.LoadItems().Where(i => i.QuestItem).Select(i => i.Id).ToList();
-        var names = DatabaseManager.LoadLootTable().Where(l => l.QuestItem).Select(l => l.Name).ToList();
         lock (_questItemsLock)
         {
             _questItemIds.Clear();
             _questItemNames.Clear();
             foreach (var id in ids) _questItemIds.Add(id);
-            foreach (var n in names) _questItemNames.Add(n);
         }
     }
 

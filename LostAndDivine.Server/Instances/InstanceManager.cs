@@ -396,7 +396,7 @@ public class InstanceManager
                 Health = hp, MaxHealth = hp,
                 Level = lvl,
                 XpReward = (int)(tpl.XpReward * scale * (isBoss ? 3 : 1)),
-                GoldReward = (int)(tpl.GoldReward * scale * (isBoss ? 3 : 1)),
+                GoldReward = RollGold(tpl, scale * (isBoss ? 3 : 1)),
                 ZoneId = instance.InstanceZoneId,
                 Symbol = tpl.Symbol,
                 Strength = (int)(tpl.Strength * scale) + (isBoss ? 3 : 0),
@@ -455,6 +455,15 @@ public class InstanceManager
                 DoSpawn(monId, sx, sy, isBoss);
             }
         }
+    }
+
+    /// <summary>Случайное золото за убийство в диапазоне [gold_reward, gold_max] с масштабом mult. gold_max=0 → ровно gold_reward.</summary>
+    private static int RollGold(MonsterTemplate tpl, double mult)
+    {
+        int min = (int)(tpl.GoldReward * mult);
+        int max = (int)(tpl.GoldMax * mult);
+        if (tpl.GoldMax <= 0 || max <= min) return min;
+        return Random.Shared.Next(min, max + 1);
     }
 
     /// <summary>Тик таймеров, ИИ монстров и очистка истёкших инстансов.</summary>

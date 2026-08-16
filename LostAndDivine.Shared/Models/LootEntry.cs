@@ -1,12 +1,9 @@
 namespace LostAndDivine.Shared.Models;
 
-public class LootEntry
+/// <summary>Строка дропа монстра: предмет-шаблон и шанс выпадения (0-100).</summary>
+public class MonsterDrop
 {
-    public int Id;
     public string MonsterId = "";
-    public string Name = "";
-    public string Description = "";
-    public int Value;
+    public string ItemId = "";
     public int DropChance;
-    public bool QuestItem;
 }

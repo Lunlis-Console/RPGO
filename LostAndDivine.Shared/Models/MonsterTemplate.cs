@@ -8,6 +8,7 @@ public class MonsterTemplate
     public int Health;
     public int XpReward;
     public int GoldReward;
+    public int GoldMax;
     public char Symbol = 'M';
     public int Strength = 1;
     public int Endurance = 1;

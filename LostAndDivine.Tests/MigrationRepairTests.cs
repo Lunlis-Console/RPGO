@@ -35,7 +35,13 @@ public class MigrationRepairTests
             cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('items') WHERE name='quest_item'";
             Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
 
-            cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('loot_tables') WHERE name='quest_item'";
+            cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='monster_drops'";
+            Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
+
+            cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='loot_tables'";
+            Assert.Equal(0, Convert.ToInt32(cmd.ExecuteScalar()));
+
+            cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('monsters') WHERE name='gold_max'";
             Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
         }
         finally { Cleanup(db); }

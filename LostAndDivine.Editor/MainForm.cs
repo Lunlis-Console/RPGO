@@ -15,7 +15,6 @@ public partial class MainForm : Form
     private TabControl _tabs = null!;
     private TabPage _itemsTab = null!;
     private TabPage _monstersTab = null!;
-    private TabPage _lootTab = null!;
     private TabPage _questsTab = null!;
     private TabPage _worldTab = null!;
     private TabPage _merchantTab = null!;
@@ -26,7 +25,6 @@ public partial class MainForm : Form
     private DataGridView _monstersGrid = null!;
     private DataGridView _questsGrid = null!;
     private DataGridView _worldGrid = null!;
-    private DataGridView _lootGrid = null!;
     private Label _status = null!;
 
     private List<(string Id, string Name)> _monsterRefs = new();
@@ -47,7 +45,6 @@ public partial class MainForm : Form
     // Search boxes per tab
     private TextBox _itemsSearch = null!;
     private TextBox _monstersSearch = null!;
-    private TextBox _lootSearch = null!;
     private TextBox _questsSearch = null!;
 
     // Animations
@@ -134,30 +131,36 @@ public partial class MainForm : Form
         // --- Монстры ---
         _monstersTab = new TabPage("Монстры");
         var monstersPanel = new Panel { Dock = DockStyle.Fill };
-        var monstersTop = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
+        var monstersTop = new Panel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(6, 4, 6, 4) };
+        var monstersHint = new Label
+        {
+            Text = "Двойной клик по монстру — редактирование (включая дроп)",
+            Dock = DockStyle.Top,
+            Height = 22,
+            TextAlign = ContentAlignment.MiddleLeft
+        };
         _monstersSearch = MakeSearchBox("Поиск монстров...");
+        _monstersSearch.Dock = DockStyle.Top;
+        _monstersSearch.Height = 26;
         _monstersSearch.TextChanged += (s, e) => ApplyGridFilter(_monstersGrid, _monstersSearch.Text);
         monstersTop.Controls.Add(_monstersSearch);
-        monstersPanel.Controls.Add(_monstersGrid = MakeGrid());
+        monstersTop.Controls.Add(monstersHint);
+        _monstersGrid = MakeGrid();
+        _monstersGrid.AllowUserToAddRows = true;
+        _monstersGrid.AllowUserToDeleteRows = true;
+        _monstersGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _monstersGrid.CellDoubleClick += (s, e) =>
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= _monstersGrid.Rows.Count) return;
+            if (_monstersGrid.Rows[e.RowIndex].IsNewRow) return;
+            EditMonsterRow(_monstersGrid.Rows[e.RowIndex]);
+        };
+        monstersPanel.Controls.Add(_monstersGrid);
         monstersPanel.Controls.Add(monstersTop);
         var monstersBtn = MakeSaveButton("Сохранить монстров");
         monstersBtn.Click += (s, e) => SaveMonsters();
         monstersPanel.Controls.Add(monstersBtn);
         _monstersTab.Controls.Add(monstersPanel);
-
-        // --- Лут ---
-        _lootTab = new TabPage("Лут");
-        var lootPanel = new Panel { Dock = DockStyle.Fill };
-        var lootTop = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
-        _lootSearch = MakeSearchBox("Поиск лута...");
-        _lootSearch.TextChanged += (s, e) => ApplyGridFilter(_lootGrid, _lootSearch.Text);
-        lootTop.Controls.Add(_lootSearch);
-        lootPanel.Controls.Add(_lootGrid = MakeGrid());
-        lootPanel.Controls.Add(lootTop);
-        var lootBtn = MakeSaveButton("Сохранить лут");
-        lootBtn.Click += (s, e) => SaveLoot();
-        lootPanel.Controls.Add(lootBtn);
-        _lootTab.Controls.Add(lootPanel);
 
         // --- Квесты ---
         _questsTab = new TabPage("Квесты");
@@ -235,7 +238,6 @@ public partial class MainForm : Form
         _tabs.TabPages.Add(_accountsTab = BuildAccountsTab());
         _tabs.TabPages.Add(_itemsTab);
         _tabs.TabPages.Add(_monstersTab);
-        _tabs.TabPages.Add(_lootTab);
         _tabs.TabPages.Add(_questsTab);
         _tabs.TabPages.Add(_worldTab);
         _tabs.TabPages.Add(_merchantTab);
@@ -376,7 +378,6 @@ public partial class MainForm : Form
         LoadRewardItemRefs();
         LoadItems();
         LoadMonsters();
-        LoadLoot();
         LoadQuests();
         LoadWorld();
         LoadMerchantNpcsGrid();
@@ -619,42 +620,48 @@ public partial class MainForm : Form
 
     private void LoadMonsters()
     {
-        _monstersGrid.DataSource = LoadTable(@"SELECT id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, symbol,
+        var drops = LoadMonsterDrops();
+        var dt = LoadTable(@"SELECT id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, gold_max, symbol,
             strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance, block_chance, parry_chance, shield_defense
             FROM monsters ORDER BY id");
+        dt.Columns.Add("__drops", typeof(string));
+        foreach (DataRow r in dt.Rows)
+        {
+            string monsterId = r["id"]?.ToString() ?? "";
+            r["__drops"] = drops.TryGetValue(monsterId, out var list)
+                ? JsonSerializer.Serialize(list.Select(d => new { d.ItemId, d.Chance }))
+                : "[]";
+        }
+        _monstersGrid.DataSource = dt;
+        foreach (DataGridViewColumn col in _monstersGrid.Columns)
+        {
+            if (col.Name is "id" or "name") continue;
+            col.Visible = false;
+        }
+        if (_monstersGrid.Columns.Contains("id"))
+            _monstersGrid.Columns["id"].HeaderText = "ID";
+        if (_monstersGrid.Columns.Contains("name"))
+            _monstersGrid.Columns["name"].HeaderText = "Имя";
+        SetStatus($"Монстры: {dt.Rows.Count}");
     }
 
-    // === LOOT ===
-
-    private void LoadLoot()
+    /// <summary>Дропы монстров: monster_id → список (предмет, шанс %).</summary>
+    private Dictionary<string, List<(string ItemId, int Chance)>> LoadMonsterDrops()
     {
-        var dt = new DataTable();
-        dt.Columns.Add("monster_name", typeof(string));
-        dt.Columns.Add("name", typeof(string));
-        dt.Columns.Add("description", typeof(string));
-        dt.Columns.Add("value", typeof(int));
-        dt.Columns.Add("drop_chance", typeof(int));
-        dt.Columns.Add("quest_item", typeof(bool));
-
+        var map = new Dictionary<string, List<(string, int)>>();
         using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"SELECT l.monster_id, l.name, l.description, l.value, l.drop_chance, l.quest_item, m.name
-            FROM loot_tables l
-            LEFT JOIN monsters m ON l.monster_id = m.id
-            ORDER BY l.monster_id, l.id";
+        cmd.CommandText = "SELECT monster_id, item_id, drop_chance FROM monster_drops ORDER BY monster_id, item_id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            string monsterName = reader.IsDBNull(6) ? reader.GetString(0) : reader.GetString(6);
-            dt.Rows.Add(monsterName, reader.GetString(1), reader.GetString(2), reader.GetInt32(3), reader.GetInt32(4),
-                !reader.IsDBNull(5) && reader.GetInt32(5) != 0);
+            string mid = reader.GetString(0);
+            if (!map.TryGetValue(mid, out var list))
+                map[mid] = list = new List<(string, int)>();
+            list.Add((reader.GetString(1), reader.GetInt32(2)));
         }
-        _lootGrid.DataSource = dt;
-
-        // Rename column header
-        if (_lootGrid.Columns.Contains("monster_name"))
-            _lootGrid.Columns["monster_name"].HeaderText = "Монстр";
+        return map;
     }
 
     // === QUESTS ===
@@ -1054,7 +1061,6 @@ public partial class MainForm : Form
         var idx = _tabs.SelectedIndex;
         if (idx == _tabs.TabPages.IndexOf(_itemsTab)) SaveItems();
         else if (idx == _tabs.TabPages.IndexOf(_monstersTab)) SaveMonsters();
-        else if (idx == _tabs.TabPages.IndexOf(_lootTab)) SaveLoot();
         else if (idx == _tabs.TabPages.IndexOf(_questsTab)) SaveQuests();
         else if (idx == _tabs.TabPages.IndexOf(_worldTab)) SaveWorld();
         else if (idx == _tabs.TabPages.IndexOf(_accountsTab)) SaveAccounts();
@@ -1136,15 +1142,18 @@ public partial class MainForm : Form
             conn.Open();
             using var transaction = conn.BeginTransaction();
             using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM monsters"; del.ExecuteNonQuery(); }
+            using (var delDrops = conn.CreateCommand()) { delDrops.CommandText = "DELETE FROM monster_drops"; delDrops.ExecuteNonQuery(); }
             foreach (DataRow row in dt.Rows)
             {
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
+                string monsterId = row["id"].ToString()!;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, symbol,
-                        strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance)
-                    VALUES ($id,$n,$t,$hp,$a,$d,$xp,$g,$s,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec)";
-                cmd.Parameters.AddWithValue("$id", row["id"]);
+                cmd.CommandText = @"INSERT INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, gold_max, symbol,
+                        strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance,
+                        block_chance, parry_chance, shield_defense)
+                    VALUES ($id,$n,$t,$hp,$a,$d,$xp,$g,$gm,$s,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$bc,$pc,$sd)";
+                cmd.Parameters.AddWithValue("$id", monsterId);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", ToInt(row["tier"]));
                 cmd.Parameters.AddWithValue("$hp", ToInt(row["health"]));
@@ -1152,6 +1161,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$d", ToInt(row["phys_defense"]));
                 cmd.Parameters.AddWithValue("$xp", ToInt(row["xp_reward"]));
                 cmd.Parameters.AddWithValue("$g", ToInt(row["gold_reward"]));
+                cmd.Parameters.AddWithValue("$gm", ToInt(row["gold_max"]));
                 cmd.Parameters.AddWithValue("$s", (row["symbol"]?.ToString() ?? "M").Length > 0 ? row["symbol"].ToString()![0].ToString() : "M");
                 cmd.Parameters.AddWithValue("$str", ToInt(row["strength"]));
                 cmd.Parameters.AddWithValue("$sta", ToInt(row["endurance"]));
@@ -1162,7 +1172,22 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$cc", ToDouble(row["crit_chance"]));
                 cmd.Parameters.AddWithValue("$cd", ToDouble(row["crit_damage"]));
                 cmd.Parameters.AddWithValue("$ec", ToDouble(row["evade_chance"]));
+                cmd.Parameters.AddWithValue("$bc", ToDouble(row["block_chance"]));
+                cmd.Parameters.AddWithValue("$pc", ToDouble(row["parry_chance"]));
+                cmd.Parameters.AddWithValue("$sd", ToInt(row["shield_defense"]));
                 cmd.ExecuteNonQuery();
+
+                var dropEntries = ParseDrops(row["__drops"]?.ToString());
+                foreach (var (itemId, chance) in dropEntries)
+                {
+                    if (string.IsNullOrWhiteSpace(itemId)) continue;
+                    using var dropCmd = conn.CreateCommand();
+                    dropCmd.CommandText = "INSERT INTO monster_drops (monster_id, item_id, drop_chance) VALUES ($mid, $iid, $dc)";
+                    dropCmd.Parameters.AddWithValue("$mid", monsterId);
+                    dropCmd.Parameters.AddWithValue("$iid", itemId);
+                    dropCmd.Parameters.AddWithValue("$dc", Math.Clamp(chance, 0, 100));
+                    dropCmd.ExecuteNonQuery();
+                }
             }
             transaction.Commit();
             LoadMonsters();
@@ -1171,40 +1196,22 @@ public partial class MainForm : Form
         catch (Exception ex) { SetStatus("Ошибка (монстры): " + ex.Message); }
     }
 
-    private void SaveLoot()
+    private static List<(string ItemId, int Chance)> ParseDrops(string? json)
     {
+        if (string.IsNullOrWhiteSpace(json) || json == "[]") return new List<(string, int)>();
         try
         {
-            _lootGrid.EndEdit();
-            var dt = (DataTable)_lootGrid.DataSource!;
-            var monsterNameToId = _monsterRefs.ToDictionary(r => r.Name, r => r.Id);
-            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
-            conn.Open();
-            using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM loot_tables"; del.ExecuteNonQuery(); }
-            foreach (DataRow row in dt.Rows)
+            using var doc = JsonDocument.Parse(json);
+            var list = new List<(string, int)>();
+            foreach (var el in doc.RootElement.EnumerateArray())
             {
-                if (row.RowState == DataRowState.Deleted) continue;
-                string monsterName = row["monster_name"]?.ToString() ?? "";
-                string name = row["name"]?.ToString() ?? "";
-                if (string.IsNullOrWhiteSpace(monsterName) || string.IsNullOrWhiteSpace(name)) continue;
-                string monsterId = monsterNameToId.TryGetValue(monsterName, out var mid) ? mid : monsterName;
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO loot_tables (monster_id, name, description, value, drop_chance, quest_item)
-                    VALUES ($mid, $n, $d, $v, $dc, $qi)";
-                cmd.Parameters.AddWithValue("$mid", monsterId);
-                cmd.Parameters.AddWithValue("$n", name);
-                cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
-                cmd.Parameters.AddWithValue("$v", ToInt(row["value"]));
-                cmd.Parameters.AddWithValue("$dc", ToInt(row["drop_chance"]));
-                cmd.Parameters.AddWithValue("$qi", QuestFlag(row["quest_item"]));
-                cmd.ExecuteNonQuery();
+                string itemId = el.TryGetProperty("ItemId", out var idProp) ? idProp.GetString() ?? "" : "";
+                int chance = el.TryGetProperty("Chance", out var cProp) ? cProp.GetInt32() : 0;
+                list.Add((itemId, chance));
             }
-            transaction.Commit();
-            LoadLoot();
-            SetStatus("Лут сохранён");
+            return list;
         }
-        catch (Exception ex) { SetStatus("Ошибка (лут): " + ex.Message); }
+        catch { return new List<(string, int)>(); }
     }
 
     private void SaveQuests()
@@ -1989,6 +1996,255 @@ public partial class MainForm : Form
             _asmBox.Enabled = isWeapon;
             _arBox.Enabled = isWeapon;
         }
+    }
+
+    private void EditMonsterRow(DataGridViewRow row)
+    {
+        using var dlg = new MonsterEditForm(row, this);
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        SetStatus("Монстр изменён");
+    }
+
+    internal class MonsterEditForm : Form
+    {
+        private readonly MainForm _owner;
+        private readonly int _rowIndex;
+
+        internal MonsterEditForm(DataGridViewRow row, MainForm owner) : base()
+        {
+            _owner = owner;
+            _rowIndex = row.Index;
+            Text = $"Монстр: {Cell(row, "name")} [{Cell(row, "id")}]";
+            Size = new Size(560, 800);
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(8, 8, 8, 0) };
+
+            // === ОСНОВНОЕ ===
+            var grpMain = NewGroup(scroll, "Основное");
+            _idBox = AddField(grpMain, "ID:", Cell(row, "id"));
+            _nameBox = AddField(grpMain, "Имя:", Cell(row, "name"));
+            _tierBox = AddNum(grpMain, "Уровень:", Num(row, "tier"), 1, 99);
+            _symbolBox = AddField(grpMain, "Символ:", Cell(row, "symbol"));
+
+            // === ХАРАКТЕРИСТИКИ ===
+            var grpStats = NewGroup(scroll, "Характеристики");
+            _hpBox = AddNum(grpStats, "HP:", Num(row, "health"), 1, 999999999);
+            _paBox = AddNum(grpStats, "Физ.атака:", Num(row, "phys_attack"), 0, 999999);
+            _pdBox = AddNum(grpStats, "Физ.защита:", Num(row, "phys_defense"), 0, 999999);
+            _xpBox = AddNum(grpStats, "Опыт за убийство:", Num(row, "xp_reward"), 0, 99999999);
+            _goldBox = AddNum(grpStats, "Золото мин (за убийство):", Num(row, "gold_reward"), 0, 99999999);
+            _goldMaxBox = AddNum(grpStats, "Золото макс (0 = без разброса):", Num(row, "gold_max"), 0, 99999999);
+
+            // === АТРИБУТЫ ===
+            var grpAttr = NewGroup(scroll, "Атрибуты");
+            _strBox = AddNum(grpAttr, "Сила:", Num(row, "strength"), 0, 9999);
+            _endBox = AddNum(grpAttr, "Выносливость:", Num(row, "endurance"), 0, 9999);
+            _agiBox = AddNum(grpAttr, "Ловкость:", Num(row, "agility"), 0, 9999);
+            _cunBox = AddNum(grpAttr, "Хитрость:", Num(row, "cunning"), 0, 9999);
+            _intBox = AddNum(grpAttr, "Интеллект:", Num(row, "intellect"), 0, 9999);
+            _wisBox = AddNum(grpAttr, "Мудрость:", Num(row, "wisdom"), 0, 9999);
+
+            // === БОЙ ===
+            var grpCombat = NewGroup(scroll, "Бой");
+            _ccBox = AddNumDbl(grpCombat, "Крит.шанс (%):", (decimal)NumDbl(row, "crit_chance"), 0, 100, 1);
+            _cdBox = AddNumDbl(grpCombat, "Крит.урон (%):", (decimal)NumDbl(row, "crit_damage"), 0, 1000, 1);
+            _ecBox = AddNumDbl(grpCombat, "Уклонение (%):", (decimal)NumDbl(row, "evade_chance"), 0, 100, 1);
+            _bcBox = AddNumDbl(grpCombat, "Блок (%):", (decimal)NumDbl(row, "block_chance"), 0, 100, 1);
+            _pcBox = AddNumDbl(grpCombat, "Парирование (%):", (decimal)NumDbl(row, "parry_chance"), 0, 100, 1);
+            _sdBox = AddNum(grpCombat, "Защита щитом:", Num(row, "shield_defense"), 0, 999999);
+
+            // === ДРОП ===
+            var grpDrops = NewGroup(scroll, "Дроп (предметы и шанс)");
+            var hint = new Label
+            {
+                Text = "Добавьте строку в таблице, выберите предмет и укажите шанс выпадения (%).",
+                Dock = DockStyle.Top,
+                Height = 22,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            _dropsGrid = BuildDropsGrid();
+            grpDrops.Controls.Add(_dropsGrid);
+            grpDrops.Controls.Add(hint);
+            LoadDrops(Cell(row, "__drops"));
+
+            // === КНОПКИ ===
+            var btnPanel = new Panel { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(8, 8, 8, 0) };
+            var cancelBtn = new Button { Text = "Отмена", Dock = DockStyle.Right, Width = 100, Height = 30 };
+            cancelBtn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+            var okBtn = new Button { Text = "Сохранить", Dock = DockStyle.Right, Width = 100, Height = 30, BackColor = SystemColors.ControlDark, FlatStyle = FlatStyle.Standard, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            okBtn.Click += (s, e) => SaveToRow(row);
+            btnPanel.Controls.Add(cancelBtn);
+            btnPanel.Controls.Add(okBtn);
+
+            Controls.Add(btnPanel);
+            Controls.Add(scroll);
+        }
+
+        private TextBox _idBox = null!, _nameBox = null!, _symbolBox = null!;
+        private NumericUpDown _tierBox = null!, _hpBox = null!, _paBox = null!, _pdBox = null!, _xpBox = null!, _goldBox = null!, _goldMaxBox = null!;
+        private NumericUpDown _strBox = null!, _endBox = null!, _agiBox = null!, _cunBox = null!, _intBox = null!, _wisBox = null!;
+        private NumericUpDown _ccBox = null!, _cdBox = null!, _ecBox = null!, _bcBox = null!, _pcBox = null!, _sdBox = null!;
+        private DataGridView _dropsGrid = null!;
+
+        private DataGridView BuildDropsGrid()
+        {
+            var grid = new DataGridView
+            {
+                Dock = DockStyle.Top,
+                Height = 190,
+                AllowUserToAddRows = true,
+                AllowUserToDeleteRows = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowHeadersWidth = 30,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            var itemNames = _owner.LoadRefs("SELECT id, name FROM items ORDER BY id");
+            var itemCombo = new DataGridViewComboBoxColumn
+            {
+                Name = "item",
+                HeaderText = "Предмет",
+                DataSource = itemNames.Select(r => $"{r.Id} — {r.Name}").ToList(),
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            };
+            var chanceCol = new DataGridViewTextBoxColumn
+            {
+                Name = "chance",
+                HeaderText = "Шанс, %",
+                Width = 90,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill
+            };
+            grid.Columns.Add(itemCombo);
+            grid.Columns.Add(chanceCol);
+            return grid;
+        }
+
+        private void LoadDrops(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json) || json == "[]") return;
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                var itemNames = _owner.LoadRefs("SELECT id, name FROM items ORDER BY id")
+                    .ToDictionary(r => r.Id, r => $"{r.Id} — {r.Name}");
+                foreach (var el in doc.RootElement.EnumerateArray())
+                {
+                    string itemId = el.TryGetProperty("ItemId", out var idProp) ? idProp.GetString() ?? "" : "";
+                    string chance = el.TryGetProperty("Chance", out var cProp) ? cProp.ToString() : "0";
+                    if (string.IsNullOrWhiteSpace(itemId)) continue;
+                    _dropsGrid.Rows.Add(itemNames.TryGetValue(itemId, out var display) ? display : itemId, chance);
+                }
+            }
+            catch { }
+        }
+
+        private void SaveToRow(DataGridViewRow row)
+        {
+            SetCell(row, "id", _idBox.Text.Trim());
+            SetCell(row, "name", _nameBox.Text.Trim());
+            SetCell(row, "symbol", _symbolBox.Text.Trim());
+            SetCell(row, "tier", (int)_tierBox.Value);
+            SetCell(row, "health", (int)_hpBox.Value);
+            SetCell(row, "phys_attack", (int)_paBox.Value);
+            SetCell(row, "phys_defense", (int)_pdBox.Value);
+            SetCell(row, "xp_reward", (int)_xpBox.Value);
+            SetCell(row, "gold_reward", (int)_goldBox.Value);
+            SetCell(row, "gold_max", (int)_goldMaxBox.Value);
+            SetCell(row, "strength", (int)_strBox.Value);
+            SetCell(row, "endurance", (int)_endBox.Value);
+            SetCell(row, "agility", (int)_agiBox.Value);
+            SetCell(row, "cunning", (int)_cunBox.Value);
+            SetCell(row, "intellect", (int)_intBox.Value);
+            SetCell(row, "wisdom", (int)_wisBox.Value);
+            SetCell(row, "crit_chance", (double)_ccBox.Value);
+            SetCell(row, "crit_damage", (double)_cdBox.Value);
+            SetCell(row, "evade_chance", (double)_ecBox.Value);
+            SetCell(row, "block_chance", (double)_bcBox.Value);
+            SetCell(row, "parry_chance", (double)_pcBox.Value);
+            SetCell(row, "shield_defense", (int)_sdBox.Value);
+
+            _dropsGrid.EndEdit();
+            var drops = new List<object>();
+            foreach (DataGridViewRow r in _dropsGrid.Rows)
+            {
+                if (r.IsNewRow) continue;
+                string value = r.Cells["item"].Value?.ToString() ?? "";
+                string itemId = value.Contains(" — ") ? value.Substring(0, value.IndexOf(" — ", StringComparison.Ordinal)).Trim() : value.Trim();
+                if (string.IsNullOrWhiteSpace(itemId)) continue;
+                int chance = 0;
+                int.TryParse(r.Cells["chance"].Value?.ToString(), out chance);
+                drops.Add(new { ItemId = itemId, Chance = Math.Clamp(chance, 0, 100) });
+            }
+            SetCell(row, "__drops", JsonSerializer.Serialize(drops));
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        // ---- Layout helpers ----
+
+        private static GroupBox NewGroup(Panel parent, string title)
+        {
+            var g = new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(8, 18, 8, 6),
+                Margin = new Padding(0, 0, 0, 4),
+                MinimumSize = new Size(0, 0)
+            };
+            parent.Controls.Add(g);
+            parent.Controls.SetChildIndex(g, 0);
+            return g;
+        }
+
+        private static Panel AddRow(GroupBox g)
+        {
+            var row = new Panel { Height = 26, Dock = DockStyle.Top };
+            g.Controls.Add(row);
+            g.Controls.SetChildIndex(row, 0);
+            return row;
+        }
+
+        private TextBox AddField(GroupBox g, string label, string value)
+        {
+            var row = AddRow(g);
+            var ctrl = new TextBox { Text = value, Dock = DockStyle.Fill };
+            var lbl = new Label { Text = label, Width = 145, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        private NumericUpDown AddNum(GroupBox g, string label, decimal val, decimal min, decimal max)
+        {
+            var row = AddRow(g);
+            var ctrl = new NumericUpDown { Minimum = min, Maximum = max, Width = 100, Dock = DockStyle.Left };
+            ctrl.Value = Math.Clamp(val, min, max);
+            var lbl = new Label { Text = label, Width = 145, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            row.Controls.SetChildIndex(ctrl, 0);
+            return ctrl;
+        }
+
+        private NumericUpDown AddNumDbl(GroupBox g, string label, decimal val, decimal min, decimal max, int decPlaces, decimal inc = 1)
+        {
+            var num = AddNum(g, label, val, min, max);
+            num.DecimalPlaces = decPlaces;
+            num.Increment = inc;
+            return num;
+        }
+
+        private string Cell(DataGridViewRow r, string col) => r.Cells[col]?.Value?.ToString() ?? "";
+        private void SetCell(DataGridViewRow r, string col, object val) => r.Cells[col].Value = val;
+        private int Num(DataGridViewRow r, string col) { var v = r.Cells[col]?.Value; return v == null || v is DBNull ? 0 : Convert.ToInt32(v); }
+        private double NumDbl(DataGridViewRow r, string col) { var v = r.Cells[col]?.Value; if (v == null || v is DBNull) return 0; return double.TryParse(v.ToString(), out var d) ? d : 0; }
     }
 
     private void EditQuestRow(DataGridViewRow row)
