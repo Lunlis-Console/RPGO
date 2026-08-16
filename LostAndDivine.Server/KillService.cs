@@ -74,12 +74,15 @@ public class KillService
             var party = _svc.Party.GetParty(killer.PartyId.Value);
             if (party != null)
             {
-                foreach (var kvp in damageTracker)
+                // Участники — все члены группы в той же зоне, что и убийство,
+                // независимо от нанесённого урона.
+                foreach (var memberId in party.Members)
                 {
-                    if (_world.TryGetPlayer(kvp.Key, out var contributor) && contributor != null
-                        && contributor.PartyId == killer.PartyId)
+                    if (_world.TryGetPlayer(memberId, out var member) && member != null
+                        && member.CurrentZoneId == monster.ZoneId)
                     {
-                        partyContributors.Add((contributor, kvp.Value));
+                        int dmg = damageTracker.TryGetValue(member.Id, out var d) ? d : 0;
+                        partyContributors.Add((member, dmg));
                     }
                 }
                 if (partyContributors.Count > 1)
@@ -180,13 +183,29 @@ public class KillService
         int totalDamage)
     {
         if (_hub == null) return;
+        var participants = partyContributors.Select(c => c.Player).ToList();
+        int count = participants.Count;
+        if (count == 0) return;
+
+        // Дроп и опыт делятся поровну между участниками группы —
+        // вне зависимости от нанесённого урона. Если опыт/золото не делятся
+        // нацело, каждый получает целую часть поровну (остаток не выдаётся).
+        int xpReward = monster.XpReward / count;
+        int goldReward = monster.GoldReward / count;
+
+        var allLoot = _svc.Loot.RollLoot(monster.TemplateId);
+        // Раскладываем предметы по игрокам по кругу — равные доли.
+        var lootByIndex = new Dictionary<int, List<Item>>();
+        for (int i = 0; i < count; i++) lootByIndex[i] = new List<Item>();
+        for (int i = 0; i < allLoot.Count; i++)
+            lootByIndex[i % count].Add(allLoot[i]);
+
+        int sharePercent = 100 / count;
         var playerLootDict = new Dictionary<Guid, CorpsePlayerLoot>();
 
-        foreach (var (contributor, dmg) in partyContributors)
+        for (int i = 0; i < participants.Count; i++)
         {
-            double dmgShare = totalDamage > 0 ? (double)dmg / totalDamage : 0;
-            int xpReward = (int)(monster.XpReward * dmgShare);
-            int goldReward = (int)(monster.GoldReward * dmgShare);
+            var contributor = participants[i];
 
             contributor.Experience += xpReward;
             if (contributor.TryLevelUp()) Log.Info($"{contributor.Name} повысил уровень до {contributor.Level}!");
@@ -195,22 +214,21 @@ public class KillService
             if (contribClient != null)
                 await _svc.Hub.SendStatusAsync(contribClient, contributor);
 
-            var contributorLoot = _svc.Loot.RollLoot(monster.TemplateId);
             playerLootDict[contributor.Id] = new CorpsePlayerLoot
             {
                 PlayerName = contributor.Name,
                 Gold = goldReward,
-                Items = contributorLoot,
-                DamagePercent = (int)(dmgShare * 100)
+                Items = lootByIndex[i],
+                DamagePercent = sharePercent
             };
 
             if (contribClient != null)
             {
                 if (xpReward > 0)
                     await ChatTo(contribClient, ChatChannel.System, "Система",
-                        $"[Группа] Вы получили {xpReward} опыта за {monster.Name} ({(int)(dmgShare * 100)}% урона).");
+                        $"[Группа] Вы получили {xpReward} опыта за {monster.Name} ({sharePercent}% доли группы).");
 
-                int personalItems = contributorLoot.Count;
+                int personalItems = lootByIndex[i].Count;
                 if (personalItems > 0 || goldReward > 0)
                     await ChatTo(contribClient, ChatChannel.System, "Система",
                         $"Тело {monster.Name} осталось на земле. Нажмите, чтобы забрать дроп ({personalItems} предм., {goldReward} зол.).");

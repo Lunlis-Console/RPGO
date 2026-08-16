@@ -56,6 +56,7 @@ public static class SpriteCache
         ["cursor_harvest"] = new Point(32, 32),
         ["cursor_moving"] = new Point(32, 32),
         ["cursor_portal"] = new Point(32, 32),
+        ["cursor_player"] = new Point(32, 32),
     };
     private static Texture2D _pixel = null!;
     private static SpriteFont _font = null!;
@@ -160,7 +161,11 @@ public static class SpriteCache
     public static Point GetCursorHotspot(string type)
     {
         string key = $"cursor_{type}";
-        return _cursorHotspots.TryGetValue(key, out var pt) ? pt : default;
+        if (_cursorHotspots.TryGetValue(key, out var pt)) return pt;
+        // Своего курсора нет (например, cursor_player без PNG-файла) — рисуется
+        // запасной "main", поэтому берём его хотспот, иначе курсор смещается.
+        if (_cursorHotspots.TryGetValue("cursor_main", out var mainPt)) return mainPt;
+        return default;
     }
 
     private static Texture2D? LoadTexture(string name)

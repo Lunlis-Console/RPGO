@@ -68,7 +68,7 @@ public class LootWindow : GameWindow
         _dragIndex = -1;
 
         Title = damagePct > 0
-            ? $"Лут: {monsterName} ({damagePct}% урона)"
+            ? $"Лут: {monsterName} ({damagePct}% доли)"
             : $"Лут: {monsterName}";
 
         Visible = true;
