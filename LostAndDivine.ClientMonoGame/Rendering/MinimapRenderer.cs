@@ -29,6 +29,10 @@ public class MinimapRenderer
     private Color[]? _terrainColors;
     private bool _hasView;
     private Rectangle _viewBounds;
+    // Данные карты обновляются с сетевого потока (по частям), а читаются
+    // с потока отрисовки — без лока возможен разрыв: новые данные при старых
+    // размерах, что даёт IndexOutOfRange в RebuildTerrain.
+    private readonly object _lock = new();
 
     public Rectangle GetPanelRect(int screenW)
         => new(screenW - Size - PanelMarginRight, PanelTop, Size, Size);
@@ -43,27 +47,36 @@ public class MinimapRenderer
 
     public void SetMap(WorldMap map)
     {
-        _map = map;
-        if (map == null) return;
-        _mapW = map.Width;
-        _mapH = map.Height;
-        _terrainDirty = true;
+        lock (_lock)
+        {
+            _map = map;
+            if (map == null) return;
+            _mapW = map.Width;
+            _mapH = map.Height;
+            _terrainDirty = true;
+        }
     }
 
     public void SetTileData(byte[]? data, int width, int height)
     {
-        _tileData = data;
-        _mapW = width;
-        _mapH = height;
-        _terrainDirty = true;
+        lock (_lock)
+        {
+            _tileData = data;
+            _mapW = width;
+            _mapH = height;
+            _terrainDirty = true;
+        }
     }
 
     public void SetObstacleData(byte[]? data, int width, int height)
     {
-        _obstacleData = data;
-        _mapW = width;
-        _mapH = height;
-        _terrainDirty = true;
+        lock (_lock)
+        {
+            _obstacleData = data;
+            _mapW = width;
+            _mapH = height;
+            _terrainDirty = true;
+        }
     }
 
     public void SetViewBounds(Rectangle viewBounds)
@@ -77,8 +90,13 @@ public class MinimapRenderer
     private void RebuildTerrain()
     {
         _terrainDirty = false;
-        var map = _map;
-        if (map == null || _mapW <= 0 || _mapH <= 0) return;
+        WorldMap? map; byte[]? tileData; byte[]? obstacleData; int mapW, mapH;
+        lock (_lock)
+        {
+            map = _map; tileData = _tileData; obstacleData = _obstacleData;
+            mapW = _mapW; mapH = _mapH;
+        }
+        if (map == null || mapW <= 0 || mapH <= 0) return;
 
         _terrainTex ??= new Texture2D(GameMain.Instance!.GraphicsDevice, _texSize, _texSize);
         _terrainColors ??= new Color[_texSize * _texSize];
@@ -89,24 +107,22 @@ public class MinimapRenderer
         var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
         var blocked = new Color(46, 52, 64);
 
-        bool hasTiles = _tileData != null && _tileData.Length == _mapW * _mapH;
-        bool hasObs = _obstacleData != null && _obstacleData.Length == _mapW * _mapH;
-        var tileData = _tileData;
-        var obstacleData = _obstacleData;
+        bool hasTiles = tileData != null && tileData.Length == mapW * mapH;
+        bool hasObs = obstacleData != null && obstacleData.Length == mapW * mapH;
 
         for (int py = 0; py < _texSize; py++)
         {
-            int my = Math.Clamp((int)((py + 0.5f) / _texSize * _mapH), 0, _mapH - 1);
+            int my = Math.Clamp((int)((py + 0.5f) / _texSize * mapH), 0, mapH - 1);
             for (int px = 0; px < _texSize; px++)
             {
-                int mx = Math.Clamp((int)((px + 0.5f) / _texSize * _mapW), 0, _mapW - 1);
+                int mx = Math.Clamp((int)((px + 0.5f) / _texSize * mapW), 0, mapW - 1);
 
                 Color c = ((mx + my) & 1) == 0 ? groundA : groundB;
-                if (hasObs && obstacleData![my * _mapW + mx] != 0)
+                if (hasObs && obstacleData![my * mapW + mx] != 0)
                     c = blocked;
                 else if (hasTiles)
                 {
-                    byte t = tileData![my * _mapW + mx];
+                    byte t = tileData![my * mapW + mx];
                     if (t == 255) c = blocked;
                     else if (t != 0) c = feature;
                 }
@@ -118,7 +134,8 @@ public class MinimapRenderer
 
     public void Draw(SpriteBatch sb, Rectangle panel, int centerX, int centerY)
     {
-        var map = _map;
+        WorldMap? map;
+        lock (_lock) { map = _map; }
         if (map == null || map.Width <= 0 || map.Height <= 0) return;
         if (_terrainDirty) RebuildTerrain();
 
@@ -142,7 +159,7 @@ public class MinimapRenderer
             sb.Draw(SpriteCache.Pixel, new Rectangle(vr.X + vr.Width - 1, vr.Y, 1, vr.Height), outline);
         }
 
-        DrawPoints(sb, mapRect);
+        DrawPoints(sb, mapRect, map);
 
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font != null && !string.IsNullOrEmpty(map.ZoneName))
@@ -179,9 +196,8 @@ public class MinimapRenderer
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx - size / 2, cy - size / 2, size, size), color);
     }
 
-    private void DrawPoints(SpriteBatch sb, Rectangle area)
+    private void DrawPoints(SpriteBatch sb, Rectangle area, WorldMap map)
     {
-        var map = _map;
         if (map == null) return;
 
         foreach (var p in map.Portals)

@@ -1,4 +1,5 @@
-﻿using LostAndDivine.Server.Repositories;
+﻿using System.Text.RegularExpressions;
+using LostAndDivine.Server.Repositories;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -86,6 +87,15 @@ public class InstanceManager
 
     public InstanceTemplate? FindTemplate(string id)
         => _templates.FirstOrDefault(t => t.Id == id);
+
+    /// <summary>Диапазон уровней данжа из названия шаблона («Подземелье (ур. 41-45)»).
+    /// Если разобрать не удалось — ограничений нет.</summary>
+    public static (int Min, int Max)? ParseLevelBracket(InstanceTemplate template)
+    {
+        var m = Regex.Match(template.Name, @"ур\.\s*(\d+)\s*-\s*(\d+)");
+        if (!m.Success) return null;
+        return (int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value));
+    }
 
     public InstancePortal? FindPortal(string zone, int x, int y)
         => _portalLookup.TryGetValue((zone, x, y), out var p) ? p : null;
@@ -211,6 +221,20 @@ public class InstanceManager
         {
             await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Бой", "Нельзя войти в инстанс в бою.");
             return false;
+        }
+
+        // Ограничение по уровню: доступны данж своего диапазона и на один ниже.
+        // Например, игрок 50 уровня войдёт в 46-50 и 41-45, но не ниже.
+        var bracket = ParseLevelBracket(template);
+        if (bracket.HasValue)
+        {
+            int ownMin = ((player.Level - 1) / 5) * 5 + 1;
+            if (bracket.Value.Min > player.Level || bracket.Value.Min < ownMin - 5)
+            {
+                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
+                    $"«{template.Name}» — для уровня {bracket.Value.Min}-{bracket.Value.Max}. Доступны данжи вашего уровня и на один ниже.");
+                return false;
+            }
         }
 
         ActiveInstance? existing;
