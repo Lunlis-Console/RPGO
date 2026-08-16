@@ -30,7 +30,7 @@ internal class GameInputHandler
 
     // Pending trade
     internal string? PendingTradeTarget;
-    private int _lastTradeRequestTime;
+    private long _lastTradeRequestTime;
     private const int TradeRequestCooldownMs = 500;
 
     // Window open-order stack (LIFO) for ESC
@@ -93,20 +93,18 @@ internal class GameInputHandler
             }
             else
             {
-                int now = Environment.TickCount;
+                long now = Environment.TickCount64;
                 if (now - _lastTradeRequestTime >= TradeRequestCooldownMs)
                 {
-                    int dx = Math.Sign(targetEntity.X - Map.GetPlayerX());
-                    int dy = Math.Sign(targetEntity.Y - Map.GetPlayerY());
-                    int stepX = Map.GetPlayerX() + dx;
-                    int stepY = Map.GetPlayerY() + dy;
-                    _ = client.SendAsync("move_to", new { X = stepX, Y = stepY });
+                    Logger.Action($"Иду к {PendingTradeTarget} для обмена...");
+                    _ = client.SendAsync("move_to", new { X = targetEntity.X, Y = targetEntity.Y });
                     _lastTradeRequestTime = now;
                 }
             }
         }
         else
         {
+            // Цель пропала или выделение сменилось — прекращаем подход
             PendingTradeTarget = null;
         }
     }
@@ -298,6 +296,11 @@ internal class GameInputHandler
                     Logger.Action($"Подхожу к {sel.Name} для обмена...");
                     PendingTradeTarget = sel.Name;
                 }
+            }
+            else
+            {
+                Chat.AddMessage("Система",
+                    "Сначала выберите игрока (кликните по нему), затем нажмите «Обмен».");
             }
             return true;
         }

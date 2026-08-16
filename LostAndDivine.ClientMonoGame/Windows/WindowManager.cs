@@ -10,6 +10,12 @@ public sealed class WindowManager
 {
     private readonly List<GameWindow> _windows = new();
 
+    // Окна, на которых нажатие ЛКМ началось, пока они были перекрыты или
+    // заблокированы модальным окном. Такое нажатие не должно «провалиться»
+    // в окно после закрытия верхнего (клик сквозь окно), поэтому подавляем
+    // его до отпускания кнопки.
+    private readonly HashSet<GameWindow> _coveredPress = new();
+
     public void Add(GameWindow window) => _windows.Add(window);
 
     public void BringToFront(GameWindow window)
@@ -64,13 +70,20 @@ public sealed class WindowManager
 
             bool covered = IsCovered(w, mouse.X, mouse.Y);
             bool blockedByModal = modal != null && w != modal;
+            bool suppressedNow = covered || blockedByModal;
 
-            if (!anyDragging && clicked && !covered && !blockedByModal && GetRect(w).Contains(mouse.X, mouse.Y))
+            if (suppressedNow && clicked)
+                _coveredPress.Add(w);
+            if (mouse.LeftButton == ButtonState.Released)
+                _coveredPress.Remove(w);
+            bool suppressed = suppressedNow || (_coveredPress.Contains(w) && clicked);
+
+            if (!anyDragging && clicked && !suppressedNow && GetRect(w).Contains(mouse.X, mouse.Y))
                 toFront = w;
 
             MouseState ms = mouse;
             // Перетаскивающее окно всегда получает реальную мышь
-            if (!w.IsDragging && (covered || blockedByModal) && clicked)
+            if (!w.IsDragging && suppressed && clicked)
             {
                 ms = new MouseState(
                     mouse.X, mouse.Y, mouse.ScrollWheelValue,
