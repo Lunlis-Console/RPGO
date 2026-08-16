@@ -11,7 +11,7 @@ internal static class LootRepository
             var result = new List<LootEntry>();
             using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, monster_id, name, description, value, drop_chance FROM loot_tables ORDER BY monster_id, id";
+            cmd.CommandText = "SELECT id, monster_id, name, description, value, drop_chance, quest_item FROM loot_tables ORDER BY monster_id, id";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -23,6 +23,7 @@ internal static class LootRepository
                     Description = reader.GetString(3),
                     Value = reader.GetInt32(4),
                     DropChance = reader.GetInt32(5),
+                    QuestItem = !reader.IsDBNull(6) && reader.GetInt32(6) != 0,
                 });
             }
             return result;

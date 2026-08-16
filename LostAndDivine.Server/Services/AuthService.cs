@@ -175,6 +175,11 @@ public class AuthService
         Log.Info($"Игрок {player.Name} вошел в мир на позиции ({player.X}, {player.Y})");
         await _svc.Hub.BroadcastMapAsync();
         await _svc.Hub.SendQuestLog(connection, player);
+        var granted = _svc.Quests.TryAutoGrant(player, player.CurrentZoneId);
+        foreach (var d in granted)
+            await _svc.Hub.SendChatToAsync(connection, ChatChannel.System, "Система", $"Новое задание: {d.Title}");
+        if (granted.Count > 0)
+            await _svc.Hub.SendQuestLog(connection, player);
         await _svc.Hub.SendHotbar(connection, player);
         await _svc.Hub.SendInventoryAndStatus(connection, player);
 

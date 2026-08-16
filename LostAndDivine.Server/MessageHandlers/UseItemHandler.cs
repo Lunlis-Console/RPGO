@@ -49,6 +49,7 @@ public class UseItemHandler : BaseHandler
                 Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {healed} HP. ({player.Health}/{effectiveMax})" }
             });
             await SendInventoryAndStatus(connection, player);
+            await ReportUseQuest(connection, player, item);
         }
         else if (item.Type == "consumable" && item.RestoreMana > 0)
         {
@@ -67,10 +68,31 @@ public class UseItemHandler : BaseHandler
                 Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {restored} MP. ({player.Mana}/{player.MaxMana})" }
             });
             await SendInventoryAndStatus(connection, player);
+            await ReportUseQuest(connection, player, item);
         }
         else
         {
             await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя использовать!");
         }
+    }
+
+    /// <summary>Прогресс use-квестов после успешного использования предмета.</summary>
+    private async Task ReportUseQuest(ClientConnection connection, Player player, Item item)
+    {
+        string itemId = string.IsNullOrEmpty(item.TemplateId) ? item.Id : item.TemplateId!;
+        var results = Svc.Quests.IncrementUseProgress(player, itemId);
+        if (results.Count == 0) return;
+        foreach (var (title, current, target, completed) in results)
+        {
+            string msg = completed
+                ? $"[Задание] {title}: {current}/{target} — задание выполнено!"
+                : $"[Задание] {title}: {current}/{target}";
+            await SendToClient(connection, new GameMessage
+            {
+                Type = "chat",
+                Data = new { Name = "Система", Text = msg }
+            });
+        }
+        await SendQuestLog(connection, player);
     }
 }

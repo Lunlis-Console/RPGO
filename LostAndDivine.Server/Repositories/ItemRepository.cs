@@ -17,7 +17,8 @@ internal static class ItemRepository
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 bonus_block_chance, bonus_parry_chance,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-                damage_min, damage_max, attack_range, required_level
+                damage_min, damage_max, attack_range, required_level,
+                quest_item
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -59,6 +60,7 @@ internal static class ItemRepository
                     AttackRange = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                     RequiredLevel = reader.IsDBNull(32) ? 0 : reader.GetInt32(32),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
+                    QuestItem = !reader.IsDBNull(33) && reader.GetInt32(33) != 0,
                 });
             }
             return result;
@@ -77,7 +79,8 @@ internal static class ItemRepository
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 bonus_block_chance, bonus_parry_chance,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-                damage_min, damage_max, attack_range, required_level
+                damage_min, damage_max, attack_range, required_level,
+                quest_item
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -119,6 +122,7 @@ internal static class ItemRepository
                 AttackRange = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                 RequiredLevel = reader.IsDBNull(32) ? 0 : reader.GetInt32(32),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
+                QuestItem = !reader.IsDBNull(33) && reader.GetInt32(33) != 0,
             };
         }
     }

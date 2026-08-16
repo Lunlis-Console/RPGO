@@ -8,4 +8,5 @@ public class LootEntry
     public string Description = "";
     public int Value;
     public int DropChance;
+    public bool QuestItem;
 }

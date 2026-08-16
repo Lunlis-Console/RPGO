@@ -32,6 +32,14 @@ public class SellHandler : BaseHandler
             return;
         }
 
+        // Квестовые предметы (флаг quest_item) продавать нельзя;
+        // обычные собираемые предметы (ягоды и т.п.) продаются всегда
+        if (Svc.Quests.IsQuestItem(first))
+        {
+            await SendError(connection, ErrorCodes.InvalidRequest, "Квестовый предмет нельзя продать!");
+            return;
+        }
+
         // Считаем доступное количество по всем подходящим записям инвентаря
         // (стакаемые предметы могут быть в нескольких строках, если у них нет TemplateId
         //  или если количество превышает MaxStack).

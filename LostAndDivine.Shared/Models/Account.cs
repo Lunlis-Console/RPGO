@@ -97,6 +97,7 @@ public class Item
     public int Stock { get; set; } = 1;
     public int MaxStack { get; set; } = 10;
     public bool IsBuyback { get; set; }
+    public bool QuestItem { get; set; }
 
     // Бонусы к первичным атрибутам
     public int BonusStrength { get; set; }
