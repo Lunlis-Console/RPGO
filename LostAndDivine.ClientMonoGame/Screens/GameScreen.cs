@@ -393,6 +393,7 @@ public class GameScreen : IScreen
         };
         _inventoryWindow.NewItemCountChanged += count => _hudDraw.SetNewInventoryCount(count);
         _equipmentWindow.UnequipItem += slot => _ = _client.SendAsync("unequip", new { Slot = slot });
+        _equipmentWindow.MoveToSlot += (from, to) => _ = _client.SendAsync("equip", new { TargetSlot = to, FromSlot = from });
         _equipmentWindow.CloseRequested += () => _equipmentWindow.Visible = false;
         _inventoryWindow.DragStateChanged += item =>
         {

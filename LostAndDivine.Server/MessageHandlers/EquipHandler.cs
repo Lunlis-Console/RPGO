@@ -20,13 +20,32 @@ public class EquipHandler : BaseHandler
             ? equipEl.GetString()
             : equipEl.TryGetProperty("ItemId", out var eidProp) ? eidProp.GetString() : null;
 
-        if (equipItemId == null) return;
+        // Перенос надетого предмета между слотами (drag-n-drop в окне снаряжения)
+        string? fromSlot = equipEl.ValueKind != JsonValueKind.String
+            && equipEl.TryGetProperty("FromSlot", out var fsProp) ? fsProp.GetString() : null;
 
-        var item = player.Inventory.FirstOrDefault(i => i.Id == equipItemId);
-        if (item == null)
+        Item? item;
+        if (!string.IsNullOrEmpty(fromSlot))
         {
-            await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
-            return;
+            item = player.Equipment[fromSlot];
+            if (item == null)
+            {
+                await SendError(connection, ErrorCodes.SlotEmpty, "Слот пуст — нечего перемещать.");
+                return;
+            }
+            // Освобождаем источник до проверок (целевой слот может зависеть от этого)
+            player.Equipment[fromSlot] = null;
+        }
+        else
+        {
+            if (equipItemId == null) return;
+
+            item = player.Inventory.FirstOrDefault(i => i.Id == equipItemId);
+            if (item == null)
+            {
+                await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
+                return;
+            }
         }
 
         if (!EquipmentSlots.IsEquippableType(item.Type))
@@ -74,13 +93,19 @@ public class EquipHandler : BaseHandler
                 slotsToFill = validSlots.Take(1).ToList(); // все заняты — заменим первую
         }
 
-        // Слот не должен быть заблокирован двуручным оружием
-        foreach (var s in slotsToFill)
+        // Слот не должен быть заблокирован двуручным оружием.
+        // Одноручное оружие при этом не вызывает ошибку, а заменяет двуручное в правой руке.
+        for (int i = 0; i < slotsToFill.Count; i++)
         {
-            if (EquipmentSlots.IsBlockedByTwoHanded(s, player.Equipment))
+            if (EquipmentSlots.IsBlockedByTwoHanded(slotsToFill[i], player.Equipment))
             {
-                await SendError(connection, ErrorCodes.InvalidRequest, "Слот заблокирован двуручным оружием.");
-                return;
+                if (!twoHanded && item.Type == "weapon")
+                    slotsToFill[i] = EquipmentSlots.RightHand;
+                else
+                {
+                    await SendError(connection, ErrorCodes.InvalidRequest, "Слот заблокирован двуручным оружием.");
+                    return;
+                }
             }
         }
 

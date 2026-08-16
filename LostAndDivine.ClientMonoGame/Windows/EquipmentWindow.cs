@@ -12,6 +12,7 @@ public class EquipmentWindow : GameWindow
     private EquipmentData? _data;
 
     public Action<string>? UnequipItem; // slot id
+    public Action<string, string>? MoveToSlot; // source slot id, target slot id
     public Action? CloseRequested;
 
     // Тип предмета, который сейчас перетаскивается (для подсветки слотов)
@@ -141,7 +142,7 @@ public class EquipmentWindow : GameWindow
             }
         }
 
-        // Отпускание — дроп на инвентарь = снять
+        // Отпускание — дроп на инвентарь = снять; на другой слот = перенести
         if (leftReleased && _dragSlotId != null)
         {
             if (_dragging)
@@ -149,6 +150,8 @@ public class EquipmentWindow : GameWindow
                 var pt = new Point(mouse.X, mouse.Y);
                 if (IsOverInventory?.Invoke(pt) == true)
                     UnequipItem?.Invoke(_dragSlotId);
+                else if (TryGetSlotAt(pt, _dragItem?.Type, out var target) && target != null && target != _dragSlotId)
+                    MoveToSlot?.Invoke(_dragSlotId, target);
                 DragStateChanged?.Invoke(null); // гасим оверлей/подсветку
             }
             _dragSlotId = null;
