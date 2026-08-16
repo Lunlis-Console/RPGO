@@ -7,33 +7,36 @@ public class AddCharactersTable : ForwardOnlyMigration
 {
     public override void Up()
     {
-        Create.Table("characters")
-            .WithColumn("player_name").AsString().NotNullable().PrimaryKey()
-            .WithColumn("account_login").AsString().NotNullable()
-            .WithColumn("class").AsInt32().WithDefaultValue(0)
-            .WithColumn("level").AsInt32().WithDefaultValue(1)
-            .WithColumn("experience").AsInt32().WithDefaultValue(0)
-            .WithColumn("health").AsInt32().WithDefaultValue(100)
-            .WithColumn("max_health").AsInt32().WithDefaultValue(100)
-            .WithColumn("mana").AsInt32().WithDefaultValue(100)
-            .WithColumn("gold").AsInt32().WithDefaultValue(0)
-            .WithColumn("strength").AsInt32().WithDefaultValue(1)
-            .WithColumn("endurance").AsInt32().WithDefaultValue(1)
-            .WithColumn("agility").AsInt32().WithDefaultValue(1)
-            .WithColumn("cunning").AsInt32().WithDefaultValue(1)
-            .WithColumn("intellect").AsInt32().WithDefaultValue(1)
-            .WithColumn("wisdom").AsInt32().WithDefaultValue(1)
-            .WithColumn("attribute_points").AsInt32().WithDefaultValue(0)
-            .WithColumn("skill_points").AsInt32().WithDefaultValue(0)
-            .WithColumn("learned_skills").AsString().WithDefaultValue("[]")
-            .WithColumn("skill_ranks").AsString().WithDefaultValue("{}")
-            .WithColumn("speed").AsInt32().WithDefaultValue(1)
-            .WithColumn("pos_x").AsInt32().WithDefaultValue(-1)
-            .WithColumn("pos_y").AsInt32().WithDefaultValue(-1)
-            .WithColumn("hotbar_slots").AsString().WithDefaultValue("[]")
-            .WithColumn("current_zone").AsString().WithDefaultValue("main")
-            .WithColumn("created_at").AsString().NotNullable()
-            .WithColumn("last_login").AsString().NotNullable();
+        // IF NOT EXISTS: переживает ситуацию, когда таблица уже создана, но запись
+        // о миграции потеряна из VersionInfo (например, после сбоя применения).
+        Execute.Sql(@"CREATE TABLE IF NOT EXISTS ""characters"" (
+            ""player_name"" TEXT NOT NULL,
+            ""account_login"" TEXT NOT NULL,
+            ""class"" INTEGER NOT NULL DEFAULT 0,
+            ""level"" INTEGER NOT NULL DEFAULT 1,
+            ""experience"" INTEGER NOT NULL DEFAULT 0,
+            ""health"" INTEGER NOT NULL DEFAULT 100,
+            ""max_health"" INTEGER NOT NULL DEFAULT 100,
+            ""mana"" INTEGER NOT NULL DEFAULT 100,
+            ""gold"" INTEGER NOT NULL DEFAULT 0,
+            ""strength"" INTEGER NOT NULL DEFAULT 1,
+            ""endurance"" INTEGER NOT NULL DEFAULT 1,
+            ""agility"" INTEGER NOT NULL DEFAULT 1,
+            ""cunning"" INTEGER NOT NULL DEFAULT 1,
+            ""intellect"" INTEGER NOT NULL DEFAULT 1,
+            ""wisdom"" INTEGER NOT NULL DEFAULT 1,
+            ""attribute_points"" INTEGER NOT NULL DEFAULT 0,
+            ""skill_points"" INTEGER NOT NULL DEFAULT 0,
+            ""learned_skills"" TEXT NOT NULL DEFAULT '[]',
+            ""skill_ranks"" TEXT NOT NULL DEFAULT '{}',
+            ""speed"" INTEGER NOT NULL DEFAULT 1,
+            ""pos_x"" INTEGER NOT NULL DEFAULT -1,
+            ""pos_y"" INTEGER NOT NULL DEFAULT -1,
+            ""hotbar_slots"" TEXT NOT NULL DEFAULT '[]',
+            ""current_zone"" TEXT NOT NULL DEFAULT 'main',
+            ""created_at"" TEXT NOT NULL,
+            ""last_login"" TEXT NOT NULL,
+            CONSTRAINT ""PK_characters"" PRIMARY KEY (""player_name""))");
 
         // Migrate existing accounts: one character per account
         Execute.Sql(@"

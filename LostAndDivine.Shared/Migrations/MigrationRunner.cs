@@ -51,17 +51,10 @@ public static class DbMigrationRunner
         catch (Exception ex)
         {
             Console.WriteLine($"[Migrations] Failed: {ex.Message}");
-            // Удаляем запись о неудачной миграции, чтобы при следующем запуске она перезапустилась
-            try
-            {
-                using var conn = new SqliteConnection(connectionString);
-                conn.Open();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "DELETE FROM VersionInfo WHERE Version = (SELECT MAX(Version) FROM VersionInfo)";
-                cmd.ExecuteNonQuery();
-                Console.WriteLine("[Migrations] Removed failed migration from VersionInfo, will retry on next start.");
-            }
-            catch { /* ignore cleanup errors */ }
+            // Запись о неудачной миграции в VersionInfo не создаётся (версия фиксируется
+            // только после успешного применения), поэтому при следующем запуске миграция
+            // запустится заново сама. НЕ удаляем соседние записи VersionInfo:
+            // это может «откатить» уже применённые миграции и сломать БД.
             throw;
         }
     }
