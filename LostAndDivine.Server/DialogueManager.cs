@@ -56,11 +56,14 @@ public class DialogueManager
     }
 
     /// <summary>Есть ли в диалоге NPC вариант «взять задание» для указанного квеста.</summary>
-    public bool OffersQuest(string npcId, string questId)
+    public bool OffersQuest(string npcId, string questId) =>
+        OffersAction(npcId, "accept_quest:" + questId);
+
+    /// <summary>Есть ли в диалоге NPC действие (например accept_quest:Q0009, complete_quest:Q0009).</summary>
+    public bool OffersAction(string npcId, string action)
     {
         var tree = GetTree(npcId);
         if (tree == null) return false;
-        string action = "accept_quest:" + questId;
         foreach (var node in tree.Nodes.Values)
             foreach (var c in node.Choices)
                 if (!string.IsNullOrEmpty(c.Action) &&
@@ -144,10 +147,50 @@ public class DialogueManager
             string qid = condition["quest_not_active:".Length..];
             return !player.ActiveQuests.Any(q => q.QuestId == qid);
         }
+        if (condition.StartsWith("quest_not_started:"))
+        {
+            // Квест ещё не брался: не активен И не выполнен ранее.
+            // В отличие от quest_not_active не показывает «тупиковые» ветки
+            // для уже сданных квестов. Для повторяемых квестов история
+            // выполнения не мешает взять квест снова.
+            string qid = condition["quest_not_started:".Length..];
+            if (player.ActiveQuests.Any(q => q.QuestId == qid)) return false;
+            if (player.CompletedQuestIds.Contains(qid))
+            {
+                var def = _quests.FindQuest(qid);
+                return def != null && def.Repeatable;
+            }
+            return true;
+        }
         if (condition.StartsWith("quest_ready:"))
         {
             string qid = condition["quest_ready:".Length..];
             return player.ActiveQuests.Any(q => q.QuestId == qid && q.Completed);
+        }
+        if (condition.StartsWith("has_item:"))
+        {
+            // has_item:I0015 или has_item:I0015:3 — нужное количество в инвентаре
+            var parts = condition["has_item:".Length..].Split(':');
+            string itemId = parts[0];
+            int required = parts.Length > 1 && int.TryParse(parts[1], out var req) ? Math.Max(1, req) : 1;
+            int available = player.Inventory
+                .Where(i => i.TemplateId == itemId || i.Id == itemId)
+                .Sum(i => i.Quantity);
+            return available >= required;
+        }
+        if (condition.StartsWith("level:"))
+        {
+            int minLevel = 0;
+            if (int.TryParse(condition["level:".Length..], out minLevel))
+                return player.Level >= minLevel;
+            return false;
+        }
+        if (condition.StartsWith("gold:"))
+        {
+            int minGold = 0;
+            if (int.TryParse(condition["gold:".Length..], out minGold))
+                return player.Gold >= minGold;
+            return false;
         }
         return true;
     }
@@ -184,12 +227,12 @@ public class DialogueManager
                 return true;
             }
         }
-        else if (action == "open_shop")
-        {
-            await CloseDialogue(client, player);
-            await ProcessPendingInteraction(player, "merchant");
-            return true;
-        }
+                else if (action == "open_shop")
+                {
+                    await CloseDialogue(client, player);
+                    await _svc.Interactions.OpenShop(player, client);
+                    return true;
+                }
         else if (action == "close")
         {
             await CloseDialogue(client, player);
@@ -201,6 +244,66 @@ public class DialogueManager
             await CloseDialogue(client, player);
             await _svc.Instances.TryEnter(player, templateId, client);
             return true;
+        }
+        else if (action.StartsWith("give_item:"))
+        {
+            // give_item:I0015[:кол-во] — выдать предмет из таблицы items
+            var parts = action["give_item:".Length..].Split(':');
+            string itemId = parts[0];
+            int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
+            var template = DatabaseManager.LoadItems().FirstOrDefault(i => i.Id == itemId);
+            if (template != null)
+            {
+                var gift = template.Clone();
+                gift.Quantity = count;
+                InventoryHelper.AddItem(player, gift);
+                await _hub.SendInventoryAndStatus(client, player);
+                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили: {count}× {template.Name}");
+            }
+        }
+        else if (action.StartsWith("give_gold:"))
+        {
+            if (int.TryParse(action["give_gold:".Length..], out int amount) && amount > 0)
+            {
+                player.Gold += amount;
+                await _hub.SendStatusAsync(client, player);
+                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили {amount} золота.");
+            }
+        }
+        else if (action.StartsWith("take_item:"))
+        {
+            // take_item:I0015[:кол-во] — забрать предмет у игрока (квестовая сдача)
+            var parts = action["take_item:".Length..].Split(':');
+            string itemId = parts[0];
+            int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
+            var records = player.Inventory.Where(i => i.TemplateId == itemId || i.Id == itemId).ToList();
+            int available = records.Sum(i => i.Quantity);
+            int toRemove = Math.Min(count, available);
+            foreach (var rec in records)
+            {
+                if (toRemove <= 0) break;
+                int take = Math.Min(toRemove, rec.Quantity);
+                InventoryHelper.RemoveFromRecord(player, rec.Id, take);
+                toRemove -= take;
+            }
+            if (toRemove < count)
+            {
+                await _hub.SendInventoryAndStatus(client, player);
+                string itemName = records.FirstOrDefault()?.Name ?? itemId;
+                await _svc.ChatTo(client, ChatChannel.System, "Система", $"У вас забрали: {Math.Min(count, available)}× {itemName}");
+            }
+        }
+        else if (action.StartsWith("teleport:"))
+        {
+            // teleport:зона:x:y — переместить игрока в точку другой (или той же) зоны
+            var parts = action["teleport:".Length..].Split(':');
+            if (parts.Length >= 3 &&
+                int.TryParse(parts[1], out int tx) && int.TryParse(parts[2], out int ty))
+            {
+                await CloseDialogue(client, player);
+                await TeleportPlayer(client, player, parts[0], tx, ty);
+                return true;
+            }
         }
         return false;
     }
@@ -237,6 +340,50 @@ public class DialogueManager
             Type = "dialogue_close",
             Data = null
         });
+    }
+
+    /// <summary>Перемещение игрока в точку зоны (телепорт из диалога) с проверкой препятствий.</summary>
+    private async Task TeleportPlayer(ClientConnection client, Player player, string zoneId, int x, int y)
+    {
+        if (_hub == null) return;
+        var zoneMap = _svc.Zones.GetOrCreateMap(zoneId);
+        if (x < 0 || y < 0 || x >= zoneMap.Width || y >= zoneMap.Height || zoneMap.IsObstacle(x, y))
+        {
+            await _svc.ChatTo(client, ChatChannel.System, "Система", "Невозможно переместиться туда.");
+            return;
+        }
+
+        string fromZone = player.CurrentZoneId;
+        player.Movement.Stop();
+        player.CurrentZoneId = zoneId;
+        player.X = x;
+        player.Y = y;
+
+        var zone = _svc.Zones.GetZone(zoneId);
+        string zoneName = zone?.Name ?? zoneId;
+        await _hub.SendZoneTransition(client, player);
+        await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы переместились в зону: {zoneName}");
+        _hub.MarkZoneDirty(fromZone);
+        _hub.MarkZoneDirty(zoneId);
+        await _hub.BroadcastMapAsync();
+
+        // Квесты: explore/авто-выдача/travel в точке прибытия
+        var results = _svc.Quests.IncrementExploreProgress(player, zoneId);
+        foreach (var (title, current, target, completed) in results)
+            await _svc.ChatTo(client, ChatChannel.System, "Система",
+                completed ? $"[Задание] {title}: зона исследована!" : $"[Задание] {title}: {current}/{target}");
+
+        var granted = _svc.Quests.TryAutoGrant(player, zoneId);
+        foreach (var d in granted)
+            await _svc.ChatTo(client, ChatChannel.System, "Система", $"Новое задание: {d.Title}");
+
+        var travelResults = _svc.Quests.IncrementTravelProgress(player, zoneId, x, y);
+        foreach (var (title, current, target, completed) in travelResults)
+            await _svc.ChatTo(client, ChatChannel.System, "Система",
+                completed ? $"[Задание] {title}: цель достигнута!" : $"[Задание] {title}: {current}/{target}");
+
+        if (results.Count + granted.Count + travelResults.Count > 0)
+            await _hub.SendQuestLog(client, player);
     }
 
     private async Task ProcessPendingInteraction(Player player, string type)

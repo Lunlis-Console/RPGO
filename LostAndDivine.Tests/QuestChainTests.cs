@@ -86,6 +86,51 @@ public class QuestChainTests
     }
 
     [Fact]
+    public void CompleteQuest_Repeatable_NotRecordedInHistory()
+    {
+        var def = Def("Q0009");
+        def.Repeatable = true;
+        var qm = CreateManager(def);
+        var p = Player();
+        qm.TakeQuest(p, def);
+        p.ActiveQuests.Single().Completed = true;
+
+        var result = qm.CompleteQuest(p, "Q0009");
+
+        Assert.True(result.Success);
+        Assert.Empty(p.CompletedQuestIds);
+        Assert.True(qm.CanTakeQuest(p, def));
+    }
+
+    [Fact]
+    public void CompleteQuest_NonRepeatable_BlocksRetake()
+    {
+        var def = Def("Q0009");
+        var qm = CreateManager(def);
+        var p = Player();
+        qm.TakeQuest(p, def);
+        p.ActiveQuests.Single().Completed = true;
+        qm.CompleteQuest(p, "Q0009");
+
+        Assert.False(qm.CanTakeQuest(p, def));
+    }
+
+    [Fact]
+    public void CanTakeQuest_Repeatable_AllowsRetakeFromHistory()
+    {
+        // Запись в истории выполнения могла появиться до включения флага
+        // «повторяемый» — повторяемый квест всё равно можно взять снова.
+        var def = Def("Q0009");
+        def.Repeatable = true;
+        var qm = CreateManager(def);
+        var p = Player();
+        p.CompletedQuestIds.Add("Q0009");
+
+        Assert.True(qm.CanTakeQuest(p, def));
+        Assert.True(qm.TakeQuest(p, def));
+    }
+
+    [Fact]
     public void CompleteQuest_RejectsNotCompleted()
     {
         var def = Def("Q0009");
@@ -113,5 +158,135 @@ public class QuestChainTests
         qm.IncrementTalkProgress(p, "N0003");
         Assert.Equal(2, prog.Current);
         Assert.True(prog.Completed);
+    }
+
+    [Fact]
+    public void IncrementTravelProgress_ReachesCoordinates()
+    {
+        var def = new QuestDefinition { Id = "Q0030", Type = "travel", TargetX = 10, TargetY = 12, Target = 1 };
+        var qm = CreateManager(def);
+
+        var p = Player();
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+
+        Assert.Empty(qm.IncrementTravelProgress(p, "zone_main", 5, 5));
+        Assert.Equal(0, prog.Current);
+
+        var results = qm.IncrementTravelProgress(p, "zone_main", 10, 12);
+        Assert.Single(results);
+        Assert.True(results[0].Completed);
+        Assert.True(prog.Completed);
+    }
+
+    [Fact]
+    public void IncrementTravelProgress_ReachesNpc()
+    {
+        var def = new QuestDefinition { Id = "Q0031", Type = "travel", TargetNpcId = "N0005", Target = 1 };
+        var qm = CreateManager(def);
+        qm.NpcLookup = (zoneId, npcId) => npcId == "N0005" && zoneId == "zone_main"
+            ? new NpcPosition { Id = "N0005", ZoneId = "zone_main", X = 20, Y = 25 }
+            : null;
+
+        var p = Player();
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+
+        Assert.Empty(qm.IncrementTravelProgress(p, "zone_main", 18, 25));
+        Assert.Empty(qm.IncrementTravelProgress(p, "zone_forest", 20, 25));
+
+        var results = qm.IncrementTravelProgress(p, "zone_main", 21, 25);
+        Assert.Single(results);
+        Assert.True(prog.Completed);
+    }
+
+    [Fact]
+    public void IncrementUseProgress_CountsConsumedItems()
+    {
+        var def = new QuestDefinition { Id = "Q0032", Type = "use", TargetItemId = "I0020", Target = 3 };
+        var qm = CreateManager(def);
+
+        var p = Player();
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+
+        qm.IncrementUseProgress(p, "I0020");
+        qm.IncrementUseProgress(p, "I0020");
+        Assert.Equal(2, prog.Current);
+        Assert.False(prog.Completed);
+        Assert.Empty(qm.IncrementUseProgress(p, "I9999"));
+
+        var results = qm.IncrementUseProgress(p, "I0020");
+        Assert.True(results[0].Completed);
+        Assert.True(prog.Completed);
+    }
+
+    [Fact]
+    public void IncrementExploreProgress_CompletesOnZoneEnter()
+    {
+        var def = new QuestDefinition { Id = "Q0033", Type = "explore", TargetZoneId = "zone_forest", Target = 1 };
+        var qm = CreateManager(def);
+
+        var p = Player();
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+
+        Assert.Empty(qm.IncrementExploreProgress(p, "zone_main"));
+
+        var results = qm.IncrementExploreProgress(p, "zone_forest");
+        Assert.Single(results);
+        Assert.True(prog.Completed);
+    }
+
+    [Fact]
+    public void TryAutoGrant_GrantsMatchingQuestOnce()
+    {
+        var def = new QuestDefinition { Id = "Q0040", Type = "kill", Target = 1, AutoGrant = true, TargetZoneId = "zone_main" };
+        var qm = CreateManager(def);
+
+        var p = Player();
+        Assert.Empty(qm.TryAutoGrant(p, "zone_forest"));
+
+        var granted = qm.TryAutoGrant(p, "zone_main");
+        Assert.Single(granted);
+        Assert.Equal("Q0040", granted[0].Id);
+        Assert.Single(p.ActiveQuests);
+
+        Assert.Empty(qm.TryAutoGrant(p, "zone_main"));
+    }
+
+    [Fact]
+    public void TryAutoGrant_RespectsPrerequisite()
+    {
+        var second = new QuestDefinition { Id = "Q0042", Type = "kill", Target = 1, AutoGrant = true, PrerequisiteQuestId = "Q0041" };
+        var qm = CreateManager(second);
+
+        var p = Player();
+        Assert.Empty(qm.TryAutoGrant(p, "zone_main"));
+
+        p.CompletedQuestIds.Add("Q0041");
+        Assert.Single(qm.TryAutoGrant(p, "zone_main"));
+    }
+
+    [Fact]
+    public void IsQuestItem_OnlyFlaggedTemplatesAndLoot()
+    {
+        var qm = CreateManager();
+        qm.SetQuestItemIds(new[] { "I0090" });
+        qm.SetQuestItemNames(new[] { "Ключ от подвала" });
+
+        // Помеченный шаблон — нельзя продавать (по TemplateId и по Id)
+        Assert.True(qm.IsQuestItem(new Item { TemplateId = "I0090" }));
+        Assert.True(qm.IsQuestItem(new Item { Id = "I0090" }));
+        Assert.True(qm.IsQuestItem("I0090"));
+
+        // Квестовый лут без шаблона — по названию
+        Assert.True(qm.IsQuestItem(new Item { Name = "Ключ от подвала", Type = "trophy" }));
+
+        // Обычные предметы и собираемые (ягоды) — продаются всегда
+        Assert.False(qm.IsQuestItem(new Item { TemplateId = "I0100" }));
+        Assert.False(qm.IsQuestItem(new Item { Name = "Ягоды", Type = "collectible" }));
+        Assert.False(qm.IsQuestItem(new Item { Name = "Ключ от подвала", TemplateId = "I0091" }));
+        Assert.False(qm.IsQuestItem(""));
     }
 }

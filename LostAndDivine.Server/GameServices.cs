@@ -81,6 +81,7 @@ public sealed class GameServices : IGameServices
         Loot = loot;
         Corpses = corpses;
         Quests = quests;
+        quests.NpcLookup = (zoneId, npcId) => hub.FindNpcById(zoneId, npcId);
         Merchant = merchant;
         Collectibles = collectibles;
         Trade = trade;
@@ -105,6 +106,7 @@ public sealed class GameServices : IGameServices
             Log.Info("Перезагрузка данных на сервере...");
             Merchant.Initialize();
             Quests.Initialize();
+            Quests.ReloadQuestItems();
             Dialogue.LoadAll();
             Loot.LoadFromDatabase();
             Monsters.Initialize();

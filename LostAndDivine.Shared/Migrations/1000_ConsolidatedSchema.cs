@@ -600,7 +600,7 @@ public class ConsolidatedSchema : ForwardOnlyMigration
     ""text"": ""Добро пожаловать в мой магазин! Чем могу помочь?"",
     ""choices"": [
       { ""text"": ""Покажи товары."", ""next"": null, ""action"": ""open_shop"" },
-      { ""text"": ""Есть работа?"", ""next"": ""quest_offer"", ""condition"": ""quest_not_active:Q0001"" },
+      { ""text"": ""Есть работа?"", ""next"": ""quest_offer"", ""condition"": ""quest_not_started:Q0001"" },
       { ""text"": ""Я выполнил задание."", ""next"": ""quest_turnin"", ""condition"": ""quest_ready:Q0001"" },
       { ""text"": ""Я ещё собираю хвосты."", ""next"": null, ""condition"": ""quest_active:Q0001"", ""action"": ""close"" },
       { ""text"": ""До свидания."", ""next"": null, ""action"": ""close"" }
@@ -636,7 +636,7 @@ public class ConsolidatedSchema : ForwardOnlyMigration
     ""speaker"": ""Староста деревни"",
     ""text"": ""Приветствую, путник. Наше деревне нужна помощь."",
     ""choices"": [
-      { ""text"": ""Что случилось?"", ""next"": ""story1"", ""condition"": ""quest_not_active:Q0007"" },
+      { ""text"": ""Что случилось?"", ""next"": ""story1"", ""condition"": ""quest_not_started:Q0007"" },
       { ""text"": ""Как идёт охота на волков?"", ""next"": ""quest_progress"", ""condition"": ""quest_active:Q0007"" },
       { ""text"": ""Волки побеждены. Все пятеро мертвы."", ""next"": ""quest_turnin"", ""condition"": ""quest_ready:Q0007"" },
       { ""text"": ""У меня есть задание от торговца."", ""next"": ""merchant_quest"", ""condition"": ""quest_ready:Q0001"" },
@@ -662,7 +662,7 @@ public class ConsolidatedSchema : ForwardOnlyMigration
     ""speaker"": ""Староста деревни"",
     ""text"": ""Серьёзная. Пять зверей — и не простых, а голодных. Они уже покалечили козу у ближайшего двора. Если стая наберётся смелости — нападут на людей. Дети боятся выходить во двор играть."",
     ""choices"": [
-      { ""text"": ""Я помогу. Отправлюсь на охоту на волков."", ""next"": ""story_accept"", ""action"": ""accept_quest:Q0007"", ""condition"": ""quest_not_active:Q0007"" },
+      { ""text"": ""Я помогу. Отправлюсь на охоту на волков."", ""next"": ""story_accept"", ""action"": ""accept_quest:Q0007"", ""condition"": ""quest_not_started:Q0007"" },
       { ""text"": ""Я уже охотюсь на них."", ""next"": null, ""condition"": ""quest_active:Q0007"", ""action"": ""close"" },
       { ""text"": ""Пять волков — это серьёзно. Мне нужно подготовиться."", ""next"": null, ""action"": ""close"" }
     ]

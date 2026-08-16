@@ -23,6 +23,14 @@ public class QuestManager
     private int? _tiledX;
     private int? _tiledY;
 
+    // Предметы с флагом quest_item (шаблоны) и названия квестового лута (loot_tables)
+    private readonly HashSet<string> _questItemIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _questItemNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _questItemsLock = new();
+
+    /// <summary>Поиск NPC по зоне и id (задаётся сервером; travel-квесты с целью-NPC).</summary>
+    public Func<string, string, NpcPosition?>? NpcLookup { get; set; }
+
     public QuestManager(GameWorld world)
     {
         _world = world;
@@ -55,6 +63,44 @@ public class QuestManager
         }
         _quests = DatabaseManager.LoadQuestDefinitions();
         Log.Info($"Загружено квестов: {_quests.Count}");
+        ReloadQuestItems();
+    }
+
+    /// <summary>
+    /// Перезагружает наборы квестовых предметов (шаблоны items.quest_item и лут
+    /// loot_tables.quest_item). Вызывается при старте и горячей перезагрузке.
+    /// </summary>
+    public void ReloadQuestItems()
+    {
+        var ids = DatabaseManager.LoadItems().Where(i => i.QuestItem).Select(i => i.Id).ToList();
+        var names = DatabaseManager.LoadLootTable().Where(l => l.QuestItem).Select(l => l.Name).ToList();
+        lock (_questItemsLock)
+        {
+            _questItemIds.Clear();
+            _questItemNames.Clear();
+            foreach (var id in ids) _questItemIds.Add(id);
+            foreach (var n in names) _questItemNames.Add(n);
+        }
+    }
+
+    /// <summary>Задание наборов вручную (для тестов).</summary>
+    public void SetQuestItemIds(IEnumerable<string> ids)
+    {
+        lock (_questItemsLock)
+        {
+            _questItemIds.Clear();
+            foreach (var id in ids) _questItemIds.Add(id);
+        }
+    }
+
+    /// <summary>Задание названий квестового лута вручную (для тестов).</summary>
+    public void SetQuestItemNames(IEnumerable<string> names)
+    {
+        lock (_questItemsLock)
+        {
+            _questItemNames.Clear();
+            foreach (var n in names) _questItemNames.Add(n);
+        }
     }
 
     /// <summary>Заменяет набор определений квестов (используется для горячей перезагрузки и тестов).</summary>
@@ -71,6 +117,9 @@ public class QuestManager
 
     public List<QuestDefinition> GetAvailableQuests() => _quests.ToList();
 
+    /// <summary>Все определения квестов (включая уже взятые/выполненные) — для маркеров NPC.</summary>
+    public List<QuestDefinition> GetAllDefinitions() => _quests.ToList();
+
     public QuestDefinition? FindQuest(string id) =>
         _quests.FirstOrDefault(q => q.Id == id);
 
@@ -83,7 +132,8 @@ public class QuestManager
     public bool CanTakeQuest(Player player, QuestDefinition def)
     {
         if (def == null) return false;
-        if (player.CompletedQuestIds.Contains(def.Id)) return false;
+        // Повторяемые квесты можно брать повторно, даже если они есть в истории выполнения.
+        if (player.CompletedQuestIds.Contains(def.Id) && !def.Repeatable) return false;
         if (player.ActiveQuests.Any(q => q.QuestId == def.Id)) return false;
         if (player.Level < def.MinLevel) return false;
         if (!string.IsNullOrEmpty(def.PrerequisiteQuestId) &&
@@ -144,7 +194,8 @@ public class QuestManager
         }
 
         player.ActiveQuests.Remove(prog);
-        if (!player.CompletedQuestIds.Contains(def.Id))
+        // Повторяемые квесты не попадают в историю выполненных — их можно взять снова.
+        if (!def.Repeatable && !player.CompletedQuestIds.Contains(def.Id))
             player.CompletedQuestIds.Add(def.Id);
 
         player.Experience += def.XpReward;
@@ -233,5 +284,132 @@ public class QuestManager
             }
         }
         return results;
+    }
+
+    /// <summary>
+    /// Прогресс travel-квестов: цель — NPC (рядом с ним) или точка на карте.
+    /// Проверяется после каждого перемещения игрока.
+    /// </summary>
+    public List<(string Title, int Current, int Target, bool Completed)> IncrementTravelProgress(Player player, string zoneId, int x, int y)
+    {
+        var results = new List<(string, int, int, bool)>();
+        foreach (var q in player.ActiveQuests)
+        {
+            if (q.Completed) continue;
+            var def = FindQuest(q.QuestId);
+            if (def == null || def.Type != "travel") continue;
+
+            bool reached;
+            if (!string.IsNullOrEmpty(def.TargetNpcId))
+            {
+                var npc = NpcLookup?.Invoke(zoneId, def.TargetNpcId);
+                reached = npc != null && Math.Abs(npc.X - x) + Math.Abs(npc.Y - y) <= 1;
+            }
+            else
+            {
+                reached = def.TargetX == x && def.TargetY == y;
+            }
+            if (!reached) continue;
+
+            if (q.Current < def.Target)
+            {
+                q.Current++;
+                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
+                if (q.Current >= def.Target)
+                    q.Completed = true;
+            }
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Прогресс use-квестов: используется предмет нужного шаблона.
+    /// Проверяется после успешного использования предмета.
+    /// </summary>
+    public List<(string Title, int Current, int Target, bool Completed)> IncrementUseProgress(Player player, string itemId)
+    {
+        var results = new List<(string, int, int, bool)>();
+        foreach (var q in player.ActiveQuests)
+        {
+            if (q.Completed) continue;
+            var def = FindQuest(q.QuestId);
+            if (def == null || def.Type != "use") continue;
+            if (def.TargetItemId != itemId) continue;
+            if (q.Current < def.Target)
+            {
+                q.Current++;
+                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
+                if (q.Current >= def.Target)
+                    q.Completed = true;
+            }
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Прогресс explore-квестов: игрок вошёл в целевую зону.
+    /// Проверяется при смене зоны.
+    /// </summary>
+    public List<(string Title, int Current, int Target, bool Completed)> IncrementExploreProgress(Player player, string zoneId)
+    {
+        var results = new List<(string, int, int, bool)>();
+        foreach (var q in player.ActiveQuests)
+        {
+            if (q.Completed) continue;
+            var def = FindQuest(q.QuestId);
+            if (def == null || def.Type != "explore") continue;
+            if (def.TargetZoneId != zoneId) continue;
+            if (q.Current < def.Target)
+            {
+                q.Current++;
+                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
+                if (q.Current >= def.Target)
+                    q.Completed = true;
+            }
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Авто-выдача квестов при входе в зону: выдаёт все квесты с auto_grant,
+    /// которые можно взять (и которые привязаны к этой зоне или без привязки).
+    /// </summary>
+    public List<QuestDefinition> TryAutoGrant(Player player, string zoneId)
+    {
+        var granted = new List<QuestDefinition>();
+        foreach (var def in _quests.ToList())
+        {
+            if (!def.AutoGrant) continue;
+            if (!string.IsNullOrEmpty(def.TargetZoneId) && def.TargetZoneId != zoneId) continue;
+            if (!CanTakeQuest(player, def)) continue;
+            if (TakeQuest(player, def))
+                granted.Add(def);
+        }
+        return granted;
+    }
+
+    /// <summary>
+    /// Является ли предмет квестовым (флаг quest_item на шаблоне или на луте) —
+    /// такие нельзя продавать. Обычные собираемые предметы продаются всегда.
+    /// </summary>
+    public bool IsQuestItem(Item item)
+    {
+        if (item == null) return false;
+        if (!string.IsNullOrEmpty(item.TemplateId) && IsQuestItem(item.TemplateId)) return true;
+        if (IsQuestItem(item.Id)) return true;
+        // Лут (трофеи) без шаблона опознаётся по названию
+        if (string.IsNullOrEmpty(item.TemplateId) && !string.IsNullOrEmpty(item.Name))
+        {
+            lock (_questItemsLock)
+                return _questItemNames.Contains(item.Name);
+        }
+        return false;
+    }
+
+    public bool IsQuestItem(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return false;
+        lock (_questItemsLock)
+            return _questItemIds.Contains(itemId);
     }
 }

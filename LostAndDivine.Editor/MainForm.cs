@@ -34,12 +34,15 @@ public partial class MainForm : Form
     private List<(string Id, string Name)> _npcRefs = new();
     private List<(string Id, string Name)> _questRefs = new();
     private List<(string Id, string Name)> _rewardItemRefs = new();
+    private Dictionary<string, string> _npcLocationByName = new();
+    private Dictionary<string, string> _npcNameById = new();
+    private Dictionary<(int, int), string> _npcPosToName = new();
+    private Dictionary<string, string> _zoneNames = new();
+    private Dictionary<string, string> _npcZoneByName = new();
     private int _worldWidth = 100;
     private int _worldHeight = 100;
     private ComboBox _itemTypeSelector = null!;
-    private CheckedListBox _merchantStockList = null!;
-    private TextBox _merchantSearch = null!;
-    private ComboBox _merchantCategoryFilter = null!;
+    private DataGridView _merchantGrid = null!;
 
     // Search boxes per tab
     private TextBox _itemsSearch = null!;
@@ -163,7 +166,17 @@ public partial class MainForm : Form
         _questsSearch = MakeSearchBox("Поиск квестов...");
         _questsSearch.TextChanged += (s, e) => ApplyGridFilter(_questsGrid, _questsSearch.Text);
         questsTop.Controls.Add(_questsSearch);
-        questsPanel.Controls.Add(_questsGrid = MakeGrid());
+        _questsGrid = MakeGrid();
+        _questsGrid.AllowUserToAddRows = true;
+        _questsGrid.AllowUserToDeleteRows = true;
+        _questsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _questsGrid.CellDoubleClick += (s, e) =>
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= _questsGrid.Rows.Count) return;
+            if (_questsGrid.Rows[e.RowIndex].IsNewRow) return;
+            EditQuestRow(_questsGrid.Rows[e.RowIndex]);
+        };
+        questsPanel.Controls.Add(_questsGrid);
         questsPanel.Controls.Add(questsTop);
         var questsBtn = MakeSaveButton("Сохранить квесты");
         questsBtn.Click += (s, e) => SaveQuests();
@@ -171,7 +184,7 @@ public partial class MainForm : Form
         _questsTab.Controls.Add(questsPanel);
 
         // --- Мир (NPC + размер карты) ---
-        _worldTab = new TabPage("Мир");
+        _worldTab = new TabPage("НПС");
         var worldPanel = new Panel { Dock = DockStyle.Fill };
         _worldGrid = MakeGrid();
         _worldGrid.AllowUserToAddRows = true;
@@ -185,50 +198,38 @@ public partial class MainForm : Form
         worldPanel.Controls.Add(worldBtn);
         _worldTab.Controls.Add(worldPanel);
 
-        // --- Торговец ---
+        // --- Торговец (список NPC, которые могут торговать) ---
         _merchantTab = new TabPage("Торговец");
         var merchantPanel = new Panel { Dock = DockStyle.Fill };
 
-        var merchantTop = new Panel { Dock = DockStyle.Top, Height = 64, Padding = new Padding(6) };
-        var merchantSearchRow = new Panel { Dock = DockStyle.Top, Height = 28, Padding = new Padding(6, 2, 6, 2) };
-        _merchantSearch = MakeSearchBox("Поиск предметов...");
-        _merchantSearch.TextChanged += (s, e) => ApplyMerchantFilter();
-        merchantSearchRow.Controls.Add(_merchantSearch);
-
-        var merchantBtnRow = new Panel { Dock = DockStyle.Top, Height = 32, Padding = new Padding(6, 4, 6, 4) };
-        var selectAllBtn = MakeSmallButton("Выбрать все", SystemColors.ControlDark);
-        selectAllBtn.Click += (s, e) => { for (int i = 0; i < _merchantStockList.Items.Count; i++) _merchantStockList.SetItemChecked(i, true); };
-        var selectNoneBtn = MakeSmallButton("Снять все", SystemColors.ControlDarkDark);
-        selectNoneBtn.Click += (s, e) => { for (int i = 0; i < _merchantStockList.Items.Count; i++) _merchantStockList.SetItemChecked(i, false); };
-        var catLabel = new Label { Text = "Категория:", Dock = DockStyle.Left, Width = 75, TextAlign = ContentAlignment.MiddleLeft };
-        _merchantCategoryFilter = new ComboBox
+        var merchantTop = new Panel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(6, 4, 6, 4) };
+        var merchantHint = new Label
         {
-            Dock = DockStyle.Left,
-            Width = 130,
-            DropDownStyle = ComboBoxStyle.DropDownList};
-        _merchantCategoryFilter.Items.AddRange(new object[] { "все", "Оружие", "Доспехи", "Расходники", "Другое" });
-        _merchantCategoryFilter.SelectedIndex = 0;
-        _merchantCategoryFilter.SelectedIndexChanged += (s, e) => ApplyMerchantFilter();
-        merchantBtnRow.Controls.Add(selectNoneBtn);
-        merchantBtnRow.Controls.Add(selectAllBtn);
-        merchantBtnRow.Controls.Add(_merchantCategoryFilter);
-        merchantBtnRow.Controls.Add(catLabel);
-
-        merchantTop.Controls.Add(merchantBtnRow);
-        merchantTop.Controls.Add(merchantSearchRow);
-
-        _merchantStockList = new CheckedListBox
-        {
+            Text = "Двойной клик по NPC — редактирование ассортимента",
             Dock = DockStyle.Fill,
-            CheckOnClick = true,
-            Font = new Font("Segoe UI", 10),
-            BorderStyle = BorderStyle.FixedSingle};
+            TextAlign = ContentAlignment.MiddleLeft
+        };
+        merchantTop.Controls.Add(merchantHint);
 
-        merchantPanel.Controls.Add(_merchantStockList);
+        _merchantGrid = MakeGrid();
+        _merchantGrid.AllowUserToAddRows = false;
+        _merchantGrid.AllowUserToDeleteRows = false;
+        _merchantGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "id", HeaderText = "ID", DataPropertyName = "id", ReadOnly = true });
+        _merchantGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "name", HeaderText = "Имя", DataPropertyName = "name", ReadOnly = true });
+        _merchantGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "location", HeaderText = "Локация", DataPropertyName = "location", ReadOnly = true });
+        _merchantGrid.CellDoubleClick += (s, e) =>
+        {
+            if (e.RowIndex < 0) return;
+            var row = _merchantGrid.Rows[e.RowIndex];
+            var id = row.Cells["id"].Value?.ToString() ?? "";
+            var name = row.Cells["name"].Value?.ToString() ?? id;
+            if (string.IsNullOrWhiteSpace(id)) return;
+            using var f = new MerchantAssortmentEditorForm(_contentDbFile, id, name);
+            f.ShowDialog(this);
+        };
+
+        merchantPanel.Controls.Add(_merchantGrid);
         merchantPanel.Controls.Add(merchantTop);
-        var merchantBtn = MakeSaveButton("Сохранить ассортимент");
-        merchantBtn.Click += (s, e) => SaveMerchantStockEditor();
-        merchantPanel.Controls.Add(merchantBtn);
         _merchantTab.Controls.Add(merchantPanel);
 
         _tabs.TabPages.Add(_accountsTab = BuildAccountsTab());
@@ -353,58 +354,6 @@ public partial class MainForm : Form
         return rawText;
     }
 
-    private void ApplyMerchantFilter()
-    {
-        string search = GetSearchText(_merchantSearch);
-        string cat = _merchantCategoryFilter?.SelectedItem?.ToString() ?? "все";
-
-        for (int i = 0; i < _merchantStockList.Items.Count; i++)
-        {
-            string text = _merchantStockList.Items[i]?.ToString() ?? "";
-            bool matchSearch = string.IsNullOrWhiteSpace(search) || text.Contains(search, StringComparison.OrdinalIgnoreCase);
-            bool matchCat = cat == "все" || text.Contains(cat, StringComparison.OrdinalIgnoreCase);
-            _merchantStockList.SetItemCheckState(i, _merchantStockList.GetItemCheckState(i)); // force visual update
-        }
-
-        // We can't easily filter CheckedListBox, but we'll use a workaround: redraw with visibility
-        // Actually CheckedListBox doesn't support item visibility filtering well.
-        // Let's just scroll to matching items. Better approach: reload filtered list.
-        ReloadMerchantList(search, cat);
-    }
-
-    private void ReloadMerchantList(string search, string cat)
-    {
-        var checkedIds = new HashSet<string>();
-        foreach (var item in _merchantStockList.CheckedItems)
-        {
-            var text = item?.ToString() ?? "";
-            int sep = text.IndexOf("  —  ");
-            if (sep > 0) checkedIds.Add(text.Substring(0, sep).Trim());
-        }
-
-        _merchantStockList.Items.Clear();
-
-        var items = new List<(string Id, string Name, string Type)>();
-        using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
-        {
-            conn.Open();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, name, type FROM items WHERE type <> 'collectible' ORDER BY id";
-            using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                items.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
-        }
-
-        foreach (var (id, name, type) in items)
-        {
-            string display = $"{id}  —  {name}  [{type}]";
-            bool matchSearch = string.IsNullOrWhiteSpace(search) || display.Contains(search, StringComparison.OrdinalIgnoreCase);
-            bool matchCat = cat == "все" || type.Contains(cat, StringComparison.OrdinalIgnoreCase);
-            if (matchSearch && matchCat)
-                _merchantStockList.Items.Add(display, checkedIds.Contains(id));
-        }
-    }
-
     // === LOAD ALL ===
 
     private void LoadAll()
@@ -421,6 +370,8 @@ public partial class MainForm : Form
         LoadMonsterRefs();
         LoadCollectibleRefs();
         LoadNpcRefs();
+        LoadZoneNames();
+        BuildNpcZoneMapFromTiled();
         LoadQuestRefs();
         LoadRewardItemRefs();
         LoadItems();
@@ -428,13 +379,153 @@ public partial class MainForm : Form
         LoadLoot();
         LoadQuests();
         LoadWorld();
-        LoadMerchantStockEditor();
+        LoadMerchantNpcsGrid();
         LoadAccounts();
     }
 
     private void LoadMonsterRefs() => _monsterRefs = LoadRefs("SELECT id, name FROM monsters ORDER BY id");
     private void LoadCollectibleRefs() => _collectibleRefs = LoadRefs("SELECT id, name FROM items WHERE type='collectible' ORDER BY id");
-    private void LoadNpcRefs() => _npcRefs = LoadRefs("SELECT id, name FROM npcs ORDER BY id");
+    private void LoadNpcRefs()
+    {
+        _npcRefs = new List<(string, string)>();
+        _npcLocationByName = new Dictionary<string, string>();
+        _npcNameById = new Dictionary<string, string>();
+        _npcPosToName = new Dictionary<(int, int), string>();
+        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
+        conn.Open();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT id, name, location, x, y FROM npcs ORDER BY id";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            string name = reader.GetString(1);
+            string loc = reader.IsDBNull(2) ? "" : reader.GetString(2);
+            int x = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+            int y = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+            _npcRefs.Add((reader.GetString(0), name));
+            _npcNameById[reader.GetString(0)] = name;
+            _npcLocationByName[name] = loc;
+            _npcPosToName[(x, y)] = name;
+        }
+    }
+
+    private void LoadZoneNames()
+    {
+        _zoneNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name FROM zones ORDER BY id";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                _zoneNames[reader.GetString(0)] = reader.IsDBNull(1) ? reader.GetString(0) : reader.GetString(1);
+        }
+        catch { _zoneNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
+    }
+
+    /// <summary>
+    /// Сопоставляет NPC из таблицы npcs с зоной, в которой они размещены на Tiled-картах
+    /// (zone_{id}.tmj). Локация NPC = название зоны из Tiled, а не ручное поле.
+    /// </summary>
+    private void BuildNpcZoneMapFromTiled()
+    {
+        _npcZoneByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var npcTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "npc", "merchant", "board", "instance_portal", "dummy"
+        };
+
+        foreach (var file in FindTiledZoneMaps())
+        {
+            string zoneId = Path.GetFileNameWithoutExtension(file);
+            if (zoneId.StartsWith("zone_", StringComparison.OrdinalIgnoreCase))
+                zoneId = zoneId.Substring("zone_".Length);
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+                int tileW = 64, tileH = 64;
+                if (doc.RootElement.TryGetProperty("tilewidth", out var tw) && tw.ValueKind == JsonValueKind.Number) tileW = tw.GetInt32();
+                if (doc.RootElement.TryGetProperty("tileheight", out var th) && th.ValueKind == JsonValueKind.Number) tileH = th.GetInt32();
+                if (!doc.RootElement.TryGetProperty("layers", out var layers)) continue;
+                foreach (var layer in layers.EnumerateArray())
+                {
+                    if (!layer.TryGetProperty("type", out var t) || !string.Equals(t.GetString(), "objectgroup", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!layer.TryGetProperty("objects", out var objs)) continue;
+                    foreach (var o in objs.EnumerateArray())
+                    {
+                        string type = o.TryGetProperty("type", out var ot) ? (ot.GetString() ?? "") : "";
+                        if (!npcTypes.Contains(type)) continue;
+                        string tiledName = o.TryGetProperty("name", out var on) ? (on.GetString() ?? "") : "";
+                        double ox = o.TryGetProperty("x", out var oxp) && oxp.ValueKind == JsonValueKind.Number ? oxp.GetDouble() : 0;
+                        double oy = o.TryGetProperty("y", out var oyp) && oyp.ValueKind == JsonValueKind.Number ? oyp.GetDouble() : 0;
+                        int tx = (int)(ox / tileW);
+                        int ty = (int)(oy / tileH);
+                        // Сопоставляем NPC с объектом Tiled:
+                        //  - по id (в Tiled name обычно id NPC, напр. N0003),
+                        //  - по отображаемому имени,
+                        //  - по координатам (tile), что работает даже если name — не id
+                        //    (напр. у instance_portal name = зона назначения).
+                        string? npcName = null;
+                        if (!string.IsNullOrWhiteSpace(tiledName) && _npcNameById.TryGetValue(tiledName, out var byId)) npcName = byId;
+                        else if (!string.IsNullOrWhiteSpace(tiledName) && _npcLocationByName.ContainsKey(tiledName)) npcName = tiledName;
+                        else if (_npcPosToName.TryGetValue((tx, ty), out var byPos)) npcName = byPos;
+                        if (npcName == null) continue;
+                        _npcZoneByName[npcName] = zoneId;
+                    }
+                }
+            }
+            catch { /* игнорируем битые карты */ }
+        }
+
+        // Перезаписываем локацию NPC по данным Tiled (приоритет у фактического размещения).
+        foreach (var kvp in _npcZoneByName)
+        {
+            string loc = _zoneNames.TryGetValue(kvp.Value, out var zn) ? zn : kvp.Value;
+            _npcLocationByName[kvp.Key] = loc;
+        }
+    }
+
+    private IEnumerable<string> FindTiledZoneMaps()
+    {
+        var root = FindSolutionRoot(Path.GetDirectoryName(_contentDbFile) ?? ".");
+        var found = new List<string>();
+        if (!string.IsNullOrEmpty(root))
+            ScanTiledMaps(new DirectoryInfo(root), found, 0, 6);
+        return found;
+    }
+
+    private static string? FindSolutionRoot(string startDir)
+    {
+        var dir = startDir;
+        while (!string.IsNullOrEmpty(dir))
+        {
+            if (Directory.Exists(Path.Combine(dir, ".git")) ||
+                Directory.GetFiles(dir, "*.sln").Length > 0)
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        return startDir;
+    }
+
+    private static void ScanTiledMaps(DirectoryInfo dir, List<string> found, int depth, int maxDepth)
+    {
+        if (depth > maxDepth) return;
+        if (depth > 0)
+        {
+            var lower = dir.Name.ToLowerInvariant();
+            if (lower is "bin" or "obj" or "node_modules" or ".git" or "dist") return;
+        }
+        try
+        {
+            foreach (var f in dir.GetFiles("zone_*.tmj"))
+                found.Add(f.FullName);
+            foreach (var sub in dir.GetDirectories())
+                ScanTiledMaps(sub, found, depth + 1, maxDepth);
+        }
+        catch { }
+    }
     private void LoadQuestRefs() => _questRefs = LoadRefs("SELECT id, title FROM quests_def ORDER BY id");
     private void LoadRewardItemRefs() => _rewardItemRefs = LoadRefs("SELECT id, name FROM items WHERE type <> 'collectible' ORDER BY id");
 
@@ -475,12 +566,26 @@ public partial class MainForm : Form
 
     private void LoadItems()
     {
-        _itemsGrid.DataSource = LoadTable(@"SELECT id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
+        var dt = LoadTable(@"SELECT id, name, type, value, damage_min, damage_max, defense, max_health_bonus, heal_amount, restore_mana, stock, description,
             bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
             bonus_phys_attack, bonus_mag_attack, bonus_defense, bonus_resistance,
             bonus_attack_speed, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,
-            two_handed, damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level
+            two_handed, damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level,
+            quest_item
             FROM items ORDER BY id");
+
+        // LoadTable возвращает всё строками — для чекбокса нужен булев столбец
+        var qcol = dt.Columns["quest_item"];
+        if (qcol != null)
+        {
+            var boolCol = dt.Columns.Add("__qi", typeof(bool));
+            foreach (DataRow r in dt.Rows)
+                r["__qi"] = !r.IsNull(qcol) && Convert.ToString(r[qcol]) == "1";
+            dt.Columns.Remove(qcol);
+            boolCol.ColumnName = "quest_item";
+        }
+
+        _itemsGrid.DataSource = dt;
         SetupItemsTypeColumn();
         ShowOnlyIdNameType();
     }
@@ -489,7 +594,7 @@ public partial class MainForm : Form
     {
         foreach (DataGridViewColumn col in _itemsGrid.Columns)
         {
-            if (col.Name is "id" or "name" or "type") continue;
+            if (col.Name is "id" or "name" or "type" or "quest_item") continue;
             col.Visible = false;
         }
     }
@@ -529,19 +634,21 @@ public partial class MainForm : Form
         dt.Columns.Add("description", typeof(string));
         dt.Columns.Add("value", typeof(int));
         dt.Columns.Add("drop_chance", typeof(int));
+        dt.Columns.Add("quest_item", typeof(bool));
 
         using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"SELECT l.monster_id, l.name, l.description, l.value, l.drop_chance, m.name
+        cmd.CommandText = @"SELECT l.monster_id, l.name, l.description, l.value, l.drop_chance, l.quest_item, m.name
             FROM loot_tables l
             LEFT JOIN monsters m ON l.monster_id = m.id
             ORDER BY l.monster_id, l.id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            string monsterName = reader.IsDBNull(5) ? reader.GetString(0) : reader.GetString(5);
-            dt.Rows.Add(monsterName, reader.GetString(1), reader.GetString(2), reader.GetInt32(3), reader.GetInt32(4));
+            string monsterName = reader.IsDBNull(6) ? reader.GetString(0) : reader.GetString(6);
+            dt.Rows.Add(monsterName, reader.GetString(1), reader.GetString(2), reader.GetInt32(3), reader.GetInt32(4),
+                !reader.IsDBNull(5) && reader.GetInt32(5) != 0);
         }
         _lootGrid.DataSource = dt;
 
@@ -562,7 +669,11 @@ public partial class MainForm : Form
         dt.Columns.Add("type", typeof(string));
         dt.Columns.Add("monster", typeof(string));
         dt.Columns.Add("item", typeof(string));
+        dt.Columns.Add("use_item", typeof(string));
         dt.Columns.Add("npc", typeof(string));
+        dt.Columns.Add("target_zone", typeof(string));
+        dt.Columns.Add("target_x", typeof(string));
+        dt.Columns.Add("target_y", typeof(string));
         dt.Columns.Add("target", typeof(string));
         dt.Columns.Add("xp_reward", typeof(string));
         dt.Columns.Add("gold_reward", typeof(string));
@@ -572,12 +683,18 @@ public partial class MainForm : Form
         dt.Columns.Add("min_level", typeof(string));
         dt.Columns.Add("item_reward", typeof(string));
         dt.Columns.Add("item_reward_count", typeof(string));
+        dt.Columns.Add("auto_grant", typeof(bool));
+        dt.Columns.Add("giver_npc", typeof(string));
+        dt.Columns.Add("is_story", typeof(bool));
+        dt.Columns.Add("repeatable", typeof(bool));
+        dt.Columns.Add("location", typeof(string));
 
         using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target,
-                xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count
+                xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count,
+                target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable
             FROM quests_def ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -588,12 +705,24 @@ public partial class MainForm : Form
             string ch = reader.IsDBNull(10) ? "" : reader.GetString(10);
             string pr = reader.IsDBNull(12) ? "" : reader.GetString(12);
             string rid = reader.IsDBNull(14) ? "" : reader.GetString(14);
+            string zone = reader.IsDBNull(16) ? "" : reader.GetString(16);
+            string gid = reader.IsDBNull(20) ? "" : reader.GetString(20);
+            string derivedLoc = !string.IsNullOrEmpty(gid) ? NpcLocationById(gid)
+                : !string.IsNullOrEmpty(nid) ? NpcLocationById(nid)
+                : (reader.IsDBNull(22) ? "" : reader.GetString(22));
             dt.Rows.Add(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                NameById(_monsterRefs, mid), NameById(_collectibleRefs, iid), NameById(_npcRefs, nid),
+                NameById(_monsterRefs, mid), NameById(_collectibleRefs, iid), NameById(_rewardItemRefs, iid),
+                NameById(_npcRefs, nid),
+                zone, reader.GetInt32(17).ToString(), reader.GetInt32(18).ToString(),
                 reader.GetInt32(7).ToString(), reader.GetInt32(8).ToString(), reader.GetInt32(9).ToString(),
                 ch, reader.GetInt32(11).ToString(), pr, reader.GetInt32(13).ToString(),
-                NameById(_rewardItemRefs, rid), reader.GetInt32(15).ToString());
+                NameById(_rewardItemRefs, rid), reader.GetInt32(15).ToString(),
+                !reader.IsDBNull(19) && reader.GetInt32(19) != 0,
+                NameById(_npcRefs, gid),
+                !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
+                !reader.IsDBNull(23) ? reader.GetInt32(23) != 0 : false,
+                derivedLoc);
         }
         _questsGrid.DataSource = dt;
     }
@@ -607,37 +736,26 @@ public partial class MainForm : Form
             _questsGrid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = name, HeaderText = header, Name = name });
         }
         AddText("id", "ID");
-        AddText("title", "Название");
-        AddText("description", "Описание");
+        AddText("title", "Название квеста");
+        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
+        {
+            DataPropertyName = "giver_npc", HeaderText = "NPC (выдаёт)", Name = "giver_npc",
+            DataSource = _npcRefs.Select(r => r.Name).ToList()
+        });
+        _questsGrid.Columns.Add(new DataGridViewCheckBoxColumn
+        {
+            DataPropertyName = "is_story", HeaderText = "Сюжетный", Name = "is_story"
+        });
+        _questsGrid.Columns.Add(new DataGridViewCheckBoxColumn
+        {
+            DataPropertyName = "repeatable", HeaderText = "Повторяемый", Name = "repeatable"
+        });
+        AddText("location", "Локация");
         _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
         {
             DataPropertyName = "type", HeaderText = "Тип", Name = "type",
-            Items = { "kill", "collect", "talk", "travel", "use" }
+            Items = { "kill", "collect", "talk", "travel", "use", "explore" }
         });
-        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
-        {
-            DataPropertyName = "monster", HeaderText = "Монстр (kill)", Name = "monster",
-            DataSource = _monsterRefs.Select(r => r.Name).ToList()});
-        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
-        {
-            DataPropertyName = "item", HeaderText = "Предмет (collect)", Name = "item",
-            DataSource = _collectibleRefs.Select(r => r.Name).ToList()});
-        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
-        {
-            DataPropertyName = "npc", HeaderText = "NPC (talk)", Name = "npc",
-            DataSource = _npcRefs.Select(r => r.Name).ToList()});
-        AddText("target", "Кол-во");
-        AddText("xp_reward", "Опыт");
-        AddText("gold_reward", "Золото");
-        AddText("chain_id", "Цепочка");
-        AddText("step", "Шаг");
-        AddText("prereq", "Предусловие (ID)");
-        AddText("min_level", "Мин. ур.");
-        _questsGrid.Columns.Add(new DataGridViewComboBoxColumn
-        {
-            DataPropertyName = "item_reward", HeaderText = "Награда (предмет)", Name = "item_reward",
-            DataSource = _rewardItemRefs.Select(r => r.Name).ToList()});
-        AddText("item_reward_count", "Награда (кол-во)");
     }
 
     // === WORLD ===
@@ -649,14 +767,22 @@ public partial class MainForm : Form
         dt.Columns.Add("id", typeof(string));
         dt.Columns.Add("name", typeof(string));
         dt.Columns.Add("type", typeof(string));
+        dt.Columns.Add("location", typeof(string));
 
         using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, type FROM npcs ORDER BY id";
+        cmd.CommandText = "SELECT id, name, type, location FROM npcs ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
-            dt.Rows.Add(reader.GetString(0), reader.GetString(1), reader.GetString(2));
+        {
+            string name = reader.GetString(1);
+            // Локация берётся из Tiled-карты (зона размещения NPC), приоритетнее ручного поля.
+            string loc = _npcZoneByName.TryGetValue(name, out var zid)
+                ? (_zoneNames.TryGetValue(zid, out var zn) ? zn : zid)
+                : (reader.IsDBNull(3) ? "" : reader.GetString(3));
+            dt.Rows.Add(reader.GetString(0), name, reader.GetString(2), loc);
+        }
         _worldGrid.DataSource = dt;
         _worldWidth = GetWorldConfigInt("width", 100);
         _worldHeight = GetWorldConfigInt("height", 100);
@@ -673,44 +799,35 @@ public partial class MainForm : Form
             Name = "type", HeaderText = "Тип", DataPropertyName = "type",
             Items = { "merchant", "board", "npc", "instance_portal" }
         });
+        _worldGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "location", HeaderText = "Локация", DataPropertyName = "location" });
     }
 
     // === MERCHANT ===
 
-    private void LoadMerchantStockEditor()
+    private void LoadMerchantNpcsGrid()
     {
         try
         {
-            var merchantId = GetMerchantNpcId();
-            var stock = new HashSet<string>();
-            if (merchantId != null)
+            var dt = new DataTable();
+            dt.Columns.Add("id", typeof(string));
+            dt.Columns.Add("name", typeof(string));
+            dt.Columns.Add("location", typeof(string));
+            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT id, name FROM npcs WHERE type = 'merchant' ORDER BY id";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
             {
-                using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
-                conn.Open();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT item_id FROM merchant_stock WHERE npc_id = $npc";
-                cmd.Parameters.AddWithValue("$npc", merchantId);
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read()) stock.Add(reader.GetString(0));
+                string name = reader.GetString(1);
+                dt.Rows.Add(reader.GetString(0), name,
+                    _npcLocationByName.TryGetValue(name, out var loc) ? loc : "");
             }
-
-            _merchantStockList.Items.Clear();
-            var items = new List<(string Id, string Name, string Type)>();
-            using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
-            {
-                conn.Open();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT id, name, type FROM items WHERE type <> 'collectible' ORDER BY id";
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read()) items.Add((reader.GetString(0), reader.GetString(1), reader.GetString(2)));
-            }
-
-            foreach (var (id, name, type) in items)
-                _merchantStockList.Items.Add($"{id}  —  {name}  [{type}]", stock.Contains(id));
-
-            SetStatus("Ассортимент торговца загружен");
+            if (_merchantGrid.DataSource is DataTable old) old.Dispose();
+            _merchantGrid.DataSource = dt;
+            SetStatus("Торговцы загружены");
         }
-        catch (Exception ex) { SetStatus("Ошибка (ассортимент): " + ex.Message); }
+        catch (Exception ex) { SetStatus("Ошибка (торговцы): " + ex.Message); }
     }
 
     // === ANIMATIONS ===
@@ -940,7 +1057,6 @@ public partial class MainForm : Form
         else if (idx == _tabs.TabPages.IndexOf(_lootTab)) SaveLoot();
         else if (idx == _tabs.TabPages.IndexOf(_questsTab)) SaveQuests();
         else if (idx == _tabs.TabPages.IndexOf(_worldTab)) SaveWorld();
-        else if (idx == _tabs.TabPages.IndexOf(_merchantTab)) SaveMerchantStockEditor();
         else if (idx == _tabs.TabPages.IndexOf(_accountsTab)) SaveAccounts();
         else if (idx == _tabs.TabPages.IndexOf(_animTab)) SaveAnimations();
     }
@@ -965,8 +1081,8 @@ public partial class MainForm : Form
                         bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                         bonus_phys_attack, bonus_mag_attack, bonus_defense, bonus_resistance,
                         bonus_attack_speed, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, two_handed,
-                        damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level)
-                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$h,$rm,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$bpa,$bma,$bdef,$bres,$bas,$cc,$cd,$ec,$th,$dt,$asm,$ws,$ar,$rl)";
+                        damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level, quest_item)
+                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$h,$rm,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$bpa,$bma,$bdef,$bres,$bas,$cc,$cd,$ec,$th,$dt,$asm,$ws,$ar,$rl,$qi)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
@@ -999,6 +1115,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$ws", row["weapon_subtype"] ?? "");
                 cmd.Parameters.AddWithValue("$ar", ToInt(row["attack_range"]));
                 cmd.Parameters.AddWithValue("$rl", ToInt(row["required_level"]));
+                cmd.Parameters.AddWithValue("$qi", QuestFlag(row["quest_item"]));
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -1073,13 +1190,14 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(monsterName) || string.IsNullOrWhiteSpace(name)) continue;
                 string monsterId = monsterNameToId.TryGetValue(monsterName, out var mid) ? mid : monsterName;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO loot_tables (monster_id, name, description, value, drop_chance)
-                    VALUES ($mid, $n, $d, $v, $dc)";
+                cmd.CommandText = @"INSERT INTO loot_tables (monster_id, name, description, value, drop_chance, quest_item)
+                    VALUES ($mid, $n, $d, $v, $dc, $qi)";
                 cmd.Parameters.AddWithValue("$mid", monsterId);
                 cmd.Parameters.AddWithValue("$n", name);
                 cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
                 cmd.Parameters.AddWithValue("$v", ToInt(row["value"]));
                 cmd.Parameters.AddWithValue("$dc", ToInt(row["drop_chance"]));
+                cmd.Parameters.AddWithValue("$qi", QuestFlag(row["quest_item"]));
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -1106,11 +1224,13 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 string type = row["type"]?.ToString() ?? "kill";
                 string monsterId = type == "kill" ? IdByName(_monsterRefs, row["monster"]?.ToString() ?? "") : "";
-                string itemId = type == "collect" ? IdByName(_collectibleRefs, row["item"]?.ToString() ?? "") : "";
-                string npcId = type == "talk" ? IdByName(_npcRefs, row["npc"]?.ToString() ?? "") : "";
+                string itemId = type == "collect" ? IdByName(_collectibleRefs, row["item"]?.ToString() ?? "")
+                    : type == "use" ? IdByName(_rewardItemRefs, row["use_item"]?.ToString() ?? "") : "";
+                string npcId = IdByName(_npcRefs, row["npc"]?.ToString() ?? "");
+                string giverId = IdByName(_npcRefs, row["giver_npc"]?.ToString() ?? "");
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count)
-                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc)";
+                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable)
+                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc,$tz,$tx,$tyy,$ag,$gn,$is,$loc,$rep)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$t", row["title"] ?? "");
                 cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
@@ -1127,6 +1247,15 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$ml", ToInt(row["min_level"]));
                 cmd.Parameters.AddWithValue("$ri", IdByName(_rewardItemRefs, row["item_reward"]?.ToString() ?? ""));
                 cmd.Parameters.AddWithValue("$rc", ToInt(row["item_reward_count"]));
+                cmd.Parameters.AddWithValue("$tz", row["target_zone"] ?? "");
+                cmd.Parameters.AddWithValue("$tx", ToInt(row["target_x"]));
+                cmd.Parameters.AddWithValue("$tyy", ToInt(row["target_y"]));
+                cmd.Parameters.AddWithValue("$ag", row["auto_grant"] is bool ag && ag ? 1 : 0);
+                cmd.Parameters.AddWithValue("$gn", giverId);
+                cmd.Parameters.AddWithValue("$is", row["is_story"] is bool ist && ist ? 1 : 0);
+                cmd.Parameters.AddWithValue("$rep", row["is_story"] is bool iss && iss ? 0
+                    : (row["repeatable"] is bool repb && repb ? 1 : 0));
+                cmd.Parameters.AddWithValue("$loc", row["location"] ?? "");
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();
@@ -1152,7 +1281,7 @@ public partial class MainForm : Form
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type)) continue;
                 if (string.IsNullOrWhiteSpace(id)) id = "N" + (maxNum + 1).ToString("D4");
                 if (id.StartsWith("N") && int.TryParse(id.Substring(1), out int n) && n > maxNum) maxNum = n;
-                npcs.Add(new NpcRecord { Id = id, Name = name, Type = type });
+                npcs.Add(new NpcRecord { Id = id, Name = name, Type = type, Location = CellStr(row, "location") });
             }
             SaveNpcsLocal(npcs);
             using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
@@ -1171,38 +1300,6 @@ public partial class MainForm : Form
             SetStatus("NPC и мир сохранены");
         }
         catch (Exception ex) { SetStatus("Ошибка (мир): " + ex.Message); }
-    }
-
-    private void SaveMerchantStockEditor()
-    {
-        try
-        {
-            var merchantId = GetMerchantNpcId();
-            if (merchantId == null) { SetStatus("Нет NPC типа 'merchant'"); return; }
-            var selected = new List<string>();
-            foreach (var item in _merchantStockList.CheckedItems)
-            {
-                var text = item?.ToString() ?? "";
-                int sep = text.IndexOf("  —  ");
-                if (sep > 0) selected.Add(text.Substring(0, sep).Trim());
-            }
-            using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
-            conn.Open();
-            using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM merchant_stock WHERE npc_id = $npc"; del.Parameters.AddWithValue("$npc", merchantId); del.ExecuteNonQuery(); }
-            foreach (var itemId in selected)
-            {
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "INSERT OR IGNORE INTO merchant_stock (npc_id, item_id) VALUES ($npc, $item)";
-                cmd.Parameters.AddWithValue("$npc", merchantId);
-                cmd.Parameters.AddWithValue("$item", itemId);
-                cmd.ExecuteNonQuery();
-            }
-            transaction.Commit();
-            LoadMerchantStockEditor();
-            SetStatus($"Ассортимент сохранён: {selected.Count} предметов");
-        }
-        catch (Exception ex) { SetStatus("Ошибка (ассортимент): " + ex.Message); }
     }
 
     // === ACCOUNTS TAB ===
@@ -1894,6 +1991,259 @@ public partial class MainForm : Form
         }
     }
 
+    private void EditQuestRow(DataGridViewRow row)
+    {
+        if (row.DataBoundItem is not DataRowView drv) return;
+        using var dlg = new QuestEditForm(drv.Row, this);
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        SetStatus("Квест изменён");
+    }
+
+    internal class QuestEditForm : Form
+    {
+        private readonly MainForm _owner;
+
+        internal QuestEditForm(DataRow row, MainForm owner) : base()
+        {
+            _owner = owner;
+            Text = $"Квест: {Cell(row, "title")} [{Cell(row, "id")}]";
+            Size = new Size(560, 820);
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+
+            var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(8, 8, 8, 0) };
+
+            // === ОСНОВНОЕ ===
+            var grpMain = NewGroup(scroll, "Основное");
+            _idBox = AddField(grpMain, "ID:", Cell(row, "id"));
+            _titleBox = AddField(grpMain, "Название:", Cell(row, "title"));
+            _typeCombo = AddCombo(grpMain, "Тип:", new[] { "kill", "collect", "talk", "travel", "use", "explore" }, Cell(row, "type"));
+            _giverBox = AddComboList(grpMain, "NPC (выдаёт):", _owner._npcRefs.Select(r => r.Name).ToList(), Cell(row, "giver_npc"));
+            _storyBox = AddCheck(grpMain, "Сюжетный:", Num(row, "is_story") != 0);
+            _repBox = AddCheck(grpMain, "Повторяемый:", Num(row, "repeatable") != 0);
+            _locBox = AddField(grpMain, "Локация:", Cell(row, "location"));
+            // Подставим локацию выдатчика, если поле пустое.
+            if (string.IsNullOrWhiteSpace(_locBox.Text))
+                _locBox.Text = _owner._npcLocationByName.TryGetValue(_giverBox.Text, out var gl) ? gl : "";
+
+            // === ОПИСАНИЕ ===
+            var grpDesc = NewGroup(scroll, "Описание");
+            _descBox = new TextBox { Dock = DockStyle.Fill, Height = 70, Multiline = true, ScrollBars = ScrollBars.Vertical };
+            grpDesc.Controls.Add(_descBox);
+            _descBox.Text = Cell(row, "description");
+
+            // === ЦЕЛЬ ===
+            var grpGoal = NewGroup(scroll, "Цель");
+            _monsterBox = AddComboList(grpGoal, "Монстр (kill):", _owner._monsterRefs.Select(r => r.Name).ToList(), Cell(row, "monster"));
+            _itemBox = AddComboList(grpGoal, "Предмет (collect):", _owner._collectibleRefs.Select(r => r.Name).ToList(), Cell(row, "item"));
+            _useItemBox = AddComboList(grpGoal, "Предмет (use):", _owner._rewardItemRefs.Select(r => r.Name).ToList(), Cell(row, "use_item"));
+            _npcBox = AddComboList(grpGoal, "NPC (talk/travel):", _owner._npcRefs.Select(r => r.Name).ToList(), Cell(row, "npc"));
+            _zoneBox = AddField(grpGoal, "Зона (explore/авто):", Cell(row, "target_zone"));
+            _xBox = AddNum(grpGoal, "Точка X (travel):", Num(row, "target_x"), -99999, 99999);
+            _yBox = AddNum(grpGoal, "Точка Y (travel):", Num(row, "target_y"), -99999, 99999);
+            _targetBox = AddNum(grpGoal, "Кол-во:", Num(row, "target"), 0, 999999);
+
+            // === УСЛОВИЯ ===
+            var grpCond = NewGroup(scroll, "Условия и выдача");
+            _autoBox = AddCheck(grpCond, "Авто-выдача при входе в зону:", Num(row, "auto_grant") != 0);
+            _minLvlBox = AddNum(grpCond, "Мин. уровень:", Num(row, "min_level"), 0, 999);
+            _chainBox = AddField(grpCond, "Цепочка (ID):", Cell(row, "chain_id"));
+            _stepBox = AddNum(grpCond, "Шаг в цепочке:", Num(row, "step"), 0, 9999);
+            var prereqNames = new List<string> { "" };
+            prereqNames.AddRange(_owner._questRefs.Select(r => r.Name));
+            _prereqBox = AddComboList(grpCond, "Предусловие (квест):", prereqNames, Cell(row, "prereq"));
+
+            // === НАГРАДЫ ===
+            var grpReward = NewGroup(scroll, "Награды");
+            _xpBox = AddNum(grpReward, "Опыт:", Num(row, "xp_reward"), 0, 99999999);
+            _goldBox = AddNum(grpReward, "Золото:", Num(row, "gold_reward"), 0, 99999999);
+            _itemRewardBox = AddComboList(grpReward, "Награда (предмет):", _owner._rewardItemRefs.Select(r => r.Name).ToList(), Cell(row, "item_reward"));
+            _itemRewardCountBox = AddNum(grpReward, "Награда (кол-во):", Num(row, "item_reward_count"), 0, 99999);
+
+            // === ДИАЛОГИ (принадлежат NPC-выдатчику) ===
+            var grpDlg = NewGroup(scroll, "Диалоги (NPC-выдатчик)");
+            _dlgBtn = new Button { Text = "Открыть диалог NPC-выдатчика...", Dock = DockStyle.Fill, Height = 28, Cursor = Cursors.Hand };
+            _dlgBtn.Click += (s, e) => OpenGiverDialogue();
+            var dlgRow = AddRow(grpDlg);
+            dlgRow.Controls.Add(_dlgBtn);
+
+            _typeCombo.SelectedIndexChanged += (s, e) => UpdateFields();
+            _storyBox.CheckedChanged += (s, e) =>
+            {
+                // Для сюжетных квестов параметр «повторяемый» не используется.
+                _repBox.Enabled = !_storyBox.Checked;
+                if (_storyBox.Checked) _repBox.Checked = false;
+            };
+            _repBox.Enabled = !_storyBox.Checked;
+            _giverBox.SelectedIndexChanged += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(_locBox.Text) || _locBox.Text == _lastGiverLoc)
+                    _locBox.Text = _owner._npcLocationByName.TryGetValue(_giverBox.Text, out var l) ? l : "";
+                _lastGiverLoc = _owner._npcLocationByName.TryGetValue(_giverBox.Text, out var nl) ? nl : "";
+            };
+            _lastGiverLoc = _owner._npcLocationByName.TryGetValue(_giverBox.Text, out var init) ? init : "";
+
+            // === КНОПКИ ===
+            var btnPanel = new Panel { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(8, 8, 8, 0) };
+            var cancelBtn = new Button { Text = "Отмена", Dock = DockStyle.Right, Width = 100, Height = 30 };
+            cancelBtn.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+            var okBtn = new Button { Text = "Сохранить", Dock = DockStyle.Right, Width = 100, Height = 30, BackColor = SystemColors.ControlDark, FlatStyle = FlatStyle.Standard, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            okBtn.Click += (s, e) => SaveToRow(row);
+            btnPanel.Controls.Add(cancelBtn);
+            btnPanel.Controls.Add(okBtn);
+
+            Controls.Add(btnPanel);
+            Controls.Add(scroll);
+            UpdateFields();
+        }
+
+        private TextBox _idBox = null!, _titleBox = null!, _descBox = null!, _locBox = null!, _zoneBox = null!, _chainBox = null!;
+        private ComboBox _giverBox = null!, _monsterBox = null!, _itemBox = null!, _useItemBox = null!, _npcBox = null!, _prereqBox = null!, _itemRewardBox = null!;
+        private ComboBox _typeCombo = null!;
+        private NumericUpDown _xBox = null!, _yBox = null!, _targetBox = null!, _minLvlBox = null!, _stepBox = null!, _xpBox = null!, _goldBox = null!, _itemRewardCountBox = null!;
+        private CheckBox _storyBox = null!, _autoBox = null!, _repBox = null!;
+        private Button _dlgBtn = null!;
+        private string _lastGiverLoc = "";
+
+        private string Cell(DataRow r, string col) => r[col]?.ToString() ?? "";
+        private void SetCell(DataRow r, string col, object val) => r[col] = val;
+        private int Num(DataRow r, string col) { var v = r[col]; return v == null || v is DBNull ? 0 : Convert.ToInt32(v); }
+
+        private void OpenGiverDialogue()
+        {
+            string npcName = _giverBox.Text;
+            var npc = _owner._npcRefs.FirstOrDefault(r => r.Name == npcName);
+            if (string.IsNullOrEmpty(npc.Id))
+            {
+                MessageBox.Show("Сначала выберите NPC-выдатчика.", "Диалоги", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using var dlg = new NpcDialogueEditorForm(_owner._contentDbFile, npc.Id);
+            dlg.ShowDialog(this);
+        }
+
+        private void SaveToRow(DataRow row)
+        {
+            SetCell(row, "id", _idBox.Text.Trim());
+            SetCell(row, "title", _titleBox.Text.Trim());
+            SetCell(row, "type", _typeCombo.SelectedItem?.ToString() ?? "kill");
+            SetCell(row, "giver_npc", _giverBox.Text);
+            SetCell(row, "is_story", _storyBox.Checked);
+            SetCell(row, "repeatable", _repBox.Checked);
+            SetCell(row, "location", _locBox.Text.Trim());
+            SetCell(row, "description", _descBox.Text);
+            SetCell(row, "monster", _monsterBox.Text);
+            SetCell(row, "item", _itemBox.Text);
+            SetCell(row, "use_item", _useItemBox.Text);
+            SetCell(row, "npc", _npcBox.Text);
+            SetCell(row, "target_zone", _zoneBox.Text.Trim());
+            SetCell(row, "target_x", (int)_xBox.Value);
+            SetCell(row, "target_y", (int)_yBox.Value);
+            SetCell(row, "target", (int)_targetBox.Value);
+            SetCell(row, "auto_grant", _autoBox.Checked);
+            SetCell(row, "min_level", (int)_minLvlBox.Value);
+            SetCell(row, "chain_id", _chainBox.Text.Trim());
+            SetCell(row, "step", (int)_stepBox.Value);
+            SetCell(row, "prereq", _prereqBox.Text);
+            SetCell(row, "xp_reward", (int)_xpBox.Value);
+            SetCell(row, "gold_reward", (int)_goldBox.Value);
+            SetCell(row, "item_reward", _itemRewardBox.Text);
+            SetCell(row, "item_reward_count", (int)_itemRewardCountBox.Value);
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void UpdateFields()
+        {
+            string t = _typeCombo.SelectedItem?.ToString() ?? "";
+            _monsterBox.Enabled = t == "kill";
+            _itemBox.Enabled = t == "collect";
+            _useItemBox.Enabled = t == "use";
+            _npcBox.Enabled = t is "talk" or "travel";
+            _zoneBox.Enabled = t is "explore" or "travel";
+            _xBox.Enabled = t == "travel";
+            _yBox.Enabled = t == "travel";
+            _targetBox.Enabled = t is "kill" or "collect" or "use" or "talk";
+        }
+
+        // ---- Layout helpers ----
+
+        private static GroupBox NewGroup(Panel parent, string title)
+        {
+            var g = new GroupBox
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Padding = new Padding(8, 18, 8, 6),
+                Margin = new Padding(0, 0, 0, 4)
+            };
+            parent.Controls.Add(g);
+            parent.Controls.SetChildIndex(g, 0);
+            return g;
+        }
+
+        private static Panel AddRow(GroupBox g)
+        {
+            var row = new Panel { Height = 26, Dock = DockStyle.Top };
+            g.Controls.Add(row);
+            g.Controls.SetChildIndex(row, 0);
+            return row;
+        }
+
+        private TextBox AddField(GroupBox g, string label, string value)
+        {
+            var row = AddRow(g);
+            var ctrl = new TextBox { Text = value, Dock = DockStyle.Fill };
+            var lbl = new Label { Text = label, Width = 130, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        private ComboBox AddCombo(GroupBox g, string label, string[] items, string current)
+        {
+            return AddComboList(g, label, items.ToList(), current);
+        }
+
+        private ComboBox AddComboList(GroupBox g, string label, List<string> items, string current)
+        {
+            var row = AddRow(g);
+            var ctrl = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            ctrl.Items.AddRange(items.ToArray());
+            ctrl.SelectedItem = items.Contains(current) ? current : (items.Count > 0 ? items[0] : null);
+            var lbl = new Label { Text = label, Width = 130, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+
+        private NumericUpDown AddNum(GroupBox g, string label, decimal val, decimal min, decimal max)
+        {
+            var row = AddRow(g);
+            var ctrl = new NumericUpDown { Minimum = min, Maximum = max, Width = 120, Dock = DockStyle.Left };
+            ctrl.Value = Math.Clamp(val, min, max);
+            var lbl = new Label { Text = label, Width = 130, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            row.Controls.SetChildIndex(ctrl, 0);
+            return ctrl;
+        }
+
+        private CheckBox AddCheck(GroupBox g, string label, bool isChecked)
+        {
+            var row = AddRow(g);
+            var ctrl = new CheckBox { Checked = isChecked, Dock = DockStyle.Fill };
+            var lbl = new Label { Text = label, Width = 130, Dock = DockStyle.Left, TextAlign = ContentAlignment.MiddleRight };
+            row.Controls.Add(ctrl);
+            row.Controls.Add(lbl);
+            return ctrl;
+        }
+    }
+
     private void OpenDialogueEditor()
     {
         using var dlg = new NpcDialogueEditorForm(_contentDbFile);
@@ -1938,11 +2288,12 @@ public partial class MainForm : Form
         foreach (var n in npcs)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO npcs (id, name, type, data) VALUES ($id,$n,$t,$d)
-                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type";
+            cmd.CommandText = @"INSERT INTO npcs (id, name, type, location, data) VALUES ($id,$n,$t,$l,$d)
+                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, location = excluded.location";
             cmd.Parameters.AddWithValue("$id", n.Id);
             cmd.Parameters.AddWithValue("$n", n.Name);
             cmd.Parameters.AddWithValue("$t", n.Type);
+            cmd.Parameters.AddWithValue("$l", n.Location ?? "");
             cmd.Parameters.AddWithValue("$d", dataMap.TryGetValue(n.Id, out var data) ? (object)data : DBNull.Value);
             cmd.ExecuteNonQuery();
         }
@@ -1985,19 +2336,17 @@ public partial class MainForm : Form
         catch { return defaultValue; }
     }
 
-    private string? GetMerchantNpcId()
-    {
-        using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
-        conn.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id FROM npcs WHERE type = 'merchant' LIMIT 1";
-        return cmd.ExecuteScalar()?.ToString();
-    }
-
     private static string NameById(List<(string Id, string Name)> refs, string id)
     {
         var found = refs.FirstOrDefault(r => r.Id == id);
         return found.Name ?? "";
+    }
+
+    private string NpcLocationById(string npcId)
+    {
+        if (string.IsNullOrEmpty(npcId)) return "";
+        if (_npcNameById.TryGetValue(npcId, out var name) && _npcLocationByName.TryGetValue(name, out var loc)) return loc;
+        return "";
     }
 
     private static string IdByName(List<(string Id, string Name)> refs, string name)
@@ -2007,6 +2356,7 @@ public partial class MainForm : Form
     }
 
     private static int ToInt(object? v) => int.TryParse(v?.ToString(), out int r) ? r : 0;
+    private static int QuestFlag(object? v) => v is bool b ? (b ? 1 : 0) : ToInt(v);
     private static double ToDouble(object? v) => double.TryParse(v?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out double r) ? r : 0;
     private static string CellStr(DataGridViewRow row, string col) => row.Cells[col].Value?.ToString() ?? "";
 
@@ -2017,5 +2367,6 @@ public partial class MainForm : Form
         public string Id { get; set; } = "";
         public string Name { get; set; } = "";
         public string Type { get; set; } = "";
+        public string Location { get; set; } = "";
     }
 }

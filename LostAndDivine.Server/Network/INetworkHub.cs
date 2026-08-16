@@ -29,5 +29,6 @@ public interface INetworkHub
     Task SendZoneTransition(ClientConnection connection, Player player);
     void LoadNpcCache();
     NpcPosition? FindNpcAt(string zoneId, int x, int y);
+    NpcPosition? FindNpcById(string zoneId, string npcId);
     void MarkZoneDirty(string zoneId);
 }

@@ -113,6 +113,13 @@ public sealed class GameServer : INetworkHub
         return cache?.FirstOrDefault(n => n.ZoneId == zoneId && n.X == x && n.Y == y);
     }
 
+    /// <summary>Поиск NPC в кеше по зоне и id (для travel-квестов).</summary>
+    public NpcPosition? FindNpcById(string zoneId, string npcId)
+    {
+        var cache = _npcCache;
+        return cache?.FirstOrDefault(n => n.ZoneId == zoneId && n.Id == npcId);
+    }
+
     public async Task BroadcastMapAsync()
     {
         var svc = _svc;
@@ -249,7 +256,7 @@ public sealed class GameServer : INetworkHub
                 Width = zoneMap.Width,
                 Height = zoneMap.Height,
                 Players = sameZonePlayers,
-                Merchant = BuildMerchantForZone(zoneId, merchant),
+                Merchant = BuildMerchantForZone(zoneId, merchant, player),
                 Board = BuildBoardForZone(zoneId, board) is { } b
                     ? new QuestBoardPosition { X = b.X, Y = b.Y, Name = b.Name, QuestIndicator = GetBoardIndicator(player) }
                     : null,
@@ -324,23 +331,36 @@ public sealed class GameServer : INetworkHub
     {
         var svc = _svc;
         string? result = null;
-        foreach (var def in svc.Quests.GetAvailableQuests())
+        foreach (var def in svc.Quests.GetAllDefinitions())
         {
-            if (def.TargetNpcId != npcId) continue;
+            // NPC связан с квестом: цель разговора/перехода, выдаёт квест (giver_npc_id),
+            // предлагает accept_quest/complete_quest в диалоге.
+            bool relates = def.TargetNpcId == npcId
+                || def.GiverNpcId == npcId
+                || svc.Dialogue.OffersAction(npcId, "accept_quest:" + def.Id)
+                || svc.Dialogue.OffersAction(npcId, "complete_quest:" + def.Id);
+            if (!relates) continue;
             var prog = player.ActiveQuests.FirstOrDefault(q => q.QuestId == def.Id);
             if (prog == null)
             {
-                // «!» — квест можно взять (предусловия цепочки выполнены, и NPC реально его выдаёт)
+                // «!» (жёлтый) — квест можно взять у этого NPC.
+                // TargetNpcId сюда не входит: это NPC сдачи, а не выдачи.
                 if (result == null && svc.Quests.CanTakeQuest(player, def) &&
-                    svc.Dialogue.OffersQuest(npcId, def.Id))
+                    (def.GiverNpcId == npcId ||
+                     svc.Dialogue.OffersAction(npcId, "accept_quest:" + def.Id)))
                     result = "available";
             }
-            else if (prog.Completed && result != "available")
+            else if (prog.Completed)
             {
-                result = "ready";
+                // «?» (жёлтый) — квест можно сдать этому NPC (условия выполнены)
+                if ((result == null || result == "active") &&
+                    (def.GiverNpcId == npcId || def.TargetNpcId == npcId ||
+                     svc.Dialogue.OffersAction(npcId, "complete_quest:" + def.Id)))
+                    result = "ready";
             }
             else if (result == null)
             {
+                // «?» (серый) — квест взят, но условия ещё не выполнены
                 result = "active";
             }
         }
@@ -374,6 +394,8 @@ public sealed class GameServer : INetworkHub
                 Description = def?.Description ?? "",
                 Type = def?.Type ?? "kill",
                 Target = def?.Target ?? 0,
+                TargetZoneId = def?.TargetZoneId ?? "",
+                TargetNpcId = def?.TargetNpcId ?? "",
                 XpReward = def?.XpReward ?? 0,
                 GoldReward = def?.GoldReward ?? 0,
                 q.Current,
@@ -836,16 +858,20 @@ public sealed class GameServer : INetworkHub
         });
     }
 
-    private static MerchantPosition? BuildMerchantForZone(string zoneId, MerchantPosition defaultMerchant)
+    private MerchantPosition? BuildMerchantForZone(string zoneId, MerchantPosition defaultMerchant, Player player)
     {
         var svc = Program.Services;
         if (svc == null) return defaultMerchant;
         var tiled = svc.Zones.GetTiledNpcs(zoneId);
         var mt = tiled.FirstOrDefault(n =>
             string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
-        return mt != null
-            ? new MerchantPosition { X = mt.X, Y = mt.Y, Name = defaultMerchant.Name }
-            : defaultMerchant;
+        if (mt != null)
+        {
+            var pos = new MerchantPosition { X = mt.X, Y = mt.Y, Name = defaultMerchant.Name };
+            pos.QuestIndicator = GetQuestIndicator(mt.Name, player);
+            return pos;
+        }
+        return defaultMerchant;
     }
 
     private static QuestBoardPosition? BuildBoardForZone(string zoneId, QuestBoardPosition? defaultBoard)

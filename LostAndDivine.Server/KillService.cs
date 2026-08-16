@@ -238,5 +238,7 @@ public class KillService
             await ChatTo(client, ChatChannel.System, "Система", msg);
         }
         await _hub.SendQuestLog(client, player);
+        _hub.MarkZoneDirty(player.CurrentZoneId);
+        await _hub.BroadcastMapAsync();
     }
 }

@@ -219,6 +219,8 @@ public sealed class QuestInfo
     public string? Description { get; set; }
     public string? Type { get; set; }
     public int Target { get; set; }
+    public string? TargetZoneId { get; set; }
+    public string? TargetNpcId { get; set; }
     public int XpReward { get; set; }
     public int GoldReward { get; set; }
     public int Current { get; set; }

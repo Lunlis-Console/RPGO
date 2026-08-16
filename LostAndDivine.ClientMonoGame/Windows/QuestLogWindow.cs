@@ -217,6 +217,10 @@ public sealed class QuestLogWindow : GameWindow
             "explore" => "Исследовать",
             _ => "Выполнить"
         };
+        if (!string.IsNullOrEmpty(q.TargetZoneId))
+            return $"{verb}: {q.TargetZoneId}";
+        if (!string.IsNullOrEmpty(q.TargetNpcId))
+            return $"{verb}: {q.TargetNpcId}";
         return $"{verb}: {q.Target}";
     }
 

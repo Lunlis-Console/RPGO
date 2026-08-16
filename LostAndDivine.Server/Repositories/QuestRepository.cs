@@ -12,7 +12,7 @@ internal static class QuestRepository
             var result = new List<QuestDefinition>();
             using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count FROM quests_def";
+            cmd.CommandText = "SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable FROM quests_def";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
@@ -34,6 +34,14 @@ internal static class QuestRepository
                     MinLevel = reader.IsDBNull(13) ? 1 : reader.GetInt32(13),
                     ItemRewardId = reader.IsDBNull(14) ? "" : reader.GetString(14),
                     ItemRewardCount = reader.IsDBNull(15) ? 0 : reader.GetInt32(15),
+                    TargetZoneId = reader.IsDBNull(16) ? "" : reader.GetString(16),
+                    TargetX = reader.IsDBNull(17) ? 0 : reader.GetInt32(17),
+                    TargetY = reader.IsDBNull(18) ? 0 : reader.GetInt32(18),
+                    AutoGrant = !reader.IsDBNull(19) && reader.GetInt32(19) != 0,
+                    GiverNpcId = reader.IsDBNull(20) ? "" : reader.GetString(20),
+                    IsStory = !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
+                    Location = reader.IsDBNull(22) ? "" : reader.GetString(22),
+                    Repeatable = !reader.IsDBNull(23) && reader.GetInt32(23) != 0,
                 });
             }
             return result;

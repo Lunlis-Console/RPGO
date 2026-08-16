@@ -62,55 +62,11 @@ public class InteractionService
                 break;
 
             case "merchant":
-                Log.Debug($"{player.Name} открыл магазин");
-                await _svc.Hub.SendToClient(client, new GameMessage
-                {
-                    Type = "shop_response",
-                    Data = new
-                    {
-                        MerchantX = _svc.Merchant.MerchantX,
-                        MerchantY = _svc.Merchant.MerchantY,
-                        MerchantName = "Торговец",
-                        Discount = 0,
-                        Items = _svc.Merchant.ShopItems.Select(i => new
-                        {
-                            i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity,
-                            Value = Balance.BuyPrice(i.Value),
-                            OriginalValue = i.Value,
-                            i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
-                            i.Stock, i.MaxStack, IsBuyback = false,
-                            BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
-                            BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
-                            BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
-                            BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
-                            BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
-                            BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
-                            BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
-                            BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
-                            i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
-                            i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
-                        }).ToList(),
-                        Buyback = player.BuybackItems.Select(b => new
-                        {
-                            b.Id, b.TemplateId, b.Name, b.Type, b.WeaponSubtype, b.Quantity,
-                            Value = Balance.BuybackPrice(b.Value),
-                            OriginalValue = b.Value,
-                        b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
-                        b.MaxStack, IsBuyback = true, Stock = 0,
-                            BonusStrength = b.BonusStrength, BonusEndurance = b.BonusEndurance,
-                            BonusAgility = b.BonusAgility, BonusCunning = b.BonusCunning,
-                            BonusIntellect = b.BonusIntellect, BonusWisdom = b.BonusWisdom,
-                            BonusPhysAttack = b.BonusPhysAttack, BonusMagAttack = b.BonusMagAttack,
-                            BonusDefense = b.BonusDefense, BonusResistance = b.BonusResistance,
-                            BonusCritChance = b.BonusCritChance, BonusCritDamage = b.BonusCritDamage,
-                            BonusEvadeChance = b.BonusEvadeChance, BonusAttackSpeed = b.BonusAttackSpeed,
-                            BonusBlockChance = b.BonusBlockChance, BonusParryChance = b.BonusParryChance,
-                            b.DamageType, b.RequiredLevel, b.DamageMin, b.DamageMax,
-                            b.AttackSpeedModifier, b.TwoHanded, b.AttackRange
-                        }).ToList(),
-                        PlayerGold = player.Gold
-                    }
-                });
+                // Сначала пытаемся проиграть диалог торговца (если он есть, например
+                // приветствие с action: open_shop). Нет диалога — открываем магазин сразу.
+                if (await TryStartDialogue(player, client, player.CurrentZoneId, player.Interaction.X, player.Interaction.Y))
+                    break;
+                await OpenShop(player, client);
                 break;
 
             case "board":
@@ -130,24 +86,8 @@ public class InteractionService
 
             case "npc":
                 {
-                    if (player.Dialogue.IsActive) break;
-                    var npc = _svc.Hub.FindNpcAt(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
-                    if (npc != null)
-                    {
-                        var startNode = _svc.Dialogue.GetStartNodeId(npc.Id);
-                        if (startNode != null)
-                        {
-                            player.Dialogue.Start(npc.Id, startNode);
-                            var tree = _svc.Dialogue.GetTree(npc.Id);
-                            if (tree != null)
-                            {
-                                await _svc.Dialogue.SendNode(client, player, tree, startNode);
-                                _svc.Quests.IncrementTalkProgress(player, npc.Id);
-                                await _svc.Hub.SendQuestLog(client, player);
-                            }
-                            break;
-                        }
-                    }
+                    if (await TryStartDialogue(player, client, player.CurrentZoneId, player.Interaction.X, player.Interaction.Y))
+                        break;
 
                     // Если у NPC нет диалога — пробуем портал инстанса
                     var portal = _svc.Instances.FindPortal(player.CurrentZoneId, player.Interaction.X, player.Interaction.Y);
@@ -316,6 +256,84 @@ public class InteractionService
     }
 
     /// <summary>
+    /// Если у NPC на указанных координатах есть диалог — начать его и отправить стартовую
+    /// ноду клиенту. Возвращает true, когда диалог начат (или уже активен).
+    /// </summary>
+    private async Task<bool> TryStartDialogue(Player player, ClientConnection client, string zoneId, int x, int y)
+    {
+        if (player.Dialogue.IsActive) return true;
+        var npc = _svc.Hub.FindNpcAt(zoneId, x, y);
+        if (npc == null) return false;
+        var startNode = _svc.Dialogue.GetStartNodeId(npc.Id);
+        if (startNode == null) return false;
+        player.Dialogue.Start(npc.Id, startNode);
+        var tree = _svc.Dialogue.GetTree(npc.Id);
+        if (tree == null) return false;
+        await _svc.Dialogue.SendNode(client, player, tree, startNode);
+        _svc.Quests.IncrementTalkProgress(player, npc.Id);
+        await _svc.Hub.SendQuestLog(client, player);
+        _svc.Hub.MarkZoneDirty(player.CurrentZoneId);
+        await _svc.Hub.BroadcastMapAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// Открыть окно магазина торговца (без диалога).
+    /// </summary>
+    internal async Task OpenShop(Player player, ClientConnection client)
+    {
+        Log.Debug($"{player.Name} открыл магазин");
+        await _svc.Hub.SendToClient(client, new GameMessage
+        {
+            Type = "shop_response",
+            Data = new
+            {
+                MerchantX = _svc.Merchant.MerchantX,
+                MerchantY = _svc.Merchant.MerchantY,
+                MerchantName = "Торговец",
+                Discount = 0,
+                Items = _svc.Merchant.ShopItems.Select(i => new
+                {
+                    i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity,
+                    Value = Balance.BuyPrice(i.Value),
+                    OriginalValue = i.Value,
+                    i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
+                    i.Stock, i.MaxStack, IsBuyback = false,
+                    BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
+                    BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
+                    BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
+                    BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
+                    BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+                    BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
+                    BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
+                    BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+                    i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
+                    i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
+                }).ToList(),
+                Buyback = player.BuybackItems.Select(b => new
+                {
+                    b.Id, b.TemplateId, b.Name, b.Type, b.WeaponSubtype, b.Quantity,
+                    Value = Balance.BuybackPrice(b.Value),
+                    OriginalValue = b.Value,
+                    b.MaxHealthBonus, b.HealAmount, b.RestoreMana, b.Description,
+                    b.MaxStack, IsBuyback = true, Stock = 0,
+                    BonusStrength = b.BonusStrength, BonusEndurance = b.BonusEndurance,
+                    BonusAgility = b.BonusAgility, BonusCunning = b.BonusCunning,
+                    BonusIntellect = b.BonusIntellect, BonusWisdom = b.BonusWisdom,
+                    BonusPhysAttack = b.BonusPhysAttack, BonusMagAttack = b.BonusMagAttack,
+                    BonusDefense = b.BonusDefense, BonusResistance = b.BonusResistance,
+                    BonusCritChance = b.BonusCritChance, BonusCritDamage = b.BonusCritDamage,
+                    BonusEvadeChance = b.BonusEvadeChance, BonusAttackSpeed = b.BonusAttackSpeed,
+                    BonusBlockChance = b.BonusBlockChance, BonusParryChance = b.BonusParryChance,
+                    b.DamageType, b.RequiredLevel, b.DamageMin, b.DamageMax,
+                    b.AttackSpeedModifier, b.TwoHanded, b.AttackRange
+                }).ToList(),
+                PlayerGold = player.Gold
+            }
+        });
+    }
+
+    /// <summary>
     /// Цикл перемещения игроков по путям + обработка отмены обмена при удалении.
     /// </summary>
     public async Task RunMovePathLoop(CancellationToken ct)
@@ -351,7 +369,10 @@ public class InteractionService
                     if (monster != null && monster.Health > 0 && monster.ZoneId == pl.CurrentZoneId)
                     {
                         if (_svc.Combat.ChaseTarget(pl, monster))
+                        {
                             _svc.Hub.MarkZoneDirty(pl.CurrentZoneId);
+                            await CheckTravelProgress(pl);
+                        }
                     }
                     else if (monster == null || monster.Health <= 0 || monster.ZoneId != pl.CurrentZoneId)
                     {
@@ -410,6 +431,7 @@ public class InteractionService
             pl.Movement.LastMoveTime = DateTime.UtcNow;
             moved = true;
             _svc.Hub.MarkZoneDirty(pl.CurrentZoneId);
+            await CheckTravelProgress(pl);
 
             if (pl.CurrentZoneId.StartsWith("instance:"))
             {
@@ -468,6 +490,21 @@ public class InteractionService
         if (moved) await _svc.Hub.BroadcastMapAsync();
     }
 
+    /// <summary>Прогресс travel-квестов после перемещения игрока.</summary>
+    private async Task CheckTravelProgress(Player pl)
+    {
+        var conn = _svc.World.FindClientByPlayer(pl);
+        if (conn == null) return;
+        var results = _svc.Quests.IncrementTravelProgress(pl, pl.CurrentZoneId, pl.X, pl.Y);
+        if (results.Count == 0) return;
+        foreach (var (title, current, target, completed) in results)
+        {
+            await ChatTo(conn, ChatChannel.System, "Система",
+                completed ? $"[Задание] {title}: цель достигнута!" : $"[Задание] {title}: {current}/{target}");
+        }
+        await _svc.Hub.SendQuestLog(conn, pl);
+    }
+
     private async Task HandleZoneTransition(Player player, WorldPortal portal)
     {
         string fromZone = player.CurrentZoneId;
@@ -487,5 +524,30 @@ public class InteractionService
                 $"Вы вошли в зону: {zoneName}{(targetZone?.PvpEnabled == true ? " [PvP]" : "")}");
         }
         await _svc.Hub.BroadcastMapAsync();
+
+        // Квесты: explore-цели, авто-выдача и travel в точке прибытия
+        if (conn != null)
+        {
+            var exploreResults = _svc.Quests.IncrementExploreProgress(player, portal.ToZone);
+            foreach (var (title, current, target, completed) in exploreResults)
+            {
+                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
+                    completed ? $"[Задание] {title}: зона исследована!" : $"[Задание] {title}: {current}/{target}");
+            }
+
+            var granted = _svc.Quests.TryAutoGrant(player, portal.ToZone);
+            foreach (var d in granted)
+                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", $"Новое задание: {d.Title}");
+
+            var travelResults = _svc.Quests.IncrementTravelProgress(player, portal.ToZone, player.X, player.Y);
+            foreach (var (title, current, target, completed) in travelResults)
+            {
+                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
+                    completed ? $"[Задание] {title}: цель достигнута!" : $"[Задание] {title}: {current}/{target}");
+            }
+
+            if (exploreResults.Count + granted.Count + travelResults.Count > 0)
+                await _svc.Hub.SendQuestLog(conn, player);
+        }
     }
 }

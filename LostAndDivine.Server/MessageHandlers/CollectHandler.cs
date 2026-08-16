@@ -41,6 +41,7 @@ public class CollectHandler : BaseHandler
         }
 
         await SendQuestLog(connection, player);
+        Svc.Hub.MarkZoneDirty(player.CurrentZoneId);
         await BroadcastMapAsync();
     }
 }

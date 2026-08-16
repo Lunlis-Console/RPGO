@@ -1489,6 +1489,17 @@ private sealed class RemotePlayerState
                 float mpy = _gridOY + (map.Merchant.Y - startY) * _cellH - mSize.Y - 4;
                 sb.DrawString(mFont, map.Merchant.Name, new Vector2(mpx - mSize.X / 2 + 1, mpy + 1), Color.Black);
                 sb.DrawString(mFont, map.Merchant.Name, new Vector2(mpx - mSize.X / 2, mpy), Color.White);
+                if (!string.IsNullOrEmpty(map.Merchant.QuestIndicator))
+                {
+                    string icon = map.Merchant.QuestIndicator == "available" ? "!" : "?";
+                    Color iconColor = map.Merchant.QuestIndicator == "ready" ? Color.Yellow
+                                    : map.Merchant.QuestIndicator == "available" ? Color.Yellow
+                                    : new Color(160, 160, 160);
+                    var sz = mFont.MeasureString(icon);
+                    float px = mpx - sz.X;
+                    float py = mpy - sz.Y * 2 - 4;
+                    sb.DrawString(mFont, icon, new Vector2(px, py), iconColor, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
+                }
             }
         }
         if (map.Board != null && map.Board.X >= startX && map.Board.X <= endX && map.Board.Y >= startY && map.Board.Y <= endY)

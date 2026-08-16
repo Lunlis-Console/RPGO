@@ -8,7 +8,12 @@ public class QuestDefinition
     public string Type { get; set; } = "kill";           // kill / collect / talk / travel / use
     public string TargetMonsterId { get; set; } = "";   // M0001...
     public string TargetItemId { get; set; } = "";       // I0015...
-    public string TargetNpcId { get; set; } = "";        // N0001... (для talk-квестов)
+    public string TargetNpcId { get; set; } = "";        // N0001... (для talk/travel-квестов)
+    public string GiverNpcId { get; set; } = "";         // N0001... (NPC, выдающий квест)
+    public string TargetZoneId { get; set; } = "";       // Цель-зона (explore) или зона авто-выдачи
+    public int TargetX { get; set; }                      // Точка на карте (travel)
+    public int TargetY { get; set; }
+    public bool AutoGrant { get; set; }                   // Выдавать автоматически при входе в зону
     public int Target { get; set; }
 
     // Сюжетная цепочка
@@ -21,6 +26,10 @@ public class QuestDefinition
     public int GoldReward { get; set; }
     public string ItemRewardId { get; set; } = "";        // Предмет-награда
     public int ItemRewardCount { get; set; }
+
+    public bool IsStory { get; set; }                     // Сюжетный квест (флаг из редактора)
+    public bool Repeatable { get; set; }                  // Повторяемый: после сдачи можно взять снова
+    public string Location { get; set; } = "";            // Локация (из редактора)
 }
 
 public class QuestProgress

@@ -25,7 +25,7 @@ public class NpcDialogueEditorForm : Form
     private DialogueTree? _tree;
     private string _currentNpcId = "";
 
-    public NpcDialogueEditorForm(string dbFile)
+    public NpcDialogueEditorForm(string dbFile, string? presetNpcId = null)
     {
         _dbFile = dbFile;
         Text = "Редактор диалогов NPC";
@@ -34,6 +34,11 @@ public class NpcDialogueEditorForm : Form
         StartPosition = FormStartPosition.CenterParent;
         BuildUI();
         LoadNpcs();
+        if (!string.IsNullOrEmpty(presetNpcId))
+        {
+            int idx = _npcs.FindIndex(n => string.Equals(n.Id, presetNpcId, StringComparison.OrdinalIgnoreCase));
+            if (idx >= 0) _npcSelector.SelectedIndex = idx;
+        }
     }
 
     private void BuildUI()
@@ -42,8 +47,8 @@ public class NpcDialogueEditorForm : Form
         var npcLabel = new Label { Text = "NPC:", Dock = DockStyle.Left, Width = 42, TextAlign = ContentAlignment.MiddleLeft };
         _npcSelector = new ComboBox { Dock = DockStyle.Left, Width = 320, DropDownStyle = ComboBoxStyle.DropDownList };
         _npcSelector.SelectedIndexChanged += (s, e) => LoadDialogueForSelected();
-        top.Controls.Add(_npcSelector);
         top.Controls.Add(npcLabel);
+        top.Controls.Add(_npcSelector);
         Controls.Add(top);
 
         var nodePanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
@@ -78,13 +83,13 @@ public class NpcDialogueEditorForm : Form
 
         var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
 
-        var fields = new Panel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 0, 0, 6) };
+        var fields = new Panel { Dock = DockStyle.Top, Height = 184, Padding = new Padding(0, 0, 0, 6) };
         _speakerBox = new TextBox { Dock = DockStyle.Fill };
-        _textBox = new TextBox { Dock = DockStyle.Fill, Multiline = true, Height = 90, ScrollBars = ScrollBars.Vertical };
+        _textBox = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical };
         _speakerBox.TextChanged += (s, e) => ApplyNodeEdit();
         _textBox.TextChanged += (s, e) => ApplyNodeEdit();
-        fields.Controls.Add(MakeField("Реплика:", _textBox));
-        fields.Controls.Add(MakeField("Кто говорит:", _speakerBox));
+        fields.Controls.Add(MakeField("Реплика:", _textBox, 140));
+        fields.Controls.Add(MakeField("Кто говорит:", _speakerBox, 28));
 
         _choicesGrid = MakeGrid();
         _choicesGrid.CellEndEdit += (s, e) => ApplyChoiceEdit();
@@ -343,10 +348,10 @@ public class NpcDialogueEditorForm : Form
 
     // === helpers ===
 
-    private Panel MakeField(string labelText, Control ctrl)
+    private Panel MakeField(string labelText, Control ctrl, int height = 26)
     {
-        var p = new Panel { Dock = DockStyle.Top, Height = 26 };
-        var lbl = new Label { Text = labelText, Dock = DockStyle.Left, Width = 96, TextAlign = ContentAlignment.MiddleRight };
+        var p = new Panel { Dock = DockStyle.Top, Height = height };
+        var lbl = new Label { Text = labelText, Dock = DockStyle.Left, Width = 110, TextAlign = ContentAlignment.MiddleRight };
         ctrl.Dock = DockStyle.Fill;
         p.Controls.Add(ctrl);
         p.Controls.Add(lbl);
