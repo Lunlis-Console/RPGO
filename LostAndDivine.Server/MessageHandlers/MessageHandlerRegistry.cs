@@ -31,6 +31,7 @@ public class MessageHandlerRegistry
         Register("inventory_request", new InventoryRequestHandler(svc));
         Register("equip", new EquipHandler(svc));
         Register("unequip", new UnequipHandler(svc));
+        Register("unequip_all", new UnequipAllHandler(svc));
         Register("use_item", new UseItemHandler(svc));
         Register("collect", new CollectHandler(svc));
         Register("inventory_sort", new InventorySortHandler(svc));

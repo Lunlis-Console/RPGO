@@ -13,6 +13,7 @@ public class EquipmentWindow : GameWindow
 
     public Action<string>? UnequipItem; // slot id
     public Action<string, string>? MoveToSlot; // source slot id, target slot id
+    public Action? UnequipAll;
     public Action? CloseRequested;
 
     // Тип предмета, который сейчас перетаскивается (для подсветки слотов)
@@ -26,6 +27,7 @@ public class EquipmentWindow : GameWindow
 
     private Rectangle[] _rowRects = Array.Empty<Rectangle>();
     private Rectangle _closeRect;
+    private Rectangle _unequipAllRect;
     private Item? _hoverItem;
 
     private MouseState _prevMouseLocal;
@@ -70,7 +72,11 @@ public class EquipmentWindow : GameWindow
             cells[i] = new Rectangle(x, y, cell, cell);
         }
         _rowRects = cells;
-        _closeRect = new Rectangle(ContentX, Y + Height - 26, ContentW, 22);
+        // Нижняя панель: «Снять всё» слева, «Закрыть» справа (не перекрывают сетку слотов)
+        int barY = Y + Height - 26;
+        int unequipW = (ContentW - 6) / 2;
+        _unequipAllRect = new Rectangle(ContentX, barY, unequipW, 22);
+        _closeRect = new Rectangle(ContentX + unequipW + 6, barY, ContentW - unequipW - 6, 22);
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -86,6 +92,14 @@ public class EquipmentWindow : GameWindow
         bool leftPressed = mouse.LeftButton == ButtonState.Pressed && _prevMouseLocal.LeftButton == ButtonState.Released;
         bool rightPressed = mouse.RightButton == ButtonState.Pressed && _prevMouseLocal.RightButton == ButtonState.Released;
         bool leftReleased = mouse.LeftButton == ButtonState.Released && _prevMouseLocal.LeftButton == ButtonState.Pressed;
+
+        // Кнопка «Снять всё»
+        if (leftPressed && _unequipAllRect.Contains(mouse.X, mouse.Y))
+        {
+            UnequipAll?.Invoke();
+            _prevMouseLocal = mouse;
+            return;
+        }
 
         // Кнопка "Закрыть"
         if (leftPressed && _closeRect.Contains(mouse.X, mouse.Y))
@@ -238,6 +252,7 @@ public class EquipmentWindow : GameWindow
             }
         }
 
+            DrawButtonHover(sb, "Снять всё", _unequipAllRect, mouse, new Color(70, 85, 60));
             DrawButtonHover(sb, "Закрыть", _closeRect, mouse);
 
         if (_hoverItem != null)
