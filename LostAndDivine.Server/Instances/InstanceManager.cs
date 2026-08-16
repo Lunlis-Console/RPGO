@@ -323,6 +323,7 @@ public class InstanceManager
         var members = party.Members
             .Select(id => _svc.World.TryGetPlayer(id, out var m) && m != null ? m : null)
             .Where(m => m != null && m.Id != leader.Id)
+            .Select(m => m!)
             .ToList();
         if (members.Count == 0)
         {
@@ -428,9 +429,10 @@ public class InstanceManager
 
         if (readyMembers.Count == 0)
         {
-            await _svc.Hub.SendChatToAsync(
-                _svc.World.GetConnectionByPlayerName(session.Leader.Name), ChatChannel.System, "Система",
-                "Никто из готовых игроков не прошёл проверку уровня.");
+            var noOneConn = _svc.World.GetConnectionByPlayerName(session.Leader.Name);
+            if (noOneConn != null)
+                await _svc.Hub.SendChatToAsync(noOneConn, ChatChannel.System, "Система",
+                    "Никто из готовых игроков не прошёл проверку уровня.");
             return;
         }
 
@@ -663,14 +665,23 @@ public class InstanceManager
             instance.Monsters.Add(monster);
         }
 
+        // Пул рядовых мобов: без манекенов и коменданта подземелий (комендант — только босс),
+        // а также без босса этого шаблона
+        var regularPool = _svc.World.GetMonsterTemplates()
+            .Where(t => !string.Equals(t.Id, "MANNEQUIN", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(t.Id, "M0020", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(t.Id, template.BossMonsterId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (regularPool.Count == 0)
+            regularPool = _svc.World.GetMonsterTemplates().ToList();
+
         if (_dungeonSpawns != null && _dungeonSpawns.MonsterSpawns.Count > 0)
         {
             // Спавним монстров из Tiled-точек
-            var allTemplates = _svc.World.GetMonsterTemplates();
             for (int i = 0; i < _dungeonSpawns.MonsterSpawns.Count; i++)
             {
                 var (sx, sy) = _dungeonSpawns.MonsterSpawns[i];
-                var tpl = allTemplates[rng.Next(allTemplates.Count)];
+                var tpl = regularPool[rng.Next(regularPool.Count)];
                 // Групповой инстанс: обычных мобов в 2.5 раза больше (чередуем 3/2 копии)
                 int copies = isGroup ? (i % 2 == 0 ? 3 : 2) : 1;
                 for (int c = 0; c < copies; c++)
@@ -707,7 +718,7 @@ public class InstanceManager
                 if (spawnedIds.Contains(walkable[idx].ToString())) continue;
                 spawnedIds.Add(walkable[idx].ToString());
                 var (sx, sy) = walkable[idx];
-                var (monId, isBoss) = i == mobCount - 1 ? (template.BossMonsterId, true) : (_svc.World.GetMonsterTemplates()[rng.Next(_svc.World.GetMonsterTemplates().Count)].Id, false);
+                var (monId, isBoss) = i == mobCount - 1 ? (template.BossMonsterId, true) : (regularPool[rng.Next(regularPool.Count)].Id, false);
                 DoSpawn(monId, sx, sy, isBoss);
             }
         }
