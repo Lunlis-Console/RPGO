@@ -23,6 +23,9 @@ public class QuestManager
     private int? _tiledX;
     private int? _tiledY;
 
+    /// <summary>Id NPC-доски (задаётся в БД); квесты с таким выдающим показываются на доске.</summary>
+    public string BoardNpcId { get; private set; } = "N0002";
+
     // Предметы с флагом quest_item (шаблоны) и названия квестового лута (loot_tables)
     private readonly HashSet<string> _questItemIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _questItemNames = new(StringComparer.OrdinalIgnoreCase);
@@ -46,6 +49,7 @@ public class QuestManager
     public void Initialize()
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "board");
+        if (npc != null) BoardNpcId = npc.Id;
         if (_tiledX.HasValue && _tiledY.HasValue)
         {
             BoardX = _tiledX.Value;
@@ -142,9 +146,13 @@ public class QuestManager
         return true;
     }
 
-    /// <summary>Квесты, доступные игроку сейчас (с учётом цепочек).</summary>
+    /// <summary>
+    /// Квесты, доступные на доске заданий (с учётом цепочек).
+    /// Доска показывает только квесты, которые назначены на неё (GiverNpcId = доска);
+    /// квесты других NPC-выдатчиков на доске не появляются.
+    /// </summary>
     public List<QuestDefinition> GetAvailableQuests(Player player) =>
-        _quests.Where(q => CanTakeQuest(player, q)).ToList();
+        _quests.Where(q => q.GiverNpcId == BoardNpcId && CanTakeQuest(player, q)).ToList();
 
     /// <summary>
     /// Взять квест: добавляет в активные с текущим прогрессом (для collect — по инвентарю).

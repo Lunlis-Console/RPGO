@@ -44,6 +44,13 @@ public class TakeQuestHandler : BaseHandler
             return;
         }
 
+        if (def.GiverNpcId != Svc.Quests.BoardNpcId)
+        {
+            await SendError(connection, ErrorCodes.QuestNotAvailable,
+                "Это задание выдаётся у NPC, а не на доске заданий.");
+            return;
+        }
+
         if (!Svc.Quests.CanTakeQuest(player, def))
         {
             if (player.Level < def.MinLevel)
