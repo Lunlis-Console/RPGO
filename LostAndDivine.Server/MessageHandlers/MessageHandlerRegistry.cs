@@ -32,6 +32,11 @@ public class MessageHandlerRegistry
         Register("equip", new EquipHandler(svc));
         Register("unequip", new UnequipHandler(svc));
         Register("unequip_all", new UnequipAllHandler(svc));
+        Register("instance_list_request", new InstanceListRequestHandler(svc));
+        Register("instance_enter_solo", new InstanceEnterSoloHandler(svc));
+        Register("instance_invite", new InstanceInviteHandler(svc));
+        Register("instance_invite_response", new InstanceInviteResponseHandler(svc));
+        Register("instance_start", new InstanceStartHandler(svc));
         Register("use_item", new UseItemHandler(svc));
         Register("collect", new CollectHandler(svc));
         Register("inventory_sort", new InventorySortHandler(svc));

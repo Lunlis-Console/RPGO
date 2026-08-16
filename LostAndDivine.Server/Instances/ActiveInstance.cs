@@ -8,6 +8,7 @@ public class ActiveInstance
     public string InstanceZoneId => $"instance:{Id:N}";
     public InstanceTemplate Template { get; }
     public GameMap Map { get; }
+    public InstanceMode Mode { get; }
     public List<Monster> Monsters { get; } = new();
     public List<Player> Players { get; } = new();
     public bool ChestLocked { get; set; } = true;
@@ -33,10 +34,11 @@ public class ActiveInstance
     public int EffectiveExitX => _exitX > 0 ? _exitX : Template.ExitX + OffsetX;
     public int EffectiveExitY => _exitY > 0 ? _exitY : Template.ExitY + OffsetY;
 
-    public ActiveInstance(InstanceTemplate template, GameMap map)
+    public ActiveInstance(InstanceTemplate template, GameMap map, InstanceMode mode = InstanceMode.Solo)
     {
         Template = template;
         Map = map;
+        Mode = mode;
         ExpiresAt = CreatedAt.AddSeconds(template.TimeLimitSeconds);
         var (ox, oy) = InstanceManager.GetCorridorOffset(template);
         OffsetX = ox;

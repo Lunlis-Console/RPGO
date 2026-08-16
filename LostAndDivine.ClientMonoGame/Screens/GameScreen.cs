@@ -40,6 +40,9 @@ public class GameScreen : IScreen
     private readonly LogoutConfirmWindow _logoutConfirmWindow = new();
     private readonly PartyInviteWindow _partyInviteWindow = new();
     private readonly TradeRequestWindow _tradeRequestWindow = new();
+    private readonly InstanceInviteWindow _instanceInviteWindow = new();
+    private readonly InstanceWindow _instanceWindow = new();
+    private PartyInfo? _partyInfo;
     private readonly SocialWindow _socialWindow;
     private readonly DeathWindow _deathWindow = new();
     private readonly DialogueWindow _dialogueWindow = new();
@@ -76,6 +79,7 @@ public class GameScreen : IScreen
         WireMapEvents();
         WireCombatEvents();
         WirePartyEvents();
+        WireInstanceEvents();
         WireStatusEvents();
         WireInventoryEvents();
         WireHotbarEvents();
@@ -285,6 +289,7 @@ public class GameScreen : IScreen
     {
         _client.PartyUpdated += party =>
         {
+            _partyInfo = party;
             _hudRenderer.UpdateParty(party);
             var myName = _client.PlayerName;
             var groupNames = party.Members
@@ -304,6 +309,7 @@ public class GameScreen : IScreen
         };
         _client.PartyDisbanded += () =>
         {
+            _partyInfo = null;
             if (_lastPartyMemberCount > 0)
                 _chatRenderer.AddMessage(ChatChannel.Party, "Группа", "Группа распущена.");
             _lastPartyMemberCount = 0;
@@ -319,6 +325,34 @@ public class GameScreen : IScreen
         };
         _partyInviteWindow.Accepted += inviterName => _ = _client.SendAsync("party_accept", new { InviterName = inviterName });
         _partyInviteWindow.Declined += inviterName => _ = _client.SendAsync("party_decline", new { InviterName = inviterName });
+    }
+
+    private void WireInstanceEvents()
+    {
+        _client.InstanceWindowOpened += () =>
+        {
+            bool isLeader = _partyInfo != null && _partyInfo.LeaderId == _client.PlayerId;
+            _instanceWindow.Show(isLeader);
+            _windows.BringToFront(_instanceWindow);
+            _ = _client.SendAsync("instance_list_request", null);
+        };
+        _client.InstanceListReceived += list => _instanceWindow.SetInstances(list);
+        _client.InstanceInviteReceived += (leaderName, templateName, templateId) =>
+        {
+            _instanceInviteWindow.Show(leaderName, templateName);
+            _windows.BringToFront(_instanceInviteWindow);
+        };
+        _client.InstanceInviteUpdate += (templateName, members) => _instanceWindow.SetSession(templateName, members);
+        _client.InstanceStarted += (templateName, mode) =>
+        {
+            _instanceWindow.OnStarted(templateName, mode);
+            _instanceInviteWindow.Visible = false;
+        };
+        _instanceWindow.SoloRequested += templateId => _ = _client.SendAsync("instance_enter_solo", new { TemplateId = templateId });
+        _instanceWindow.GroupRequested += templateId => _ = _client.SendAsync("instance_invite", new { TemplateId = templateId });
+        _instanceWindow.StartRequested += () => _ = _client.SendAsync("instance_start", null);
+        _instanceInviteWindow.Ready += () => _ = _client.SendAsync("instance_invite_response", new { Ready = true });
+        _instanceInviteWindow.Cancelled += () => _ = _client.SendAsync("instance_invite_response", new { Ready = false });
     }
 
     private void WireStatusEvents()
@@ -928,6 +962,8 @@ public class GameScreen : IScreen
         _windows.Add(_logoutConfirmWindow);
         _windows.Add(_partyInviteWindow);
         _windows.Add(_tradeRequestWindow);
+        _windows.Add(_instanceInviteWindow);
+        _windows.Add(_instanceWindow);
         _windows.Add(_socialWindow);
         _windows.Add(_deathWindow);
         _windows.Add(_dialogueWindow);

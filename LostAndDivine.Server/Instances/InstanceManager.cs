@@ -14,6 +14,7 @@ public class InstanceManager
     private readonly List<InstanceTemplate> _templates = new();
     private readonly List<InstancePortal> _portals = new();
     private readonly Dictionary<(string Zone, int X, int Y), InstancePortal> _portalLookup = new();
+    private readonly List<InstanceInviteSession> _inviteSessions = new();
     private GameMap? _dungeonTemplate;
     private DungeonSpawnData? _dungeonSpawns;
 
@@ -179,7 +180,7 @@ public class InstanceManager
         return inst?.Map;
     }
 
-    private Item? RollRewardWeapon(int playerLevel, int dungeonLevel)
+    private Item? RollRewardWeapon(int playerLevel, int dungeonLevel, bool betterDrop = false)
     {
         int maxLevel = Math.Min(playerLevel, dungeonLevel + 4);
         int minLevel = Math.Max(1, maxLevel - 3);
@@ -193,7 +194,10 @@ public class InstanceManager
         if (allWeapons.Count == 0) return null;
 
         int roll = Random.Shared.Next(100);
-        string qualityLabel = roll < 15 ? "Эпический" : roll < 40 ? "Редкий" : roll < 70 ? "Необычный" : "Обычный";
+        // Групповой инстанс: выше шанс лучшей экипировки (эпик/редкое)
+        string qualityLabel = betterDrop
+            ? (roll < 25 ? "Эпический" : roll < 55 ? "Редкий" : roll < 80 ? "Необычный" : "Обычный")
+            : (roll < 15 ? "Эпический" : roll < 40 ? "Редкий" : roll < 70 ? "Необычный" : "Обычный");
         var qualityWeapons = allWeapons.Where(w => w.Description.Contains(qualityLabel)).ToList();
         var picked = qualityWeapons.Count > 0
             ? qualityWeapons[Random.Shared.Next(qualityWeapons.Count)]
@@ -208,7 +212,7 @@ public class InstanceManager
     }
 
     /// <summary>Попытка входа игрока в инстанс.</summary>
-    public async Task<bool> TryEnter(Player player, string templateId, ClientConnection conn)
+    public async Task<bool> TryEnter(Player player, string templateId, ClientConnection conn, InstanceMode mode = InstanceMode.Solo)
     {
         var template = FindTemplate(templateId);
         if (template == null)
@@ -240,16 +244,17 @@ public class InstanceManager
         ActiveInstance? existing;
         lock (_lock)
         {
-            // Ищем существующий инстанс для пати игрока
+            // Ищем существующий инстанс для пати игрока (только того же режима)
             existing = null;
             if (player.PartyId != null)
             {
                 existing = _instances.Values.FirstOrDefault(inst =>
-                    inst.Template.Id == templateId && inst.Players.Any(p => p.PartyId == player.PartyId));
+                    inst.Template.Id == templateId && inst.Mode == mode
+                    && inst.Players.Any(p => p.PartyId == player.PartyId));
             }
             // Или инстанс, созданный этим игроком ранее
             existing ??= _instances.Values.FirstOrDefault(inst =>
-                inst.Template.Id == templateId && inst.Players.Contains(player));
+                inst.Template.Id == templateId && inst.Mode == mode && inst.Players.Contains(player));
 
             if (existing != null)
             {
@@ -265,7 +270,210 @@ public class InstanceManager
             return await EnterExisting(player, existing, conn);
 
         // Создаём новый инстанс
-        return await CreateAndEnter(player, template, conn);
+        return await CreateAndEnter(player, template, conn, mode);
+    }
+
+    /// <summary>Список шаблонов инстансов для окна выбора.</summary>
+    public List<(string Id, string Name, int MinLevel, int MaxLevel)> GetInstanceList()
+    {
+        var list = new List<(string Id, string Name, int MinLevel, int MaxLevel)>();
+        foreach (var t in _templates)
+        {
+            var b = ParseLevelBracket(t);
+            list.Add((t.Id, t.Name, b?.Min ?? 0, b?.Max ?? 0));
+        }
+        return list;
+    }
+
+    private static bool IsLevelAllowed(InstanceTemplate template, Player player)
+    {
+        var bracket = ParseLevelBracket(template);
+        if (!bracket.HasValue) return true;
+        int ownMin = ((player.Level - 1) / 5) * 5 + 1;
+        return bracket.Value.Min <= player.Level && bracket.Value.Min >= ownMin - 5;
+    }
+
+    /// <summary>Лидер группы приглашает всех членов в групповой инстанс.</summary>
+    public async Task<bool> InviteParty(Player leader, string templateId, ClientConnection conn)
+    {
+        if (leader.PartyId == null)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Вы не в группе.");
+            return false;
+        }
+        var party = _svc.Party.GetParty(leader.PartyId.Value);
+        if (party == null || party.LeaderId != leader.Id)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Только лидер группы может запустить групповой инстанс.");
+            return false;
+        }
+        var template = FindTemplate(templateId);
+        if (template == null)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Этот инстанс не найден.");
+            return false;
+        }
+        if (!IsLevelAllowed(template, leader))
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система",
+                $"«{template.Name}» — не по вашему уровню. Доступны данжи вашего уровня и на один ниже.");
+            return false;
+        }
+
+        var members = party.Members
+            .Select(id => _svc.World.TryGetPlayer(id, out var m) && m != null ? m : null)
+            .Where(m => m != null && m.Id != leader.Id)
+            .ToList();
+        if (members.Count == 0)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "В группе нет других игроков.");
+            return false;
+        }
+
+        var session = new InstanceInviteSession(leader, templateId, template.Name);
+        foreach (var m in members)
+            session.Statuses[m.Id] = InstanceInviteStatus.Waiting;
+
+        lock (_lock)
+        {
+            _inviteSessions.RemoveAll(s => s.Leader.Id == leader.Id && s.TemplateId == templateId);
+            _inviteSessions.Add(session);
+        }
+
+        foreach (var m in members)
+        {
+            var mc = _svc.World.GetConnectionByPlayerName(m.Name);
+            if (mc != null)
+            {
+                await _svc.Hub.SendToClient(mc, new GameMessage
+                {
+                    Type = "instance_invite_received",
+                    Data = new { LeaderName = leader.Name, TemplateName = template.Name, TemplateId = templateId }
+                });
+            }
+        }
+
+        await SendInviteUpdate(leader, session);
+        return true;
+    }
+
+    /// <summary>Ответ члена группы на приглашение (готов/отказ).</summary>
+    public async Task RespondInvite(Player player, bool ready, ClientConnection conn)
+    {
+        InstanceInviteSession? session;
+        lock (_lock)
+        {
+            session = _inviteSessions.FirstOrDefault(s => !s.Started && s.Statuses.ContainsKey(player.Id));
+        }
+        if (session == null)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Нет активного приглашения в инстанс.");
+            return;
+        }
+
+        session.Statuses[player.Id] = ready ? InstanceInviteStatus.Ready : InstanceInviteStatus.Declined;
+        await SendInviteUpdate(session.Leader, session);
+
+        // Автостарт: все неотказавшиеся готовы
+        if (session.Statuses.Values.All(s => s != InstanceInviteStatus.Waiting)
+            && session.Statuses.Values.Any(s => s == InstanceInviteStatus.Ready))
+        {
+            await StartGroupSession(session);
+        }
+    }
+
+    /// <summary>Ручной запуск группового инстанса лидером.</summary>
+    public async Task StartGroup(Player leader, ClientConnection conn)
+    {
+        InstanceInviteSession? session;
+        lock (_lock)
+        {
+            session = _inviteSessions.FirstOrDefault(s => !s.Started && s.Leader.Id == leader.Id);
+        }
+        if (session == null)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Нет активного приглашения в инстанс.");
+            return;
+        }
+        if (session.Statuses.Values.All(s => s != InstanceInviteStatus.Ready))
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Никто из группы ещё не готов.");
+            return;
+        }
+        await StartGroupSession(session);
+    }
+
+    private async Task StartGroupSession(InstanceInviteSession session)
+    {
+        lock (_lock) { session.Started = true; _inviteSessions.Remove(session); }
+
+        var template = FindTemplate(session.TemplateId);
+        if (template == null) return;
+
+        var readyMembers = new List<Player>();
+        foreach (var (mid, status) in session.Statuses)
+        {
+            if (status != InstanceInviteStatus.Ready) continue;
+            if (!_svc.World.TryGetPlayer(mid, out var m) || m == null) continue;
+            if (!IsLevelAllowed(template, m))
+            {
+                var mc = _svc.World.GetConnectionByPlayerName(m.Name);
+                if (mc != null)
+                    await _svc.Hub.SendChatToAsync(mc, ChatChannel.System, "Система",
+                        $"«{template.Name}» — не по вашему уровню. Доступны данжи вашего уровня и на один ниже.");
+                continue;
+            }
+            readyMembers.Add(m);
+        }
+
+        if (readyMembers.Count == 0)
+        {
+            await _svc.Hub.SendChatToAsync(
+                _svc.World.GetConnectionByPlayerName(session.Leader.Name), ChatChannel.System, "Система",
+                "Никто из готовых игроков не прошёл проверку уровня.");
+            return;
+        }
+
+        var leaderConn = _svc.World.GetConnectionByPlayerName(session.Leader.Name);
+        if (leaderConn == null) return;
+
+        // Создаём один групповой инстанс и телепортируем всех готовых
+        var instance = CreateInstance(session.Leader, template, InstanceMode.Group);
+        foreach (var member in readyMembers)
+        {
+            lock (_lock)
+            {
+                if (!instance.Players.Contains(member))
+                    instance.Players.Add(member);
+            }
+            var mc = _svc.World.GetConnectionByPlayerName(member.Name);
+            if (mc == null) continue;
+            await TeleportInto(member, instance, mc);
+            await _svc.Hub.SendChatToAsync(mc, ChatChannel.System, "Система",
+                $"Вход в групповой инстанс «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
+            await _svc.Hub.SendToClient(mc, new GameMessage
+            {
+                Type = "instance_started",
+                Data = new { TemplateName = template.Name, Mode = "group" }
+            });
+        }
+    }
+
+    private async Task SendInviteUpdate(Player leader, InstanceInviteSession session)
+    {
+        var leaderConn = _svc.World.GetConnectionByPlayerName(leader.Name);
+        if (leaderConn == null) return;
+        var members = new List<object>();
+        foreach (var (mid, status) in session.Statuses)
+        {
+            string name = _svc.World.TryGetPlayer(mid, out var m) && m != null ? m.Name : "?";
+            members.Add(new { Name = name, Status = status.ToString().ToLowerInvariant() });
+        }
+        await _svc.Hub.SendToClient(leaderConn, new GameMessage
+        {
+            Type = "instance_invite_update",
+            Data = new { TemplateName = session.TemplateName, Members = members }
+        });
     }
 
     private async Task<bool> EnterExisting(Player player, ActiveInstance instance, ClientConnection conn)
@@ -278,7 +486,17 @@ public class InstanceManager
         return true;
     }
 
-    private async Task<bool> CreateAndEnter(Player player, InstanceTemplate template, ClientConnection conn)
+    private async Task<bool> CreateAndEnter(Player player, InstanceTemplate template, ClientConnection conn, InstanceMode mode = InstanceMode.Solo)
+    {
+        var instance = CreateInstance(player, template, mode);
+
+        await TeleportInto(player, instance, conn);
+        await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", $"Вход в «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
+        return true;
+    }
+
+    /// <summary>Создаёт и регистрирует новый инстанс (без телепорта игрока).</summary>
+    private ActiveInstance CreateInstance(Player player, InstanceTemplate template, InstanceMode mode)
     {
         GameMap map;
         int spawnX, spawnY;
@@ -295,7 +513,7 @@ public class InstanceManager
             spawnY = template.SpawnY;
         }
 
-        var instance = new ActiveInstance(template, map);
+        var instance = new ActiveInstance(template, map, mode);
         instance._spawnX = spawnX;
         instance._spawnY = spawnY;
         if (_dungeonSpawns != null)
@@ -317,10 +535,7 @@ public class InstanceManager
         _svc.Zones.RegisterInstanceZone(instance.InstanceZoneId, map);
         if (_dungeonTemplate != null)
             _svc.Zones.SetTileConfig(instance.InstanceZoneId, 64, "Dungeon-Tilemap");
-
-        await TeleportInto(player, instance, conn);
-        await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", $"Вход в «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
-        return true;
+        return instance;
     }
 
     private async Task TeleportInto(Player player, ActiveInstance instance, ClientConnection conn)
@@ -403,6 +618,7 @@ public class InstanceManager
         var map = instance.Map;
         var rng = new Random();
         var spawnedIds = new HashSet<string>();
+        bool isGroup = instance.Mode == InstanceMode.Group;
 
         void DoSpawn(string monId, int x, int y, bool isBoss)
         {
@@ -411,7 +627,9 @@ public class InstanceManager
 
             int lvl = isBoss ? scaledLevel + 2 : scaledLevel;
             float scale = 1f + (lvl - 1) * 0.3f;
-            int hp = (int)(tpl.Health * scale * (isBoss ? 3 : 1));
+            // Групповой инстанс: босс заметно жирнее (HP ×2.5) и бьёт сильнее (сила ×1.5)
+            float bossMult = isBoss && isGroup ? 2.5f : 1f;
+            int hp = (int)(tpl.Health * scale * (isBoss ? 3 : 1) * bossMult);
 
             var monster = new Monster
             {
@@ -419,11 +637,11 @@ public class InstanceManager
                 X = x, Y = y,
                 Health = hp, MaxHealth = hp,
                 Level = lvl,
-                XpReward = (int)(tpl.XpReward * scale * (isBoss ? 3 : 1)),
-                GoldReward = RollGold(tpl, scale * (isBoss ? 3 : 1)),
+                XpReward = (int)(tpl.XpReward * scale * (isBoss ? 3 : 1) * (isBoss && isGroup ? 1.5 : 1)),
+                GoldReward = RollGold(tpl, scale * (isBoss ? 3 : 1) * (isBoss && isGroup ? 1.5 : 1)),
                 ZoneId = instance.InstanceZoneId,
                 Symbol = tpl.Symbol,
-                Strength = (int)(tpl.Strength * scale) + (isBoss ? 3 : 0),
+                Strength = (int)(tpl.Strength * scale * (isBoss && isGroup ? 1.5 : 1)) + (isBoss ? 3 : 0),
                 Endurance = (int)(tpl.Endurance * scale) + (isBoss ? 2 : 0),
                 Agility = tpl.Agility, Cunning = tpl.Cunning,
                 Intellect = tpl.Intellect, Wisdom = tpl.Wisdom,
@@ -447,7 +665,14 @@ public class InstanceManager
             {
                 var (sx, sy) = _dungeonSpawns.MonsterSpawns[i];
                 var tpl = allTemplates[rng.Next(allTemplates.Count)];
-                DoSpawn(tpl.Id, sx, sy, false);
+                // Групповой инстанс: обычных мобов в 2.5 раза больше (чередуем 3/2 копии)
+                int copies = isGroup ? (i % 2 == 0 ? 3 : 2) : 1;
+                for (int c = 0; c < copies; c++)
+                {
+                    int ox = c == 0 ? 0 : (c % 2 == 0 ? -1 : 1);
+                    int oy = c == 0 ? 0 : (c < 3 ? 1 : -1);
+                    DoSpawn(tpl.Id, Math.Clamp(sx + ox, 0, map.Width - 1), Math.Clamp(sy + oy, 0, map.Height - 1), false);
+                }
             }
             // Босс
             DoSpawn(template.BossMonsterId, _dungeonSpawns.BossSpawn.X, _dungeonSpawns.BossSpawn.Y, true);
@@ -465,9 +690,10 @@ public class InstanceManager
                 }
             if (walkable.Count == 0) return;
             walkable.Sort((a, b) => a.y.CompareTo(b.y));
-            int step = Math.Max(1, walkable.Count / 6);
+            int mobCount = isGroup ? 15 : 6;
+            int step = Math.Max(1, walkable.Count / (mobCount + 1));
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < mobCount; i++)
             {
                 int idx = i * step + rng.Next(step);
                 if (idx >= walkable.Count) idx = walkable.Count - 1;
@@ -475,7 +701,7 @@ public class InstanceManager
                 if (spawnedIds.Contains(walkable[idx].ToString())) continue;
                 spawnedIds.Add(walkable[idx].ToString());
                 var (sx, sy) = walkable[idx];
-                var (monId, isBoss) = i == 5 ? (template.BossMonsterId, true) : (_svc.World.GetMonsterTemplates()[rng.Next(_svc.World.GetMonsterTemplates().Count)].Id, false);
+                var (monId, isBoss) = i == mobCount - 1 ? (template.BossMonsterId, true) : (_svc.World.GetMonsterTemplates()[rng.Next(_svc.World.GetMonsterTemplates().Count)].Id, false);
                 DoSpawn(monId, sx, sy, isBoss);
             }
         }
@@ -493,6 +719,22 @@ public class InstanceManager
     /// <summary>Тик таймеров, ИИ монстров и очистка истёкших инстансов.</summary>
     public async Task TickAsync()
     {
+        // Истёкшие приглашения в групповые инстансы
+        List<InstanceInviteSession> expiredSessions;
+        lock (_lock)
+        {
+            expiredSessions = _inviteSessions.Where(s => s.IsExpired).ToList();
+            foreach (var s in expiredSessions)
+                _inviteSessions.Remove(s);
+        }
+        foreach (var s in expiredSessions)
+        {
+            var lc = _svc.World.GetConnectionByPlayerName(s.Leader.Name);
+            if (lc != null)
+                await _svc.Hub.SendChatToAsync(lc, ChatChannel.System, "Система",
+                    $"Приглашение в «{s.TemplateName}» истекло.");
+        }
+
         List<ActiveInstance> expired;
         List<ActiveInstance> active;
         lock (_lock)
@@ -762,12 +1004,13 @@ public class InstanceManager
         }
 
         // Награда — оружие, подобранное под уровень подземелья
-        var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id));
+        bool betterDrop = inst.Mode == InstanceMode.Group;
+        var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id), betterDrop);
         if (selectedItem != null)
             inst.ChestLootItems.Add(selectedItem);
 
-        // Золото
-        int goldReward = 50 + player.Level * 10 + Random.Shared.Next(51);
+        // Золото (групповой инстанс — в 1.5 раза больше)
+        int goldReward = (int)((50 + player.Level * 10 + Random.Shared.Next(51)) * (betterDrop ? 1.5 : 1));
         inst.ChestGold = goldReward;
         inst.ChestOpened = true;
 

@@ -48,6 +48,11 @@ internal static class ClientMessageHandlerRegistry
         ["party_update"] = HandlePartyUpdate,
         ["party_disbanded"] = HandlePartyDisbanded,
         ["party_invite_received"] = HandlePartyInviteReceived,
+        ["instance_window_open"] = HandleInstanceWindowOpen,
+        ["instance_list"] = HandleInstanceList,
+        ["instance_invite_received"] = HandleInstanceInviteReceived,
+        ["instance_invite_update"] = HandleInstanceInviteUpdate,
+        ["instance_started"] = HandleInstanceStarted,
         ["trade_request_received"] = HandleTradeRequestReceived,
         ["skills_response"] = HandleSkillsResponse,
         ["hotbar_update"] = HandleHotbar,
@@ -504,6 +509,65 @@ internal static class ClientMessageHandlerRegistry
             string? inviterName = trEl.TryGetProperty("InviterName", out var invN) ? invN.GetString() : null;
             if (inviterName != null)
                 c.RaiseTradeRequestReceived(inviterName);
+        }
+    }
+
+    private static void HandleInstanceWindowOpen(GameClient c, GameMessage m)
+    {
+        c.RaiseInstanceWindowOpened();
+    }
+
+    private static void HandleInstanceList(GameClient c, GameMessage m)
+    {
+        if (m.Data is JsonElement ilEl && ilEl.TryGetProperty("Instances", out var arrEl) && arrEl.ValueKind == JsonValueKind.Array)
+        {
+            var list = arrEl.Deserialize<List<InstanceInfo>>() ?? new List<InstanceInfo>();
+            c.RaiseInstanceListReceived(list);
+        }
+    }
+
+    private static void HandleInstanceInviteReceived(GameClient c, GameMessage m)
+    {
+        if (m.Data is JsonElement iir)
+        {
+            string? leader = iir.TryGetProperty("LeaderName", out var lEl) ? lEl.GetString() : null;
+            string? tplName = iir.TryGetProperty("TemplateName", out var tnEl) ? tnEl.GetString() : null;
+            string? tplId = iir.TryGetProperty("TemplateId", out var tiEl) ? tiEl.GetString() : null;
+            if (leader != null && tplName != null && tplId != null)
+                c.RaiseInstanceInviteReceived(leader, tplName, tplId);
+        }
+    }
+
+    private static void HandleInstanceInviteUpdate(GameClient c, GameMessage m)
+    {
+        if (m.Data is JsonElement iiu)
+        {
+            string? tplName = iiu.TryGetProperty("TemplateName", out var tnEl) ? tnEl.GetString() : null;
+            var members = new List<InstanceMemberInfo>();
+            if (iiu.TryGetProperty("Members", out var memEl) && memEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var mm in memEl.EnumerateArray())
+                {
+                    members.Add(new InstanceMemberInfo
+                    {
+                        Name = mm.TryGetProperty("Name", out var nEl) ? nEl.GetString() ?? "" : "",
+                        Status = mm.TryGetProperty("Status", out var sEl) ? sEl.GetString() ?? "" : ""
+                    });
+                }
+            }
+            if (tplName != null)
+                c.RaiseInstanceInviteUpdate(tplName, members);
+        }
+    }
+
+    private static void HandleInstanceStarted(GameClient c, GameMessage m)
+    {
+        if (m.Data is JsonElement ist)
+        {
+            string? tplName = ist.TryGetProperty("TemplateName", out var tnEl) ? tnEl.GetString() : null;
+            string? mode = ist.TryGetProperty("Mode", out var mdEl) ? mdEl.GetString() : null;
+            if (tplName != null && mode != null)
+                c.RaiseInstanceStarted(tplName, mode);
         }
     }
 

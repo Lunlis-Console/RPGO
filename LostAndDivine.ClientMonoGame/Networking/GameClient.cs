@@ -85,6 +85,13 @@ public sealed class GameClient
     public event Action<string>? TradeRequestReceived;
     public event Action<List<ClientSkillInfo>>? SkillsUpdated;
 
+    // Инстансы
+    public event Action? InstanceWindowOpened;
+    public event Action<List<InstanceInfo>>? InstanceListReceived;
+    public event Action<string, string, string>? InstanceInviteReceived; // (leaderName, templateName, templateId)
+    public event Action<string, List<InstanceMemberInfo>>? InstanceInviteUpdate; // (templateName, members)
+    public event Action<string, string>? InstanceStarted; // (templateName, mode)
+
     // Зоны
     public event Action<string, string, bool>? ZoneChanged;
     public event Action<byte[], int, int, string, int>? TileDataReceived; // data, width, height, tilesetId, tileSize
@@ -172,6 +179,11 @@ public sealed class GameClient
     internal void RaisePartyInviteReceived(string inviterName, string msg) => Ui(() => PartyInviteReceived?.Invoke(inviterName, msg));
     internal void RaiseTradeRequestReceived(string inviterName) => Ui(() => TradeRequestReceived?.Invoke(inviterName));
     internal void RaiseSkillsUpdated(List<ClientSkillInfo> list) => Ui(() => SkillsUpdated?.Invoke(list));
+    internal void RaiseInstanceWindowOpened() => Ui(() => InstanceWindowOpened?.Invoke());
+    internal void RaiseInstanceListReceived(List<InstanceInfo> list) => Ui(() => InstanceListReceived?.Invoke(list));
+    internal void RaiseInstanceInviteReceived(string leaderName, string templateName, string templateId) => Ui(() => InstanceInviteReceived?.Invoke(leaderName, templateName, templateId));
+    internal void RaiseInstanceInviteUpdate(string templateName, List<InstanceMemberInfo> members) => Ui(() => InstanceInviteUpdate?.Invoke(templateName, members));
+    internal void RaiseInstanceStarted(string templateName, string mode) => Ui(() => InstanceStarted?.Invoke(templateName, mode));
     internal void RaiseHotbarUpdated(string?[] slots) => Ui(() => HotbarUpdated?.Invoke(slots));
     internal void RaiseLootReceived(string corpseId, string monsterName, int dmgPct, List<LootItemInfo> items, int gold) => Ui(() => LootReceived?.Invoke(corpseId, monsterName, dmgPct, items, gold));
     internal void RaiseBoardOpened() => Ui(() => BoardOpened?.Invoke());

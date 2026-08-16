@@ -245,6 +245,17 @@ public class DialogueManager
             await _svc.Instances.TryEnter(player, templateId, client);
             return true;
         }
+        else if (action == "open_instances")
+        {
+            // Открыть окно выбора инстансов (соло/группа)
+            await CloseDialogue(client, player);
+            await _hub.SendToClient(client, new GameMessage
+            {
+                Type = "instance_window_open",
+                Data = new { }
+            });
+            return true;
+        }
         else if (action.StartsWith("give_item:"))
         {
             // give_item:I0015[:кол-во] — выдать предмет из таблицы items
