@@ -303,20 +303,10 @@ public class PvPService
         if (dist <= weaponRange) return false;
 
         var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
-        int[] dx = { 0, 0, -1, 1 };
-        int[] dy = { -1, 1, 0, 0 };
-        int bestX = -1, bestY = -1;
-        int bestDist = int.MaxValue;
-        for (int i = 0; i < 4; i++)
-        {
-            int nx = target.X + dx[i];
-            int ny = target.Y + dy[i];
-            if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
-            if (zoneMap.IsObstacle(nx, ny)) continue;
-            int d = Math.Abs(nx - pl.X) + Math.Abs(ny - pl.Y);
-            if (d < bestDist) { bestDist = d; bestX = nx; bestY = ny; }
-        }
-        if (bestX < 0) return false;
+        if (!CombatService.FindChaseCell(zoneMap.Width, zoneMap.Height, zoneMap.IsObstacle,
+                target.X, target.Y, pl.X, pl.Y, weaponRange,
+                out int bestX, out int bestY))
+            return false;
         if (pl.X == bestX && pl.Y == bestY) return true;
 
         var path = _svc.Pathfinding.FindPath(pl.X, pl.Y, bestX, bestY, pl.CurrentZoneId);

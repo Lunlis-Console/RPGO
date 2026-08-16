@@ -768,28 +768,55 @@ public class CombatService
         if (dist <= weaponRange) return false;
 
         var zoneMap = _svc.Zones.GetOrCreateMap(pl.CurrentZoneId);
-        int[] dx = { 0, 0, -1, 1 };
-        int[] dy = { -1, 1, 0, 0 };
-        int bestX = -1, bestY = -1;
-        int bestDist = int.MaxValue;
-        for (int i = 0; i < 4; i++)
+        bool blockedCell(int nx, int ny)
         {
-            int nx = monster.X + dx[i];
-            int ny = monster.Y + dy[i];
-            if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
-            if (zoneMap.IsObstacle(nx, ny)) continue;
-            var mAt = _svc.Monsters.FindMonsterAt(nx, ny);
-            if (mAt != null && mAt.Id != monster.Id) continue;
-            int d = Math.Abs(nx - pl.X) + Math.Abs(ny - pl.Y);
-            if (d < bestDist) { bestDist = d; bestX = nx; bestY = ny; }
+            if (zoneMap.IsObstacle(nx, ny)) return true;
+            var m = _svc.Monsters.FindMonsterAt(nx, ny);
+            return m != null && m.Id != monster.Id;
         }
-        if (bestX < 0) return false;
+
+        if (!FindChaseCell(zoneMap.Width, zoneMap.Height, blockedCell,
+                monster.X, monster.Y, pl.X, pl.Y, weaponRange,
+                out int bestX, out int bestY))
+            return false;
         if (pl.X == bestX && pl.Y == bestY) return true;
 
         var path = _svc.Pathfinding.FindPath(pl.X, pl.Y, bestX, bestY, pl.CurrentZoneId);
         if (path.Count == 0) return false;
         pl.Movement.SetPath(path);
         return true;
+    }
+
+    /// <summary>
+    /// Ищет клетку остановки при погоне: кольцо на дистанции атаки (range) от цели,
+    /// предпочитая ближайшую к игроку; если кольцо полностью недоступно — ближайшие
+    /// клетки (вплоть до соседних). Не даёт дальнобойному персонажу вставать вплотную.
+    /// </summary>
+    public static bool FindChaseCell(int mapWidth, int mapHeight, Func<int, int, bool> blocked,
+        int targetX, int targetY, int playerX, int playerY, int range,
+        out int bestX, out int bestY)
+    {
+        bestX = -1; bestY = -1;
+        for (int r = Math.Max(1, range); r >= 1; r--)
+        {
+            int bestDist = int.MaxValue;
+            for (int dx = -r; dx <= r; dx++)
+            {
+                int dyAbs = r - Math.Abs(dx);
+                for (int s = 0; s < 2; s++)
+                {
+                    int dy = s == 0 ? dyAbs : -dyAbs;
+                    int nx = targetX + dx;
+                    int ny = targetY + dy;
+                    if (nx < 0 || nx >= mapWidth || ny < 0 || ny >= mapHeight) continue;
+                    if (blocked(nx, ny)) continue;
+                    int d = Math.Abs(nx - playerX) + Math.Abs(ny - playerY);
+                    if (d < bestDist) { bestDist = d; bestX = nx; bestY = ny; }
+                }
+            }
+            if (bestX >= 0) return true;
+        }
+        return false;
     }
 
     // ──────────────── Навыки ────────────────
