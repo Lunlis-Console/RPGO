@@ -56,9 +56,15 @@ public class MonsterManager
         if (spawns != null && spawns.Count > 0)
         {
             int spawned = 0;
+            // В списке точек из Tiled лежат и коллекционки: спавним только монстров
+            var templateNames = new HashSet<string>(
+                _world.GetMonsterTemplates().Select(t => t.Name), StringComparer.OrdinalIgnoreCase);
             foreach (var s in spawns)
+            {
+                if (!templateNames.Contains(s.Name)) continue;
                 if (SpawnNamedMonster(s.X, s.Y, s.Name))
                     spawned++;
+            }
             Log.Info($"Спавн монстров из точек: {spawned}/{spawns.Count}");
         }
         else

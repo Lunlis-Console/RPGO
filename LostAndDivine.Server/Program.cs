@@ -128,6 +128,9 @@ partial class Program
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
             auth: null!, zones: zones, persistence, clientBuild, storage);
 
+        // Спавн-точки Tiled-карт сохраняются для корректного /reload
+        Services.SetSpawnData(spawns, allCollectibleSpawns);
+
         // Внедряем зависимости, насыщаем GameServices
         killService.SetHub(hub);
         projectiles.SetHub(hub);
@@ -247,6 +250,12 @@ partial class Program
         if (args.Any(a => a.Equals("--bot", StringComparison.OrdinalIgnoreCase)))
         {
             StartTestBot();
+        }
+        if (args.Any(a => a.Equals("--reload", StringComparison.OrdinalIgnoreCase)))
+        {
+            Log.Info("Флаг --reload: перезагрузка данных после старта...");
+            try { await Services.ReloadContent(); }
+            catch (Exception ex) { Log.Error($"Ошибка при --reload: {ex.Message}", ex); }
         }
         _ = Task.Run(() => ServerConsoleLoop());
 
@@ -502,6 +511,7 @@ partial class Program
             case "help":
                 Log.Info("Онлайн: пусто");
                 Log.Info("  players              - список онлайн-игроков");
+                Log.Info("  reload               - перезагрузить контент (монстры, коллекционки, квесты, лут)");
                 Log.Info("Консоль сервера: введите 'help' для списка команд.");
                 Log.Info("  bot start / bot stop - запустить/остановить бота на сервер");
                 Log.Info("  stop                 - остановить сервер");
@@ -518,6 +528,10 @@ partial class Program
                     var desc = string.Join(", ", online.Select(p => $"{p.Name} (уровень {p.Level})"));
                     Log.Info($"Онлайн ({online.Count}): {desc}");
                 }
+                break;
+
+            case "reload":
+                await Services.ReloadContent();
                 break;
 
             case "bot":

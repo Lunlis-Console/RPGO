@@ -38,6 +38,19 @@ public sealed class GameServices : IGameServices
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
+
+    // Спавн-точки из Tiled-карт: переиспользуются при повторной инициализации (/reload),
+    // чтобы монстры и собираемые предметы появлялись так же, как при старте сервера.
+    private List<TiledSpawn>? _monsterSpawns;
+    private readonly Dictionary<string, List<TiledSpawn>> _collectibleSpawns = new(StringComparer.OrdinalIgnoreCase);
+
+    public void SetSpawnData(List<TiledSpawn>? monsterSpawns, Dictionary<string, List<TiledSpawn>> collectibleSpawns)
+    {
+        _monsterSpawns = monsterSpawns;
+        _collectibleSpawns.Clear();
+        foreach (var (zoneId, list) in collectibleSpawns)
+            _collectibleSpawns[zoneId] = list;
+    }
     public PlayerDeathService PlayerDeath { get; set; } = null!;
     public MonsterCombatCalculator MonsterCombat { get; set; } = null!;
     public MonsterAttackService MonsterAttacks { get; set; } = null!;
@@ -109,10 +122,10 @@ public sealed class GameServices : IGameServices
             Quests.ReloadQuestItems();
             Dialogue.LoadAll();
             Loot.LoadFromDatabase();
-            Monsters.Initialize();
-            Collectibles.Initialize();
+            Monsters.Initialize(_monsterSpawns);
+            foreach (var (zoneId, spawns) in _collectibleSpawns)
+                Collectibles.Initialize(spawns, zoneId);
             Hub.LoadNpcCache();
-
             await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
 
             if (connection != null)

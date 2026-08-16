@@ -52,10 +52,16 @@ public class CollectibleManager
             zoneId = Balance.MainZoneId;
         _world.ClearCollectiblesInZone(zoneId);
 
-        if (spawns != null && spawns.Count > 0)
+        // В списке точек из Tiled лежат и спавны монстров: оставляем только те,
+        // чьи имена совпадают с шаблонами собираемых объектов.
+        var collectibleSpawns = spawns?
+            .Where(s => _templates.Any(t => string.Equals(t.Name, s.Name, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (collectibleSpawns != null && collectibleSpawns.Count > 0)
         {
             int spawned = 0;
-            foreach (var s in spawns)
+            foreach (var s in collectibleSpawns)
             {
                 var tpl = _templates.FirstOrDefault(t => string.Equals(t.Name, s.Name, StringComparison.OrdinalIgnoreCase));
                 if (tpl.ItemName == null)
@@ -87,15 +93,20 @@ public class CollectibleManager
             // В остальных зонах собираемые предметы появляются только из явных
             // точек спавна в Tiled-карте; иначе мусор из размеров главной карты
             // (SpawnOne использует _world.Map) протекает в чужие зоны.
+            int spawned = 0;
             foreach (var template in _templates)
             {
                 for (int i = 0; i < template.Count; i++)
-                    SpawnOne(template.Name, template.ItemName, template.Symbol, zoneId);
+                {
+                    if (SpawnOne(template.Name, template.ItemName, template.Symbol, zoneId))
+                        spawned++;
+                }
             }
+            Log.Info($"Случайный разброс собираемых предметов в зоне '{zoneId}': {spawned}");
         }
     }
 
-    private void SpawnOne(string name, string itemName, char symbol, string zoneId)
+    private bool SpawnOne(string name, string itemName, char symbol, string zoneId)
     {
         int mapW = _world.Map.Width;
         int mapH = _world.Map.Height;
@@ -108,7 +119,7 @@ public class CollectibleManager
             attempts++;
         } while ((IsOccupied(x, y, zoneId) || _world.Map.IsObstacle(x, y)) && attempts < Balance.SpawnMaxAttempts);
 
-        if (attempts >= Balance.SpawnMaxAttempts) return;
+        if (attempts >= Balance.SpawnMaxAttempts) return false;
 
         _world.AddCollectible(new Collectible
         {
@@ -120,6 +131,7 @@ public class CollectibleManager
             Y = y,
             ZoneId = zoneId
         });
+        return true;
     }
 
     public List<CollectiblePosition> GetPositions()
