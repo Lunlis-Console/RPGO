@@ -141,6 +141,23 @@ public class EquipmentTests
     }
 
     [Fact]
+    public void WeaponSpeedModifier_TakesSlowestFromBothHands()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.RightHand] = new Item { AttackSpeedModifier = 1.3 };
+        eq[EquipmentSlots.LeftHand] = new Item { AttackSpeedModifier = 0.9 };
+        Assert.Equal(0.9, eq.GetWeaponSpeedModifier());
+    }
+
+    [Fact]
+    public void WeaponSpeedModifier_LeftHandAlone()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.LeftHand] = new Item { AttackSpeedModifier = 1.1 };
+        Assert.Equal(1.1, eq.GetWeaponSpeedModifier());
+    }
+
+    [Fact]
     public void WeaponDamageType_ReturnsFromWeapon()
     {
         var eq = new Equipment();

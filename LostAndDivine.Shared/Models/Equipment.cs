@@ -59,13 +59,22 @@ public class Equipment
 
     public double GetWeaponSpeedModifier()
     {
-        var weapon = _slots.TryGetValue(EquipmentSlots.RightHand, out var w) ? w : null;
-        double mod = weapon != null && weapon.AttackSpeedModifier > 0 ? weapon.AttackSpeedModifier : 1.0;
+        // Скорость атаки определяется самым медленным оружием из надетых —
+        // неважно, в какой руке (основная или вторая).
+        double? mod = null;
+        foreach (var slotId in new[] { EquipmentSlots.RightHand, EquipmentSlots.LeftHand })
+        {
+            if (_slots.TryGetValue(slotId, out var w) && w != null && w.AttackSpeedModifier > 0)
+                mod = mod.HasValue ? Math.Min(mod.Value, w.AttackSpeedModifier) : w.AttackSpeedModifier;
+        }
+        if (!mod.HasValue) return 1.0;
+
+        double result = mod.Value;
         if (IsDualWielding())
-            mod *= DualWieldSpeedBonus;
-        else if (weapon != null && weapon.TwoHanded)
-            mod *= TwoHandedSpeedPenalty;
-        return mod;
+            result *= DualWieldSpeedBonus;
+        else if (_slots.TryGetValue(EquipmentSlots.RightHand, out var rh) && rh != null && rh.TwoHanded)
+            result *= TwoHandedSpeedPenalty;
+        return result;
     }
 
     public static bool IsCasterOffhand(Item? item)
