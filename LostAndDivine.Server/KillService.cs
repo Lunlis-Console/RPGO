@@ -102,28 +102,54 @@ public class KillService
     {
         bool isBoss = _svc.Instances.IsBossMonster(monster);
 
-        killer.Experience += monster.XpReward;
-        if (killer.TryLevelUp()) Log.Info($"{killer.Name} повысил уровень до {killer.Level}!");
-
-        var client = _world.FindClientByPlayer(killer);
-        if (client != null)
+        if (isBoss)
         {
-            await _svc.Hub.SendStatusAsync(client, killer);
-            int goldReward = monster.GoldReward;
-            killer.Gold += goldReward;
-            await _svc.Hub.SendChatToAsync(client, ChatChannel.System, "Система",
-                $"Вы получили {monster.XpReward} опыта и {goldReward} золота за убийство {monster.Name}.");
+            // Босс: награда и уведомление — всем участникам в инстансе (поровну)
+            var participants = _svc.Instances.GetPlayersInZone(monster.ZoneId);
+            if (participants.Count == 0) participants.Add(killer);
+            int count = participants.Count;
+            int xpShare = monster.XpReward / count;
+            int goldShare = monster.GoldReward / count;
+            int sharePercent = 100 / count;
+
+            foreach (var p in participants)
+            {
+                p.Experience += xpShare;
+                p.Gold += goldShare;
+                if (p.TryLevelUp()) Log.Info($"{p.Name} повысил уровень до {p.Level}!");
+
+                var pc = _world.FindClientByPlayer(p);
+                if (pc == null) continue;
+                await _svc.Hub.SendStatusAsync(pc, p);
+                if (count > 1)
+                    await _svc.Hub.SendChatToAsync(pc, ChatChannel.System, "Система",
+                        $"Вы получили {xpShare} опыта и {goldShare} золота за убийство {monster.Name} ({sharePercent}% доли группы).");
+                else
+                    await _svc.Hub.SendChatToAsync(pc, ChatChannel.System, "Система",
+                        $"Вы получили {monster.XpReward} опыта и {monster.GoldReward} золота за убийство {monster.Name}.");
+                await _svc.Hub.SendChatToAsync(pc, ChatChannel.System, "Система",
+                    "Босс повержен! Сундук разблокирован. У вас есть время забрать лут до закрытия инстанса.");
+            }
+
+            _svc.Instances.OnBossKilled(monster.ZoneId);
+        }
+        else
+        {
+            killer.Experience += monster.XpReward;
+            if (killer.TryLevelUp()) Log.Info($"{killer.Name} повысил уровень до {killer.Level}!");
+
+            var client = _world.FindClientByPlayer(killer);
+            if (client != null)
+            {
+                await _svc.Hub.SendStatusAsync(client, killer);
+                int goldReward = monster.GoldReward;
+                killer.Gold += goldReward;
+                await _svc.Hub.SendChatToAsync(client, ChatChannel.System, "Система",
+                    $"Вы получили {monster.XpReward} опыта и {goldReward} золота за убийство {monster.Name}.");
+            }
         }
 
         _svc.Instances.RemoveMonster(monster);
-
-        if (isBoss)
-        {
-            _svc.Instances.OnBossKilled(monster.ZoneId);
-            if (client != null)
-                await _svc.Hub.SendChatToAsync(client, ChatChannel.System, "Система",
-                    "Босс повержен! Сундук разблокирован. У вас есть время забрать лут до закрытия инстанса.");
-        }
 
         await _svc.Hub.BroadcastMapAsync();
     }

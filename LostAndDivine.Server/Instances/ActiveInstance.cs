@@ -12,9 +12,9 @@ public class ActiveInstance
     public List<Monster> Monsters { get; } = new();
     public List<Player> Players { get; } = new();
     public bool ChestLocked { get; set; } = true;
-    public bool ChestOpened { get; set; }
-    public List<Item> ChestLootItems { get; set; } = new();
-    public int ChestGold { get; set; }
+
+    /// <summary>Индивидуальная награда сундука для каждого игрока (не общий пул).</summary>
+    public Dictionary<Guid, InstanceChestReward> ChestRewards { get; } = new();
     public DateTime CreatedAt { get; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; }
 
@@ -47,4 +47,11 @@ public class ActiveInstance
 
     public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
     public bool IsBossAlive => Monsters.Any(m => m.TemplateId == Template.BossMonsterId && m.Health > 0);
+}
+
+/// <summary>Индивидуальный дроп сундука: каждый игрок инстанса получает свой ролл.</summary>
+public class InstanceChestReward
+{
+    public int Gold { get; set; }
+    public List<Item> Items { get; } = new();
 }

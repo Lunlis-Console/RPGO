@@ -52,20 +52,27 @@ public class TakeChestLootHandler : BaseHandler
 
         var takenNames = new List<string>();
 
-        if (takeGold && inst.ChestGold > 0)
+        // Индивидуальный дроп: игрок забирает только свою награду сундука
+        if (!inst.ChestRewards.TryGetValue(player.Id, out var reward))
         {
-            player.Gold += inst.ChestGold;
-            takenNames.Add($"{inst.ChestGold} золота");
-            inst.ChestGold = 0;
+            await SendError(connection, ErrorCodes.InvalidRequest, "Вы ещё не открывали сундук в этом инстансе");
+            return;
+        }
+
+        if (takeGold && reward.Gold > 0)
+        {
+            player.Gold += reward.Gold;
+            takenNames.Add($"{reward.Gold} золота");
+            reward.Gold = 0;
         }
 
         foreach (var itemId in itemIds)
         {
-            var item = inst.ChestLootItems.FirstOrDefault(i => i.Id == itemId);
+            var item = reward.Items.FirstOrDefault(i => i.Id == itemId);
             if (item != null)
             {
                 InventoryHelper.AddItem(player, item);
-                inst.ChestLootItems.Remove(item);
+                reward.Items.Remove(item);
                 takenNames.Add(item.Name);
             }
         }

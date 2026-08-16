@@ -981,6 +981,16 @@ public class InstanceManager
         Log.Info($"Сундук в инстансе {inst.Id} разблокирован");
     }
 
+    /// <summary>Все игроки в зоне инстанса (участники группы внутри данжа).</summary>
+    public List<Player> GetPlayersInZone(string instanceZoneId)
+    {
+        lock (_lock)
+        {
+            var inst = _instances.Values.FirstOrDefault(i => i.InstanceZoneId == instanceZoneId);
+            return inst == null ? new List<Player>() : inst.Players.ToList();
+        }
+    }
+
     /// <summary>Попытка открыть сундук.</summary>
     public async Task<bool> TryOpenChest(Player player, ClientConnection conn)
     {
@@ -1003,38 +1013,27 @@ public class InstanceManager
             return false;
         }
 
-        if (inst.ChestOpened)
+        // Индивидуальный дроп: каждый игрок получает свой ролл при первом открытии
+        if (!inst.ChestRewards.TryGetValue(player.Id, out var reward))
         {
-            if (inst.ChestLootItems.Count == 0 && inst.ChestGold == 0)
-            {
-                await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Сундук уже опустошён.");
-                return false;
-            }
-            await _svc.Hub.SendToClient(conn, new GameMessage
-            {
-                Type = "loot_corpse",
-                Data = new
-                {
-                    CorpseId = "chest_" + inst.Id,
-                    MonsterName = "Сундук подземелья",
-                    DamagePercent = 100,
-                    Gold = inst.ChestGold,
-                    Items = inst.ChestLootItems.Select(i => ItemPayload(i)).ToList()
-                }
-            });
-            return true;
+            reward = new InstanceChestReward();
+
+            // Награда — оружие, подобранное под уровень подземелья
+            bool betterDrop = inst.Mode == InstanceMode.Group;
+            var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id), betterDrop);
+            if (selectedItem != null)
+                reward.Items.Add(selectedItem);
+
+            // Золото (групповой инстанс — в 1.5 раза больше)
+            reward.Gold = (int)((50 + player.Level * 10 + Random.Shared.Next(51)) * (betterDrop ? 1.5 : 1));
+
+            inst.ChestRewards[player.Id] = reward;
         }
-
-        // Награда — оружие, подобранное под уровень подземелья
-        bool betterDrop = inst.Mode == InstanceMode.Group;
-        var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id), betterDrop);
-        if (selectedItem != null)
-            inst.ChestLootItems.Add(selectedItem);
-
-        // Золото (групповой инстанс — в 1.5 раза больше)
-        int goldReward = (int)((50 + player.Level * 10 + Random.Shared.Next(51)) * (betterDrop ? 1.5 : 1));
-        inst.ChestGold = goldReward;
-        inst.ChestOpened = true;
+        else if (reward.Gold == 0 && reward.Items.Count == 0)
+        {
+            await _svc.Hub.SendChatToAsync(conn, ChatChannel.System, "Система", "Вы уже забрали награду сундука.");
+            return false;
+        }
 
         await _svc.Hub.SendToClient(conn, new GameMessage
         {
@@ -1044,8 +1043,8 @@ public class InstanceManager
                 CorpseId = "chest_" + inst.Id,
                 MonsterName = "Сундук подземелья",
                 DamagePercent = 100,
-                Gold = goldReward,
-                Items = inst.ChestLootItems.Select(i => ItemPayload(i)).ToList()
+                Gold = reward.Gold,
+                Items = reward.Items.Select(i => ItemPayload(i)).ToList()
             }
         });
         Log.Info($"{player.Name} открыл сундук в инстансе {inst.Id}");
