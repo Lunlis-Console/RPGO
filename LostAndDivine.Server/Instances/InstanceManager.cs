@@ -439,8 +439,13 @@ public class InstanceManager
         var leaderConn = _svc.World.GetConnectionByPlayerName(session.Leader.Name);
         if (leaderConn == null) return;
 
-        // Создаём один групповой инстанс и телепортируем всех готовых
+        // Создаём один групповой инстанс: лидер входит всегда, готовые члены — следом
         var instance = CreateInstance(session.Leader, template, InstanceMode.Group);
+
+        await TeleportInto(session.Leader, instance, leaderConn);
+        await _svc.Hub.SendChatToAsync(leaderConn, ChatChannel.System, "Система",
+            $"Вход в групповой инстанс «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
+
         foreach (var member in readyMembers)
         {
             lock (_lock)
