@@ -346,7 +346,9 @@ public class GameScreen : IScreen
         _client.InstanceStarted += (templateName, mode) =>
         {
             _instanceWindow.OnStarted(templateName, mode);
+            _instanceWindow.Visible = false;
             _instanceInviteWindow.Visible = false;
+            _dialogueWindow.CloseDialogue();
         };
         _instanceWindow.SoloRequested += templateId => _ = _client.SendAsync("instance_enter_solo", new { TemplateId = templateId });
         _instanceWindow.GroupRequested += templateId => _ = _client.SendAsync("instance_invite", new { TemplateId = templateId });

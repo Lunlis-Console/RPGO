@@ -451,11 +451,6 @@ public class InstanceManager
             await TeleportInto(member, instance, mc);
             await _svc.Hub.SendChatToAsync(mc, ChatChannel.System, "Система",
                 $"Вход в групповой инстанс «{template.Name}». У вас {template.TimeLimitSeconds / 60} мин.");
-            await _svc.Hub.SendToClient(mc, new GameMessage
-            {
-                Type = "instance_started",
-                Data = new { TemplateName = template.Name, Mode = "group" }
-            });
         }
     }
 
@@ -547,6 +542,17 @@ public class InstanceManager
         player.Movement.Stop();
 
         await _svc.Hub.SendZoneTransition(conn, player);
+
+        // Клиент закрывает окна (диалог стража, окно инстансов) после входа
+        await _svc.Hub.SendToClient(conn, new GameMessage
+        {
+            Type = "instance_started",
+            Data = new
+            {
+                TemplateName = instance.Template.Name,
+                Mode = instance.Mode == InstanceMode.Group ? "group" : "solo"
+            }
+        });
     }
 
     /// <summary>Генерация карты-коридора на полной карте 100x100 с серой пустотой вокруг.</summary>
