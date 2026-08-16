@@ -107,16 +107,16 @@ for f in z.namelist():
 z.close()
 PYEOF
 
-# Restore databases from backup
+# Restore player accounts (game.db) from backup
 if [ -f /root/game.db.bak ]; then
     cp /root/game.db.bak /root/lost-and-divine/game.db
     rm /root/game.db.bak
     echo "Restored game.db from backup"
 fi
+# content.db comes FRESH from the build (content is versioned in the repo).
+# The old server content.db is kept as /root/content.db.bak for safety.
 if [ -f /root/content.db.bak ]; then
-    cp /root/content.db.bak /root/lost-and-divine/content.db
-    rm /root/content.db.bak
-    echo "Restored content.db from backup"
+    echo "Old content.db kept as /root/content.db.bak (NOT restored)"
 fi
 
 cd lost-and-divine
