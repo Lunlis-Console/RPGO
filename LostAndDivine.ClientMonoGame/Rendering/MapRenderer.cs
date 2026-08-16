@@ -728,6 +728,14 @@ private sealed class RemotePlayerState
         float subCellY = (_camY - clickCY) * _cellH;
         _gridOX -= subCellX;
         _gridOY -= subCellY;
+
+        // Клик по спрайту сущности (визуальная позиция, а не клетка назначения):
+        // движущийся монстр/игрок выбирается по своему спрайту в любом месте пути.
+        if (TryPickEntityBySprite(screenX, screenY, out var spriteEntity, out int spriteMapX, out int spriteMapY))
+        {
+            HandleSingleEntityClick(spriteEntity, spriteMapX, spriteMapY);
+            return;
+        }
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
 
         var portalInfo = GetPortalSelection(mapX, mapY);
@@ -762,6 +770,14 @@ private sealed class RemotePlayerState
         float subCellY = (_camY - clickCY) * _cellH;
         _gridOX -= subCellX;
         _gridOY -= subCellY;
+
+        // Клик по спрайту сущности — атака/взаимодействие правой кнопкой
+        // по визуальной позиции, а не по клетке назначения.
+        if (TryPickEntityBySprite(screenX, screenY, out var spriteEntity, out int spriteMapX, out int spriteMapY))
+        {
+            HandleSingleEntityRightClick(spriteEntity, spriteMapX, spriteMapY);
+            return;
+        }
         if (!ScreenToMap(screenX, screenY, areaW, areaH, out int mapX, out int mapY)) return;
 
         var entitiesOnCell = GetEntitiesAt(mapX, mapY);
@@ -801,6 +817,16 @@ private sealed class RemotePlayerState
         }
         _hoverTileX = mapX;
         _hoverTileY = mapY;
+
+        // Наведение на спрайт сущности — курсор атаки, даже если сущность
+        // движется и её спрайт между клетками.
+        if (TryPickEntityBySprite(screenX, screenY, out var spriteEntity, out _, out _))
+        {
+            string sct = spriteEntity.Type == "player" && _currentMap?.PvPEnabled != true
+                ? "player" : "attack";
+            _hoverCursorType = sct;
+            return sct;
+        }
 
         string ct;
         if (_currentMap.Portals != null && _currentMap.Portals.Any(p => p.X == mapX && p.Y == mapY))
@@ -903,6 +929,56 @@ private sealed class RemotePlayerState
     private void HandleSingleEntityClick(EntityInfo entity, int mapX, int mapY)
     {
         StartInteraction(entity, mapX, mapY);
+    }
+
+    // Хит-тест клика по спрайту: использует те же визуальные позиции (_visPos)
+    // и ту же геометрию, что и отрисовка, поэтому клик попадает в спрайт
+    // движущейся сущности, а не только в её клетку назначения.
+    // Проверяем в порядке отрисовки сверху вниз (игроки рисуются поверх монстров).
+    private bool TryPickEntityBySprite(float screenX, float screenY, out EntityInfo entity, out int mapX, out int mapY)
+    {
+        entity = null!;
+        mapX = 0; mapY = 0;
+        var map = _currentMap;
+        if (map == null) return false;
+        int sx = (int)screenX, sy = (int)screenY;
+
+        for (int i = map.Players.Count - 1; i >= 0; i--)
+        {
+            var p = map.Players[i];
+            if (p.Name == _playerName) continue;
+            (float X, float Y) v;
+            lock (_stateLock) { if (!_visPos.TryGetValue($"player:{p.Name}", out v)) continue; }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < _viewStartX || wx > _viewEndX || wy < _viewStartY || wy > _viewEndY) continue;
+            float px = _gridOX + (v.X - _viewStartX) * _cellW + 3;
+            float py = _gridOY + (v.Y - _viewStartY) * _cellH;
+            if (SpriteHitRect(px, py, _cellW, _cellH).Contains(sx, sy))
+            {
+                entity = new EntityInfo { Type = "player", Name = p.Name, Level = p.Level, X = p.X, Y = p.Y, Id = p.Id.ToString() };
+                mapX = p.X; mapY = p.Y;
+                return true;
+            }
+        }
+
+        for (int i = map.Monsters.Count - 1; i >= 0; i--)
+        {
+            var m = map.Monsters[i];
+            (float X, float Y) v;
+            lock (_stateLock) { if (!_visPos.TryGetValue($"monster:{m.Id}", out v)) continue; }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < _viewStartX || wx > _viewEndX || wy < _viewStartY || wy > _viewEndY) continue;
+            float px = _gridOX + (v.X - _viewStartX) * _cellW + 3;
+            float py = _gridOY + (v.Y - _viewStartY) * _cellH;
+            if (SpriteHitRect(px, py, _cellW, _cellH).Contains(sx, sy))
+            {
+                entity = new EntityInfo { Type = "monster", Name = m.Name, Level = m.Level, X = m.X, Y = m.Y, Id = m.Id.ToString() };
+                mapX = m.X; mapY = m.Y;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void HandleSingleEntityRightClick(EntityInfo entity, int mapX, int mapY)
@@ -1465,6 +1541,15 @@ private sealed class RemotePlayerState
         return new Rectangle((int)px - w / 2 + (int)(cellW / 2), (int)py - h / 2 + (int)(cellH / 2), w, h);
     }
 
+    // Хит-область клика по спрайту — размером с клетку (спрайт рисуется
+    // крупнее через EntityScale, но кликается только область клетки).
+    private static Rectangle SpriteHitRect(float px, float py, float cellW, float cellH)
+    {
+        int w = (int)cellW;
+        int h = (int)cellH;
+        return new Rectangle((int)(px - w / 2f + cellW / 2f), (int)(py - h / 2f + cellH / 2f), w, h);
+    }
+
     private void DrawStatic(SpriteBatch sb, Texture2D? spr, int wx, int wy, int startX, int startY, int endX, int endY, Color tint)
     {
         if (wx < startX || wx > endX || wy < startY || wy > endY) return;
@@ -1983,15 +2068,20 @@ private sealed class RemotePlayerState
     private void DrawSelectionHighlight(SpriteBatch sb, WorldMap map, int startX, int startY, int endX, int endY)
     {
         if (_selectedEntityType == null) return;
-        int hx = _selectedEntityX, hy = _selectedEntityY;
+        float hx = _selectedEntityX, hy = _selectedEntityY;
         string? hkey = null;
         if (_selectedEntityType == "monster" && _selectedEntityId != null) hkey = $"monster:{_selectedEntityId}";
         else if (_selectedEntityType == "player" && _selectedEntityName != null) hkey = $"player:{_selectedEntityName}";
-        if (_selectedEntityType == "merchant" && map.Merchant != null) { hx = map.Merchant.X; hy = map.Merchant.Y; }
+        if (hkey != null)
+        {
+            // Плавное выделение: квадратик следует за спрайтом цели (непрерывная
+            // визуальная позиция), а не прыгает по клеткам.
+            lock (_stateLock) { if (_visPos.TryGetValue(hkey, out var hv)) { hx = hv.X; hy = hv.Y; } }
+        }
+        else if (_selectedEntityType == "merchant" && map.Merchant != null) { hx = map.Merchant.X; hy = map.Merchant.Y; }
         else if (_selectedEntityType == "board" && map.Board != null) { hx = map.Board.X; hy = map.Board.Y; }
         else if (_selectedEntityType == "storage_chest" && map.StorageChest != null) { hx = map.StorageChest.X; hy = map.StorageChest.Y; }
-        if (hkey != null) { lock (_stateLock) { if (_visPos.TryGetValue(hkey, out var hv)) { hx = (int)Math.Round(hv.X); hy = (int)Math.Round(hv.Y); } } }
-        if (hx >= startX && hx <= endX && hy >= startY && hy <= endY)
+        if (hx >= startX - 1 && hx <= endX + 1 && hy >= startY - 1 && hy <= endY + 1)
         {
             float tx = _gridOX + (hx - startX) * _cellW;
             float ty = _gridOY + (hy - startY) * _cellH;
