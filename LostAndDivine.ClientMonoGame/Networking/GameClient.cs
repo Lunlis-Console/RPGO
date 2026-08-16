@@ -239,6 +239,7 @@ public sealed class GameClient
     {
         PlayerName = player.Name;
         PlayerLevel = player.Level;
+        Rendering.ItemTooltip.PlayerLevel = player.Level;
         Status = new StatusData
         {
             Name = player.Name, Level = player.Level,

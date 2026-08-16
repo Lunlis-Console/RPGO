@@ -9,7 +9,11 @@ public static class ItemTooltip
     private static readonly Color QualityUncommon = new Color(76, 175, 80);
     private static readonly Color QualityRare = new Color(66, 165, 245);
     private static readonly Color QualityEpic = new Color(171, 71, 188);
-    private static readonly Color RequiredLevelColor = new Color(255, 140, 80);
+    private static readonly Color RequiredLevelBad = new Color(235, 75, 75);
+    private static readonly Color RequiredLevelGood = new Color(110, 200, 90);
+
+    /// <summary>Текущий уровень игрока для подсветки требуемого уровня предметов.</summary>
+    public static int PlayerLevel { get; set; } = 1;
 
     private static Color QualityColor(ItemQuality q) => q switch
     {
@@ -99,7 +103,10 @@ public static class ItemTooltip
         }
 
         if (item.RequiredLevel > 0)
-            lines.Add(new TooltipLine($"Требуемый уровень: {item.RequiredLevel}", RequiredLevelColor));
+        {
+            var levelColor = item.RequiredLevel <= PlayerLevel ? RequiredLevelGood : RequiredLevelBad;
+            lines.Add(new TooltipLine($"Требуемый уровень: {item.RequiredLevel}", levelColor));
+        }
 
         if (isWeapon || isCasterShield)
         {

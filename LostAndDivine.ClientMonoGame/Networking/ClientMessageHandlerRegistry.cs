@@ -172,6 +172,7 @@ internal static class ClientMessageHandlerRegistry
         {
             c.Status = st;
             c.PlayerLevel = st.Level;
+            Rendering.ItemTooltip.PlayerLevel = st.Level;
             if (st.Health > 0) c.IsDead = false;
             c.RaiseStatusUpdated(st);
             c.RaiseStatusDetailsUpdated(st);
@@ -184,6 +185,7 @@ internal static class ClientMessageHandlerRegistry
         if (inv != null)
         {
             c.Inventory = inv;
+            if (inv.PlayerLevel > 0) Rendering.ItemTooltip.PlayerLevel = inv.PlayerLevel;
             c.RaiseInventoryUpdated(inv);
         }
     }
