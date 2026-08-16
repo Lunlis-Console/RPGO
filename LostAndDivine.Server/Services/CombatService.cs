@@ -514,7 +514,7 @@ public class CombatService
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * mult);
             hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
             if (blocked)
-                hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+                hitDmg = 0;
             monster.Health -= hitDmg;
                     await TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;

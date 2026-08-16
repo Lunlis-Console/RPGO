@@ -513,6 +513,10 @@ public class MonsterManager
         => _svc.MonsterCombat.CalculateCombat(attacker, defender, applyDefenderDamage, isMelee);
 
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
+        RollAttack(ICombatant attacker, ICombatant defender, int baseAttack, double attackFraction, bool isMelee = true)
+        => _svc.MonsterCombat.RollAttack(attacker, defender, baseAttack, attackFraction, isMelee);
+
+    public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateOffHandAttack(Player attacker, Monster target)
         => _svc.MonsterCombat.CalculateOffHandAttack(attacker, target);
 

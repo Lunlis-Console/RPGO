@@ -60,7 +60,7 @@ public class PvPService
                 hitCrit = Balance.RollPercent(attacker.GetCritChance());
                 if (hitCrit) hitDmg = (int)(hitDmg * attacker.GetCritDamage());
             }
-            if (roll.Blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            if (roll.Blocked) hitDmg = 0;
             target.Health -= hitDmg;
             await _svc.Combat.TryLifesteal(attacker, hitDmg, dist <= 1, atkClient);
             target.LastDamagedTime = DateTime.UtcNow;
@@ -430,21 +430,9 @@ public class PvPService
             Data = new { PlayerName = pl.Name, Hand = attackHand, TargetX = target.X, TargetY = target.Y }
         });
 
-        int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist));
-        bool isCrit = Balance.RollPercent(pl.GetCritChance());
-        if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
-
-        bool isEvaded = Balance.RollPercent(target.GetEvadeChance());
-        bool isParried = !isEvaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
-        bool isBlocked = !isEvaded && !isParried && Balance.RollPercent(target.GetBlockChance());
-
-        int finalDmg = 0;
-        if (!isEvaded && !isParried)
-        {
-            finalDmg = Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
-            if (isBlocked)
-                finalDmg = Math.Max(Balance.MinDamage, finalDmg - target.GetBlockValue());
-        }
+        var (finalDmg, isCrit, isEvaded, isParried, isBlocked) =
+            _svc.Monsters.RollAttack(pl, target, pl.RollAttackDamage(), 1.0,
+                isMelee: pl.GetEffectiveAttackRange() <= 1);
 
         var targetClient = _svc.World.FindClientByPlayer(target);
 
@@ -546,22 +534,9 @@ public class PvPService
             Data = new { PlayerName = pl.Name, Hand = "off", TargetX = target.X, TargetY = target.Y }
         });
 
-        int rawDmg = Math.Max(Balance.MinDamage, pl.GetOffHandTotalAttack(dist));
-        bool isCrit = Balance.RollPercent(pl.GetCritChance());
-        if (isCrit) rawDmg = (int)(rawDmg * pl.GetCritDamage());
-        rawDmg = Math.Max(Balance.MinDamage, (int)(rawDmg * pl.GetOffHandDamageFraction()));
-
-        bool isEvaded = Balance.RollPercent(target.GetEvadeChance());
-        bool isParried = !isEvaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
-        bool isBlocked = !isEvaded && !isParried && Balance.RollPercent(target.GetBlockChance());
-
-        int finalDmg = 0;
-        if (!isEvaded && !isParried)
-        {
-            finalDmg = Math.Max(Balance.MinDamage, rawDmg - target.GetTotalDefense());
-            if (isBlocked)
-                finalDmg = Math.Max(Balance.MinDamage, finalDmg - target.GetBlockValue());
-        }
+        var (finalDmg, isCrit, isEvaded, isParried, isBlocked) =
+            _svc.Monsters.RollAttack(pl, target, pl.RollOffHandDamage(),
+                pl.GetOffHandDamageFraction(), isMelee: pl.GetEffectiveAttackRange() <= 1);
 
         string offWeaponName = pl.Equipment.GetOffHandWeapon()?.Name ?? "второе оружие";
         var targetClient = _svc.World.FindClientByPlayer(target);

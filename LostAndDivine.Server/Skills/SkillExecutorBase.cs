@@ -33,7 +33,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            if (blocked) hitDmg = 0;
             monster.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
@@ -109,7 +109,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
                 hitDmg = Math.Max(Balance.MinDamage, (int)(hitDmg * offFrac));
             }
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            if (blocked) hitDmg = 0;
             monster.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
@@ -196,7 +196,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            if (blocked) hitDmg = 0;
             target.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, dist <= 1, atkClient);
             target.LastDamagedTime = DateTime.UtcNow;
@@ -270,7 +270,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            if (blocked) hitDmg = 0;
             target.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, dist <= 1, atkClient);
             target.LastDamagedTime = DateTime.UtcNow;

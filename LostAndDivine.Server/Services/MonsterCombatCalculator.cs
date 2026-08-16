@@ -38,8 +38,32 @@ public class MonsterCombatCalculator
     public (int damageToTarget, int damageToAttacker, bool targetDead, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
         CalculateCombat(ICombatant attacker, ICombatant defender, bool applyDefenderDamage = true, bool isMelee = true)
     {
-        int rolledAttack = attacker.RollAttackDamage();
-        double effectiveAttack = GetEffectiveAttack(attacker, rolledAttack);
+        var (damage, isCrit, isEvaded, isParried, isBlocked) =
+            RollAttack(attacker, defender, attacker.RollAttackDamage(), 1.0, isMelee);
+
+        if (isEvaded) return (0, 0, false, false, true, false, false);
+        if (isParried) return (0, 0, false, false, false, true, false);
+
+        if (applyDefenderDamage && defender is Monster mon && !mon.ReturningToSpawn)
+        {
+            mon.Health -= damage;
+            mon.LastDamagedTime = DateTime.UtcNow;
+            if (attacker is Player pl)
+                mon.DamageTracker.AddOrUpdate(pl.Id, damage, (k, old) => old + damage);
+        }
+        bool targetDead = defender.Health <= 0;
+
+        return (damage, 0, targetDead, isCrit, false, false, isBlocked);
+    }
+
+    /// <summary>
+    /// Полная цепочка урона одного удара: атака→защита (с пробитием)→крит→редукция→блок.
+    /// Используется PvP-боем, чтобы игроки били друг друга по тем же правилам, что и монстров.
+    /// </summary>
+    public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
+        RollAttack(ICombatant attacker, ICombatant defender, int baseAttack, double attackFraction, bool isMelee = true)
+    {
+        double effectiveAttack = GetEffectiveAttack(attacker, baseAttack);
         double effectiveDefense = GetEffectiveDefense(defender);
         double accuracyReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
@@ -65,26 +89,20 @@ public class MonsterCombatCalculator
 
         var (evaded, parried, blocked) = CombatMath.RollDefense(defenderEvade, defender.GetParryChance(), defender.GetBlockChance(), isMelee);
 
-        if (evaded) return (0, 0, false, false, true, false, false);
-        if (parried) return (0, 0, false, false, false, true, false);
+        if (evaded) return (0, false, true, false, false);
+        if (parried) return (0, false, false, true, false);
 
         bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
         int damage = CombatMath.CalcFinalDamage(
             (int)effectiveAttack, (int)effectiveDefense,
             armorPen: armorPenExtra, isCrit, critMult: attacker.GetCritDamage(),
-            block: blocked ? defender.GetBlockValue() : 0);
+            block: 0);
+        if (blocked) damage = 0;
         damage = ApplyDmgReduction(attacker, damage);
+        if (attackFraction != 1.0)
+            damage = Math.Max(Balance.MinDamage, (int)(damage * attackFraction));
 
-        if (applyDefenderDamage && defender is Monster mon && !mon.ReturningToSpawn)
-        {
-            mon.Health -= damage;
-            mon.LastDamagedTime = DateTime.UtcNow;
-            if (attacker is Player pl)
-                mon.DamageTracker.AddOrUpdate(pl.Id, damage, (k, old) => old + damage);
-        }
-        bool targetDead = defender.Health <= 0;
-
-        return (damage, 0, targetDead, isCrit, false, false, blocked);
+        return (damage, isCrit, false, false, blocked);
     }
 
     public (int damage, bool isCrit, bool isEvaded, bool isParried, bool isBlocked)
@@ -103,7 +121,7 @@ public class MonsterCombatCalculator
         int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
         int finalDmg = CombatMath.ApplyCrit(baseDmg, crit, attacker.GetCritDamage());
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * attacker.GetOffHandDamageFraction()));
-        if (blocked) finalDmg = CombatMath.ApplyBlock(finalDmg, target.GetBlockValue());
+        if (blocked) finalDmg = 0;
 
         return (finalDmg, crit, false, false, blocked);
     }

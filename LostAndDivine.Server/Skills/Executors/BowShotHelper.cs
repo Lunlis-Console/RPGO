@@ -44,7 +44,7 @@ internal static class BowShotHelper
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            if (blocked) hitDmg = 0;
         }
 
         return (hitDmg, hitCrit, evaded, parried, blocked);
@@ -72,7 +72,7 @@ internal static class BowShotHelper
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
 
             bool blocked = Random.Shared.NextDouble() * 100 < target.GetBlockChance();
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            if (blocked) hitDmg = 0;
 
             target.Health -= hitDmg;
             target.LastDamagedTime = DateTime.UtcNow;

@@ -72,7 +72,7 @@ public sealed class DuelExecutor : SkillExecutorBase
             double mult = Balance.DuelPunishBaseMult + remaining * Balance.DuelPunishPerMissMult;
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * mult);
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            if (blocked) hitDmg = 0;
             monster.Health -= hitDmg;
             monster.LastDamagedTime = DateTime.UtcNow;
             monster.DamageTracker.AddOrUpdate(pl.Id, hitDmg, (k, old) => old + hitDmg);
@@ -129,7 +129,7 @@ public sealed class DuelExecutor : SkillExecutorBase
             int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
             double mult = Balance.DuelPunishBaseMult + remaining * Balance.DuelPunishPerMissMult;
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * mult);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - target.GetBlockValue());
+            if (blocked) hitDmg = 0;
             target.Health -= hitDmg;
             target.LastDamagedTime = DateTime.UtcNow;
         }

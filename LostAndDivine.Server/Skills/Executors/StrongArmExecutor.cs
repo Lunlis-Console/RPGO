@@ -35,7 +35,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
-            if (blocked) hitDmg = Math.Max(Balance.MinDamage, hitDmg - monster.GetBlockValue());
+            if (blocked) hitDmg = 0;
             monster.Health -= hitDmg;
             await svc.TryLifesteal(pl, hitDmg, true, client);
             monster.LastDamagedTime = DateTime.UtcNow;
