@@ -116,6 +116,7 @@ public static class Balance
     public const double SpawnDifficultyPerDist = 0.015;
     public const int SpawnSafeRadiusFromMerchant = 6;
     public const int MonsterRespawnDelayMs = 30000;
+    public const int CollectibleRespawnDelayMs = 30000;
     public const int MonsterWanderRadius = 5;
     public const int MonsterAggroRange = 5;
     public const int MonsterWanderSkipChance = 40;

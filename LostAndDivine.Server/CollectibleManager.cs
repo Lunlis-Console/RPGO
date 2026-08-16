@@ -12,6 +12,10 @@ public class Collectible
     public int X { get; set; }
     public int Y { get; set; }
     public string ZoneId { get; set; } = Balance.MainZoneId;
+
+    // Якорная точка спавна (из Tiled или исходная позиция): респавн ищет место рядом с ней.
+    public int SpawnX { get; set; }
+    public int SpawnY { get; set; }
 }
 
 /// <summary>
@@ -46,11 +50,15 @@ public class CollectibleManager
         _world = world;
     }
 
+    private readonly object _respawnLock = new();
+    private readonly List<(int OriginX, int OriginY, string Name, string ItemName, char Symbol, string ZoneId, DateTime RespawnAt)> _pendingRespawns = new();
+
     public void Initialize(List<TiledSpawn>? spawns = null, string zoneId = "")
     {
         if (string.IsNullOrEmpty(zoneId))
             zoneId = Balance.MainZoneId;
         _world.ClearCollectiblesInZone(zoneId);
+        lock (_respawnLock) _pendingRespawns.Clear();
 
         // В списке точек из Tiled лежат и спавны монстров: оставляем только те,
         // чьи имена совпадают с шаблонами собираемых объектов.
@@ -81,6 +89,8 @@ public class CollectibleManager
                     Symbol = tpl.Symbol,
                     X = s.X,
                     Y = s.Y,
+                    SpawnX = s.X,
+                    SpawnY = s.Y,
                     ZoneId = zoneId
                 });
                 spawned++;
@@ -129,9 +139,48 @@ public class CollectibleManager
             Symbol = symbol,
             X = x,
             Y = y,
+            SpawnX = x,
+            SpawnY = y,
             ZoneId = zoneId
         });
         return true;
+    }
+
+    // Респавн рядом с якорной точкой (до 5 клеток в сторону), с учётом
+    // препятствий, занятых клеток и границ карты.
+    private bool SpawnNearOrigin(string name, string itemName, char symbol, string zoneId, int originX, int originY)
+    {
+        int mapW = _world.Map.Width;
+        int mapH = _world.Map.Height;
+        int attempts = 0;
+        do
+        {
+            int dx = _world.NextRandom(-5, 6);
+            int dy = _world.NextRandom(-5, 6);
+            int x = originX + dx;
+            int y = originY + dy;
+            attempts++;
+
+            if (x < 0 || y < 0 || x >= mapW || y >= mapH) continue;
+            if (_world.Map.IsObstacle(x, y)) continue;
+            if (IsOccupied(x, y, zoneId)) continue;
+
+            _world.AddCollectible(new Collectible
+            {
+                Id = Guid.NewGuid().ToString(),
+                Name = name,
+                ItemName = itemName,
+                Symbol = symbol,
+                X = x,
+                Y = y,
+                SpawnX = originX,
+                SpawnY = originY,
+                ZoneId = zoneId
+            });
+            return true;
+        } while (attempts < Balance.SpawnMaxAttempts);
+
+        return false;
     }
 
     public List<CollectiblePosition> GetPositions()
@@ -157,7 +206,9 @@ public class CollectibleManager
         string collectibleName = collectible.Name;
         string itemId = _itemIdByCollectibleName.TryGetValue(itemName, out var id) ? id : Guid.NewGuid().ToString();
         _world.RemoveCollectible(collectible);
-        SpawnOne(collectibleName, itemName, collectible.Symbol, collectible.ZoneId);
+        lock (_respawnLock)
+            _pendingRespawns.Add((collectible.SpawnX, collectible.SpawnY, collectibleName, itemName, collectible.Symbol, collectible.ZoneId,
+                DateTime.UtcNow.AddMilliseconds(Balance.CollectibleRespawnDelayMs)));
 
         return new Item
         {
@@ -172,4 +223,26 @@ public class CollectibleManager
 
     public bool IsOccupied(int x, int y, string zoneId)
         => _world.GetCollectiblesSnapshot().Any(c => c.X == x && c.Y == y && c.ZoneId == zoneId);
+
+    /// <summary>Вызывается из игрового тика: респавнит собранные предметы рядом с их точками.</summary>
+    public void TickRespawns()
+    {
+        var now = DateTime.UtcNow;
+        List<(int OriginX, int OriginY, string Name, string ItemName, char Symbol, string ZoneId)> due = new();
+        lock (_respawnLock)
+        {
+            for (int i = _pendingRespawns.Count - 1; i >= 0; i--)
+            {
+                if (_pendingRespawns[i].RespawnAt <= now)
+                {
+                    due.Add((_pendingRespawns[i].OriginX, _pendingRespawns[i].OriginY, _pendingRespawns[i].Name,
+                        _pendingRespawns[i].ItemName, _pendingRespawns[i].Symbol, _pendingRespawns[i].ZoneId));
+                    _pendingRespawns.RemoveAt(i);
+                }
+            }
+        }
+
+        foreach (var d in due)
+            SpawnNearOrigin(d.Name, d.ItemName, d.Symbol, d.ZoneId, d.OriginX, d.OriginY);
+    }
 }

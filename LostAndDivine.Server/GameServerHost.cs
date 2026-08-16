@@ -117,6 +117,8 @@ public class GameServerHost
                 lastRespawn = now;
                 try { _svc.Monsters.TickRespawns(); }
                 catch (Exception ex) { Log.Error("[Tick] MonsterRespawn", ex); }
+                try { _svc.Collectibles.TickRespawns(); }
+                catch (Exception ex) { Log.Error("[Tick] CollectibleRespawn", ex); }
             }
 
             // 5000ms — regen
