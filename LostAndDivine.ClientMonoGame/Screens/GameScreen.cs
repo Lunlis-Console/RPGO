@@ -996,8 +996,15 @@ public class GameScreen : IScreen
         bool mouseOverAnyWindow = mouseOverAnyWindowBefore || _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
 
         bool mailTyping = _mailWindow.IsInputActive;
-        if (!_chatRenderer.IsTyping && !mailTyping)
-            _input.HandleEscape(keyboard, _settingsWindow, game);
+        bool shopEscConsumed = _shopWindow.Visible && _shopWindow.ConsumesEscape;
+        if (!_chatRenderer.IsTyping && !mailTyping && !shopEscConsumed)
+        {
+            bool escPressed = keyboard.IsKeyDown(Keys.Escape) && _input.PrevKeyboard.IsKeyUp(Keys.Escape);
+            if (escPressed && _shopWindow.Visible && _input.WindowStack.Count == 0)
+                _shopWindow.CloseShop();
+            else
+                _input.HandleEscape(keyboard, _settingsWindow, game);
+        }
 
         if (settingsOpen && _settingsWindow.Visible)
         {
