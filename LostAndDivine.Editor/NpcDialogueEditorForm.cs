@@ -20,6 +20,7 @@ public class NpcDialogueEditorForm : Form
     private TextBox _textBox = null!;
     private DataGridView _choicesGrid = null!;
     private Label _status = null!;
+    private SplitContainer _split = null!;
 
     private readonly List<(string Id, string Name, string Type)> _npcs = new();
     private DialogueTree? _tree;
@@ -49,7 +50,6 @@ public class NpcDialogueEditorForm : Form
         _npcSelector.SelectedIndexChanged += (s, e) => LoadDialogueForSelected();
         top.Controls.Add(npcLabel);
         top.Controls.Add(_npcSelector);
-        Controls.Add(top);
 
         var nodePanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
 
@@ -73,13 +73,13 @@ public class NpcDialogueEditorForm : Form
         nodePanel.Controls.Add(_nodeKeyBox);
         nodePanel.Controls.Add(nodeButtons);
 
-        var editorSplit = new SplitContainer
+        _split = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterDistance = 340};
+            SplitterDistance = 360};
 
-        editorSplit.Panel1.Controls.Add(nodePanel);
+        _split.Panel1.Controls.Add(nodePanel);
 
         var right = new Panel { Dock = DockStyle.Fill, Padding = new Padding(6) };
 
@@ -96,9 +96,11 @@ public class NpcDialogueEditorForm : Form
 
         right.Controls.Add(_choicesGrid);
         right.Controls.Add(fields);
-        editorSplit.Panel2.Controls.Add(right);
+        _split.Panel2.Controls.Add(right);
 
-        Controls.Add(editorSplit);
+        // Fill-контрол добавляем первым, чтобы панели Top/Bottom не перекрывались сплитом.
+        Controls.Add(_split);
+        Controls.Add(top);
 
         var bottom = new Panel { Dock = DockStyle.Bottom, Height = 42, Padding = new Padding(6) };
         _status = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Text = "Выберите NPC" };
@@ -116,6 +118,14 @@ public class NpcDialogueEditorForm : Form
         bottom.Controls.Add(_status);
         bottom.Controls.Add(saveBtn);
         Controls.Add(bottom);
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        // После автоматического масштабирования шрифта/DPI SplitterDistance мог разъехаться
+        // (правая панель сжалась бы до ~180px). Фиксируем корректную ширину левой панели.
+        _split.SplitterDistance = Math.Min(380, Math.Max(300, ClientSize.Width - 420));
     }
 
     private void LoadNpcs()
@@ -364,7 +374,7 @@ public class NpcDialogueEditorForm : Form
         {
             Text = text,
             Dock = DockStyle.Left,
-            Width = 118,
+            Width = 104,
             Height = 28,
             FlatStyle = FlatStyle.Standard,
             Cursor = Cursors.Hand,
