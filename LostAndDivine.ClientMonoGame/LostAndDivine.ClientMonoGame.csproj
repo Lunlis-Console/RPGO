@@ -27,6 +27,7 @@
     <EmbeddedResource Include="Content\Sprites\**\*.*" />
     <EmbeddedResource Include="Content\Tilesets\**\*.*" />
     <EmbeddedResource Include="Content\*.tmj" />
+    <EmbeddedResource Include="Content\Sectors\**\*.tmj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -55,6 +56,10 @@
     </None>
     <None Include="Content\*.tmj">
       <Link>Content\%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Content\Sectors\**\*.tmj">
+      <Link>Content\Sectors\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
