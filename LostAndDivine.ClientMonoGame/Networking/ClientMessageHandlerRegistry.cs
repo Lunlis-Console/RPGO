@@ -21,6 +21,7 @@ internal static class ClientMessageHandlerRegistry
         ["chat"] = HandleChat,
         ["error"] = HandleError,
         ["status_response"] = HandleStatusResponse,
+        ["inspect_response"] = HandleInspectResponse,
         ["inventory_response"] = HandleInventoryResponse,
         ["quest_log"] = HandleQuestLog,
         ["zone_transition"] = HandleZoneTransition,
@@ -183,6 +184,13 @@ internal static class ClientMessageHandlerRegistry
             c.RaiseStatusUpdated(st);
             c.RaiseStatusDetailsUpdated(st);
         }
+    }
+
+    private static void HandleInspectResponse(GameClient c, GameMessage m)
+    {
+        var st = m.Deserialize<StatusData>();
+        if (st != null)
+            c.RaiseInspectReceived(st);
     }
 
     private static void HandleInventoryResponse(GameClient c, GameMessage m)

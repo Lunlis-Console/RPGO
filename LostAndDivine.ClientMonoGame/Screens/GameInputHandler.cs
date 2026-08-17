@@ -267,12 +267,22 @@ internal class GameInputHandler
     }
 
     internal bool HandlePartyButtons(MouseState mouse, bool mouseOverAnyWindow, GameMain game,
-        Rectangle invitePartyRect, Rectangle tradePlayerRect,
+        Rectangle invitePartyRect, Rectangle tradePlayerRect, Rectangle inspectPlayerRect,
         Rectangle partyLeaveRect, Rectangle partyDisbandRect)
     {
         bool partyClick = mouse.LeftButton == ButtonState.Pressed && PrevMouse.LeftButton == ButtonState.Released;
         if (mouseOverAnyWindow || !partyClick) return false;
 
+        if (inspectPlayerRect.Contains(mouse.X, mouse.Y))
+        {
+            var sel = Map.GetSelectedEntity();
+            if (sel != null && sel.Type == "player")
+            {
+                Logger.Action($"Осмотр игрока: {sel.Name}");
+                _ = game.Client.SendAsync("inspect", new { TargetName = sel.Name });
+            }
+            return true;
+        }
         if (invitePartyRect.Contains(mouse.X, mouse.Y))
         {
             var sel = Map.GetSelectedEntity();

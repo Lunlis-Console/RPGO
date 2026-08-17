@@ -26,6 +26,7 @@ public class GameScreen : IScreen
     // Windows
     private readonly InventoryWindow _inventoryWindow = new();
     private readonly StatusWindow _statusWindow = new();
+    private readonly InspectWindow _inspectWindow = new();
     private readonly SkillsWindow _skillsWindow = new();
     private readonly EquipmentWindow _equipmentWindow = new();
     private readonly QuestLogWindow _questLogWindow = new();
@@ -379,6 +380,13 @@ public class GameScreen : IScreen
 
     private void WireStatusEvents()
     {
+        _client.InspectReceived += data =>
+        {
+            _inspectWindow.OpenInspect(data);
+            GameInputHandler.CenterWindow(_inspectWindow, GameMain.Instance!);
+            _input.PushWindow(_inspectWindow);
+            _windows.BringToFront(_inspectWindow);
+        };
         _client.StatusUpdated += status =>
         {
             _hudRenderer.UpdateStatus(status);
@@ -999,6 +1007,7 @@ public class GameScreen : IScreen
     {
         _windows.Add(_inventoryWindow);
         _windows.Add(_statusWindow);
+        _windows.Add(_inspectWindow);
         _windows.Add(_skillsWindow);
         _windows.Add(_equipmentWindow);
         _windows.Add(_questLogWindow);
@@ -1184,7 +1193,7 @@ public class GameScreen : IScreen
 
         // Party buttons
         bool partyHandled = _input.HandlePartyButtons(mouse, mouseOverAnyWindow, game,
-            _hudDraw.InvitePartyRect, _hudDraw.TradePlayerRect,
+            _hudDraw.InvitePartyRect, _hudDraw.TradePlayerRect, _hudDraw.InspectPlayerRect,
             _hudDraw.PartyLeaveRect, _hudDraw.PartyDisbandRect);
         mouseOverAnyWindow |= partyHandled;
 

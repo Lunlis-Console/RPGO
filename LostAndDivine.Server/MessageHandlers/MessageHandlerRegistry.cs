@@ -87,6 +87,7 @@ public class MessageHandlerRegistry
         Register("storage_open", new StorageOpenHandler(svc));
         Register("storage_deposit", new StorageDepositHandler(svc));
         Register("storage_withdraw", new StorageWithdrawHandler(svc));
+        Register("inspect", new InspectHandler(svc));
         Register("tile_request", new TileRequestHandler(svc));
         Register("sector_request", new SectorRequestHandler(svc));
         Register("leave_instance", new LeaveInstanceHandler(svc));

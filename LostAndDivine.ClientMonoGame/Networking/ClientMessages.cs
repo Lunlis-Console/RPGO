@@ -51,6 +51,8 @@ public sealed class StatusData
     public int Y { get; set; }
     public int Experience { get; set; }
     public Dictionary<string, string> Equipped { get; set; } = new();
+    // Осмотр другого игрока: полные предметы по слотам (для ячеек снаряжения и тултипов)
+    public Dictionary<string, Item> EquippedItems { get; set; } = new();
     public int Strength { get; set; }
     public int Endurance { get; set; }
     public int Agility { get; set; }

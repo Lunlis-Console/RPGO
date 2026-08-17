@@ -24,6 +24,7 @@ internal class GameHudRenderer
     // Party button rects (used for click detection in Update)
     internal Rectangle InvitePartyRect = Rectangle.Empty;
     internal Rectangle TradePlayerRect = Rectangle.Empty;
+    internal Rectangle InspectPlayerRect = Rectangle.Empty;
     internal Rectangle PartyLeaveRect = Rectangle.Empty;
     internal Rectangle PartyDisbandRect = Rectangle.Empty;
 
@@ -329,6 +330,7 @@ internal class GameHudRenderer
         var sel = _map.GetSelectedEntity();
         InvitePartyRect = Rectangle.Empty;
         TradePlayerRect = Rectangle.Empty;
+        InspectPlayerRect = Rectangle.Empty;
         if (sel == null || sel.Type != "player") return;
 
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
@@ -373,6 +375,13 @@ internal class GameHudRenderer
         var tTxt = "Обмен";
         var tSz = font.MeasureString(tTxt);
         sb.DrawString(font, tTxt, new Vector2(btnX + (btnW - tSz.X) / 2, btnY + btnH + 4 + (btnH - tSz.Y) / 2), Color.White);
+
+        InspectPlayerRect = new Rectangle(btnX, btnY + 2 * (btnH + 4), btnW, btnH);
+        bool iHov = InspectPlayerRect.Contains(tMs.X, tMs.Y);
+        sb.Draw(SpriteCache.Pixel, InspectPlayerRect, iHov ? new Color(90, 140, 220) : new Color(70, 110, 180));
+        var iTxt = "Осмотр";
+        var iSz = font.MeasureString(iTxt);
+        sb.DrawString(font, iTxt, new Vector2(btnX + (btnW - iSz.X) / 2, btnY + 2 * (btnH + 4) + (btnH - iSz.Y) / 2), Color.White);
     }
 
     internal Rectangle InstanceLeaveRect = Rectangle.Empty;
