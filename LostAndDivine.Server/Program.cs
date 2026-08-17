@@ -49,7 +49,7 @@ partial class Program
         clientBuild.Initialize();
 
         Log.Info("Создание игрового мира...");
-        var world = new GameWorld(Balance.WorldWidth, Balance.WorldHeight);
+        var world = new GameWorld(Balance.MainWorldWidth, Balance.MainWorldHeight);
 
         // Базовые сервисы (создаются раньше зависимостей)
         var monsters = new MonsterManager(world);
@@ -72,18 +72,37 @@ partial class Program
         loot.LoadFromDatabase();
         zones.LoadAll();
 
-        Log.Info("Загрузка Tiled-карт...");
+        // Секторный открытый мир (main): тайлы/препятствия/NPC/порталы/спавны из
+        // Content/Sectors/{col}_{row}.tmj встраиваются в карту мира (3000x1700).
+        var sectorWorld = new SectorWorld();
         var contentDir = Path.Combine(AppContext.BaseDirectory, "Content");
+        var sectorsDir = Path.Combine(contentDir, "Sectors");
+        try
+        {
+            if (Directory.Exists(sectorsDir))
+                sectorWorld.Load(world.Map, zones, sectorsDir);
+            else
+                Log.Warn($"Папка секторов не найдена: {sectorsDir} — открытый мир без тайлов");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Ошибка загрузки секторов открытого мира", ex);
+        }
+
+        Log.Info("Загрузка Tiled-карт...");
         var allSpawns = new List<TiledSpawn>();
         var allCollectibleSpawns = new Dictionary<string, List<TiledSpawn>>(StringComparer.OrdinalIgnoreCase);
         try
         {
             // Правило имён: zone_{id}.tmj в зону, dungeon_*.tmj в общие подземелья.
             // *_text.tmj в режиме вспомогательной карты игнорируются.
+            // zone_main больше не загружается: его контент перенесён в сектор 3_7.
             foreach (var file in Directory.GetFiles(contentDir, "zone_*.tmj", SearchOption.TopDirectoryOnly))
             {
                 string fname = Path.GetFileName(file);
                 string zoneId = Path.GetFileNameWithoutExtension(fname).Substring("zone_".Length);
+
+                if (zoneId == Balance.MainZoneId) continue;
 
                 var zoneSpawns = LoadTiledZone(zones, fname, zoneId);
                 if (zoneSpawns == null) continue;
@@ -97,6 +116,16 @@ partial class Program
         catch (Exception ex)
         {
             Log.Error("Ошибка загрузки Tiled-карт", ex);
+        }
+
+        // Спавны секторов открытого мира (глобальные координаты)
+        if (sectorWorld.AllSpawns.Count > 0)
+            allSpawns.AddRange(sectorWorld.AllSpawns);
+        foreach (var (zoneId, zoneSpawns) in sectorWorld.AllCollectibleSpawns)
+        {
+            if (!allCollectibleSpawns.ContainsKey(zoneId))
+                allCollectibleSpawns[zoneId] = new List<TiledSpawn>();
+            allCollectibleSpawns[zoneId].AddRange(zoneSpawns);
         }
 
         // Мёртвые торговцы, чтобы квесты и предметы мерчанта из Tiled-карт (работает и с ИИ)
@@ -124,7 +153,7 @@ partial class Program
         var storage = new StorageService(world, hub);
 
         // GameServices собирает по крупицам сервисы воедино
-        Services = new GameServices(world, hub, monsters, loot, corpses, quests, merchant, collectibles,
+        Services = new GameServices(world, hub, sectorWorld, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
             auth: null!, zones: zones, persistence, clientBuild, storage);
 
@@ -239,7 +268,7 @@ partial class Program
 
         Log.Info($"Сервер запущен на порту {Balance.ServerPort}");
         Log.Info($"Дата: {DateTime.Now}");
-        Log.Info($"Карта: {Balance.WorldWidth}x{Balance.WorldHeight}");
+        Log.Info($"Карта: {Balance.MainWorldWidth}x{Balance.MainWorldHeight}");
         Log.Info($"Игроков: {DatabaseManager.GetAccountCount()}");
         Log.Info("IP адреса для подключения:");
         foreach (var ip in GetLocalIPs())
@@ -680,6 +709,8 @@ partial class Program
         });
         if (tiledPortals.Count > 0)
         {
+            // Портал в открытый мир: координаты в свойствах заданы в старой локальной
+            // системе zone_main → переводим в глобальные секторного мира.
             zones.RegisterTiledPortals(tiledPortals.Select(p => new WorldPortal
             {
                 Id = $"tiled_{zoneId}_{p.X}_{p.Y}",
@@ -687,8 +718,10 @@ partial class Program
                 FromX = p.X,
                 FromY = p.Y,
                 ToZone = p.ToZone,
-                ToX = p.ToX,
-                ToY = p.ToY
+                ToX = string.Equals(p.ToZone, Balance.MainZoneId, StringComparison.OrdinalIgnoreCase)
+                    ? p.ToX + Balance.EntrySectorOffsetX : p.ToX,
+                ToY = string.Equals(p.ToZone, Balance.MainZoneId, StringComparison.OrdinalIgnoreCase)
+                    ? p.ToY + Balance.EntrySectorOffsetY : p.ToY
             }));
         }
 

@@ -17,6 +17,15 @@ public class TileRequestHandler : BaseHandler
     public override async Task Handle(ClientConnection connection, GameMessage message, Player? player)
     {
         if (player == null) return;
+
+        if (player.CurrentZoneId == Balance.MainZoneId)
+        {
+            // Открытый мир: тайлы целиком не передаются (карта 3000x1700 не влезает
+            // в лимит сообщения) — отвечаем блоком секторов вокруг игрока.
+            await Hub.SendSectorsAround(connection, player);
+            return;
+        }
+
         await Hub.SendZoneTransition(connection, player);
     }
 }

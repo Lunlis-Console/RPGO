@@ -5,6 +5,12 @@ public static class Pathfinding
     private static readonly int[] Dx = { 0, 0, -1, 1 };
     private static readonly int[] Dy = { -1, 1, 0, 0 };
 
+    /// <summary>
+    /// Максимум посещённых клеток за один поиск. Защита от бесконечного перебора
+    /// на больших картах (секторный мир 3000x1700): после лимита поиск прекращается.
+    /// </summary>
+    private const int MaxVisited = 200_000;
+
     public static List<(int X, int Y)> FindPath(
         int startX, int startY, int targetX, int targetY,
         int worldW, int worldH,
@@ -19,11 +25,14 @@ public static class Pathfinding
         if (targetX < 0 || targetX >= worldW || targetY < 0 || targetY >= worldH)
             return new List<(int, int)>();
 
-        var visited = new bool[worldW, worldH];
-        var parent = new (int X, int Y)[worldW, worldH];
+        // Разреженный BFS: посещаем только реально пройденные клетки, а не всю карту.
+        // На секторном мире (5.1 млн клеток) плотные bool[worldW, worldH]-массивы
+        // непозволительны; здесь память пропорциональна числу исследованных клеток.
+        var visited = new HashSet<(int X, int Y)>();
+        var parent = new Dictionary<(int X, int Y), (int X, int Y)>();
         var queue = new Queue<(int X, int Y)>();
 
-        visited[startX, startY] = true;
+        visited.Add((startX, startY));
         queue.Enqueue((startX, startY));
 
         bool found = false;
@@ -43,15 +52,22 @@ public static class Pathfinding
                 int ny = cy + Dy[i];
 
                 if (nx < 0 || nx >= worldW || ny < 0 || ny >= worldH) continue;
-                if (visited[nx, ny]) continue;
                 if (isBlocked(nx, ny)) continue;
+                if (!visited.Add((nx, ny))) continue;
 
-                visited[nx, ny] = true;
-                parent[nx, ny] = (cx, cy);
+                parent[(nx, ny)] = (cx, cy);
                 queue.Enqueue((nx, ny));
+
+                if (visited.Count >= MaxVisited)
+                {
+                    // Слишком много клеток — считаем путь ненайденным
+                    if (nx == targetX && ny == targetY) found = true;
+                    goto done;
+                }
             }
         }
 
+        done:
         if (!found)
             return new List<(int, int)>();
 
@@ -61,7 +77,7 @@ public static class Pathfinding
         while (x != startX || y != startY)
         {
             raw.Add((x, y));
-            var p = parent[x, y];
+            var p = parent[(x, y)];
             x = p.X;
             y = p.Y;
         }

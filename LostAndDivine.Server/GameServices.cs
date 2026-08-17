@@ -15,6 +15,7 @@ public sealed class GameServices : IGameServices
 {
     public GameWorld World { get; }
     public INetworkHub Hub { get; }
+    public SectorWorld Sectors { get; }
     public MonsterManager Monsters { get; }
     public LootManager Loot { get; }
     public CorpseManager Corpses { get; }
@@ -68,6 +69,7 @@ public sealed class GameServices : IGameServices
     public GameServices(
         GameWorld world,
         INetworkHub hub,
+        SectorWorld sectors,
         MonsterManager monsters,
         LootManager loot,
         CorpseManager corpses,
@@ -90,6 +92,7 @@ public sealed class GameServices : IGameServices
         World = world;
         pathfinding.Services = this;
         Hub = hub;
+        Sectors = sectors;
         Monsters = monsters;
         Loot = loot;
         Corpses = corpses;

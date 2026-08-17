@@ -97,6 +97,7 @@ public sealed class GameClient
     public event Action<byte[], int, int, string, int>? TileDataReceived; // data, width, height, tilesetId, tileSize
     public event Action<byte[], int, int>? ObstacleDataReceived; // data, width, height
     public event Action<byte[], int, int, string, int>? ObjectLayerDataReceived; // data, width, height, tilesetId, tileSize
+    public event Action<SectorData>? SectorDataReceived; // сектор открытого мира (main)
     public event Action<string?[]>? HotbarUpdated;
     public event Action<string>? TargetCleared;
     public event Action<string, int, int>? AttackCooldownUpdated;
@@ -161,6 +162,7 @@ public sealed class GameClient
     internal void RaiseTileDataReceived(byte[] data, int width, int height, string tilesetId, int tileSize) => Ui(() => TileDataReceived?.Invoke(data, width, height, tilesetId, tileSize));
     internal void RaiseObstacleDataReceived(byte[] data, int width, int height) => Ui(() => ObstacleDataReceived?.Invoke(data, width, height));
     internal void RaiseObjectLayerDataReceived(byte[] data, int width, int height, string tilesetId, int tileSize) => Ui(() => ObjectLayerDataReceived?.Invoke(data, width, height, tilesetId, tileSize));
+    internal void RaiseSectorDataReceived(SectorData sector) => Ui(() => SectorDataReceived?.Invoke(sector));
     internal void RaiseShopUpdated(ShopData shop) => Ui(() => ShopUpdated?.Invoke(shop));
     internal void RaiseTradeOpened(TradeOpenData open) => Ui(() => TradeOpened?.Invoke(open));
     internal void RaiseTradeOfferUpdated(TradeOfferData offer) => Ui(() => TradeOfferUpdated?.Invoke(offer));

@@ -277,12 +277,17 @@ public sealed class GameServer : INetworkHub
                 Portals = portals,
                 Doors = doors,
                 TileMapId = zoneId,
-                TileData = client.HasTilesSent(zoneId) ? null : zoneMap.GetTiles(),
-                ObstacleData = client.HasTilesSent(zoneId) ? null : zoneMap.GetObstacleData(),
+                // Открытый мир (main): тайлы целиком не передаются (3000x1700 не
+                // влезает в лимит сообщения) — клиент получает секторы по запросу.
+                TileData = zoneId == Balance.MainZoneId ? null
+                    : (client.HasTilesSent(zoneId) ? null : zoneMap.GetTiles()),
+                ObstacleData = zoneId == Balance.MainZoneId ? null
+                    : (client.HasTilesSent(zoneId) ? null : zoneMap.GetObstacleData()),
                 TileWidth = svc.Zones.GetTileConfig(zoneId).TileWidth,
                 TileHeight = svc.Zones.GetTileConfig(zoneId).TileWidth,
                 TilesetId = svc.Zones.GetTileConfig(zoneId).TilesetId,
-                ObjectData = client.HasTilesSent(zoneId) ? null : zoneMap.GetObjectTiles(),
+                ObjectData = zoneId == Balance.MainZoneId ? null
+                    : (client.HasTilesSent(zoneId) ? null : zoneMap.GetObjectTiles()),
                 ObjectTilesetId = svc.Zones.GetTileConfig(zoneId).ObjectTilesetId,
                 ObjectTileWidth = svc.Zones.GetTileConfig(zoneId).ObjectTileWidth
             };
@@ -834,6 +839,7 @@ public sealed class GameServer : INetworkHub
         connection.ResetTilesSent();
         var zone = _svc.Zones.GetZone(player.CurrentZoneId);
         var zoneMap = _svc.Zones.GetOrCreateMap(player.CurrentZoneId);
+        bool isMainZone = player.CurrentZoneId == Balance.MainZoneId;
         await SendToClient(connection, new GameMessage
         {
             Type = "zone_transition",
@@ -846,16 +852,69 @@ public sealed class GameServer : INetworkHub
                 PvPEnabled = zone?.PvpEnabled ?? false,
                 Width = zoneMap.Width,
                 Height = zoneMap.Height,
-                TileData = zoneMap.GetTiles(),
-                ObstacleData = zoneMap.GetObstacleData(),
+                // Открытый мир: тайлы шлются секторами (sector_data), а не целиком.
+                TileData = isMainZone ? null : zoneMap.GetTiles(),
+                ObstacleData = isMainZone ? null : zoneMap.GetObstacleData(),
                 TileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
                 TileHeight = _svc.Zones.GetTileConfig(player.CurrentZoneId).TileWidth,
                 TilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).TilesetId,
-                ObjectData = zoneMap.GetObjectTiles(),
+                ObjectData = isMainZone ? null : zoneMap.GetObjectTiles(),
                 ObjectTilesetId = _svc.Zones.GetTileConfig(player.CurrentZoneId).ObjectTilesetId,
                 ObjectTileWidth = _svc.Zones.GetTileConfig(player.CurrentZoneId).ObjectTileWidth
             }
         });
+
+        // Сразу отправляем стартовый блок секторов вокруг игрока
+        if (isMainZone)
+            await SendSectorsAround(connection, player);
+    }
+
+    /// <summary>
+    /// Отправляет клиенту один сектор открытого мира (main) в виде sector_data.
+    /// Сектор шлётся один раз за соединение (дедупликация в ClientConnection).
+    /// </summary>
+    public async Task SendSectorData(ClientConnection connection, int col, int row)
+    {
+        if (connection.HasSectorSent(col, row)) return;
+        var sector = _svc.Sectors.Get(col, row);
+        if (sector == null) return;
+        connection.MarkSectorSent(col, row);
+
+        await SendToClient(connection, new GameMessage
+        {
+            Type = "sector_data",
+            Data = new SectorData
+            {
+                ZoneId = Balance.MainZoneId,
+                Col = col,
+                Row = row,
+                Width = Balance.SectorSize,
+                Height = Balance.SectorSize,
+                TileData = sector.Tiles,
+                ObstacleData = sector.Obstacles,
+                ObjectData = sector.Objects,
+                TileWidth = sector.TileWidth,
+                TilesetId = sector.TilesetId,
+                ObjectTilesetId = sector.ObjectTilesetId,
+                ObjectTileWidth = sector.ObjectTileWidth
+            }
+        });
+    }
+
+    /// <summary>Отправляет блок 3x3 секторов вокруг позиции игрока (main-зона).</summary>
+    public async Task SendSectorsAround(ClientConnection connection, Player player)
+    {
+        int centerCol = Math.Clamp(player.X / Balance.SectorSize, 0, Balance.SectorCols - 1);
+        int centerRow = Math.Clamp(player.Y / Balance.SectorSize, 0, Balance.SectorRows - 1);
+        for (int r = centerRow - 1; r <= centerRow + 1; r++)
+        {
+            if (r < 0 || r >= Balance.SectorRows) continue;
+            for (int c = centerCol - 1; c <= centerCol + 1; c++)
+            {
+                if (c < 0 || c >= Balance.SectorCols) continue;
+                await SendSectorData(connection, c, r);
+            }
+        }
     }
 
     private MerchantPosition? BuildMerchantForZone(string zoneId, MerchantPosition defaultMerchant, Player player)

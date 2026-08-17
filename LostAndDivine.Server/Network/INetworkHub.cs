@@ -27,6 +27,8 @@ public interface INetworkHub
     StatsBreakdown BuildBreakdown(Player player);
     Task KickPlayer(ClientConnection connection, string reason);
     Task SendZoneTransition(ClientConnection connection, Player player);
+    Task SendSectorData(ClientConnection connection, int col, int row);
+    Task SendSectorsAround(ClientConnection connection, Player player);
     void LoadNpcCache();
     NpcPosition? FindNpcAt(string zoneId, int x, int y);
     NpcPosition? FindNpcById(string zoneId, string npcId);

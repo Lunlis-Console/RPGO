@@ -34,6 +34,24 @@ public static class BalanceStatic
     public const string MainZoneId = "main";
     public const string StartZoneId = "airship_basement";
 
+    // ===== СЕКТОРНЫЙ МИР (main) =====
+    // Открытый мир разбит на сетку секторов: SectorCols x SectorRows, каждый размером
+    // SectorSize x SectorSize клеток. Сектор именуется "{col}_{row}" (например "3_7"),
+    // глобальные координаты: col = X / SectorSize, row = Y / SectorSize.
+    public const int SectorSize = 100;
+    public const int SectorCols = 30;
+    public const int SectorRows = 17;
+    public const int WorldWidth = SectorSize * SectorCols;   // 3000
+    public const int WorldHeight = SectorSize * SectorRows;  // 1700
+
+    /// <summary>Сектор входа из zone_airship (содержит контент старой zone_main).</summary>
+    public const int EntrySectorCol = 3;
+    public const int EntrySectorRow = 7;
+
+    /// <summary>Глобальное смещение сектора входа: EntrySectorCol * SectorSize, EntrySectorRow * SectorSize.</summary>
+    public const int EntrySectorOffsetX = EntrySectorCol * SectorSize; // 300
+    public const int EntrySectorOffsetY = EntrySectorRow * SectorSize; // 700
+
     public const int MinDamage = 1;
     public const int ChanceRollMax = 100;
 

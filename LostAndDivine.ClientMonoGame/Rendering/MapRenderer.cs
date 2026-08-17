@@ -69,6 +69,41 @@ public class MapRenderer
     private string _objectTilesetId = "";
     private int _objectTileSize = 32;
 
+    // Секторный открытый мир (main): тайлы приходят посекторно (sector_data) в
+    // локальных координатах сектора; глобальная клетка (x, y) читается из сектора
+    // (x / SectorSize, y / SectorSize). Пока сектор не загружен — рисуем «пустоту».
+    private readonly Dictionary<(int Col, int Row), SectorData> _sectors = new();
+    private bool _sectorMode;
+
+    public void ClearSectors()
+    {
+        lock (_stateLock)
+        {
+            _sectors.Clear();
+            _sectorMode = false;
+        }
+    }
+
+    /// <summary>Загружен ли сектор (для дедупликации запросов).</summary>
+    public bool HasSector(int col, int row)
+    {
+        lock (_stateLock) return _sectors.ContainsKey((col, row));
+    }
+
+    /// <summary>Применяет сектор открытого мира (main) к рендеру.</summary>
+    public void SetSectorData(SectorData sector)
+    {
+        if (sector.TileData == null) return;
+        lock (_stateLock)
+        {
+            // Секторы приходят только для main; принимаем даже если текущая карта
+            // ещё старая (гонка: sector_data приходит раньше map_update после
+            // zone_transition). Использование гейтится зоной в DrawTiles/IsBlocked.
+            _sectors[(sector.Col, sector.Row)] = sector;
+            _sectorMode = true;
+        }
+    }
+
     public void SetObjectLayerData(byte[]? data, int width, int height, string tilesetId = "", int tileSize = 32)
     {
         _objectData = data;
@@ -106,11 +141,26 @@ public class MapRenderer
     /// <summary>Непроходима ли клетка (данные препятствий с сервера).</summary>
     public bool IsBlocked(int x, int y)
     {
+        if (_sectorMode && _currentMap?.ZoneId == BalanceStatic.MainZoneId)
+        {
+            if (x < 0 || y < 0 || x >= BalanceStatic.WorldWidth || y >= BalanceStatic.WorldHeight)
+                return false;
+            int col = x / BalanceStatic.SectorSize;
+            int row = y / BalanceStatic.SectorSize;
+            SectorData? sector;
+            lock (_stateLock) sector = _sectors.TryGetValue((col, row), out var s) ? s : null;
+            if (sector?.ObstacleData == null) return false;
+            int lx = x - col * BalanceStatic.SectorSize;
+            int ly = y - row * BalanceStatic.SectorSize;
+            int idx = ly * BalanceStatic.SectorSize + lx;
+            return idx >= 0 && idx < sector.ObstacleData.Length && sector.ObstacleData[idx] != 0;
+        }
+
         if (_obstacleData == null) return false;
         if (x < 0 || y < 0 || x >= _obstacleWidth || y >= _obstacleHeight) return false;
-        int idx = y * _obstacleWidth + x;
-        if (idx < 0 || idx >= _obstacleData.Length) return false;
-        return _obstacleData[idx] != 0;
+        int idx2 = y * _obstacleWidth + x;
+        if (idx2 < 0 || idx2 >= _obstacleData.Length) return false;
+        return _obstacleData[idx2] != 0;
     }
     private readonly FloatingTextRenderer _floatingRenderer = new();
 
@@ -1214,6 +1264,13 @@ private sealed class RemotePlayerState
         int viewW = _viewEndX - _viewStartX + 1;
         int viewH = _viewEndY - _viewStartY + 1;
 
+        // Открытый мир: тайлы посекторно (секторный мир 3000x1700 целиком не хранится)
+        if (_sectorMode && map.ZoneId == BalanceStatic.MainZoneId)
+        {
+            DrawSectorTiles(sb, map, offsetX, offsetY, areaW, areaH, viewW, viewH, grass);
+            return;
+        }
+
         bool hasTileset = _tileData != null
             && _tileMapWidth == map.Width && _tileMapHeight == map.Height
             && _tileData.Length == map.Width * map.Height;
@@ -1316,6 +1373,88 @@ private sealed class RemotePlayerState
     }
 
     /// <summary>
+    /// Рисует тайлы секторного мира: каждая глобальная клетка берётся из своего
+    /// сектора (локальные координаты); незагруженный сектор — тёмная пустота.
+    /// </summary>
+    private void DrawSectorTiles(SpriteBatch sb, WorldMap map, float offsetX, float offsetY, float areaW, float areaH,
+        int viewW, int viewH, Texture2D? grass)
+    {
+        int tilePxW = (int)Math.Ceiling(_cellW);
+        int tilePxH = (int)Math.Ceiling(_cellH);
+
+        // Снимок секторов под локом (сеть обновляет их в фоне)
+        Dictionary<(int Col, int Row), SectorData> sectors;
+        lock (_stateLock) sectors = new Dictionary<(int, int), SectorData>(_sectors);
+
+        SectorData? lastSector = null;
+        Texture2D? tilesetTex = null;
+        int tilesetCols = 1, tilesetRows = 1;
+        int srcTileW = 32, srcTileH = 32;
+
+        for (int y = -1; y <= viewH + 1; y++)
+        {
+            float ty = _gridOY + y * _cellH;
+            if (ty > offsetY + areaH) continue;
+            for (int x = -1; x <= viewW + 1; x++)
+            {
+                float tx = _gridOX + x * _cellW;
+                if (tx > offsetX + areaW) continue;
+                int mx = _viewStartX + x;
+                int my = _viewStartY + y;
+                if (mx < 0 || my < 0 || mx >= map.Width || my >= map.Height) continue;
+
+                int col = mx / BalanceStatic.SectorSize;
+                int row = my / BalanceStatic.SectorSize;
+                if (!sectors.TryGetValue((col, row), out var sector) || sector.TileData == null)
+                {
+                    sb.Draw(SpriteCache.Pixel, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), new Color(40, 40, 45));
+                    continue;
+                }
+
+                if (!ReferenceEquals(sector, lastSector))
+                {
+                    lastSector = sector;
+                    if (!string.IsNullOrEmpty(sector.TilesetId))
+                        tilesetTex = SpriteCache.GetTileset(sector.TilesetId, sector.TileWidth, out tilesetCols, out tilesetRows);
+                    else
+                        tilesetTex = null;
+                    srcTileW = Math.Max(1, sector.TileWidth);
+                    srcTileH = srcTileW;
+                }
+
+                int lx = mx - col * BalanceStatic.SectorSize;
+                int ly = my - row * BalanceStatic.SectorSize;
+                byte tileId = sector.TileData[ly * BalanceStatic.SectorSize + lx];
+                var rect = new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2);
+
+                if (tileId == 0)
+                {
+                    if (grass != null)
+                        sb.Draw(grass, rect, Color.White);
+                    else
+                        sb.Draw(SpriteCache.Pixel, rect, Color.LightGreen);
+                    continue;
+                }
+                if (tileId == 255 || tilesetTex == null)
+                {
+                    sb.Draw(SpriteCache.Pixel, rect, new Color(40, 40, 45));
+                    continue;
+                }
+                int tCol = (tileId - 1) % tilesetCols;
+                int tRow = (tileId - 1) / tilesetCols;
+                if (tRow >= tilesetRows || tCol >= tilesetCols)
+                {
+                    if (grass != null)
+                        sb.Draw(grass, rect, Color.White);
+                    continue;
+                }
+                var src = new Rectangle(tCol * srcTileW, tRow * srcTileH, srcTileW, srcTileH);
+                sb.Draw(tilesetTex, rect, src, Color.White);
+            }
+        }
+    }
+
+    /// <summary>
     /// Рамка по границе карты. Рисуется только когда карта видна целиком (иначе край карты —
     /// это граница экрана и рамка не нужна). Вместе с тёмным фоном за картой убирает
     /// светлую полосу между краем экрана и тайлами.
@@ -1340,9 +1479,16 @@ private sealed class RemotePlayerState
 
     /// <summary>
     /// Рисует слой объектов (деревья и т.п.) поверх всех сущностей. 0 — прозрачная клетка.
+    /// Для секторного мира объекты берутся из секторов.
     /// </summary>
     private void DrawObjectLayer(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
     {
+        if (_sectorMode && _currentMap?.ZoneId == BalanceStatic.MainZoneId)
+        {
+            DrawSectorObjectLayer(sb, offsetX, offsetY, areaW, areaH);
+            return;
+        }
+
         if (_objectData == null || _objectMapWidth <= 0 || _objectMapHeight <= 0) return;
         if (string.IsNullOrEmpty(_objectTilesetId)) return;
 
@@ -1372,6 +1518,60 @@ private sealed class RemotePlayerState
                 int tRow = (tileId - 1) / cols;
                 if (tRow >= rows || tCol >= cols) continue;
                 var src = new Rectangle(tCol * _objectTileSize, tRow * _objectTileSize, _objectTileSize, _objectTileSize);
+                sb.Draw(tex, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), src, Color.White);
+            }
+        }
+    }
+
+    /// <summary>Слой объектов секторного мира: деревья/камни из ObjectData сектора.</summary>
+    private void DrawSectorObjectLayer(SpriteBatch sb, float offsetX, float offsetY, float areaW, float areaH)
+    {
+        int viewW = _viewEndX - _viewStartX + 1;
+        int viewH = _viewEndY - _viewStartY + 1;
+        int tilePxW = (int)Math.Ceiling(_cellW);
+        int tilePxH = (int)Math.Ceiling(_cellH);
+
+        Dictionary<(int Col, int Row), SectorData> sectors;
+        lock (_stateLock) sectors = new Dictionary<(int, int), SectorData>(_sectors);
+
+        SectorData? lastSector = null;
+        Texture2D? tex = null;
+        int cols = 1, rows = 1;
+
+        for (int y = -1; y <= viewH + 1; y++)
+        {
+            float ty = _gridOY + y * _cellH;
+            if (ty > offsetY + areaH) continue;
+            for (int x = -1; x <= viewW + 1; x++)
+            {
+                float tx = _gridOX + x * _cellW;
+                if (tx > offsetX + areaW) continue;
+                int mx = _viewStartX + x;
+                int my = _viewStartY + y;
+                if (mx < 0 || my < 0 || mx >= BalanceStatic.WorldWidth || my >= BalanceStatic.WorldHeight) continue;
+
+                int col = mx / BalanceStatic.SectorSize;
+                int row = my / BalanceStatic.SectorSize;
+                if (!sectors.TryGetValue((col, row), out var sector)) continue;
+                if (sector.ObjectData == null || string.IsNullOrEmpty(sector.ObjectTilesetId)) continue;
+
+                if (!ReferenceEquals(sector, lastSector))
+                {
+                    lastSector = sector;
+                    tex = SpriteCache.GetTileset(sector.ObjectTilesetId, sector.ObjectTileWidth > 0 ? sector.ObjectTileWidth : sector.TileWidth, out cols, out rows);
+                }
+                if (tex == null) continue;
+
+                int lx = mx - col * BalanceStatic.SectorSize;
+                int ly = my - row * BalanceStatic.SectorSize;
+                byte tileId = sector.ObjectData[ly * BalanceStatic.SectorSize + lx];
+                if (tileId == 0) continue;
+
+                int tCol = (tileId - 1) % cols;
+                int tRow = (tileId - 1) / cols;
+                if (tRow >= rows || tCol >= cols) continue;
+                int srcSize = Math.Max(1, sector.ObjectTileWidth > 0 ? sector.ObjectTileWidth : sector.TileWidth);
+                var src = new Rectangle(tCol * srcSize, tRow * srcSize, srcSize, srcSize);
                 sb.Draw(tex, new Rectangle((int)tx, (int)ty, tilePxW + 2, tilePxH + 2), src, Color.White);
             }
         }

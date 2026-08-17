@@ -14,7 +14,7 @@ public class CombatTests
         var debuffs = new DebuffManager();
         var quests = new QuestManager(world);
         var merchant = new MerchantManager(world);
-        var svc = new GameServices(world, null!, _monsters,
+        var svc = new GameServices(world, null!, null!, _monsters,
             new LootManager(world), new CorpseManager(),
             quests, merchant,
             new CollectibleManager(world), new TradeManager(),

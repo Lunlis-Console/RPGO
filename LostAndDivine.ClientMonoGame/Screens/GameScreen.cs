@@ -57,6 +57,11 @@ public class GameScreen : IScreen
     private DateTime _tileRequestTime;
     private GameClient _client = null!;
 
+    // Секторный открытый мир (main): текущая зона и уже запрошенные секторы
+    // (дедупликация: повторный запрос сектора не уходит, пока он не пришёл).
+    private string _currentZoneId = BalanceStatic.StartZoneId;
+    private readonly HashSet<(int Col, int Row)> _requestedSectors = new();
+
     public GameScreen()
     {
         _client = GameMain.Instance!.Client;
@@ -112,6 +117,7 @@ public class GameScreen : IScreen
             _minimap.SetPlayerName(_client.PlayerName);
             _minimap.SetMap(map);
             _hudRenderer.UpdateInstanceTimer(map.InstanceExpiresAtUtcMs);
+            _currentZoneId = map.ZoneId;
             if (map.TileData != null && map.TileData.Length > 0)
             {
                 _mapRenderer.SetTileData(map.TileData, map.Width, map.Height, map.TilesetId ?? map.ZoneId, map.TileWidth);
@@ -119,7 +125,10 @@ public class GameScreen : IScreen
             }
             else if (!_mapRenderer.HasValidTiles(map.Width, map.Height))
             {
-                RequestTilesIfNeeded(map);
+                if (map.ZoneId == BalanceStatic.MainZoneId)
+                    RequestSectorsAround();
+                else
+                    RequestTilesIfNeeded(map);
             }
             if (map.ObstacleData != null && map.ObstacleData.Length > 0)
             {
@@ -140,7 +149,11 @@ public class GameScreen : IScreen
         };
         _client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
+            _currentZoneId = zoneId;
             _mapRenderer.ClearMap();
+            _mapRenderer.ClearSectors();
+            _minimap.ClearSectors();
+            _requestedSectors.Clear();
             _mapRenderer.SnapCameraNextFrame();
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
@@ -159,6 +172,13 @@ public class GameScreen : IScreen
         _client.ObjectLayerDataReceived += (data, w, h, tilesetId, tileSize) =>
         {
             _mapRenderer.SetObjectLayerData(data, w, h, tilesetId, tileSize);
+        };
+        _client.SectorDataReceived += sector =>
+        {
+            _mapRenderer.SetSectorData(sector);
+            _minimap.SetSectorData(sector);
+            _requestedSectors.Remove((sector.Col, sector.Row));
+            RequestSectorsAround();
         };
         _client.ChatReceived += (channel, name, text, isAdmin) =>
         {
@@ -386,6 +406,10 @@ public class GameScreen : IScreen
                 SkillEffectManager.StopLooping(SkillIds.Flurry);
 
             _mapRenderer.SetSuppressingFireActive(status.ActiveDebuffs?.Any(d => d.Type == "SuppressingFire") ?? false);
+
+            // Открытый мир: секторы по мере перемещения игрока
+            if (_currentZoneId == BalanceStatic.MainZoneId)
+                RequestSectorsAround();
         };
         _client.SkillsUpdated += skills =>
         {
@@ -989,6 +1013,39 @@ public class GameScreen : IScreen
         _tileRequestTime = DateTime.UtcNow;
         Logger.Info($"TileRequest: запрашиваю тайлы зоны '{map.ZoneId}' ({map.Width}x{map.Height})");
         _ = GameMain.Instance!.Client.SendAsync("tile_request", null);
+    }
+
+    /// <summary>
+    /// Открытый мир (main): запрашивает блок 3x3 секторов вокруг игрока.
+    /// Повторные запросы уже запрошенных секторов не уходят, пока сектор не пришёл.
+    /// </summary>
+    private void RequestSectorsAround()
+    {
+        if (_currentZoneId != BalanceStatic.MainZoneId) return;
+        var st = _client.Status;
+        if (st == null || st.X < 0 || st.Y < 0) return;
+
+        int centerCol = Math.Clamp(st.X / BalanceStatic.SectorSize, 0, BalanceStatic.SectorCols - 1);
+        int centerRow = Math.Clamp(st.Y / BalanceStatic.SectorSize, 0, BalanceStatic.SectorRows - 1);
+
+        var toRequest = new List<(int Col, int Row)>();
+        for (int r = centerRow - 1; r <= centerRow + 1; r++)
+        {
+            if (r < 0 || r >= BalanceStatic.SectorRows) continue;
+            for (int c = centerCol - 1; c <= centerCol + 1; c++)
+            {
+                if (c < 0 || c >= BalanceStatic.SectorCols) continue;
+                if (_mapRenderer.HasSector(c, r)) continue;
+                if (!_requestedSectors.Add((c, r))) continue;
+                toRequest.Add((c, r));
+            }
+        }
+
+        foreach (var (c, r) in toRequest)
+        {
+            Logger.Debug($"SectorRequest: запрашиваю сектор ({c}, {r})");
+            _ = GameMain.Instance!.Client.SendAsync("sector_request", new { Col = c, Row = r });
+        }
     }
 
     private void ApplySettings()

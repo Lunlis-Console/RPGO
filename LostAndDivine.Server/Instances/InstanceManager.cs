@@ -105,6 +105,8 @@ public class InstanceManager
     /// Применяет позиции порталов инстансов из Tiled-карт (type="instance_portal",
     /// name = id шаблона инстанса). Позиция входа/выхода берётся из Tiled, а связь
     /// шаблон → зона выхода остаётся из БД (instance_portals).
+    /// Имя в Tiled может быть общим префиксом шаблонов («trial_dungeon» для
+    /// trial_dungeon_1..N) — тогда позиция применяется ко всем таким шаблонам.
     /// </summary>
     public void ApplyTiledPortals(IEnumerable<TiledNpc> tiledObjects)
     {
@@ -115,14 +117,20 @@ public class InstanceManager
                 continue;
             if (string.IsNullOrEmpty(tp.Name)) continue;
 
-            var existing = _portals.FirstOrDefault(p => p.InstanceTemplateId == tp.Name);
-            if (existing != null)
+            var matches = _portals
+                .Where(p => string.Equals(p.InstanceTemplateId, tp.Name, StringComparison.OrdinalIgnoreCase)
+                    || p.InstanceTemplateId.StartsWith(tp.Name + "_", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (matches.Count > 0)
             {
-                _portalLookup.Remove((existing.FromZone, existing.FromX, existing.FromY));
-                existing.FromZone = tp.ZoneId;
-                existing.FromX = tp.X;
-                existing.FromY = tp.Y;
-                _portalLookup[(tp.ZoneId, tp.X, tp.Y)] = existing;
+                foreach (var existing in matches)
+                {
+                    _portalLookup.Remove((existing.FromZone, existing.FromX, existing.FromY));
+                    existing.FromZone = tp.ZoneId;
+                    existing.FromX = tp.X;
+                    existing.FromY = tp.Y;
+                    _portalLookup[(tp.ZoneId, tp.X, tp.Y)] = existing;
+                }
             }
             else
             {
@@ -821,8 +829,8 @@ public class InstanceManager
         if (instance == null) return;
 
         var portal = _portals.FirstOrDefault(p => p.InstanceTemplateId == instance.Template.Id);
-        int exitX = portal?.FromX ?? 50;
-        int exitY = portal?.FromY ?? 50;
+        int exitX = portal?.FromX ?? Balance.EntrySpawnX;
+        int exitY = portal?.FromY ?? Balance.EntrySpawnY;
         string exitZone = portal?.FromZone ?? Balance.MainZoneId;
 
         player.CurrentZoneId = exitZone;
@@ -847,8 +855,8 @@ public class InstanceManager
         var exit = instance.Template;
         // Находим портал выхода на основной карте
         var portal = _portals.FirstOrDefault(p => p.InstanceTemplateId == exit.Id);
-        int exitX = portal?.FromX ?? 50;
-        int exitY = portal?.FromY ?? 50;
+        int exitX = portal?.FromX ?? Balance.EntrySpawnX;
+        int exitY = portal?.FromY ?? Balance.EntrySpawnY;
         string exitZone = portal?.FromZone ?? Balance.MainZoneId;
 
         foreach (var pl in instance.Players.ToList())

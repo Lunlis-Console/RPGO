@@ -30,6 +30,8 @@ public class ElderDialogueQuestTests
         public StatsBreakdown BuildBreakdown(Player player) => new();
         public Task KickPlayer(ClientConnection connection, string reason) => Task.CompletedTask;
         public Task SendZoneTransition(ClientConnection connection, Player player) => Task.CompletedTask;
+        public Task SendSectorData(ClientConnection connection, int col, int row) => Task.CompletedTask;
+        public Task SendSectorsAround(ClientConnection connection, Player player) => Task.CompletedTask;
         public void LoadNpcCache() { }
         public NpcPosition? FindNpcAt(string zoneId, int x, int y) => null;
         public NpcPosition? FindNpcById(string zoneId, string npcId) => null;
@@ -87,7 +89,7 @@ public class ElderDialogueQuestTests
             .GetValue(dm)!;
         cache["N0003"] = tree!;
 
-        var svc = new GameServices(world, hub, null!, null!, null!, qm, merchant, null!, null!, dm, null!, null!, null!, pathfinding, null!, null!, null!, null!, null!, null!);
+        var svc = new GameServices(world, hub, null!, null!, null!, null!, qm, merchant, null!, null!, dm, null!, null!, null!, pathfinding, null!, null!, null!, null!, null!, null!);
         dm.SetHub(hub);
         dm.SetServices(svc);
         return (dm, qm);

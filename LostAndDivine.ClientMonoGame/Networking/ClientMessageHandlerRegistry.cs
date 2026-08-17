@@ -24,6 +24,7 @@ internal static class ClientMessageHandlerRegistry
         ["inventory_response"] = HandleInventoryResponse,
         ["quest_log"] = HandleQuestLog,
         ["zone_transition"] = HandleZoneTransition,
+        ["sector_data"] = HandleSectorData,
         ["shop_response"] = HandleShopResponse,
         ["shop_update"] = HandleShopResponse,
         ["trade_open"] = HandleTradeOpen,
@@ -250,6 +251,13 @@ internal static class ClientMessageHandlerRegistry
                 }
             }
         }
+    }
+
+    private static void HandleSectorData(GameClient c, GameMessage m)
+    {
+        var sector = m.Deserialize<SectorData>();
+        if (sector != null)
+            c.RaiseSectorDataReceived(sector);
     }
 
     private static void HandleShopResponse(GameClient c, GameMessage m)

@@ -10,10 +10,27 @@ public static class Balance
     // ===== МИР / КОНФИГ =====
     public const int WorldWidth = 100;
     public const int WorldHeight = 100;
-    public const int DefaultMerchantX = 50;
-    public const int DefaultMerchantY = 50;
-    public const int DefaultBoardX = 48;
-    public const int DefaultBoardY = 48;
+
+    // ===== СЕКТОРНЫЙ МИР (main) =====
+    // Открытый мир: сетка SectorCols x SectorRows секторов по SectorSize клеток.
+    // Глобальные координаты main: col = X / SectorSize, row = Y / SectorSize.
+    public const int SectorSize = BalanceStatic.SectorSize;
+    public const int SectorCols = BalanceStatic.SectorCols;
+    public const int SectorRows = BalanceStatic.SectorRows;
+    public const int MainWorldWidth = SectorSize * SectorCols;   // 3000
+    public const int MainWorldHeight = SectorSize * SectorRows;  // 1700
+
+    // Сектор входа (3_7): контент старой zone_main, глобальное смещение (300, 700).
+    public const int EntrySectorOffsetX = BalanceStatic.EntrySectorOffsetX;
+    public const int EntrySectorOffsetY = BalanceStatic.EntrySectorOffsetY;
+    public const int EntrySpawnX = EntrySectorOffsetX + 50; // точка входа из zone_airship
+    public const int EntrySpawnY = EntrySectorOffsetY + 45;
+
+    // Глобальные позиции в секторе входа (старые локальные координаты zone_main).
+    public const int DefaultMerchantX = EntrySectorOffsetX + 50;
+    public const int DefaultMerchantY = EntrySectorOffsetY + 50;
+    public const int DefaultBoardX = EntrySectorOffsetX + 48;
+    public const int DefaultBoardY = EntrySectorOffsetY + 48;
     public const int ViewRadius = 30;
     public const int ServerPort = 7777;
 

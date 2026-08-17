@@ -33,6 +33,36 @@ public class ZoneManager
     }
 
     /// <summary>
+    /// Настраивает зону main под секторный мир: размеры карты мира и точку спавна.
+    /// Если зоны нет в БД — регистрирует её, привязывая к карте мира (без создания
+    /// отдельной GameMap: тайлы/препятствия живут в GameWorld.Map).
+    /// </summary>
+    public void ConfigureMainZone((int X, int Y) spawn)
+    {
+        if (!_zones.ContainsKey(Balance.MainZoneId))
+        {
+            _zones[Balance.MainZoneId] = new Zone
+            {
+                Id = Balance.MainZoneId,
+                Name = Balance.MainZoneId,
+                Width = Balance.MainWorldWidth,
+                Height = Balance.MainWorldHeight,
+                SpawnX = spawn.X,
+                SpawnY = spawn.Y
+            };
+            _maps[Balance.MainZoneId] = _mainMap ?? new GameMap(Balance.MainWorldWidth, Balance.MainWorldHeight);
+        }
+        else if (_zones.TryGetValue(Balance.MainZoneId, out var zone))
+        {
+            zone.Width = Balance.MainWorldWidth;
+            zone.Height = Balance.MainWorldHeight;
+            zone.SpawnX = spawn.X;
+            zone.SpawnY = spawn.Y;
+        }
+        Log.Info($"Зона 'main': {Balance.MainWorldWidth}x{Balance.MainWorldHeight}, спавн ({spawn.X}, {spawn.Y})");
+    }
+
+    /// <summary>
     /// Главная зона использует карту мира (GameWorld.Map): тайлы и препятствия
     /// должны быть общими для рендера, патфайндинга и движения.
     /// </summary>

@@ -17,6 +17,16 @@ public static class PlayerFactory
         {
             spawnX = ch.X;
             spawnY = ch.Y;
+
+            // Миграция: старые сохранённые координаты main (локальная zone_main 0..99)
+            // попадают в пустой сектор 0_0 шаблонного мира — переносим игрока на точку
+            // входа секторного мира (350, 745).
+            if (zoneId == Balance.MainZoneId && !svc.Sectors.IsValidWorldCell(spawnX, spawnY))
+            {
+                var zone = svc.Zones.GetZone(zoneId);
+                spawnX = zone?.SpawnX ?? Balance.EntrySpawnX;
+                spawnY = zone?.SpawnY ?? Balance.EntrySpawnY;
+            }
         }
         else
         {

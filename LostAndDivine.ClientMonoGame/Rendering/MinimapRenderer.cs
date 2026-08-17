@@ -22,6 +22,9 @@ public class MinimapRenderer
     private byte[]? _tileData;
     private byte[]? _obstacleData;
     private int _mapW, _mapH;
+    // Секторный открытый мир (main): рельеф посекторно (sector_data)
+    private readonly Dictionary<(int Col, int Row), SectorData> _sectors = new();
+    private bool _sectorMode;
     private string _playerName = "";
     private readonly HashSet<string> _partyMembers = new(StringComparer.OrdinalIgnoreCase);
     private bool _terrainDirty = true;
@@ -29,6 +32,10 @@ public class MinimapRenderer
     private Color[]? _terrainColors;
     private bool _hasView;
     private Rectangle _viewBounds;
+    // Окно миникарты в секторном мире: показываем не весь мир, а квадрат
+    // FocusWindow x FocusWindow клеток вокруг игрока.
+    private const int FocusWindow = 100;
+    private int _winX0, _winY0, _lastWinX, _lastWinY;
     // Данные карты обновляются с сетевого потока (по частям), а читаются
     // с потока отрисовки — без лока возможен разрыв: новые данные при старых
     // размерах, что даёт IndexOutOfRange в RebuildTerrain.
@@ -85,16 +92,102 @@ public class MinimapRenderer
         _hasView = true;
     }
 
+    /// <summary>Сбрасывает секторы открытого мира (смена зоны).</summary>
+    public void ClearSectors()
+    {
+        lock (_lock)
+        {
+            _sectors.Clear();
+            _sectorMode = false;
+            _terrainDirty = true;
+        }
+    }
+
+    /// <summary>Применяет сектор открытого мира (main) к рельефу миникарты.</summary>
+    public void SetSectorData(SectorData sector)
+    {
+        lock (_lock)
+        {
+            // Секторы приходят только для main; принимаем даже если текущая карта
+            // ещё старая (гонка: sector_data приходит раньше map_update после
+            // zone_transition). Использование гейтится зоной в Draw.
+            if (sector.TileData == null) return;
+            _sectors[(sector.Col, sector.Row)] = sector;
+            _sectorMode = true;
+            _terrainDirty = true;
+        }
+    }
+
     public void ClearViewBounds() => _hasView = false;
+
+    /// <summary>Рельеф окна вокруг игрока в секторном мире (FocusWindow x FocusWindow клеток).</summary>
+    private void RebuildTerrainWindow(int ox, int oy)
+    {
+        WorldMap? map; bool sectorMode;
+        Dictionary<(int Col, int Row), SectorData> sectors;
+        lock (_lock)
+        {
+            map = _map; sectorMode = _sectorMode;
+            sectors = new Dictionary<(int, int), SectorData>(_sectors);
+        }
+        if (map == null || !sectorMode) return;
+
+        _terrainTex ??= new Texture2D(GameMain.Instance!.GraphicsDevice, _texSize, _texSize);
+        _terrainColors ??= new Color[_texSize * _texSize];
+
+        bool isSandy = map.ZoneId == "arena";
+        var groundA = isSandy ? new Color(176, 160, 118) : new Color(112, 148, 96);
+        var groundB = isSandy ? new Color(168, 152, 112) : new Color(104, 140, 90);
+        var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
+        var blocked = new Color(46, 52, 64);
+        var voidColor = new Color(24, 26, 34);
+
+        int winW = Math.Min(FocusWindow, map.Width);
+        int winH = Math.Min(FocusWindow, map.Height);
+
+        for (int py = 0; py < _texSize; py++)
+        {
+            int my = oy + Math.Clamp((int)((py + 0.5f) / _texSize * winH), 0, winH - 1);
+            for (int px = 0; px < _texSize; px++)
+            {
+                int mx = ox + Math.Clamp((int)((px + 0.5f) / _texSize * winW), 0, winW - 1);
+
+                Color c = ((mx + my) & 1) == 0 ? groundA : groundB;
+
+                SectorData? sector = null;
+                if (mx < BalanceStatic.WorldWidth && my < BalanceStatic.WorldHeight)
+                    sectors.TryGetValue((mx / BalanceStatic.SectorSize, my / BalanceStatic.SectorSize), out sector);
+                if (sector == null || sector.TileData == null)
+                {
+                    c = voidColor;
+                }
+                else
+                {
+                    int lx = mx % BalanceStatic.SectorSize;
+                    int ly = my % BalanceStatic.SectorSize;
+                    int li = ly * BalanceStatic.SectorSize + lx;
+                    bool obs = sector.ObstacleData != null
+                        && li < sector.ObstacleData.Length && sector.ObstacleData[li] != 0;
+                    if (obs) c = blocked;
+                    else if (sector.TileData[li] != 0) c = feature;
+                }
+
+                _terrainColors[py * _texSize + px] = c;
+            }
+        }
+        _terrainTex.SetData(_terrainColors);
+    }
 
     private void RebuildTerrain()
     {
         _terrainDirty = false;
-        WorldMap? map; byte[]? tileData; byte[]? obstacleData; int mapW, mapH;
+        WorldMap? map; byte[]? tileData; byte[]? obstacleData; int mapW, mapH; bool sectorMode;
+        Dictionary<(int Col, int Row), SectorData> sectors;
         lock (_lock)
         {
             map = _map; tileData = _tileData; obstacleData = _obstacleData;
-            mapW = _mapW; mapH = _mapH;
+            mapW = _mapW; mapH = _mapH; sectorMode = _sectorMode;
+            sectors = new Dictionary<(int, int), SectorData>(_sectors);
         }
         if (map == null || mapW <= 0 || mapH <= 0) return;
 
@@ -106,6 +199,7 @@ public class MinimapRenderer
         var groundB = isSandy ? new Color(168, 152, 112) : new Color(104, 140, 90);
         var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
         var blocked = new Color(46, 52, 64);
+        var voidColor = new Color(24, 26, 34);
 
         bool hasTiles = tileData != null && tileData.Length == mapW * mapH;
         bool hasObs = obstacleData != null && obstacleData.Length == mapW * mapH;
@@ -118,7 +212,29 @@ public class MinimapRenderer
                 int mx = Math.Clamp((int)((px + 0.5f) / _texSize * mapW), 0, mapW - 1);
 
                 Color c = ((mx + my) & 1) == 0 ? groundA : groundB;
-                if (hasObs && obstacleData![my * mapW + mx] != 0)
+
+                if (sectorMode)
+                {
+                    // Секторный мир: рельеф из секторов; незагруженный сектор — пустота
+                    SectorData? sector = null;
+                    if (mx < BalanceStatic.WorldWidth && my < BalanceStatic.WorldHeight)
+                        sectors.TryGetValue((mx / BalanceStatic.SectorSize, my / BalanceStatic.SectorSize), out sector);
+                    if (sector == null || sector.TileData == null)
+                    {
+                        c = voidColor;
+                    }
+                    else
+                    {
+                        int lx = mx % BalanceStatic.SectorSize;
+                        int ly = my % BalanceStatic.SectorSize;
+                        int li = ly * BalanceStatic.SectorSize + lx;
+                        bool obs = sector.ObstacleData != null
+                            && li < sector.ObstacleData.Length && sector.ObstacleData[li] != 0;
+                        if (obs) c = blocked;
+                        else if (sector.TileData[li] != 0) c = feature;
+                    }
+                }
+                else if (hasObs && obstacleData![my * mapW + mx] != 0)
                     c = blocked;
                 else if (hasTiles)
                 {
@@ -126,6 +242,7 @@ public class MinimapRenderer
                     if (t == 255) c = blocked;
                     else if (t != 0) c = feature;
                 }
+
                 _terrainColors[py * _texSize + px] = c;
             }
         }
@@ -134,10 +251,29 @@ public class MinimapRenderer
 
     public void Draw(SpriteBatch sb, Rectangle panel, int centerX, int centerY)
     {
-        WorldMap? map;
-        lock (_lock) { map = _map; }
+        WorldMap? map; bool focus;
+        lock (_lock) { map = _map; focus = _sectorMode && _map != null && string.Equals(_map.ZoneId, BalanceStatic.MainZoneId, StringComparison.Ordinal); }
         if (map == null || map.Width <= 0 || map.Height <= 0) return;
-        if (_terrainDirty) RebuildTerrain();
+
+        // Секторный мир: окно FocusWindow x FocusWindow клеток вокруг игрока
+        if (focus)
+        {
+            int winW = Math.Min(FocusWindow, map.Width);
+            int winH = Math.Min(FocusWindow, map.Height);
+            _winX0 = Math.Clamp(centerX - winW / 2, 0, map.Width - winW);
+            _winY0 = Math.Clamp(centerY - winH / 2, 0, map.Height - winH);
+            if (_terrainDirty || _winX0 != _lastWinX || _winY0 != _lastWinY)
+            {
+                _terrainDirty = false;
+                _lastWinX = _winX0;
+                _lastWinY = _winY0;
+                RebuildTerrainWindow(_winX0, _winY0);
+            }
+        }
+        else if (_terrainDirty)
+        {
+            RebuildTerrain();
+        }
 
         sb.Draw(SpriteCache.Pixel, panel, new Color(15, 17, 24, 230));
         UIHelper.DrawRectOutline(sb, panel, new Color(90, 95, 115));
@@ -149,7 +285,7 @@ public class MinimapRenderer
         if (_terrainTex != null)
             sb.Draw(_terrainTex, mapRect, Color.White);
 
-        if (_hasView && _viewBounds.Width > 0 && _viewBounds.Height > 0)
+        if (!focus && _hasView && _viewBounds.Width > 0 && _viewBounds.Height > 0)
         {
             var vr = ViewToRect(map, mapRect);
             var outline = new Color(255, 255, 255, 130);
@@ -159,7 +295,7 @@ public class MinimapRenderer
             sb.Draw(SpriteCache.Pixel, new Rectangle(vr.X + vr.Width - 1, vr.Y, 1, vr.Height), outline);
         }
 
-        DrawPoints(sb, mapRect, map);
+        DrawPoints(sb, mapRect, map, focus);
 
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font != null && !string.IsNullOrEmpty(map.ZoneName))
@@ -191,12 +327,22 @@ public class MinimapRenderer
 
     private void DrawDot(SpriteBatch sb, WorldMap map, Rectangle area, int mx, int my, Color color, int size)
     {
-        int cx = area.X + (int)((mx + 0.5f) / map.Width * area.Width);
-        int cy = area.Y + (int)((my + 0.5f) / map.Height * area.Height);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(cx - size / 2, cy - size / 2, size, size), color);
+        // Секторный мир: точки за пределами окна не рисуем
+        if (_sectorMode)
+        {
+            if (mx < _winX0 || mx >= _winX0 + FocusWindow || my < _winY0 || my >= _winY0 + FocusWindow)
+                return;
+            int cx = area.X + (int)((mx - _winX0 + 0.5f) / FocusWindow * area.Width);
+            int cy = area.Y + (int)((my - _winY0 + 0.5f) / FocusWindow * area.Height);
+            sb.Draw(SpriteCache.Pixel, new Rectangle(cx - size / 2, cy - size / 2, size, size), color);
+            return;
+        }
+        int cx2 = area.X + (int)((mx + 0.5f) / map.Width * area.Width);
+        int cy2 = area.Y + (int)((my + 0.5f) / map.Height * area.Height);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(cx2 - size / 2, cy2 - size / 2, size, size), color);
     }
 
-    private void DrawPoints(SpriteBatch sb, Rectangle area, WorldMap map)
+    private void DrawPoints(SpriteBatch sb, Rectangle area, WorldMap map, bool focus)
     {
         if (map == null) return;
 

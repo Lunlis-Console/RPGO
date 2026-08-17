@@ -126,3 +126,32 @@ public class ChestPosition
     public int Y { get; set; }
     public bool IsLocked { get; set; }
 }
+
+/// <summary>
+/// DTO одного сектора открытого мира (main). Тайлы/препятствия/объекты лежат в
+/// локальных координатах сектора (0..SectorSize-1); глобальная клетка:
+/// X = Col * SectorSize + localX, Y = Row * SectorSize + localY.
+/// </summary>
+public class SectorData
+{
+    public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
+    public int Col { get; set; }
+    public int Row { get; set; }
+    public int Width { get; set; } = BalanceStatic.SectorSize;
+    public int Height { get; set; } = BalanceStatic.SectorSize;
+
+    public byte[]? TileData { get; set; }
+    public byte[]? ObstacleData { get; set; }
+    public byte[]? ObjectData { get; set; }
+    public int TileWidth { get; set; } = 64;
+    public string? TilesetId { get; set; }
+    public string? ObjectTilesetId { get; set; }
+    public int ObjectTileWidth { get; set; }
+}
+
+/// <summary>Запрос сектора открытого мира (клиент → сервер).</summary>
+public class SectorRequest
+{
+    public int Col { get; set; }
+    public int Row { get; set; }
+}
