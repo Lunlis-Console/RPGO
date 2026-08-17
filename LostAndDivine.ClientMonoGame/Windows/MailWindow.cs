@@ -755,7 +755,7 @@ public class MailWindow : GameWindow
     private static string FormatDate(string iso)
     {
         if (DateTime.TryParse(iso, out var dt))
-            return dt.ToString("dd.MM.yyyy HH:mm");
+            return dt.ToLocalTime().ToString("dd.MM.yyyy HH:mm");
         return iso;
     }
 
