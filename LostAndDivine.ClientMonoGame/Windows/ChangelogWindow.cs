@@ -223,20 +223,21 @@ public sealed class ChangelogWindow : GameWindow
         if (string.IsNullOrEmpty(text)) return;
 
         float spaceW = font.MeasureString(" ").X;
-        float curX = x;
         int curY = y;
         int lineHeight = (int)font.LineSpacing;
+        float lineWidth = 0;
 
         foreach (var word in text.Split(' '))
         {
             float wordW = font.MeasureString(word).X;
-            if (curX > x && curX - x + spaceW + wordW > maxW)
+            if (lineWidth > 0 && lineWidth + spaceW + wordW > maxW)
             {
-                curX = x;
                 curY += lineHeight;
+                lineWidth = 0;
             }
-            sb.DrawString(font, word, new Vector2(curX, curY), color);
-            curX += wordW + spaceW;
+            float wordX = x + lineWidth + (lineWidth > 0 ? spaceW : 0);
+            sb.DrawString(font, word, new Vector2(wordX, curY), color);
+            lineWidth += (lineWidth > 0 ? spaceW : 0) + wordW;
         }
     }
 }
