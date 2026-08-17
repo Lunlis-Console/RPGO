@@ -522,6 +522,9 @@ public class GameScreen : IScreen
             _inventoryWindow.Visible = true;
             _inventoryWindow.ShopMode = true;
             _input.PositionTradeWindows(_shopWindow, _inventoryWindow, GameMain.Instance!);
+            // Магазин поверх инвентаря в стеке окон: первый Esc закроет магазин, второй — инвентарь
+            _input.PushWindow(_inventoryWindow);
+            _input.PushWindow(_shopWindow);
         };
         _shopWindow.Closed += () =>
         {
@@ -529,6 +532,7 @@ public class GameScreen : IScreen
             _inventoryWindow.Visible = false;
             _inventoryWindow.ShopMode = false;
         };
+        _shopWindow.Escaped += () => _inventoryWindow.ShopMode = false;
         _shopWindow.BuyItem += (id, qty) => _ = _client.SendAsync("buy", new { ItemId = id, Quantity = qty });
         _shopWindow.DragStateChanged += item => _input.DragOverlayItem = item;
         _shopWindow.SellAllTrophies += () => _ = _client.SendAsync("sell_all_trophies", new { });
@@ -1121,9 +1125,7 @@ public class GameScreen : IScreen
         if (!_chatRenderer.IsTyping && !mailTyping && !filterEscConsumed)
         {
             bool escPressed = keyboard.IsKeyDown(Keys.Escape) && _input.PrevKeyboard.IsKeyUp(Keys.Escape);
-            if (escPressed && _shopWindow.Visible && _input.WindowStack.Count == 0)
-                _shopWindow.CloseShop();
-            else
+            if (escPressed)
                 _input.HandleEscape(keyboard, _settingsWindow, game);
         }
 

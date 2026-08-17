@@ -340,7 +340,10 @@ internal class GameInputHandler
         {
             var top = WindowStack[^1];
             WindowStack.RemoveAt(WindowStack.Count - 1);
-            top.Visible = false;
+            if (top is ShopWindow shop)
+                shop.CloseByEscape(); // магазин: инвентарь остаётся открытым, Esc закроет его следующим
+            else
+                top.Visible = false;
         }
         else
         {

@@ -47,6 +47,8 @@ public class ShopWindow : GameWindow
     public Action<string, int>? BuyItem { get; set; }
     public Action? SellAllTrophies { get; set; }
     public Action? Closed { get; set; }
+    // Закрытие по Esc: прячется только магазин, инвентарь остаётся открытым
+    public Action? Escaped { get; set; }
     // Возвращает true, если предмет брошен в окно инвентаря (покупка)
     public Func<Point, Item, bool>? DropOnInventory;
     // Запрос на покупку стакающегося предмета (диалог количества)
@@ -57,8 +59,8 @@ public class ShopWindow : GameWindow
     public ShopWindow()
     {
         Title = "Торговец";
-        Width = 520;
-        Height = 620;
+        Width = 480;
+        Height = 600;
         Visible = false;
     }
 
@@ -89,6 +91,14 @@ public class ShopWindow : GameWindow
         if (!Visible) return;
         Visible = false;
         Closed?.Invoke();
+    }
+
+    /// <summary>Закрытие по Esc: прячется только магазин, инвентарь остаётся открытым.</summary>
+    public void CloseByEscape()
+    {
+        if (!Visible) return;
+        Visible = false;
+        Escaped?.Invoke();
     }
 
     protected override void OnClose()
