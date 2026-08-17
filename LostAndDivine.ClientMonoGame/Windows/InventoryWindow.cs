@@ -11,7 +11,10 @@ public class InventoryWindow : GameWindow
 {
     private InventoryData? _data;
     private int _playerLevel = 1;
-    private string _filter = "all";
+    private readonly ItemFilterBar _filterBar = new();
+
+    /// <summary>Поле поиска активно — Esc обрабатывает его (очистка/снятие фокуса), а не закрывает окно.</summary>
+    public bool ConsumesEscape => _filterBar.ConsumesEscape;
 
     public Action<string>? EquipItem;
     public Action<string>? UseItem;
@@ -27,6 +30,16 @@ public class InventoryWindow : GameWindow
 
     // Возвращает true, если предмет брошен в окно торговца (продажа)
     public Func<Point, Item, bool>? DropOnSell;
+
+    // Возвращает true, если предмет брошен в окно склада (положить на склад)
+    public Func<Point, Item, bool>? DropOnStorage;
+
+    // Пока открыт склад: ПКМ/двойной клик переносят предмет на склад, использование запрещено
+    public Func<bool>? IsStorageOpen;
+
+    // Перенос на склад (deposit)
+    public Action<string, int>? DepositItem;
+    public Action<Item, int>? PendingDeposit;
 
     // Уведомляет о начале/конце перетаскивания (item == null означает конец)
     public Action<Item?>? DragStateChanged;
@@ -48,10 +61,8 @@ public class InventoryWindow : GameWindow
 
     private const int GridCols = 10;
     private const int GridRows = 10;
-    private const int TabH = 24;
     private const int BottomH = 40;
 
-    private Rectangle[] _tabRects = Array.Empty<Rectangle>();
     private Rectangle[,] _slotRects = new Rectangle[GridCols, GridRows];
     private Rectangle _sortRect;
     private Rectangle _trashRect;
@@ -132,22 +143,11 @@ public class InventoryWindow : GameWindow
         _data = data;
     }
 
-    private string[] Filters => new[] { "all", "equipment", "consumable", "material" };
-    private string[] FilterLabels => new[] { "Все", "Экип.", "Расх.", "Мат." };
-
-    private bool MatchesFilter(Item i) => _filter switch
-    {
-        "equipment" => EquipmentSlots.IsEquippableType(i.Type),
-        "consumable" => i.Type == "consumable",
-        "material" => i.Type is "material" or "collectible" or "trophy",
-        _ => true
-    };
-
     private List<(Item item, int count)> BuildStacks()
     {
         var result = new List<(Item, int)>();
         if (_data?.Items == null) return result;
-        var items = _data.Items.Where(MatchesFilter).ToList();
+        var items = _filterBar.Filter(_data.Items);
         foreach (var it in items)
         {
             int qty = Math.Max(1, it.Quantity);
@@ -227,12 +227,9 @@ public class InventoryWindow : GameWindow
 
         int cx = ContentX, cy = ContentY, cw = ContentW;
         _stacks = BuildStacks();
-        ComputeTabRects();
 
-        // Вкладки
-        for (int i = 0; i < 4; i++)
-            if (pressed && _tabRects[i].Contains(mouse.X, mouse.Y))
-                _filter = Filters[i];
+        // Строка фильтров (общий компонент: поиск, категория, уровень, цена, сброс)
+        bool filterConsumed = _filterBar.Update(mouse, keyboard, _prevMouse, new Rectangle(cx, ContentY, cw, 22));
 
         // Слоты
         for (int r = 0; r < GridRows; r++)
@@ -247,7 +244,7 @@ public class InventoryWindow : GameWindow
                 if (idx < _stacks.Count && _newIds.Remove(_stacks[idx].item.Id))
                     NewItemCountChanged?.Invoke(NewItemCount);
 
-                if (pressed && idx < _stacks.Count)
+                if (pressed && !filterConsumed && idx < _stacks.Count)
                 {
                     _dragIndex = idx;
                     _dragStart = new Point(mouse.X, mouse.Y);
@@ -287,6 +284,8 @@ public class InventoryWindow : GameWindow
                 else
                 {
                     bool handled = DropOnSell?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
+                    if (!handled)
+                        handled = DropOnStorage?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
                     if (!handled)
                         DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
                 }
@@ -338,6 +337,16 @@ public class InventoryWindow : GameWindow
                         else
                             RequestSell(item, _stacks[idx].count);
                     }
+                    else if (IsStorageOpen?.Invoke() ?? false)
+                    {
+                        // Склад открыт: ПКМ переносит предмет на склад
+                        // Shift+ПКМ — весь стак ячейки сразу, без диалога количества
+                        bool shift = keyboard.IsKeyDown(Keys.LeftShift) || keyboard.IsKeyDown(Keys.RightShift);
+                        if (shift)
+                            DepositItem?.Invoke(item.Id, _stacks[idx].count);
+                        else
+                            RequestDeposit(item, _stacks[idx].count);
+                    }
                     else if (EquipmentSlots.IsEquippableType(item.Type) && item.RequiredLevel <= _playerLevel)
                         EquipItem?.Invoke(item.Id);
                     else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
@@ -366,6 +375,13 @@ public class InventoryWindow : GameWindow
         if (!isDouble) return;
 
         _lastClickIdx = -1;
+        if (IsStorageOpen?.Invoke() ?? false)
+        {
+            // Склад открыт: двойной клик переносит предмет на склад
+            RequestDeposit(item, idx >= 0 ? _stacks[idx].count : 1);
+            return;
+        }
+
         if (EquipmentSlots.IsEquippableType(item.Type) && item.RequiredLevel <= _playerLevel)
             EquipItem?.Invoke(item.Id);
         else if (item.Type == "consumable" && (item.HealAmount > 0 || item.RestoreMana > 0))
@@ -394,13 +410,12 @@ public class InventoryWindow : GameWindow
             SellItem?.Invoke(item.Id, 1);
     }
 
-    private void ComputeTabRects()
+    private void RequestDeposit(Item item, int stackCount)
     {
-        int cx = ContentX, cw = ContentW;
-        int btnW = cw / 4 - 2;
-        _tabRects = new Rectangle[4];
-        for (int i = 0; i < 4; i++)
-            _tabRects[i] = new Rectangle(cx + i * (btnW + 2), ContentY, btnW, TabH);
+        if (stackCount > 1)
+            PendingDeposit?.Invoke(item, stackCount);
+        else
+            DepositItem?.Invoke(item.Id, 1);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -414,20 +429,9 @@ public class InventoryWindow : GameWindow
 
         int cx = ContentX, cy = ContentY, cw = ContentW;
 
-        // Вкладки
-        ComputeTabRects();
-        for (int i = 0; i < 4; i++)
-        {
-            var r = _tabRects[i];
-            bool active = _filter == Filters[i];
-            sb.Draw(SpriteCache.Pixel, r, active ? new Color(80, 120, 200) : new Color(50, 55, 65));
-            var sz = font.MeasureString(FilterLabels[i]);
-            sb.DrawString(font, FilterLabels[i], new Vector2(r.X + (r.Width - sz.X) / 2, r.Y + 3), Color.White);
-        }
-
         // Сетка
-        int gridTop = cy + TabH + 8;
-        int gridAreaH = Height - TabH - 8 - BottomH - 12 - 40;
+        int gridTop = cy + 30;
+        int gridAreaH = Height - 30 - BottomH - 12 - 40;
         int cell = (cw - (GridCols - 1) * 4) / GridCols;
         cell = Math.Min(cell, (gridAreaH - (GridRows - 1) * 4) / GridRows);
         int gridW = GridCols * cell + (GridCols - 1) * 4;
@@ -505,6 +509,9 @@ public class InventoryWindow : GameWindow
 
         // Перетаскиваемый предмет рисуется глобально поверх всех окон (GameScreen),
         // здесь исходная ячейка просто остаётся пустой, чтобы не дублировать картинку.
+
+        // Строка фильтров и её выпадающие списки — поверх сетки и нижней панели
+        _filterBar.Draw(sb, mouse, new Rectangle(cx, ContentY, cw, 22));
 
         // Тултип
         if (_hoverItem != null)

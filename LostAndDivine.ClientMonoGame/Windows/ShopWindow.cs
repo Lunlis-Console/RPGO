@@ -39,25 +39,10 @@ public class ShopWindow : GameWindow
     private Point _dragPos;
     private bool _scrollDragging;
 
-    // Фильтры товаров
-    private string _searchText = "";
-    private bool _searchActive;
-    private HashSet<uint> _prevSearchVks = new();
-    private int _categoryFilter;      // 0 = Все, 1..4 см. CategoryLabels
-    private int _levelFilter;         // 0 = Все, 1..N см. LevelLabels (диапазоны по 5)
-    private int _priceSort;           // 0 = порядок сервера, 1 = по цене ▲, 2 = по цене ▼
-    private bool _catDropdownOpen;
-    private bool _levelDropdownOpen;
-    private Rectangle _searchRect;
-    private Rectangle _catRect;
-    private Rectangle _levelRect;
-    private Rectangle _sortRect;
-    private Rectangle _resetRect;
-    private Rectangle[] _catOptionRects = Array.Empty<Rectangle>();
-    private Rectangle[] _levelOptionRects = Array.Empty<Rectangle>();
-    private bool _lastBackUp;
-    private bool _prevEscDown;
-    private bool _prevEnterDown;
+    // Фильтры товаров (общий компонент для магазина, инвентаря и склада)
+    private readonly ItemFilterBar _filterBar = new();
+
+    private Rectangle _filterBarRect;
 
     public Action<string, int>? BuyItem { get; set; }
     public Action? SellAllTrophies { get; set; }
@@ -96,7 +81,7 @@ public class ShopWindow : GameWindow
     public override bool IsDragging => _dragIndex >= 0;
 
     /// <summary>Поле поиска активно — Esc обрабатывает его (очистка/снятие фокуса), а не закрывает окно.</summary>
-    public bool ConsumesEscape => _searchActive;
+    public bool ConsumesEscape => _filterBar.ConsumesEscape;
 
     /// <summary>Закрытие окна с побочными эффектами (как крестик): прячет инвентарь и выходит из ShopMode.</summary>
     public void CloseShop()
@@ -114,56 +99,7 @@ public class ShopWindow : GameWindow
 
     private List<Item> ActiveItems => _activeTab == 1 ? _buybackItems : _items;
 
-    private static readonly string[] CategoryLabels = { "Все", "Оружие", "Броня и щиты", "Расходники", "Материалы и трофеи" };
-
-    // Диапазоны требуемого уровня по 5: индекс 0 = Все, 1 = 1-5, 2 = 6-10 ...
-    private static readonly string[] LevelLabels = BuildLevelLabels();
-    private static string[] BuildLevelLabels()
-    {
-        var labels = new List<string> { "Все" };
-        for (int i = 1; i <= 10; i++)
-            labels.Add($"{(i - 1) * 5 + 1}-{i * 5}");
-        return labels.ToArray();
-    }
-
-    private static bool MatchLevelBucket(int requiredLevel, int bucket)
-    {
-        if (bucket <= 0) return true;
-        if (requiredLevel == 0) return true; // без ограничений — доступен на любом уровне
-        return requiredLevel >= (bucket - 1) * 5 + 1 && requiredLevel <= bucket * 5;
-    }
-
-    private static bool MatchCategory(string itemType, int filter) => filter switch
-    {
-        1 => itemType is "weapon" or "twohand",
-        2 => itemType is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots" or "glove" or "belt" or "necklace" or "ring" or "accessory" or "armor",
-        3 => itemType == "consumable",
-        4 => itemType is "material" or "collectible" or "trophy",
-        _ => true
-    };
-
-    private bool MatchFilters(Item i)
-    {
-        if (_categoryFilter != 0 && !MatchCategory(i.Type, _categoryFilter)) return false;
-        if (_levelFilter != 0 && !MatchLevelBucket(i.RequiredLevel, _levelFilter)) return false;
-        if (_searchText.Length > 0 && !i.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)) return false;
-        return true;
-    }
-
-    private List<Item> FilteredItems
-    {
-        get
-        {
-            var src = ActiveItems;
-            if (_categoryFilter != 0 || _levelFilter != 0 || _searchText.Length > 0 || _priceSort != 0)
-            {
-                src = src.Where(MatchFilters).ToList();
-                if (_priceSort == 1) src = src.OrderBy(i => i.Value).ToList();
-                else if (_priceSort == 2) src = src.OrderByDescending(i => i.Value).ToList();
-            }
-            return src;
-        }
-    }
+    private List<Item> FilteredItems => _filterBar.Filter(ActiveItems);
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
     {
@@ -181,8 +117,8 @@ public class ShopWindow : GameWindow
 
         bool pressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released;
 
-        HandleFilterClicks(pressed, mouse);
-        HandleSearchInput(keyboard);
+        _filterBarRect = new Rectangle(ContentX + 8, ContentY + 86, ContentW - 16, 22);
+        bool filterConsumed = _filterBar.Update(mouse, keyboard, _prevMouse, _filterBarRect);
 
         // Скролл колесом в области сетки
         if (mouse.X >= gridX && mouse.X <= gridX + gridW && mouse.Y >= gridY && mouse.Y <= gridY + listH)
@@ -235,7 +171,7 @@ public class ShopWindow : GameWindow
                 if (idx < FilteredItems.Count && rect.Contains(mouse.X, mouse.Y))
                 {
                     _hoverItem = idx;
-                    if (pressed)
+                    if (pressed && !filterConsumed)
                     {
                         _dragIndex = idx;
                         _dragStart = new Point(mouse.X, mouse.Y);
@@ -293,131 +229,6 @@ public class ShopWindow : GameWindow
     }
 
     // Раскладка строки фильтров под вкладками (ширина строки = ширине вкладок)
-    private void FilterLayout()
-    {
-        int y = ContentY + 86;
-        int h = 22;
-        _searchRect = new Rectangle(ContentX + 8, y, 182, h);
-        _catRect = new Rectangle(_searchRect.Right + 4, y, 108, h);
-        _levelRect = new Rectangle(_catRect.Right + 4, y, 84, h);
-        _sortRect = new Rectangle(_levelRect.Right + 4, y, 54, h);
-        _resetRect = new Rectangle(_sortRect.Right + 4, y, 36, h);
-
-        _catOptionRects = new Rectangle[CategoryLabels.Length];
-        for (int i = 0; i < CategoryLabels.Length; i++)
-            _catOptionRects[i] = new Rectangle(_catRect.X, _catRect.Y + _catRect.Height + i * 22, _catRect.Width, 22);
-
-        _levelOptionRects = new Rectangle[LevelLabels.Length];
-        for (int i = 0; i < LevelLabels.Length; i++)
-            _levelOptionRects[i] = new Rectangle(_levelRect.X, _levelRect.Y + _levelRect.Height + i * 22, _levelRect.Width, 22);
-    }
-
-    private void HandleFilterClicks(bool pressed, MouseState mouse)
-    {
-        FilterLayout();
-
-        if (pressed)
-        {
-            if (_catDropdownOpen && !_catOptionRects.Any(r => r.Contains(mouse.X, mouse.Y)))
-                _catDropdownOpen = false;
-            if (_levelDropdownOpen && !_levelOptionRects.Any(r => r.Contains(mouse.X, mouse.Y)))
-                _levelDropdownOpen = false;
-
-            if (_searchRect.Contains(mouse.X, mouse.Y))
-            {
-                _searchActive = true;
-                return;
-            }
-            if (_catRect.Contains(mouse.X, mouse.Y))
-            {
-                _catDropdownOpen = !_catDropdownOpen;
-                _levelDropdownOpen = false;
-                return;
-            }
-            if (_levelRect.Contains(mouse.X, mouse.Y))
-            {
-                _levelDropdownOpen = !_levelDropdownOpen;
-                _catDropdownOpen = false;
-                return;
-            }
-            for (int i = 0; i < _catOptionRects.Length; i++)
-            {
-                if (_catDropdownOpen && _catOptionRects[i].Contains(mouse.X, mouse.Y))
-                {
-                    _categoryFilter = i;
-                    _catDropdownOpen = false;
-                    return;
-                }
-            }
-            for (int i = 0; i < _levelOptionRects.Length; i++)
-            {
-                if (_levelDropdownOpen && _levelOptionRects[i].Contains(mouse.X, mouse.Y))
-                {
-                    _levelFilter = i;
-                    _levelDropdownOpen = false;
-                    return;
-                }
-            }
-            if (_sortRect.Contains(mouse.X, mouse.Y))
-            {
-                _priceSort = (_priceSort + 1) % 3;
-                return;
-            }
-            if (_resetRect.Contains(mouse.X, mouse.Y))
-            {
-                _searchText = "";
-                _searchActive = false;
-                _categoryFilter = 0;
-                _levelFilter = 0;
-                _priceSort = 0;
-                _catDropdownOpen = false;
-                _levelDropdownOpen = false;
-                return;
-            }
-            _searchActive = false;
-        }
-    }
-
-    // Ввод русского текста как в чате: VK-коды через GetAsyncKeyState + таблица KeyCharMap
-    private void HandleSearchInput(KeyboardState keyboard)
-    {
-        if (!_searchActive) return;
-
-        bool russian = KeyboardLayoutHelper.IsRussianForeground();
-        bool shiftDown = KeyboardLayoutHelper.IsShiftDown();
-        var nowDown = new HashSet<uint>(KeyboardLayoutHelper.GetPressedVks());
-        foreach (var vk in nowDown)
-        {
-            if (_prevSearchVks.Contains(vk)) continue;
-            if (vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x14 ||
-                vk == 0x09 || vk == 0x0D || vk == 0x1B || vk == 0x08)
-                continue;
-            if (KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
-            {
-                if (_searchText.Length < 30) _searchText += ch;
-            }
-        }
-        _prevSearchVks = nowDown;
-
-        if (keyboard.IsKeyDown(Keys.Back) && !_lastBackUp && _searchText.Length > 0)
-            _searchText = _searchText[..^1];
-        _lastBackUp = keyboard.IsKeyDown(Keys.Back);
-
-        if (keyboard.IsKeyDown(Keys.Escape) && !_prevEscDown && _searchText.Length > 0)
-            _searchText = "";
-        else         if (keyboard.IsKeyDown(Keys.Escape) && !_prevEscDown)
-        {
-            _searchActive = false;
-            _catDropdownOpen = false;
-            _levelDropdownOpen = false;
-        }
-        _prevEscDown = keyboard.IsKeyDown(Keys.Escape);
-
-        if (keyboard.IsKeyDown(Keys.Enter) && !_prevEnterDown)
-            _searchActive = false;
-        _prevEnterDown = keyboard.IsKeyDown(Keys.Enter);
-    }
-
     private void TabLayout()
     {
         int w = (ContentW - 32) / 2;
@@ -481,9 +292,6 @@ public class ShopWindow : GameWindow
         sb.Draw(SpriteCache.Pixel, new Rectangle(gridX - 2, gridY - 2, gridW + 4, listH + 4), new Color(160, 130, 80));
 
         int maxScroll = Math.Max(0, (FilteredItems.Count + GridCols - 1) / GridCols - GridRows);
-
-        FilterLayout();
-        DrawFilterBar(sb, mouse);
 
         // Вкладки
         TabLayout();
@@ -560,8 +368,8 @@ public class ShopWindow : GameWindow
         var hintSize = hf != null ? hf.MeasureString(hint) : Vector2.Zero;
         DrawText(sb, hint, ContentX + (ContentW - (int)hintSize.X) / 2, Y + Height - 66, new Color(150, 140, 130));
 
-        // Выпадающие списки фильтров — поверх сетки товаров
-        DrawFilterDropdowns(sb, mouse);
+        // Строка фильтров — поверх сетки товаров (выпадающие списки тоже)
+        _filterBar.Draw(sb, mouse, _filterBarRect);
 
         if (_hoverItem >= 0 && _hoverItem < FilteredItems.Count && _dragIndex < 0)
             DrawTooltip(sb, FilteredItems[_hoverItem], mouse);
@@ -577,82 +385,5 @@ public class ShopWindow : GameWindow
         int wRight = g?.Graphics.PreferredBackBufferWidth ?? 1920;
         int wBottom = g?.Graphics.PreferredBackBufferHeight ?? 1080;
         TooltipRenderer.Draw(sb, lines, mouse, wRight, wBottom);
-    }
-
-    private void DrawFilterBar(SpriteBatch sb, MouseState mouse)
-    {
-        var f = SpriteCache.FontSmall ?? SpriteCache.Font;
-        if (f == null) return;
-
-        // Поле поиска
-        bool searchHover = _searchRect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, _searchRect, _searchActive ? new Color(60, 55, 75) : searchHover ? new Color(55, 50, 68) : new Color(45, 40, 55));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(_searchRect.X, _searchRect.Y, _searchRect.Width, 2),
-            _searchActive ? new Color(180, 150, 90) : new Color(90, 75, 50));
-
-        if (_searchText.Length > 0)
-        {
-            DrawText(sb, _searchText, _searchRect.X + 6, _searchRect.Y + (_searchRect.Height - 14) / 2, Color.White);
-            int tw = (int)f.MeasureString(_searchText).X;
-            DrawText(sb, "|", _searchRect.X + 6 + tw + 1, _searchRect.Y + (_searchRect.Height - 14) / 2, new Color(220, 200, 140));
-        }
-        else
-        {
-            DrawText(sb, _searchActive ? "Введите название..." : "Поиск по названию...", _searchRect.X + 6, _searchRect.Y + (_searchRect.Height - 14) / 2, new Color(140, 130, 120));
-        }
-        DrawText(sb, KeyboardLayoutHelper.IsRussianForeground() ? "RU" : "EN", _searchRect.Right - 24, _searchRect.Y + (_searchRect.Height - 14) / 2, new Color(110, 150, 110));
-
-        // Категория (выпадающий список)
-        bool catHover = _catRect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, _catRect, catHover || _catDropdownOpen ? new Color(60, 55, 75) : new Color(45, 40, 55));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(_catRect.X, _catRect.Y, _catRect.Width, 2), new Color(90, 75, 50));
-        DrawText(sb, (_catDropdownOpen ? "- " : "+ ") + CategoryLabels[_categoryFilter], _catRect.X + 6, _catRect.Y + (_catRect.Height - 14) / 2, Color.White);
-
-        // Уровень (выпадающий список с диапазонами по 5)
-        bool levelHover = _levelRect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, _levelRect, levelHover || _levelDropdownOpen ? new Color(60, 55, 75) : new Color(45, 40, 55));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(_levelRect.X, _levelRect.Y, _levelRect.Width, 2), new Color(90, 75, 50));
-        DrawText(sb, (_levelDropdownOpen ? "- " : "+ ") + LevelLabels[_levelFilter], _levelRect.X + 6, _levelRect.Y + (_levelRect.Height - 14) / 2, Color.White);
-
-        // Сортировка по цене
-        bool sortHover = _sortRect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, _sortRect, sortHover ? new Color(55, 50, 68) : new Color(45, 40, 55));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(_sortRect.X, _sortRect.Y, _sortRect.Width, 2), new Color(90, 75, 50));
-        string sortLabel = _priceSort switch { 1 => "^", 2 => "v", _ => "-" };
-        DrawText(sb, "Цена " + sortLabel, _sortRect.X + 4, _sortRect.Y + (_sortRect.Height - 14) / 2, Color.White);
-
-        // Сброс
-        bool resetHover = _resetRect.Contains(mouse.X, mouse.Y);
-        sb.Draw(SpriteCache.Pixel, _resetRect, resetHover ? new Color(70, 50, 50) : new Color(50, 42, 40));
-        sb.Draw(SpriteCache.Pixel, new Rectangle(_resetRect.X, _resetRect.Y, _resetRect.Width, 2), new Color(110, 70, 60));
-        DrawText(sb, "X", _resetRect.X + (_resetRect.Width - 10) / 2, _resetRect.Y + (_resetRect.Height - 14) / 2, new Color(230, 160, 140));
-    }
-
-    // Выпадающие списки фильтров — рисуются ПОСЛЕ сетки товаров, поверх неё
-    private void DrawFilterDropdowns(SpriteBatch sb, MouseState mouse)
-    {
-        if (_catDropdownOpen)
-        {
-            sb.Draw(SpriteCache.Pixel, new Rectangle(_catRect.X - 2, _catRect.Y - 2, _catRect.Width + 4, CategoryLabels.Length * 22 + 4), new Color(160, 130, 80));
-            for (int i = 0; i < _catOptionRects.Length; i++)
-            {
-                var r = _catOptionRects[i];
-                bool hover = r.Contains(mouse.X, mouse.Y);
-                sb.Draw(SpriteCache.Pixel, r, i == _categoryFilter ? new Color(80, 65, 45) : hover ? new Color(60, 55, 75) : new Color(40, 36, 50));
-                DrawText(sb, CategoryLabels[i], r.X + 4, r.Y + 3, i == _categoryFilter ? new Color(230, 200, 130) : Color.White);
-            }
-        }
-
-        if (_levelDropdownOpen)
-        {
-            sb.Draw(SpriteCache.Pixel, new Rectangle(_levelRect.X - 2, _levelRect.Y - 2, _levelRect.Width + 4, LevelLabels.Length * 22 + 4), new Color(160, 130, 80));
-            for (int i = 0; i < _levelOptionRects.Length; i++)
-            {
-                var r = _levelOptionRects[i];
-                bool hover = r.Contains(mouse.X, mouse.Y);
-                sb.Draw(SpriteCache.Pixel, r, i == _levelFilter ? new Color(80, 65, 45) : hover ? new Color(60, 55, 75) : new Color(40, 36, 50));
-                DrawText(sb, LevelLabels[i], r.X + 4, r.Y + 3, i == _levelFilter ? new Color(230, 200, 130) : Color.White);
-            }
-        }
     }
 }

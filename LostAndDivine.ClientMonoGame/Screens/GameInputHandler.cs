@@ -33,6 +33,9 @@ internal class GameInputHandler
     private long _lastTradeRequestTime;
     private const int TradeRequestCooldownMs = 500;
 
+    // Блокировка использования/надевания предметов (пока открыт склад)
+    internal bool ItemUseLocked;
+
     // Window open-order stack (LIFO) for ESC
     internal readonly List<Windows.GameWindow> WindowStack = new();
 
@@ -402,6 +405,9 @@ internal class GameInputHandler
         }
         else
         {
+            // Пока открыт склад, использование/надевание предметов запрещено
+            if (ItemUseLocked) return;
+
             var name = item.StartsWith("item:") ? item["item:".Length..] : item;
             var invItem = Input.GetItemByName(name);
             if (invItem != null)
@@ -465,6 +471,23 @@ internal class GameInputHandler
         shop.X = startX;
         shop.Y = y;
         inventory.X = startX + shopW + gap;
+        inventory.Y = y;
+    }
+
+    internal void PositionStorageWindows(StorageWindow storage, InventoryWindow inventory, GameMain game)
+    {
+        var g = game.Graphics;
+        int sw = g.PreferredBackBufferWidth;
+        int sh = g.PreferredBackBufferHeight;
+
+        int gap = 16;
+        int totalW = storage.Width + inventory.Width + gap;
+        int startX = Math.Max(8, (sw - totalW) / 2);
+        int y = Math.Max(50, (sh - storage.Height) / 2);
+
+        storage.X = startX;
+        storage.Y = y;
+        inventory.X = startX + storage.Width + gap;
         inventory.Y = y;
     }
 

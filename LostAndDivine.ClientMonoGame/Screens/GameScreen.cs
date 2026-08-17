@@ -425,7 +425,6 @@ public class GameScreen : IScreen
         {
             _inputManager.SetInventory(inv);
             _inventoryWindow.UpdateData(inv);
-            _storageWindow.UpdateInventory(inv.Items);
             if (inv.Equipment != null) _equipmentWindow.UpdateData(inv.Equipment);
             string? weaponSub = null;
             bool isTwoHanded = false;
@@ -875,22 +874,43 @@ public class GameScreen : IScreen
     {
         _client.StorageOpened += data =>
         {
-            var invItems = _client.Inventory?.Items ?? new List<Item>();
-            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
-            GameInputHandler.CenterWindow(_storageWindow, GameMain.Instance!);
+            _storageWindow.UpdateData(data.Items, data.Slots);
+            _inventoryWindow.Visible = true;
+            _input.PositionStorageWindows(_storageWindow, _inventoryWindow, GameMain.Instance!);
+            // Склад поверх инвентаря в стеке окон: первый Esc закроет склад, второй — инвентарь
+            _input.PushWindow(_inventoryWindow);
+            _input.PushWindow(_storageWindow);
             _windows.BringToFront(_storageWindow);
         };
         _client.StorageUpdated += data =>
         {
-            var invItems = _client.Inventory?.Items ?? new List<Item>();
-            _storageWindow.UpdateData(invItems, data.Items, data.Slots);
+            _storageWindow.UpdateData(data.Items, data.Slots);
         };
-        _storageWindow.DepositItem += (id, qty) => _ = _client.SendAsync("storage_deposit", new { ItemId = id, Quantity = qty });
         _storageWindow.WithdrawItem += (id, qty) => _ = _client.SendAsync("storage_withdraw", new { ItemId = id, Quantity = qty });
-        _storageWindow.PendingDeposit += (item, max) =>
-            _input.OpenQuantity(item.Name, max, 0, q => _ = _client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
         _storageWindow.PendingWithdraw += (item, max) =>
             _input.OpenQuantity(item.Name, max, 0, q => _ = _client.SendAsync("storage_withdraw", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+        _storageWindow.DragStateChanged += item => _input.DragOverlayItem = item;
+        _storageWindow.IsOverInventory = pt => _inventoryWindow.Visible && _inventoryWindow.Contains(pt);
+        _inventoryWindow.IsStorageOpen = () => _storageWindow.Visible;
+        _inventoryWindow.DepositItem += (id, qty) => _ = _client.SendAsync("storage_deposit", new { ItemId = id, Quantity = qty });
+        _inventoryWindow.PendingDeposit += (item, max) =>
+            _input.OpenQuantity(item.Name, max, 0, q => _ = _client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }), false, _quantityDialog, GameMain.Instance!);
+        _inventoryWindow.DropOnStorage += (pt, item) =>
+        {
+            if (!_storageWindow.Visible || !_storageWindow.Contains(pt)) return false;
+            int qty = Math.Max(1, item.Quantity);
+            if (item.MaxStack > 1 && qty > 1)
+            {
+                _input.OpenQuantity(item.Name, qty, 0,
+                    q => _ = _client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = q }),
+                    false, _quantityDialog, GameMain.Instance!);
+            }
+            else
+            {
+                _ = _client.SendAsync("storage_deposit", new { ItemId = item.Id, Quantity = 1 });
+            }
+            return true;
+        };
     }
 
     private void WireDialogueEvents()
@@ -1086,6 +1106,7 @@ public class GameScreen : IScreen
         HazardRenderer.Update(dtMs: (float)gameTime.ElapsedGameTime.TotalMilliseconds);
 
         _input.HandleHotbarDrop(mouse, game);
+        _input.ItemUseLocked = _storageWindow.Visible;
         bool mouseOverAnyWindowBefore = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
         _windows.Update(gameTime, keyboard, mouse);
 
@@ -1094,7 +1115,10 @@ public class GameScreen : IScreen
 
         bool mailTyping = _mailWindow.IsInputActive;
         bool shopEscConsumed = _shopWindow.Visible && _shopWindow.ConsumesEscape;
-        if (!_chatRenderer.IsTyping && !mailTyping && !shopEscConsumed)
+        bool filterEscConsumed = shopEscConsumed
+            || (_inventoryWindow.Visible && _inventoryWindow.ConsumesEscape)
+            || (_storageWindow.Visible && _storageWindow.ConsumesEscape);
+        if (!_chatRenderer.IsTyping && !mailTyping && !filterEscConsumed)
         {
             bool escPressed = keyboard.IsKeyDown(Keys.Escape) && _input.PrevKeyboard.IsKeyUp(Keys.Escape);
             if (escPressed && _shopWindow.Visible && _input.WindowStack.Count == 0)
