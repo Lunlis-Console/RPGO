@@ -166,6 +166,7 @@ internal class GameInputHandler
                 {
                     Logger.Action($"Сообщение в чат: {Chat.TypedText}");
                     _ = client.SendAsync("say", Chat.TypedText);
+                    Chat.AddToHistory(Chat.TypedText);
                 }
                 Chat.IsTyping = false;
                 Chat.TypedText = "";

@@ -17,6 +17,11 @@ public class ChatRenderer
     public bool IsTyping { get; set; }
     public string TypedText { get; set; } = "";
 
+    // История отправленных сообщений/команд (навигация стрелками вверх/вниз).
+    private readonly List<string> _history = new();
+    private int _historyIndex = -1;      // -1 = поле ввода без навигации
+    private string _historyDraft = "";   // черновик, сохранённый при уходе в историю
+
     // VK, нажатые в предыдущем кадре (для отслеживания "только что нажатых")
     private HashSet<uint> _prevDownVks = new();
 
@@ -127,6 +132,35 @@ public class ChatRenderer
         if (TypedText.Length == 0 && !string.IsNullOrEmpty(CurrentPrefix))
             TypedText = CurrentPrefix;
 
+        // Навигация по истории отправленных сообщений (стрелки вверх/вниз)
+        if (keyboard.IsKeyDown(Keys.Up) && prevKeyboard.IsKeyUp(Keys.Up))
+        {
+            if (_history.Count > 0)
+            {
+                if (_historyIndex == -1)
+                    _historyDraft = TypedText;
+                if (_historyIndex < _history.Count - 1)
+                    _historyIndex++;
+                TypedText = _history[_history.Count - 1 - _historyIndex];
+            }
+        }
+        if (keyboard.IsKeyDown(Keys.Down) && prevKeyboard.IsKeyUp(Keys.Down))
+        {
+            if (_historyIndex != -1)
+            {
+                _historyIndex--;
+                if (_historyIndex < 0)
+                {
+                    _historyIndex = -1;
+                    TypedText = _historyDraft;
+                }
+                else
+                {
+                    TypedText = _history[_history.Count - 1 - _historyIndex];
+                }
+            }
+        }
+
         // Ввод символов: опрашиваем нажатые VK напрямую у ОС (GetAsyncKeyState)
         // и переводим каждый в символ по детерминированной таблице VK->char.
         // Это обходит баг MonoGame DesktopGL (GetPressedKeys даёт Keys.None для
@@ -140,7 +174,8 @@ public class ChatRenderer
             // Пропускаем чисто модификаторы/управляющие клавиши
             if (vk == 0x10 || vk == 0x11 || vk == 0x12 || vk == 0x14 ||
                 vk == 0x09 /*Tab*/ || vk == 0x0D /*Enter*/ ||
-                vk == 0x1B /*Escape*/ || vk == 0x08 /*Back*/)
+                vk == 0x1B /*Escape*/ || vk == 0x08 /*Back*/ ||
+                vk == 0x26 /*Up*/ || vk == 0x28 /*Down*/)
                 continue;
 
             if (KeyCharMap.TryGetCharByVk(vk, russian, shiftDown, out char ch))
@@ -156,6 +191,17 @@ public class ChatRenderer
             TypedText = "";
             IsLangMenuOpen = false;
         }
+    }
+
+    /// <summary>Сохраняет отправленное сообщение/команду в историю для стрелок вверх/вниз.</summary>
+    public void AddToHistory(string text)
+    {
+        string trimmed = text.Trim();
+        if (trimmed.Length == 0) return;
+        if (_history.Count == 0 || !string.Equals(_history[^1], trimmed, StringComparison.OrdinalIgnoreCase))
+            _history.Add(trimmed);
+        _historyIndex = -1;
+        _historyDraft = "";
     }
 
     private Rectangle GetTabRect(float x, float y, int index)
