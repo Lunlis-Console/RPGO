@@ -237,6 +237,11 @@ public class StatusWindow : GameWindow
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
             ("Точность %", $"{_data.Accuracy - 100}"),
+            ("Стойк %", $"{_data.Tenacity}"),
+            ("Пробив %", $"{_data.ArmorPenetration}"),
+            ("Откат %", $"{_data.CooldownReduction}"),
+            ("Реген ХП %", $"{_data.HealthRegen}"),
+            ("Реген МП %", $"{_data.ManaRegen}"),
             ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)
@@ -366,6 +371,11 @@ public class StatusWindow : GameWindow
         DrawBreakdownRow(sb, ref cy, cx, cw, "Блок %", b.Block);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Парир %", b.Parry);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Точность %", b.Accuracy);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Стойк %", b.Tenacity);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Пробив %", b.ArmorPen);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Откат %", b.CdReduction);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Реген ХП %", b.HpRegen);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Реген МП %", b.MpRegen);
         DrawAttackSpeedBreakdown(sb, ref cy, cx, cw);
         cy += 4;
 

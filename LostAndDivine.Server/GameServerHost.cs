@@ -231,12 +231,14 @@ public class GameServerHost
             if ((now - pl.LastRegenTime).TotalMilliseconds >= tick)
             {
                 int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
+                double hpRegenMult = 1.0 + pl.GetHealthRegenPercent() / 100.0;
+                double mpRegenMult = 1.0 + pl.GetManaRegenPercent() / 100.0;
                 int heal = 0;
                 if (pl.Health < maxHp)
                 {
                     heal = plInCombat
-                        ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction))
-                        : outOfCombatHeal;
+                        ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction * hpRegenMult))
+                        : (int)(outOfCombatHeal * hpRegenMult);
                     pl.Health = Math.Min(maxHp, pl.Health + heal);
                 }
 
@@ -245,8 +247,8 @@ public class GameServerHost
                 if (pl.Mana < maxMana)
                 {
                     manaTick = plInCombat
-                        ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction))
-                        : Balance.ManaRegenOutOfCombat;
+                        ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction * mpRegenMult))
+                        : (int)(Balance.ManaRegenOutOfCombat * mpRegenMult);
                     pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
                 }
 

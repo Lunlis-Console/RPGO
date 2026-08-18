@@ -53,6 +53,11 @@ public class InspectHandler : BaseHandler
                 BlockChance = Math.Round(target.GetBlockChance(), 2),
                 ParryChance = Math.Round(target.GetParryChance(), 2),
                 Accuracy = Math.Round(target.GetAccuracy(), 2),
+                Tenacity = Math.Round(target.GetTenacity(), 2),
+                ArmorPenetration = Math.Round(target.GetArmorPenetration(), 2),
+                CooldownReduction = Math.Round(target.GetCooldownReduction(), 2),
+                HealthRegen = Math.Round(target.GetHealthRegenPercent(), 2),
+                ManaRegen = Math.Round(target.GetManaRegenPercent(), 2),
                 EquippedItems = target.Equipment.Slots
                     .Where(kv => kv.Value != null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value!),

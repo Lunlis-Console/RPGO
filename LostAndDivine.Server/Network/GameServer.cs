@@ -515,6 +515,11 @@ public sealed class GameServer : INetworkHub
                 BlockChance = Math.Round(player.GetBlockChance(), 2),
                 ParryChance = Math.Round(player.GetParryChance(), 2),
                 Accuracy = Math.Round(player.GetAccuracy(), 2),
+                Tenacity = Math.Round(player.GetTenacity(), 2),
+                ArmorPenetration = Math.Round(player.GetArmorPenetration(), 2),
+                CooldownReduction = Math.Round(player.GetCooldownReduction(), 2),
+                HealthRegen = Math.Round(player.GetHealthRegenPercent(), 2),
+                ManaRegen = Math.Round(player.GetManaRegenPercent(), 2),
                 player.Gold,
                 player.X,
                 player.Y,
@@ -591,6 +596,12 @@ public sealed class GameServer : INetworkHub
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
                 BlockChance = Math.Round(player.GetBlockChance(), 2),
                 ParryChance = Math.Round(player.GetParryChance(), 2),
+                Accuracy = Math.Round(player.GetAccuracy(), 2),
+                Tenacity = Math.Round(player.GetTenacity(), 2),
+                ArmorPenetration = Math.Round(player.GetArmorPenetration(), 2),
+                CooldownReduction = Math.Round(player.GetCooldownReduction(), 2),
+                HealthRegen = Math.Round(player.GetHealthRegenPercent(), 2),
+                ManaRegen = Math.Round(player.GetManaRegenPercent(), 2),
                 player.Gold,
                 player.X,
                 player.Y,
@@ -784,6 +795,36 @@ public sealed class GameServer : INetworkHub
                 AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns((player.GetEffAgility() - 1)), 2),
                 SkillBonus = player.GetBowAccuracyBonus(),
                 Total = Math.Round(player.GetAccuracy() - BalanceStatic.AccuracyBase, 2)
+            },
+            Tenacity = new BreakdownPart
+            {
+                Base = 0,
+                AttrBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                Total = Math.Round(player.GetTenacity(), 2)
+            },
+            ArmorPen = new BreakdownPart
+            {
+                Base = 0,
+                AttrBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns((player.GetEffStrength() - 1)), 2),
+                Total = Math.Round(player.GetArmorPenetration(), 2)
+            },
+            CdReduction = new BreakdownPart
+            {
+                Base = 0,
+                AttrBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns((player.GetEffWisdom() - 1)), 2),
+                Total = Math.Round(player.GetCooldownReduction(), 2)
+            },
+            HpRegen = new BreakdownPart
+            {
+                Base = 0,
+                AttrBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                Total = Math.Round(player.GetHealthRegenPercent(), 2)
+            },
+            MpRegen = new BreakdownPart
+            {
+                Base = 0,
+                AttrBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns((player.GetEffWisdom() - 1)), 2),
+                Total = Math.Round(player.GetManaRegenPercent(), 2)
             },
             Effective = new EffectiveAttrs
             {

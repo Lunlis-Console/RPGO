@@ -47,6 +47,11 @@ public sealed class StatusData
     public double BlockChance { get; set; }
     public double ParryChance { get; set; }
     public double Accuracy { get; set; }
+    public double Tenacity { get; set; }
+    public double ArmorPenetration { get; set; }
+    public double CooldownReduction { get; set; }
+    public double HealthRegen { get; set; }
+    public double ManaRegen { get; set; }
     public int Gold { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
@@ -246,6 +251,11 @@ public sealed class BreakdownData
     public BreakdownPart? Block { get; set; }
     public BreakdownPart? Parry { get; set; }
     public BreakdownPart? Accuracy { get; set; }
+    public BreakdownPart? Tenacity { get; set; }
+    public BreakdownPart? ArmorPen { get; set; }
+    public BreakdownPart? CdReduction { get; set; }
+    public BreakdownPart? HpRegen { get; set; }
+    public BreakdownPart? MpRegen { get; set; }
     public EffectiveData? Effective { get; set; }
 }
 

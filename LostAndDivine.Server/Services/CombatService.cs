@@ -327,7 +327,7 @@ public class CombatService
                 {
                     int baseDamage = (int)Math.Max(Balance.MinDamage,
                         _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage())
-                        * (1.0 - _svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage())));
+                        * (1.0 - _svc.Monsters.GetEffectiveDefense(monster, pl.GetArmorPenetration() / 100.0, magic: pl.IsMagicalDamage())));
                     double rankMult = pl.GetSkillRankDmgMult(queuedSkill.Id);
                     int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier * rankMult);
                     skillDamage = _svc.Monsters.ApplyDmgReduction(pl, skillDamage);
@@ -501,7 +501,7 @@ public class CombatService
         });
 
         var rng = Random.Shared;
-        double effDefense = _svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
+        double effDefense = _svc.Monsters.GetEffectiveDefense(monster, pl.GetArmorPenetration() / 100.0, magic: pl.IsMagicalDamage());
         double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < Math.Max(0,
             monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));
@@ -1034,7 +1034,7 @@ public class CombatService
             if (!InFacingCone(pl.Facing, mdx, mdy)) continue;
 
             double effAtk = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage(dist));
-            double effDef = _svc.Monsters.GetEffectiveDefense(m, pl.GetCloseRangeArmorPen(dist), magic: pl.IsMagicalDamage());
+            double effDef = _svc.Monsters.GetEffectiveDefense(m, pl.GetCloseRangeArmorPen(dist) + pl.GetArmorPenetration() / 100.0, magic: pl.IsMagicalDamage());
             int dmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef) * mult));
             var proj = _svc.Projectiles.Spawn(pl, m, visualType, dmg, false, "main", "Подавляющий огонь");
             await _svc.Projectiles.BroadcastSpawn(proj);

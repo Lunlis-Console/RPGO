@@ -277,6 +277,141 @@ public class PlayerStatsTests
     }
 
     [Fact]
+    public void GetTenacity_NoEndurance_Returns0()
+    {
+        var p = new Player { Endurance = 1 };
+        Assert.Equal(0.0, p.GetTenacity());
+    }
+
+    [Fact]
+    public void GetTenacity_WithEndurance_Returns15()
+    {
+        var p = new Player { Endurance = 51 };
+        // 50 очков × 0.3 = 15
+        Assert.Equal(15.0, p.GetTenacity());
+    }
+
+    [Fact]
+    public void GetTenacity_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Endurance = 111 };
+        // 110 очков: 100×0.3 + 10×0.15 = 31.5
+        Assert.Equal(31.5, p.GetTenacity());
+    }
+
+    [Fact]
+    public void GetTenacity_CappedAt50()
+    {
+        var p = new Player { Endurance = 1000 };
+        Assert.Equal(50.0, p.GetTenacity());
+    }
+
+    [Fact]
+    public void GetArmorPenetration_NoStrength_Returns0()
+    {
+        var p = new Player { Strength = 1 };
+        Assert.Equal(0.0, p.GetArmorPenetration());
+    }
+
+    [Fact]
+    public void GetArmorPenetration_WithStrength_Returns7_5()
+    {
+        var p = new Player { Strength = 51 };
+        // 50 очков × 0.15 = 7.5
+        Assert.Equal(7.5, p.GetArmorPenetration());
+    }
+
+    [Fact]
+    public void GetArmorPenetration_CapReachedAt235Strength()
+    {
+        var p = new Player { Strength = 235 };
+        // 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
+        Assert.Equal(25.0, p.GetArmorPenetration());
+    }
+
+    [Fact]
+    public void GetArmorPenetration_CappedAt25()
+    {
+        var p = new Player { Strength = 1000 };
+        Assert.Equal(25.0, p.GetArmorPenetration());
+    }
+
+    [Fact]
+    public void GetCooldownReduction_NoWisdom_Returns0()
+    {
+        var p = new Player { Wisdom = 1 };
+        Assert.Equal(0.0, p.GetCooldownReduction());
+    }
+
+    [Fact]
+    public void GetCooldownReduction_WithWisdom_Returns15()
+    {
+        var p = new Player { Wisdom = 51 };
+        // 50 очков × 0.3 = 15
+        Assert.Equal(15.0, p.GetCooldownReduction());
+    }
+
+    [Fact]
+    public void GetCooldownReduction_CappedAt50()
+    {
+        var p = new Player { Wisdom = 1000 };
+        Assert.Equal(50.0, p.GetCooldownReduction());
+    }
+
+    [Fact]
+    public void GetCooldownReduction_ReducesSkillCdMult()
+    {
+        var p = new Player { Wisdom = 168 };
+        // CDR 40.05 → множитель кулдауна 1 ранга = 1 × (1 − 0.4005) = 0.5995
+        Assert.Equal(0.5995, p.GetSkillRankCdMult("x"), 3);
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_NoEndurance_Returns0()
+    {
+        var p = new Player { Endurance = 1 };
+        Assert.Equal(0.0, p.GetHealthRegenPercent());
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_WithEndurance_Returns7_5()
+    {
+        var p = new Player { Endurance = 51 };
+        // 50 очков × 0.15 = 7.5
+        Assert.Equal(7.5, p.GetHealthRegenPercent());
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_CappedAt25()
+    {
+        var p = new Player { Endurance = 1000 };
+        Assert.Equal(25.0, p.GetHealthRegenPercent());
+    }
+
+    [Fact]
+    public void GetManaRegenPercent_NoWisdom_Returns0()
+    {
+        var p = new Player { Wisdom = 1 };
+        Assert.Equal(0.0, p.GetManaRegenPercent());
+    }
+
+    [Fact]
+    public void GetManaRegenPercent_WithWisdom_Returns7_5()
+    {
+        var p = new Player { Wisdom = 51 };
+        // 50 очков × 0.15 = 7.5
+        Assert.Equal(7.5, p.GetManaRegenPercent());
+    }
+
+    [Fact]
+    public void GetManaRegenPercent_CapReachedAt168Wisdom()
+    {
+        var p = new Player { Wisdom = 168 };
+        // 167 очков: 100×0.15 + 67×0.075 = 20.025 → кап 20
+        Assert.Equal(20.0, p.GetManaRegenPercent());
+    }
+
+    [Fact]
     public void GetEffStrength_WithEquipment_ReturnsSum()
     {
         var eq = new Equipment();

@@ -12,6 +12,11 @@ public class StatsBreakdown
     public BreakdownPart Block { get; set; } = new();
     public BreakdownPart Parry { get; set; } = new();
     public BreakdownPart Accuracy { get; set; } = new();
+    public BreakdownPart Tenacity { get; set; } = new();
+    public BreakdownPart ArmorPen { get; set; } = new();
+    public BreakdownPart CdReduction { get; set; } = new();
+    public BreakdownPart HpRegen { get; set; } = new();
+    public BreakdownPart MpRegen { get; set; } = new();
     public EffectiveAttrs Effective { get; set; } = new();
 }
 

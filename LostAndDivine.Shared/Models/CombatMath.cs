@@ -56,6 +56,31 @@ public static class CombatMath
         => ApplyDiminishingReturns(points, BalanceStatic.AccuracyLinearPoints,
             BalanceStatic.AccuracyLinearRate, BalanceStatic.AccuracyDrRate);
 
+    /// <summary>Убывающая отдача стойкости (выносливость).</summary>
+    public static double ApplyTenacityDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.TenacityLinearPoints,
+            BalanceStatic.TenacityLinearRate, BalanceStatic.TenacityDrRate);
+
+    /// <summary>Убывающая отдача пробивания брони (сила).</summary>
+    public static double ApplyArmorPenDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.ArmorPenLinearPoints,
+            BalanceStatic.ArmorPenLinearRate, BalanceStatic.ArmorPenDrRate);
+
+    /// <summary>Убывающая отдача сокращения перезарядки (мудрость).</summary>
+    public static double ApplyCdrDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.CdrLinearPoints,
+            BalanceStatic.CdrLinearRate, BalanceStatic.CdrDrRate);
+
+    /// <summary>Убывающая отдача регенерации здоровья (выносливость).</summary>
+    public static double ApplyHealthRegenDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.HealthRegenLinearPoints,
+            BalanceStatic.HealthRegenLinearRate, BalanceStatic.HealthRegenDrRate);
+
+    /// <summary>Убывающая отдача регенерации маны (мудрость).</summary>
+    public static double ApplyManaRegenDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.ManaRegenLinearPoints,
+            BalanceStatic.ManaRegenLinearRate, BalanceStatic.ManaRegenDrRate);
+
     /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
     public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)
     {

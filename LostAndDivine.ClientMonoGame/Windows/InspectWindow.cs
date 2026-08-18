@@ -108,6 +108,11 @@ public class InspectWindow : GameWindow
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
             ("Точность %", $"{_data.Accuracy - 100}"),
+            ("Стойк %", $"{_data.Tenacity}"),
+            ("Пробив %", $"{_data.ArmorPenetration}"),
+            ("Откат %", $"{_data.CooldownReduction}"),
+            ("Реген ХП %", $"{_data.HealthRegen}"),
+            ("Реген МП %", $"{_data.ManaRegen}"),
             ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)
@@ -122,7 +127,7 @@ public class InspectWindow : GameWindow
             float valW = valFont != null ? valFont.MeasureString(combat[i].Item2).X : 0;
             DrawText(sb, combat[i].Item2, (int)(rx + cw / 2 - 4 - valW), ry + 2, StatColor);
         }
-        cy += 6 * (RowH + 1) + 4;
+        cy += 8 * (RowH + 1) + 4;
 
         // === Ниже: слева снаряжение, справа атрибуты (одна колонка, заполняет высоту) ===
         int equipW = EquipAreaWidth();

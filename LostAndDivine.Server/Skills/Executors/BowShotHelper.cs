@@ -22,7 +22,7 @@ internal static class BowShotHelper
         dmgMult *= pl.GetSkillRankDmgMult(skillId);
 
         var rng = Random.Shared;
-        double armorPen = pl.GetCloseRangeArmorPen(dist);
+        double armorPen = pl.GetCloseRangeArmorPen(dist) + pl.GetArmorPenetration() / 100.0;
         if (vulnerable) armorPen = Math.Min(1.0, armorPen + BalanceStatic.VulnerableArmorIgnore);
 
         double effDef = svc.Monsters.GetEffectiveDefense(monster, armorPen, magic: false);
@@ -55,7 +55,7 @@ internal static class BowShotHelper
         double dmgMult, bool vulnerable, string skillName, string skillId, int dist)
     {
         dmgMult *= pl.GetSkillRankDmgMult(skillId);
-        double armorPen = pl.GetCloseRangeArmorPen(dist);
+        double armorPen = pl.GetCloseRangeArmorPen(dist) + pl.GetArmorPenetration() / 100.0;
         if (vulnerable) armorPen = Math.Min(1.0, armorPen + BalanceStatic.VulnerableArmorIgnore);
 
         double evadeChance = Math.Max(0, target.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));
@@ -67,7 +67,7 @@ internal static class BowShotHelper
             double reduction = CombatMath.CalcDefenseReduction(target.GetTotalDefense()) * (1.0 - armorPen);
             int raw = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, raw * dmgMult);
-            double critChance = Math.Min(BalanceStatic.MaxCritChance, pl.GetCritChance() + pl.GetHunterInstinctCritBonus(target));
+            double critChance = Math.Min(BalanceStatic.MaxCritChance, pl.GetCritChance() + pl.GetHunterInstinctCritBonus(target) - target.GetTenacity());
             hitCrit = vulnerable || Random.Shared.NextDouble() * 100 < critChance;
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
 

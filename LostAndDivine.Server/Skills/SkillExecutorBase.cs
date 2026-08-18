@@ -19,7 +19,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
+        double effDef = svc.Monsters.GetEffectiveDefense(monster, pl.GetArmorPenetration() / 100.0, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = Balance.RollPercent(Math.Max(0,
                 monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase)));
@@ -90,7 +90,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             targetX: monster.X, targetY: monster.Y);
 
         double effDef = svc.Monsters.GetEffectiveDefense(monster,
-            magic: useOffHand ? pl.IsOffHandMagical() : pl.IsMagicalDamage());
+            pl.GetArmorPenetration() / 100.0, magic: useOffHand ? pl.IsOffHandMagical() : pl.IsMagicalDamage());
         double effAtk = useOffHand
             ? svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage())
             : svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
@@ -197,10 +197,11 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         if (!evaded && !parried)
         {
             double reduction = CombatMath.CalcDefenseReduction(
-                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense())
+                * (1.0 - pl.GetArmorPenetration() / 100.0);
             int rawDmg = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
-            hitCrit = Balance.RollPercent(pl.GetCritChance());
+            hitCrit = Balance.RollPercent(Math.Max(0, pl.GetCritChance() - target.GetTenacity()));
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             if (blocked) hitDmg = 0;
             target.Health -= hitDmg;
@@ -274,10 +275,11 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         if (!evaded && !parried)
         {
             double reduction = CombatMath.CalcDefenseReduction(
-                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense())
+                * (1.0 - pl.GetArmorPenetration() / 100.0);
             int rawDmg = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
-            hitCrit = Balance.RollPercent(pl.GetCritChance());
+            hitCrit = Balance.RollPercent(Math.Max(0, pl.GetCritChance() - target.GetTenacity()));
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             if (blocked) hitDmg = 0;
             target.Health -= hitDmg;

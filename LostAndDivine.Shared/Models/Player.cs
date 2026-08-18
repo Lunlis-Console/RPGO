@@ -189,8 +189,29 @@ public class Player : ICombatant
     /// <summary>Множитель урона активного навыка от ранга (+12% за ранг выше 1-го).</summary>
     public double GetSkillRankDmgMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.12;
 
-    /// <summary>Множитель кулдауна от ранга (–8% за ранг).</summary>
-    public double GetSkillRankCdMult(string skillId) => 1.0 - (GetSkillRank(skillId) - 1) * 0.08;
+    /// <summary>Множитель кулдауна от ранга (–8% за ранг) и от мудрости (сокращение отката, кап 50%).</summary>
+    public double GetSkillRankCdMult(string skillId)
+        => Math.Max(0.5, (1.0 - (GetSkillRank(skillId) - 1) * 0.08) * (1.0 - GetCooldownReduction() / 100.0));
+
+    /// <summary>Стойкость: снижает шанс крита противника по вам. Кап 50%, от выносливости.</summary>
+    public double GetTenacity()
+        => Math.Min(BalanceStatic.MaxTenacity, CombatMath.ApplyTenacityDiminishingReturns(GetEffEndurance() - 1));
+
+    /// <summary>Пробивание брони: игнорирует % защиты цели. Кап 25%, от силы.</summary>
+    public double GetArmorPenetration()
+        => Math.Min(BalanceStatic.MaxArmorPenetration, CombatMath.ApplyArmorPenDiminishingReturns(GetEffStrength() - 1));
+
+    /// <summary>Сокращение перезарядки навыков. Кап 50%, от мудрости.</summary>
+    public double GetCooldownReduction()
+        => Math.Min(BalanceStatic.MaxCooldownReduction, CombatMath.ApplyCdrDiminishingReturns(GetEffWisdom() - 1));
+
+    /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от выносливости.</summary>
+    public double GetHealthRegenPercent()
+        => Math.Min(BalanceStatic.MaxHealthRegen, CombatMath.ApplyHealthRegenDiminishingReturns(GetEffEndurance() - 1));
+
+    /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от мудрости.</summary>
+    public double GetManaRegenPercent()
+        => Math.Min(BalanceStatic.MaxManaRegen, CombatMath.ApplyManaRegenDiminishingReturns(GetEffWisdom() - 1));
 
     /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
     public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;

@@ -61,6 +61,36 @@ public static class BalanceStatic
     public const double AccuracyLinearRate = 0.3;
     public const double AccuracyDrRate = 0.15;
 
+    // Стойкость: снижает шанс крита противника по вам. Кап 50%, от выносливости.
+    public const double MaxTenacity = 50.0;
+    public const double TenacityLinearPoints = 100;
+    public const double TenacityLinearRate = 0.3;
+    public const double TenacityDrRate = 0.15;
+
+    // Пробивание брони: игнорирует % защиты цели. Кап 25%, от силы.
+    public const double MaxArmorPenetration = 25.0;
+    public const double ArmorPenLinearPoints = 100;
+    public const double ArmorPenLinearRate = 0.15;
+    public const double ArmorPenDrRate = 0.075;
+
+    // Сокращение перезарядки навыков (кулдауны быстрее на X%). Кап 50%, от мудрости.
+    public const double MaxCooldownReduction = 50.0;
+    public const double CdrLinearPoints = 100;
+    public const double CdrLinearRate = 0.3;
+    public const double CdrDrRate = 0.15;
+
+    // Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от выносливости.
+    public const double MaxHealthRegen = 25.0;
+    public const double HealthRegenLinearPoints = 100;
+    public const double HealthRegenLinearRate = 0.15;
+    public const double HealthRegenDrRate = 0.075;
+
+    // Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от мудрости.
+    public const double MaxManaRegen = 20.0;
+    public const double ManaRegenLinearPoints = 100;
+    public const double ManaRegenLinearRate = 0.15;
+    public const double ManaRegenDrRate = 0.075;
+
     // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
     // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
     // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.

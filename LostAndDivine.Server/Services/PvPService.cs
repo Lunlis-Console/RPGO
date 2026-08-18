@@ -55,12 +55,13 @@ public class PvPService
         if (!roll.Evaded && !roll.Parried)
         {
             double reduction = CombatMath.CalcDefenseReduction(
-                attacker.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+                attacker.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense())
+                * (1.0 - attacker.GetArmorPenetration() / 100.0);
             int rawDmg = Math.Max(Balance.MinDamage, (int)(attacker.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * damageMult);
             if (checkCrit)
             {
-                hitCrit = Balance.RollPercent(attacker.GetCritChance());
+                hitCrit = Balance.RollPercent(Math.Max(0, attacker.GetCritChance() - target.GetTenacity()));
                 if (hitCrit) hitDmg = (int)(hitDmg * attacker.GetCritDamage());
             }
             if (roll.Blocked) hitDmg = 0;

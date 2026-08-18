@@ -59,7 +59,7 @@ public sealed class DuelExecutor : SkillExecutorBase
 
         await svc.SendPlayerAttack(pl.Name, "main", targetX: monster.X, targetY: monster.Y);
         var rng = Random.Shared;
-        double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
+        double effDef = svc.Monsters.GetEffectiveDefense(monster, pl.GetArmorPenetration() / 100.0, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < Math.Max(0,
             monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));

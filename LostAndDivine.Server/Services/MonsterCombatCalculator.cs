@@ -84,7 +84,7 @@ public class MonsterCombatCalculator
                 passiveCritBonus = 10;
             }
             passiveCritBonus += plPassive.GetHunterInstinctCritBonus(defender);
-            armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
+            armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3) + plPassive.GetArmorPenetration() / 100.0;
         }
 
         double effectiveDefense = GetEffectiveDefense(defender, armorPenExtra, attacker.IsMagicalDamage());
@@ -100,7 +100,10 @@ public class MonsterCombatCalculator
         if (evaded) return (0, false, true, false, false);
         if (parried) return (0, false, false, true, false);
 
-        bool isCrit = Balance.RollPercent(Math.Min(BalanceStatic.MaxCritChance, attacker.GetCritChance() + passiveCritBonus));
+        double critChance = attacker.GetCritChance() + passiveCritBonus;
+        if (defender is Player plTen)
+            critChance = Math.Max(0, critChance - plTen.GetTenacity());
+        bool isCrit = Balance.RollPercent(Math.Min(BalanceStatic.MaxCritChance, critChance));
         int damage = CombatMath.CalcFinalDamage(
             (int)effectiveAttack, effectiveDefense,
             isCrit, critMult: attacker.GetCritDamage(),
@@ -127,7 +130,7 @@ public class MonsterCombatCalculator
 
         bool crit = Balance.RollPercent(attacker.GetCritChance());
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
-        double reduction = GetEffectiveDefense(target, 0, attacker.IsOffHandMagical());
+        double reduction = GetEffectiveDefense(target, attacker.GetArmorPenetration() / 100.0, attacker.IsOffHandMagical());
         int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack * (1.0 - reduction)));
         int finalDmg = CombatMath.ApplyCrit(baseDmg, crit, attacker.GetCritDamage());
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * attacker.GetOffHandDamageFraction()));
@@ -140,7 +143,7 @@ public class MonsterCombatCalculator
     {
         var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.GetMaxAttackDamage());
-        double reduction = GetEffectiveDefense(primaryTarget, 0, attacker.IsMagicalDamage());
+        double reduction = GetEffectiveDefense(primaryTarget, attacker.GetArmorPenetration() / 100.0, attacker.IsMagicalDamage());
         int cleaveDmg = Math.Max(Balance.MinDamage,
             (int)(effectiveAttack * (1.0 - reduction) * Balance.CleaveDamageFraction));
 
