@@ -514,6 +514,7 @@ public sealed class GameServer : INetworkHub
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
                 BlockChance = Math.Round(player.GetBlockChance(), 2),
                 ParryChance = Math.Round(player.GetParryChance(), 2),
+                Accuracy = Math.Round(player.GetAccuracy(), 2),
                 player.Gold,
                 player.X,
                 player.Y,
@@ -762,9 +763,10 @@ public sealed class GameServer : INetworkHub
             },
             Block = new BreakdownPart
             {
-                Base = player.BaseBlockChance,
-                AttrBonus = (player.GetEffEndurance() - 1) * BalanceStatic.BlockChancePerEndurance,
-                EquipBonus = player.Equipment.GetBonusBlockChance(),
+                Base = player.BaseBlockChance + (player.Equipment.GetEquippedShield() != null ? 2.0 : 0.0),
+                AttrBonus = Math.Round(CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1) + player.Equipment.GetBonusBlockChance())
+                             - CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1)), 2),
                 Total = Math.Round(player.GetBlockChance(), 2)
             },
             Parry = new BreakdownPart
@@ -775,6 +777,13 @@ public sealed class GameServer : INetworkHub
                              - CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1)), 2),
                 SkillBonus = player.GetReflexesParryBonus(),
                 Total = Math.Round(player.GetParryChance(), 2)
+            },
+            Accuracy = new BreakdownPart
+            {
+                Base = BalanceStatic.AccuracyBase,
+                AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns((player.GetEffAgility() - 1)), 2),
+                SkillBonus = player.GetBowAccuracyBonus(),
+                Total = Math.Round(player.GetAccuracy(), 2)
             },
             Effective = new EffectiveAttrs
             {

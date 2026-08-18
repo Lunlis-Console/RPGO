@@ -46,6 +46,7 @@ public sealed class StatusData
     public double EvadeChance { get; set; }
     public double BlockChance { get; set; }
     public double ParryChance { get; set; }
+    public double Accuracy { get; set; }
     public int Gold { get; set; }
     public int X { get; set; }
     public int Y { get; set; }
@@ -244,6 +245,7 @@ public sealed class BreakdownData
     public BreakdownPart? Evade { get; set; }
     public BreakdownPart? Block { get; set; }
     public BreakdownPart? Parry { get; set; }
+    public BreakdownPart? Accuracy { get; set; }
     public EffectiveData? Effective { get; set; }
 }
 

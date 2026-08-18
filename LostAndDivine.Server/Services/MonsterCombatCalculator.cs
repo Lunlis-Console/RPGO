@@ -83,14 +83,15 @@ public class MonsterCombatCalculator
                 passiveAccuracyBonus = 10;
                 passiveCritBonus = 10;
             }
-            passiveAccuracyBonus += plPassive.GetBowAccuracyBonus();
             passiveCritBonus += plPassive.GetHunterInstinctCritBonus(defender);
             armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
         }
 
         double effectiveDefense = GetEffectiveDefense(defender, armorPenExtra, attacker.IsMagicalDamage());
 
-        double defenderEvade = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
+        double attackerAccuracy = attacker is Player plAcc ? plAcc.GetAccuracy() - BalanceStatic.AccuracyBase : 0;
+        double defenderEvade = defender.GetEvadeChance() + accuracyReduction * 100
+                               - passiveAccuracyBonus - attackerAccuracy;
         if (isMelee && defender is Player plDef)
             defenderEvade += plDef.GetMeleeEvadeBonus();
 
@@ -118,7 +119,8 @@ public class MonsterCombatCalculator
         if (!attacker.Equipment.IsDualWielding()) return (0, false, false, false, false);
 
         var (evaded, parried, blocked) = CombatMath.RollDefense(
-            target.GetEvadeChance(), target.GetParryChance(), target.GetBlockChance());
+            Math.Max(0, target.GetEvadeChance() - (attacker.GetAccuracy() - BalanceStatic.AccuracyBase)),
+            target.GetParryChance(), target.GetBlockChance());
 
         if (evaded) return (0, false, true, false, false);
         if (parried) return (0, false, false, true, false);
@@ -147,7 +149,8 @@ public class MonsterCombatCalculator
             var monster = findMonster(cx, cy);
             if (monster == null || monster.Id == primaryTarget.Id || monster.Health <= 0) continue;
 
-            bool evaded = Balance.RollPercent(monster.GetEvadeChance());
+            bool evaded = Balance.RollPercent(Math.Max(0,
+                monster.GetEvadeChance() - (attacker.GetAccuracy() - BalanceStatic.AccuracyBase)));
             if (evaded) continue;
 
             bool crit = Balance.RollPercent(attacker.GetCritChance());

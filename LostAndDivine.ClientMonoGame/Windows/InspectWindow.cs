@@ -107,6 +107,7 @@ public class InspectWindow : GameWindow
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
+            ("Точность", $"{_data.Accuracy:F0}%"),
             ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)
@@ -121,7 +122,7 @@ public class InspectWindow : GameWindow
             float valW = valFont != null ? valFont.MeasureString(combat[i].Item2).X : 0;
             DrawText(sb, combat[i].Item2, (int)(rx + cw / 2 - 4 - valW), ry + 2, StatColor);
         }
-        cy += 5 * (RowH + 1) + 4;
+        cy += 6 * (RowH + 1) + 4;
 
         // === Ниже: слева снаряжение, справа атрибуты (одна колонка, заполняет высоту) ===
         int equipW = EquipAreaWidth();

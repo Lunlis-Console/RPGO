@@ -61,7 +61,8 @@ public sealed class DuelExecutor : SkillExecutorBase
         var rng = Random.Shared;
         double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+        bool evaded = rng.Next(Balance.ChanceRollMax) < Math.Max(0,
+            monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));
         bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
         bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
         int hitDmg = 0;
@@ -119,7 +120,8 @@ public sealed class DuelExecutor : SkillExecutorBase
         int dist = Math.Abs(pl.X - target.X) + Math.Abs(pl.Y - target.Y);
         await svc.SendPlayerAttack(pl.Name, "main", targetX: target.X, targetY: target.Y);
 
-        bool evaded = Random.Shared.NextDouble() * 100 < target.GetEvadeChance();
+        bool evaded = Random.Shared.NextDouble() * 100 < Math.Max(0,
+            target.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));
         bool parried = !evaded && dist <= 1 && Random.Shared.NextDouble() * 100 < target.GetParryChance();
         bool blocked = !evaded && !parried && Random.Shared.NextDouble() * 100 < target.GetBlockChance();
         int hitDmg = 0;

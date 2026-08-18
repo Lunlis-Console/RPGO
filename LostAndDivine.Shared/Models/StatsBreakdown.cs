@@ -11,6 +11,7 @@ public class StatsBreakdown
     public BreakdownPart Evade { get; set; } = new();
     public BreakdownPart Block { get; set; } = new();
     public BreakdownPart Parry { get; set; } = new();
+    public BreakdownPart Accuracy { get; set; } = new();
     public EffectiveAttrs Effective { get; set; } = new();
 }
 

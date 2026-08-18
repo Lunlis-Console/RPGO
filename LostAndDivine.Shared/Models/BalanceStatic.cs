@@ -43,6 +43,24 @@ public static class BalanceStatic
     public const double ParryLinearRate = 0.15;
     public const double ParryDrRate = 0.075;
 
+    // Кап блока: база 1 (+2 с щитом) + очки (выносливость + шмот, очко = 1% хитча).
+    // До BlockLinearPoints очков — BlockLinearRate за очко (до 15%), дальше — BlockDrRate за очко,
+    // итог капится на MaxBlockChance (25%; ~220 очков выносливости).
+    public const double MaxBlockChance = 25.0;
+    public const double BlockLinearPoints = 100;
+    public const double BlockLinearRate = 0.15;
+    public const double BlockDrRate = 0.075;
+
+    // Точность: база 100% + очки (ловкость + бонус лука). До AccuracyLinearPoints очков —
+    // AccuracyLinearRate за очко (до 130%), дальше — AccuracyDrRate за очко,
+    // итог капится на AccuracyMax (150%, чтобы нельзя было обнулить уклонение цели).
+    // 50 ловкости → ~115%, с луком 4 ранга → ~145%.
+    public const double AccuracyBase = 100.0;
+    public const double AccuracyMax = 150.0;
+    public const double AccuracyLinearPoints = 100;
+    public const double AccuracyLinearRate = 0.3;
+    public const double AccuracyDrRate = 0.15;
+
     // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
     // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
     // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.

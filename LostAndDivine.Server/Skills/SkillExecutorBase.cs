@@ -21,7 +21,8 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
 
         double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = Balance.RollPercent(monster.GetEvadeChance());
+        bool evaded = Balance.RollPercent(Math.Max(0,
+                monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase)));
         bool parried = !evaded && Balance.RollPercent(monster.GetParryChance());
         bool blocked = !evaded && !parried && Balance.RollPercent(monster.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
@@ -93,7 +94,8 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double effAtk = useOffHand
             ? svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage())
             : svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = Balance.RollPercent(monster.GetEvadeChance());
+        bool evaded = Balance.RollPercent(Math.Max(0,
+                monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase)));
         bool parried = !evaded && Balance.RollPercent(monster.GetParryChance());
         bool blocked = !evaded && !parried && Balance.RollPercent(monster.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
@@ -186,7 +188,8 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        bool evaded = Balance.RollPercent(Math.Max(0,
+                target.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase)));
         bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
         bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;
@@ -262,7 +265,8 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendPlayerAttack(pl.Name, "main", pl.Combat.PendingSkillId,
             targetX: target.X, targetY: target.Y);
 
-        bool evaded = Balance.RollPercent(target.GetEvadeChance());
+        bool evaded = Balance.RollPercent(Math.Max(0,
+                target.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase)));
         bool parried = !evaded && dist <= 1 && Balance.RollPercent(target.GetParryChance());
         bool blocked = !evaded && !parried && Balance.RollPercent(target.GetBlockChance());
         int hitDmg = 0; bool hitCrit = false;

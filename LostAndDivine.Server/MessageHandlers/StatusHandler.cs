@@ -33,6 +33,7 @@ public class StatusHandler : BaseHandler
                 EvadeChance = Math.Round(player.GetEvadeChance(), 2),
                 BlockChance = Math.Round(player.GetBlockChance(), 2),
                 ParryChance = Math.Round(player.GetParryChance(), 2),
+                Accuracy = Math.Round(player.GetAccuracy(), 2),
                 player.Gold,
                 player.X,
                 player.Y,

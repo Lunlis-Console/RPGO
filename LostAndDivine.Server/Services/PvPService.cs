@@ -35,10 +35,11 @@ public class PvPService
     private readonly record struct PvPDefenseRoll(bool Evaded, bool Parried, bool Blocked);
     private readonly record struct PvPHitResult(int Damage, bool Crit, PvPDefenseRoll Roll);
 
-    private static PvPDefenseRoll RollPvPDefense(Player target, int dist)
+    private static PvPDefenseRoll RollPvPDefense(Player attacker, Player target, int dist)
     {
         bool isMelee = dist <= 1;
-        var (evaded, parried, blocked) = CombatMath.RollDefense(target.GetEvadeChance(), target.GetParryChance(), target.GetBlockChance(), isMelee);
+        double targetEvade = Math.Max(0, target.GetEvadeChance() - (attacker.GetAccuracy() - BalanceStatic.AccuracyBase));
+        var (evaded, parried, blocked) = CombatMath.RollDefense(targetEvade, target.GetParryChance(), target.GetBlockChance(), isMelee);
         return new PvPDefenseRoll(evaded, parried, blocked);
     }
 
@@ -47,7 +48,7 @@ public class PvPService
         double damageMult, bool checkCrit)
     {
         int dist = Math.Abs(attacker.X - target.X) + Math.Abs(attacker.Y - target.Y);
-        var roll = RollPvPDefense(target, dist);
+        var roll = RollPvPDefense(attacker, target, dist);
 
         int hitDmg = 0;
         bool hitCrit = false;

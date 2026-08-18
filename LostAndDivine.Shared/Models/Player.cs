@@ -98,9 +98,9 @@ public class Player : ICombatant
     public double GetBlockChance()
     {
         double shieldBase = Equipment.GetEquippedShield() != null ? 2.0 : 0.0;
-        return BaseBlockChance + shieldBase
-            + (GetEffEndurance() - 1) * BalanceStatic.BlockChancePerEndurance
-            + Equipment.GetBonusBlockChance();
+        return Math.Min(BalanceStatic.MaxBlockChance, BaseBlockChance + shieldBase
+            + CombatMath.ApplyBlockDiminishingReturns(
+                (GetEffEndurance() - 1) + Equipment.GetBonusBlockChance()));
     }
 
     public double GetParryChance()
@@ -207,6 +207,12 @@ public class Player : ICombatant
         if (!LearnedSkills.Contains(SkillIds.ExtraArrow) || !IsWieldingBow()) return 0;
         return BalanceStatic.ExtraArrowChance * GetPassiveRankMult(SkillIds.ExtraArrow);
     }
+
+    /// <summary>Точность: база 100% + убывающая отдача от ловкости + бонус «Белке в глаз» (лук), кап 150%.</summary>
+    public double GetAccuracy()
+        => Math.Min(BalanceStatic.AccuracyMax, BalanceStatic.AccuracyBase
+            + CombatMath.ApplyAccuracyDiminishingReturns(GetEffAgility() - 1)
+            + GetBowAccuracyBonus());
 
     /// <summary>«Белке в глаз» (SK0018): бонус точности (вычитается из уклона цели).</summary>
     public double GetBowAccuracyBonus()

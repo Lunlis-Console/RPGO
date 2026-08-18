@@ -201,6 +201,82 @@ public class PlayerStatsTests
     }
 
     [Fact]
+    public void GetBlockChance_NoEndurance_Returns1()
+    {
+        var p = new Player { Endurance = 1, BaseBlockChance = 1.0 };
+        Assert.Equal(1.0, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetBlockChance_WithEndurance_Returns2_5()
+    {
+        var p = new Player { Endurance = 11, BaseBlockChance = 1.0 };
+        // 1.0 + (11-1)*0.15 = 2.5 (убывающая отдача: 1 очко = 0.15%)
+        Assert.Equal(2.5, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetBlockChance_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Endurance = 111, BaseBlockChance = 1.0 };
+        // 110 очков: 100 по 0.15 (15) + 10 по 0.075 (0.75) → 1 + 15.75 = 16.75
+        Assert.Equal(16.75, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetBlockChance_CapReachedAt221Endurance()
+    {
+        var p = new Player { Endurance = 221, BaseBlockChance = 1.0 };
+        // 220 очков: 100×0.15 + 120×0.075 = 24 → 1 + 24 = 25 → кап
+        Assert.Equal(25.0, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetBlockChance_CappedAt25()
+    {
+        var p = new Player { Endurance = 1000, BaseBlockChance = 1.0 };
+        Assert.Equal(25.0, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetAccuracy_NoAgility_Returns100()
+    {
+        var p = new Player { Agility = 1 };
+        Assert.Equal(100.0, p.GetAccuracy());
+    }
+
+    [Fact]
+    public void GetAccuracy_WithAgility_Returns115()
+    {
+        var p = new Player { Agility = 51 };
+        // 100 + (51-1)*0.3 = 115 (убывающая отдача: 1 очко = 0.3%)
+        Assert.Equal(115.0, p.GetAccuracy());
+    }
+
+    [Fact]
+    public void GetAccuracy_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Agility = 111 };
+        // 110 очков: 100 по 0.3 (30) + 10 по 0.15 (1.5) → 100 + 31.5 = 131.5
+        Assert.Equal(131.5, p.GetAccuracy());
+    }
+
+    [Fact]
+    public void GetAccuracy_CapReachedAt235Agility()
+    {
+        var p = new Player { Agility = 235 };
+        // 234 очка: 100×0.3 + 134×0.15 = 50.1 → 100 + 50.1 = 150.1 → кап 150
+        Assert.Equal(150.0, p.GetAccuracy());
+    }
+
+    [Fact]
+    public void GetAccuracy_CappedAt150()
+    {
+        var p = new Player { Agility = 1000 };
+        Assert.Equal(150.0, p.GetAccuracy());
+    }
+
+    [Fact]
     public void GetEffStrength_WithEquipment_ReturnsSum()
     {
         var eq = new Equipment();

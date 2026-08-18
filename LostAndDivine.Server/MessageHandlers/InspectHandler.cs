@@ -52,6 +52,7 @@ public class InspectHandler : BaseHandler
                 EvadeChance = Math.Round(target.GetEvadeChance(), 2),
                 BlockChance = Math.Round(target.GetBlockChance(), 2),
                 ParryChance = Math.Round(target.GetParryChance(), 2),
+                Accuracy = Math.Round(target.GetAccuracy(), 2),
                 EquippedItems = target.Equipment.Slots
                     .Where(kv => kv.Value != null)
                     .ToDictionary(kv => kv.Key, kv => kv.Value!),

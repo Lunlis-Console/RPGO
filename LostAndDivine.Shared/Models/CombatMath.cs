@@ -40,6 +40,22 @@ public static class CombatMath
         => ApplyDiminishingReturns(points, BalanceStatic.ParryLinearPoints,
             BalanceStatic.ParryLinearRate, BalanceStatic.ParryDrRate);
 
+    /// <summary>
+    /// Убывающая отдача блока: до порога очко даёт BlockLinearRate, дальше — BlockDrRate.
+    /// Применяется к «очкам» выносливости (выносливость + бонусы шмота).
+    /// </summary>
+    public static double ApplyBlockDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.BlockLinearPoints,
+            BalanceStatic.BlockLinearRate, BalanceStatic.BlockDrRate);
+
+    /// <summary>
+    /// Убывающая отдача точности: до порога очко даёт AccuracyLinearRate, дальше — AccuracyDrRate.
+    /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
+    /// </summary>
+    public static double ApplyAccuracyDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.AccuracyLinearPoints,
+            BalanceStatic.AccuracyLinearRate, BalanceStatic.AccuracyDrRate);
+
     /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
     public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)
     {

@@ -503,7 +503,8 @@ public class CombatService
         var rng = Random.Shared;
         double effDefense = _svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
-        bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
+        bool evaded = rng.Next(Balance.ChanceRollMax) < Math.Max(0,
+            monster.GetEvadeChance() - (pl.GetAccuracy() - BalanceStatic.AccuracyBase));
         bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
         bool blocked = !evaded && !parried && rng.Next(Balance.ChanceRollMax) < monster.GetBlockChance();
         int hitDmg = 0;
