@@ -13,7 +13,7 @@ namespace LostAndDivine.ClientMonoGame.Rendering;
 /// </summary>
 public class MinimapRenderer
 {
-    public const int Size = 170;
+    public const int Size = 199;
     public const int PanelTop = 12;
     public const int PanelMarginRight = 12;
 
@@ -32,9 +32,9 @@ public class MinimapRenderer
     private Color[]? _terrainColors;
     private bool _hasView;
     private Rectangle _viewBounds;
-    // Окно миникарты в секторном мире: показываем не весь мир, а квадрат
-    // FocusWindow x FocusWindow клеток вокруг игрока.
-    private const int FocusWindow = 100;
+    // Окно миникарты: показываем не всю карту, а квадрат FocusWindow x FocusWindow
+    // клеток вокруг игрока (зум внутри миникарты ~120%).
+    private const int FocusWindow = 83;
     private int _winX0, _winY0, _lastWinX, _lastWinY;
     // Данные карты обновляются с сетевого потока (по частям), а читаются
     // с потока отрисовки — без лока возможен разрыв: новые данные при старых
@@ -184,17 +184,20 @@ public class MinimapRenderer
     private static Color Darken(Color c, float f)
         => new Color((int)(c.R * f), (int)(c.G * f), (int)(c.B * f));
 
-    /// <summary>Рельеф окна вокруг игрока в секторном мире (FocusWindow x FocusWindow клеток).</summary>
+    /// <summary>Рельеф окна вокруг игрока (FocusWindow x FocusWindow клеток).</summary>
     private void RebuildTerrainWindow(int ox, int oy)
     {
         WorldMap? map; bool sectorMode;
+        byte[]? tileData; byte[]? obstacleData; int mapW, mapH;
         Dictionary<(int Col, int Row), SectorData> sectors;
         lock (_lock)
         {
             map = _map; sectorMode = _sectorMode;
+            tileData = _tileData; obstacleData = _obstacleData;
+            mapW = _mapW; mapH = _mapH;
             sectors = new Dictionary<(int, int), SectorData>(_sectors);
         }
-        if (map == null || !sectorMode) return;
+        if (map == null) return;
 
         _terrainTex ??= new Texture2D(GameMain.Instance!.GraphicsDevice, _texSize, _texSize);
         _terrainColors ??= new Color[_texSize * _texSize];
@@ -202,9 +205,13 @@ public class MinimapRenderer
         bool isSandy = map.ZoneId == "arena";
         var groundA = isSandy ? new Color(176, 160, 118) : GroundA;
         var groundB = isSandy ? new Color(168, 152, 112) : GroundB;
+        var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
+        var blocked = new Color(46, 52, 64);
 
         int winW = Math.Min(FocusWindow, map.Width);
         int winH = Math.Min(FocusWindow, map.Height);
+        bool hasTiles = tileData != null && tileData.Length == mapW * mapH;
+        bool hasObs = obstacleData != null && obstacleData.Length == mapW * mapH;
 
         for (int py = 0; py < _texSize; py++)
         {
@@ -212,65 +219,6 @@ public class MinimapRenderer
             for (int px = 0; px < _texSize; px++)
             {
                 int mx = ox + Math.Clamp((int)((px + 0.5f) / _texSize * winW), 0, winW - 1);
-
-                Color c = ((mx + my) & 1) == 0 ? groundA : groundB;
-
-                SectorData? sector = null;
-                if (mx < BalanceStatic.WorldWidth && my < BalanceStatic.WorldHeight)
-                    sectors.TryGetValue((mx / BalanceStatic.SectorSize, my / BalanceStatic.SectorSize), out sector);
-                if (sector == null || sector.TileData == null)
-                {
-                    c = VoidColor;
-                }
-                else
-                {
-                    int lx = mx % BalanceStatic.SectorSize;
-                    int ly = my % BalanceStatic.SectorSize;
-                    int li = ly * BalanceStatic.SectorSize + lx;
-                    bool obs = sector.ObstacleData != null
-                        && li < sector.ObstacleData.Length && sector.ObstacleData[li] != 0;
-                    c = GetTileColor(sector, lx, ly, groundA, groundB);
-                    if (obs) c = Darken(c, 0.55f);
-                }
-
-                _terrainColors[py * _texSize + px] = c;
-            }
-        }
-        _terrainTex.SetData(_terrainColors);
-    }
-
-    private void RebuildTerrain()
-    {
-        _terrainDirty = false;
-        WorldMap? map; byte[]? tileData; byte[]? obstacleData; int mapW, mapH; bool sectorMode;
-        Dictionary<(int Col, int Row), SectorData> sectors;
-        lock (_lock)
-        {
-            map = _map; tileData = _tileData; obstacleData = _obstacleData;
-            mapW = _mapW; mapH = _mapH; sectorMode = _sectorMode;
-            sectors = new Dictionary<(int, int), SectorData>(_sectors);
-        }
-        if (map == null || mapW <= 0 || mapH <= 0) return;
-
-        _terrainTex ??= new Texture2D(GameMain.Instance!.GraphicsDevice, _texSize, _texSize);
-        _terrainColors ??= new Color[_texSize * _texSize];
-
-        bool isSandy = map.ZoneId == "arena";
-        var groundA = isSandy ? new Color(176, 160, 118) : new Color(112, 148, 96);
-        var groundB = isSandy ? new Color(168, 152, 112) : new Color(104, 140, 90);
-        var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
-        var blocked = new Color(46, 52, 64);
-        var voidColor = new Color(24, 26, 34);
-
-        bool hasTiles = tileData != null && tileData.Length == mapW * mapH;
-        bool hasObs = obstacleData != null && obstacleData.Length == mapW * mapH;
-
-        for (int py = 0; py < _texSize; py++)
-        {
-            int my = Math.Clamp((int)((py + 0.5f) / _texSize * mapH), 0, mapH - 1);
-            for (int px = 0; px < _texSize; px++)
-            {
-                int mx = Math.Clamp((int)((px + 0.5f) / _texSize * mapW), 0, mapW - 1);
 
                 Color c = ((mx + my) & 1) == 0 ? groundA : groundB;
 
@@ -282,7 +230,7 @@ public class MinimapRenderer
                         sectors.TryGetValue((mx / BalanceStatic.SectorSize, my / BalanceStatic.SectorSize), out sector);
                     if (sector == null || sector.TileData == null)
                     {
-                        c = voidColor;
+                        c = VoidColor;
                     }
                     else
                     {
@@ -312,28 +260,21 @@ public class MinimapRenderer
 
     public void Draw(SpriteBatch sb, Rectangle panel, int centerX, int centerY)
     {
-        WorldMap? map; bool focus;
-        lock (_lock) { map = _map; focus = _sectorMode && _map != null && string.Equals(_map.ZoneId, BalanceStatic.MainZoneId, StringComparison.Ordinal); }
+        WorldMap? map;
+        lock (_lock) { map = _map; }
         if (map == null || map.Width <= 0 || map.Height <= 0) return;
 
-        // Секторный мир: окно FocusWindow x FocusWindow клеток вокруг игрока
-        if (focus)
+        // Окно FocusWindow x FocusWindow клеток вокруг игрока (зум внутри миникарты)
+        int winW = Math.Min(FocusWindow, map.Width);
+        int winH = Math.Min(FocusWindow, map.Height);
+        _winX0 = Math.Clamp(centerX - winW / 2, 0, map.Width - winW);
+        _winY0 = Math.Clamp(centerY - winH / 2, 0, map.Height - winH);
+        if (_terrainDirty || _winX0 != _lastWinX || _winY0 != _lastWinY)
         {
-            int winW = Math.Min(FocusWindow, map.Width);
-            int winH = Math.Min(FocusWindow, map.Height);
-            _winX0 = Math.Clamp(centerX - winW / 2, 0, map.Width - winW);
-            _winY0 = Math.Clamp(centerY - winH / 2, 0, map.Height - winH);
-            if (_terrainDirty || _winX0 != _lastWinX || _winY0 != _lastWinY)
-            {
-                _terrainDirty = false;
-                _lastWinX = _winX0;
-                _lastWinY = _winY0;
-                RebuildTerrainWindow(_winX0, _winY0);
-            }
-        }
-        else if (_terrainDirty)
-        {
-            RebuildTerrain();
+            _terrainDirty = false;
+            _lastWinX = _winX0;
+            _lastWinY = _winY0;
+            RebuildTerrainWindow(_winX0, _winY0);
         }
 
         sb.Draw(SpriteCache.Pixel, panel, new Color(15, 17, 24, 230));
@@ -346,7 +287,7 @@ public class MinimapRenderer
         if (_terrainTex != null)
             sb.Draw(_terrainTex, mapRect, Color.White);
 
-        if (!focus && _hasView && _viewBounds.Width > 0 && _viewBounds.Height > 0)
+        if (winW == map.Width && winH == map.Height && _hasView && _viewBounds.Width > 0 && _viewBounds.Height > 0)
         {
             var vr = ViewToRect(map, mapRect);
             var outline = new Color(255, 255, 255, 130);
@@ -356,7 +297,7 @@ public class MinimapRenderer
             sb.Draw(SpriteCache.Pixel, new Rectangle(vr.X + vr.Width - 1, vr.Y, 1, vr.Height), outline);
         }
 
-        DrawPoints(sb, mapRect, map, focus);
+        DrawPoints(sb, mapRect, map);
 
         var font = SpriteCache.FontSmall ?? SpriteCache.Font;
         if (font != null && !string.IsNullOrEmpty(map.ZoneName))
@@ -388,22 +329,35 @@ public class MinimapRenderer
 
     private void DrawDot(SpriteBatch sb, WorldMap map, Rectangle area, int mx, int my, Color color, int size)
     {
-        // Секторный мир: точки за пределами окна не рисуем
-        if (_sectorMode)
-        {
-            if (mx < _winX0 || mx >= _winX0 + FocusWindow || my < _winY0 || my >= _winY0 + FocusWindow)
-                return;
-            int cx = area.X + (int)((mx - _winX0 + 0.5f) / FocusWindow * area.Width);
-            int cy = area.Y + (int)((my - _winY0 + 0.5f) / FocusWindow * area.Height);
-            sb.Draw(SpriteCache.Pixel, new Rectangle(cx - size / 2, cy - size / 2, size, size), color);
+        // Точки за пределами окна вокруг игрока не рисуем
+        int winW = Math.Min(FocusWindow, map.Width);
+        int winH = Math.Min(FocusWindow, map.Height);
+        if (mx < _winX0 || mx >= _winX0 + winW || my < _winY0 || my >= _winY0 + winH)
             return;
-        }
-        int cx2 = area.X + (int)((mx + 0.5f) / map.Width * area.Width);
-        int cy2 = area.Y + (int)((my + 0.5f) / map.Height * area.Height);
-        sb.Draw(SpriteCache.Pixel, new Rectangle(cx2 - size / 2, cy2 - size / 2, size, size), color);
+        int cx = area.X + (int)((mx - _winX0 + 0.5f) / winW * area.Width);
+        int cy = area.Y + (int)((my - _winY0 + 0.5f) / winH * area.Height);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(cx - size / 2, cy - size / 2, size, size), color);
     }
 
-    private void DrawPoints(SpriteBatch sb, Rectangle area, WorldMap map, bool focus)
+    private void DrawQuestGlyph(SpriteBatch sb, WorldMap map, Rectangle area, int mx, int my, string indicator)
+    {
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font == null) return;
+        string icon = indicator == "available" ? "!" : "?";
+        Color color = indicator == "ready" || indicator == "available" ? Color.Yellow : new Color(160, 160, 160);
+        const float scale = 1.0f;
+        var sz = font.MeasureString(icon) * scale;
+
+        int winW = Math.Min(FocusWindow, map.Width);
+        int winH = Math.Min(FocusWindow, map.Height);
+        if (mx < _winX0 || mx >= _winX0 + winW || my < _winY0 || my >= _winY0 + winH)
+            return;
+        int cx = area.X + (int)((mx - _winX0 + 0.5f) / winW * area.Width);
+        int cy = area.Y + (int)((my - _winY0 + 0.5f) / winH * area.Height);
+        sb.DrawString(font, icon, new Vector2(cx - sz.X / 2, cy - sz.Y / 2), color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0f);
+    }
+
+    private void DrawPoints(SpriteBatch sb, Rectangle area, WorldMap map)
     {
         if (map == null) return;
 
@@ -415,17 +369,27 @@ public class MinimapRenderer
             DrawDot(sb, map, area, map.InstanceChest.X, map.InstanceChest.Y, new Color(255, 205, 70), 4);
 
         if (map.Merchant != null)
-            DrawDot(sb, map, area, map.Merchant.X, map.Merchant.Y, new Color(255, 210, 90), 4);
+        {
+            if (!string.IsNullOrEmpty(map.Merchant.QuestIndicator))
+                DrawQuestGlyph(sb, map, area, map.Merchant.X, map.Merchant.Y, map.Merchant.QuestIndicator);
+            else
+                DrawDot(sb, map, area, map.Merchant.X, map.Merchant.Y, new Color(255, 210, 90), 4);
+        }
         if (map.Board != null)
-            DrawDot(sb, map, area, map.Board.X, map.Board.Y,
-                string.IsNullOrEmpty(map.Board.QuestIndicator) ? new Color(255, 210, 90) : new Color(255, 230, 80),
-                string.IsNullOrEmpty(map.Board.QuestIndicator) ? 4 : 5);
+        {
+            if (!string.IsNullOrEmpty(map.Board.QuestIndicator))
+                DrawQuestGlyph(sb, map, area, map.Board.X, map.Board.Y, map.Board.QuestIndicator);
+            else
+                DrawDot(sb, map, area, map.Board.X, map.Board.Y, new Color(255, 210, 90), 4);
+        }
 
         foreach (var n in map.Npcs)
         {
             if (n.Type == "merchant" || n.Type == "board") continue;
-            bool quest = !string.IsNullOrEmpty(n.QuestIndicator);
-            DrawDot(sb, map, area, n.X, n.Y, quest ? new Color(255, 230, 80) : new Color(225, 220, 180), quest ? 4 : 3);
+            if (!string.IsNullOrEmpty(n.QuestIndicator))
+                DrawQuestGlyph(sb, map, area, n.X, n.Y, n.QuestIndicator);
+            else
+                DrawDot(sb, map, area, n.X, n.Y, new Color(225, 220, 180), 3);
         }
 
         foreach (var c in map.Collectibles)

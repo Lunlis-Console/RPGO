@@ -266,10 +266,7 @@ public sealed class GameServer : INetworkHub
                 Corpses = nearbyCorpses,
                 Hazards = nearbyHazards,
                 Npcs = !zoneId.StartsWith("instance:")
-                    ? zoneNpcs.Where(n =>
-                        Math.Abs(n.X - player.X) <= viewRadius &&
-                        Math.Abs(n.Y - player.Y) <= viewRadius
-                      ).Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
+                    ? zoneNpcs.Select(n => { n.QuestIndicator = GetQuestIndicator(n.Id, player); return n; }).ToList()
                     : new List<NpcPosition>(),
                 ZoneId = zoneId,
                 ZoneName = zone?.Name ?? zoneId,
