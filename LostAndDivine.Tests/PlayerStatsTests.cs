@@ -132,11 +132,34 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetEvadeChance_WithCunning_Returns11()
+    public void GetEvadeChance_WithCunning_Returns4()
     {
         var p = new Player { Cunning = 11, BaseEvadeChance = 1.0 };
-        // 1.0 + (11-1)*1.0 = 11.0
-        Assert.Equal(11.0, p.GetEvadeChance());
+        // 1.0 + (11-1)*0.3 = 4.0 (убывающая отдача: 1 очко = 0.3%)
+        Assert.Equal(4.0, p.GetEvadeChance());
+    }
+
+    [Fact]
+    public void GetEvadeChance_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Cunning = 111, BaseEvadeChance = 1.0 };
+        // 110 очков: 100 по 0.3 (30) + 10 по 0.15 (1.5) → 1 + 31.5 = 32.5
+        Assert.Equal(32.5, p.GetEvadeChance());
+    }
+
+    [Fact]
+    public void GetEvadeChance_CapReachedAt228Cunning()
+    {
+        var p = new Player { Cunning = 228, BaseEvadeChance = 1.0 };
+        // 227 очков: 100×0.3 + 127×0.15 = 49.05 → 1 + 49.05 = 50.05 → кап 50
+        Assert.Equal(50.0, p.GetEvadeChance());
+    }
+
+    [Fact]
+    public void GetEvadeChance_CappedAt50()
+    {
+        var p = new Player { Cunning = 1000, BaseEvadeChance = 1.0 };
+        Assert.Equal(50.0, p.GetEvadeChance());
     }
 
     [Fact]

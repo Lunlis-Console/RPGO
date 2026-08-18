@@ -755,8 +755,9 @@ public sealed class GameServer : INetworkHub
             Evade = new BreakdownPart
             {
                 Base = player.BaseEvadeChance,
-                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning,
-                EquipBonus = player.Equipment.GetBonusEvadeChance(),
+                AttrBonus = Math.Round(CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1) + player.Equipment.GetBonusEvadeChance())
+                             - CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1)), 2),
                 Total = Math.Round(player.GetEvadeChance(), 2)
             },
             Block = new BreakdownPart

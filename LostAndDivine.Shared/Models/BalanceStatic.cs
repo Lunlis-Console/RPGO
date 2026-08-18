@@ -27,6 +27,14 @@ public static class BalanceStatic
     public const double CritChanceDrRate = 0.25;
     public const double CritChancePerCunning = 1.0;
 
+    // Кап уклонения: база 1 + очки (хитрость + шмот, очко = 1% хитча).
+    // До EvadeLinearPoints очков — EvadeLinearRate за очко (до 30%), дальше — EvadeDrRate за очко,
+    // итог капится на MaxEvadeChance (50%; ~227 очков хитча).
+    public const double MaxEvadeChance = 50.0;
+    public const double EvadeLinearPoints = 100;
+    public const double EvadeLinearRate = 0.3;
+    public const double EvadeDrRate = 0.15;
+
     // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
     // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
     // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.

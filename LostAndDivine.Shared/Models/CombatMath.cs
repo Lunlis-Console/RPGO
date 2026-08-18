@@ -24,6 +24,14 @@ public static class CombatMath
         => ApplyDiminishingReturns(points, BalanceStatic.CritDmgLinearPoints,
             1.0, BalanceStatic.CritDmgDrRate);
 
+    /// <summary>
+    /// Убывающая отдача уклонения: до порога очко даёт EvadeLinearRate, дальше — EvadeDrRate.
+    /// Применяется к «очкам» хитча (хитрость + бонусы шмота).
+    /// </summary>
+    public static double ApplyEvadeDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.EvadeLinearPoints,
+            BalanceStatic.EvadeLinearRate, BalanceStatic.EvadeDrRate);
+
     /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
     public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)
     {

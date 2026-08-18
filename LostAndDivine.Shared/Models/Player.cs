@@ -91,8 +91,9 @@ public class Player : ICombatant
             * BalanceStatic.CritDamagePerStrength);
 
     public double GetEvadeChance()
-        => BaseEvadeChance + (GetEffCunning() - 1) * BalanceStatic.EvadeChancePerCunning
-           + Equipment.GetBonusEvadeChance();
+        => Math.Min(BalanceStatic.MaxEvadeChance, BaseEvadeChance
+            + CombatMath.ApplyEvadeDiminishingReturns(
+                (GetEffCunning() - 1) + Equipment.GetBonusEvadeChance()));
 
     public double GetBlockChance()
     {
