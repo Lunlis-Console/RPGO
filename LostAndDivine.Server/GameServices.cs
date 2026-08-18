@@ -207,6 +207,13 @@ public sealed class GameServices : IGameServices
 
             Hub.LoadNpcCache();
 
+            // Сначала сообщаем клиентам о перезагрузке (они сбрасывают кэш карты мира
+            // и запрашивают полный слепок), и только потом рассылаем свежие секторы
+            // вокруг игроков. В обратном порядке клиент принял бы 3x3 до сброса, а после
+            // сброса повторные запросы этих секторов сервер бы проигнорировал
+            // (дедупликация HasSectorSent) — карта застревала бы на 501/510.
+            await Hub.SendToAllAsync(new GameMessage { Type = "sectors_reloaded", Data = new { } });
+
             // Онлайн-игрокам повторно шлём свежие секторы вокруг их позиций.
             foreach (var conn in World.GetAllConnectionsSnapshot())
             {
@@ -217,8 +224,6 @@ public sealed class GameServices : IGameServices
             }
 
             await Hub.BroadcastChatAsync("Система", "Секторы открытого мира обновлены (карта, NPC, порталы, спавны).");
-            // Клиенты сбрасывают кэш секторов и запрашивают свежий слепок карты мира.
-            await Hub.SendToAllAsync(new GameMessage { Type = "sectors_reloaded", Data = new { } });
             if (connection != null)
             {
                 await Hub.SendToClient(connection, new GameMessage
