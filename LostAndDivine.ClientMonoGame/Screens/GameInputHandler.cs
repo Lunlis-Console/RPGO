@@ -185,7 +185,7 @@ internal class GameInputHandler
     internal void HandleWindowToggles(KeyboardState keyboard, GameMain game,
         InventoryWindow inventory, StatusWindow status, SkillsWindow skills,
         EquipmentWindow equipment, QuestLogWindow questLog, SocialWindow social,
-        SettingsWindow settings)
+        SettingsWindow settings, WorldMapWindow worldMap)
     {
         if (Chat.IsTyping) return;
 
@@ -204,10 +204,15 @@ internal class GameInputHandler
             skills.Visible = !skills.Visible;
             if (skills.Visible) { CenterWindow(skills, game); PushWindow(skills); }
         }
-        if (keyboard.IsKeyDown(Keys.E) && PrevKeyboard.IsKeyUp(Keys.E))
+        if (keyboard.IsKeyDown(Keys.C) && PrevKeyboard.IsKeyUp(Keys.C))
         {
             equipment.Visible = !equipment.Visible;
             if (equipment.Visible) { CenterWindow(equipment, game); PushWindow(equipment); }
+        }
+        if (keyboard.IsKeyDown(Keys.M) && PrevKeyboard.IsKeyUp(Keys.M))
+        {
+            worldMap.Visible = !worldMap.Visible;
+            if (worldMap.Visible) { CenterWindow(worldMap, game); PushWindow(worldMap); }
         }
         if (keyboard.IsKeyDown(Keys.P) && PrevKeyboard.IsKeyUp(Keys.P))
         {

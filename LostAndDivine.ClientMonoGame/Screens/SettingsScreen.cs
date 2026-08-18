@@ -199,10 +199,18 @@ public class SettingsScreen : IScreen
             default:
                 g.IsFullScreen = false;
                 GameMain.Instance.Window.IsBorderless = false;
+                // Оконный режим: если разрешение не влезает в рабочую область
+                // монитора (панель задач перекрывает окно), уменьшаем его.
+                var (fitW, fitH) = WindowBoundsHelper.FitToWorkArea(rw, rh);
+                g.PreferredBackBufferWidth = fitW;
+                g.PreferredBackBufferHeight = fitH;
                 break;
         }
 
         g.ApplyChanges();
+
+        if (ModeValues[_modeIndex] == "windowed")
+            WindowBoundsHelper.PositionWindow(GameMain.Instance.Window, g.PreferredBackBufferWidth, g.PreferredBackBufferHeight);
 
         _settings.Width = rw;
         _settings.Height = rh;

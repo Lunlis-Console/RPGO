@@ -69,7 +69,14 @@ public class GameMain : Game
         Window.IsBorderless = false;
         Graphics.IsFullScreen = false;
         Window.AllowUserResizing = true;
-        Window.Position = new Microsoft.Xna.Framework.Point(100, 100);
+
+        // Оконный режим: если разрешение не влезает в рабочую область монитора
+        // (например, 1920x1080 при панели задач), уменьшаем окно под панель
+        // и центрируем его в рабочей области.
+        var (fitW, fitH) = WindowBoundsHelper.FitToWorkArea(settings.Width, settings.Height);
+        Graphics.PreferredBackBufferWidth = fitW;
+        Graphics.PreferredBackBufferHeight = fitH;
+        WindowBoundsHelper.PositionWindow(Window, fitW, fitH);
     }
 
     protected override void Initialize()
@@ -185,15 +192,11 @@ public class GameMain : Game
         // Переключение полноэкранный/оконный режим
         if ((keyboard.IsKeyDown(Keys.LeftAlt) || keyboard.IsKeyDown(Keys.RightAlt)) && keyboard.IsKeyDown(Keys.Enter))
         {
-            Graphics.IsFullScreen = !Graphics.IsFullScreen;
-            Window.IsBorderless = false;
-            Graphics.ApplyChanges();
+            ToggleFullscreen();
         }
         if (keyboard.IsKeyDown(Keys.F11) && _prevKb.IsKeyUp(Keys.F11))
         {
-            Graphics.IsFullScreen = !Graphics.IsFullScreen;
-            Window.IsBorderless = false;
-            Graphics.ApplyChanges();
+            ToggleFullscreen();
         }
 
         if (keyboard.IsKeyDown(Keys.Escape))
@@ -284,5 +287,33 @@ public class GameMain : Game
     {
         SpriteCache.Unload();
         base.UnloadContent();
+    }
+
+    /// <summary>
+    /// Alt+Enter / F11: переключение полноэкранный ↔ оконный. При возврате
+    /// в оконный режим окно подгоняется под рабочую область монитора (панель
+    /// задач не перекрывает игру), при переходе в полный экран восстанавливается
+    /// разрешение из настроек.
+    /// </summary>
+    private void ToggleFullscreen()
+    {
+        bool goWindowed = Graphics.IsFullScreen;
+        var s = SettingsManager.Load();
+        Graphics.IsFullScreen = !goWindowed;
+        Window.IsBorderless = false;
+        if (goWindowed)
+        {
+            var (fitW, fitH) = WindowBoundsHelper.FitToWorkArea(s.Width, s.Height);
+            Graphics.PreferredBackBufferWidth = fitW;
+            Graphics.PreferredBackBufferHeight = fitH;
+            Graphics.ApplyChanges();
+            WindowBoundsHelper.PositionWindow(Window, fitW, fitH);
+        }
+        else
+        {
+            Graphics.PreferredBackBufferWidth = s.Width;
+            Graphics.PreferredBackBufferHeight = s.Height;
+            Graphics.ApplyChanges();
+        }
     }
 }

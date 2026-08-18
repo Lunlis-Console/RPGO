@@ -1219,7 +1219,7 @@ public class GameScreen : IScreen
         if (!_chatRenderer.IsTyping && !mailTyping)
             _input.HandleWindowToggles(keyboard, game,
                 _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
-                _questLogWindow, _socialWindow, _settingsWindow);
+                _questLogWindow, _socialWindow, _settingsWindow, _worldMapWindow);
         if (!_chatRenderer.IsTyping && !mailTyping)
             _inputManager.HandleHotbarKeys(keyboard, _input.PrevKeyboard);
 

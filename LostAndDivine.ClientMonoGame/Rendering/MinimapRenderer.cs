@@ -41,6 +41,24 @@ public class MinimapRenderer
     // размерах, что даёт IndexOutOfRange в RebuildTerrain.
     private readonly object _lock = new();
 
+    // Цвета рельефа — как у окна карты мира.
+    private static readonly Color GroundA = new(112, 148, 96);
+    private static readonly Color GroundB = new(104, 140, 90);
+    private static readonly Color VoidColor = new(24, 26, 34);
+    private static readonly Color MissingColor = new(40, 40, 45);
+
+    // Кэш пикселей тайлсетов: цвет клетки миникарты = примерный цвет тайла
+    // (центральная точка тайла в тайлсете), как в окне карты мира.
+    private readonly Dictionary<string, TilesetPixels> _tilesetCache = new();
+
+    private sealed class TilesetPixels
+    {
+        public Color[] Data = Array.Empty<Color>();
+        public int TexWidth;
+        public int TilePx = 1;
+        public int Cols;
+    }
+
     public Rectangle GetPanelRect(int screenW)
         => new(screenW - Size - PanelMarginRight, PanelTop, Size, Size);
 
@@ -120,6 +138,52 @@ public class MinimapRenderer
 
     public void ClearViewBounds() => _hasView = false;
 
+    private Color GetTileColor(SectorData sector, int lx, int ly, Color groundA, Color groundB)
+    {
+        int size = BalanceStatic.SectorSize;
+        int li = ly * size + lx;
+        byte tileId = sector.TileData != null && li < sector.TileData.Length ? sector.TileData[li] : (byte)255;
+
+        if (tileId == 0)
+            return ((lx + ly) & 1) == 0 ? groundA : groundB;
+        if (tileId == 255) return MissingColor;
+
+        var ts = GetTilesetPixels(sector);
+        if (ts == null) return MissingColor;
+
+        int tCol = (tileId - 1) % ts.Cols;
+        int tRow = (tileId - 1) / ts.Cols;
+        int cxp = tCol * ts.TilePx + ts.TilePx / 2;
+        int cyp = tRow * ts.TilePx + ts.TilePx / 2;
+        int idx = cyp * ts.TexWidth + cxp;
+        return cxp < ts.TexWidth && idx >= 0 && idx < ts.Data.Length ? ts.Data[idx] : MissingColor;
+    }
+
+    private TilesetPixels? GetTilesetPixels(SectorData sector)
+    {
+        if (string.IsNullOrEmpty(sector.TilesetId)) return null;
+        string key = $"{sector.TilesetId}_{sector.TileWidth}";
+        if (_tilesetCache.TryGetValue(key, out var cached)) return cached;
+
+        var tex = SpriteCache.GetTileset(sector.TilesetId, sector.TileWidth, out int cols, out _);
+        if (tex == null) return null;
+
+        var data = new Color[tex.Width * tex.Height];
+        tex.GetData(data);
+        var ts = new TilesetPixels
+        {
+            Data = data,
+            TexWidth = tex.Width,
+            TilePx = Math.Max(1, sector.TileWidth),
+            Cols = Math.Max(1, cols)
+        };
+        _tilesetCache[key] = ts;
+        return ts;
+    }
+
+    private static Color Darken(Color c, float f)
+        => new Color((int)(c.R * f), (int)(c.G * f), (int)(c.B * f));
+
     /// <summary>Рельеф окна вокруг игрока в секторном мире (FocusWindow x FocusWindow клеток).</summary>
     private void RebuildTerrainWindow(int ox, int oy)
     {
@@ -136,11 +200,8 @@ public class MinimapRenderer
         _terrainColors ??= new Color[_texSize * _texSize];
 
         bool isSandy = map.ZoneId == "arena";
-        var groundA = isSandy ? new Color(176, 160, 118) : new Color(112, 148, 96);
-        var groundB = isSandy ? new Color(168, 152, 112) : new Color(104, 140, 90);
-        var feature = isSandy ? new Color(156, 140, 102) : new Color(96, 130, 82);
-        var blocked = new Color(46, 52, 64);
-        var voidColor = new Color(24, 26, 34);
+        var groundA = isSandy ? new Color(176, 160, 118) : GroundA;
+        var groundB = isSandy ? new Color(168, 152, 112) : GroundB;
 
         int winW = Math.Min(FocusWindow, map.Width);
         int winH = Math.Min(FocusWindow, map.Height);
@@ -159,7 +220,7 @@ public class MinimapRenderer
                     sectors.TryGetValue((mx / BalanceStatic.SectorSize, my / BalanceStatic.SectorSize), out sector);
                 if (sector == null || sector.TileData == null)
                 {
-                    c = voidColor;
+                    c = VoidColor;
                 }
                 else
                 {
@@ -168,8 +229,8 @@ public class MinimapRenderer
                     int li = ly * BalanceStatic.SectorSize + lx;
                     bool obs = sector.ObstacleData != null
                         && li < sector.ObstacleData.Length && sector.ObstacleData[li] != 0;
-                    if (obs) c = blocked;
-                    else if (sector.TileData[li] != 0) c = feature;
+                    c = GetTileColor(sector, lx, ly, groundA, groundB);
+                    if (obs) c = Darken(c, 0.55f);
                 }
 
                 _terrainColors[py * _texSize + px] = c;
@@ -230,8 +291,8 @@ public class MinimapRenderer
                         int li = ly * BalanceStatic.SectorSize + lx;
                         bool obs = sector.ObstacleData != null
                             && li < sector.ObstacleData.Length && sector.ObstacleData[li] != 0;
-                        if (obs) c = blocked;
-                        else if (sector.TileData[li] != 0) c = feature;
+                        c = GetTileColor(sector, lx, ly, groundA, groundB);
+                        if (obs) c = Darken(c, 0.55f);
                     }
                 }
                 else if (hasObs && obstacleData![my * mapW + mx] != 0)
