@@ -16,6 +16,9 @@ public sealed class WindowManager
     // его до отпускания кнопки.
     private readonly HashSet<GameWindow> _coveredPress = new();
 
+    // true, если хотя бы одно видимое окно выполняет внутренний drag-n-drop
+    public bool AnyDragging { get; private set; }
+
     public void Add(GameWindow window) => _windows.Add(window);
 
     public void BringToFront(GameWindow window)
@@ -60,6 +63,7 @@ public sealed class WindowManager
         bool anyDragging = false;
         foreach (var w in _windows)
             if (w != null && w.Visible && w.IsDragging) { anyDragging = true; break; }
+        AnyDragging = anyDragging;
 
         GameWindow? toFront = null;
         // Копируем список, т.к. Update окна может изменить _windows (BringToFront)

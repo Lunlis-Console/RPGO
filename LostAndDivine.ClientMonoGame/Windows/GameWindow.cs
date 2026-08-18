@@ -27,7 +27,8 @@ public class GameWindow
     }
 
     // true, если окно в данный момент выполняет внутренний drag-n-drop
-    public virtual bool IsDragging => false;
+    // (или само перетаскивается за заголовок)
+    public virtual bool IsDragging => _dragging;
 
     // Вызывается при закрытии окна (клик по крестику)
     protected virtual void OnClose() { }

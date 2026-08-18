@@ -179,12 +179,21 @@ public class MapRenderer
     private float _gridOX = 4f;
     private float _gridOY = 18f;
 
-    // Масштаб карты (зум колесом мыши)
-    private float _zoom = 1.5f;
+    // Масштаб карты (зум колесом мыши) — только три уровня: 2.0, 3.0, 4.0
+    private static readonly float[] ZoomLevels = { 2f, 3f, 4f };
+    private float _zoom = 2f;
     public float Zoom => _zoom;
     public void ChangeZoom(float delta)
     {
-        _zoom = Math.Clamp(_zoom + delta, 1f, 4f);
+        int idx = Array.IndexOf(ZoomLevels, _zoom);
+        if (idx < 0)
+        {
+            idx = 0;
+            for (int i = 1; i < ZoomLevels.Length; i++)
+                if (Math.Abs(ZoomLevels[i] - _zoom) < Math.Abs(ZoomLevels[idx] - _zoom)) idx = i;
+        }
+        idx = Math.Clamp(idx + (delta > 0 ? 1 : -1), 0, ZoomLevels.Length - 1);
+        _zoom = ZoomLevels[idx];
     }
 
     // Плавная позиция камеры (float), следует за интерполированной позицией игрока
@@ -194,43 +203,41 @@ public class MapRenderer
 
     public (int X, int Y) CameraCenter => ((int)Math.Floor(_camX), (int)Math.Floor(_camY));
 
-    // Панорамирование камеры удержанием ЛКМ на карте: смещение от игрока в клетках,
-    // ограничено радиусом CameraPanRadius по кругу. При старте движения игрока
-    // камера возвращается к нему (панорама сбрасывается).
+    // Панорамирование камеры удержанием ЛКМ: пока кнопка зажата, камера «прижата»
+    // к свободной позиции, куда её перетащили, и не следует за персонажем (даже
+    // если он бежит). После отпускания камера плавно возвращается к персонажу.
+    // Отъехать от персонажа можно не дальше CameraPanRadius клеток.
     private const float CameraPanRadius = 5f;
-    private float _camPanX;
-    private float _camPanY;
-    private bool _wasMovingPrev;
+    private float _freeCamX = 50f;
+    private float _freeCamY = 50f;
+    private bool _returning;
+    private float _returnFromX, _returnFromY, _returnT;
+    private const float ReturnDurS = 0.3f;
 
     public bool IsPanning { get; private set; }
 
-    public void BeginPan() => IsPanning = true;
+    public void BeginPan()
+    {
+        _freeCamX = _camX;
+        _freeCamY = _camY;
+        _returning = false;
+        IsPanning = true;
+    }
 
-    public void EndPan() => IsPanning = false;
+    public void EndPan()
+    {
+        IsPanning = false;
+        _returning = true;
+        _returnFromX = _camX;
+        _returnFromY = _camY;
+        _returnT = 0f;
+    }
 
     /// <summary>Сдвигает камеру на дельту экранных пикселей (минус: карта тянется за курсором).</summary>
     public void PanByScreenDelta(float dxPixels, float dyPixels)
     {
-        _camPanX -= dxPixels / _cellW;
-        _camPanY -= dyPixels / _cellH;
-        ClampPanOffset();
-    }
-
-    public void ResetCameraPan()
-    {
-        _camPanX = 0f;
-        _camPanY = 0f;
-    }
-
-    private void ClampPanOffset()
-    {
-        float len = MathF.Sqrt(_camPanX * _camPanX + _camPanY * _camPanY);
-        if (len > CameraPanRadius)
-        {
-            float f = CameraPanRadius / len;
-            _camPanX *= f;
-            _camPanY *= f;
-        }
+        _freeCamX -= dxPixels / _cellW;
+        _freeCamY -= dyPixels / _cellH;
     }
 
     // Базовые размеры клеток (квадратные, как тайлы в тайлсете 32x32)
@@ -572,7 +579,7 @@ private sealed class RemotePlayerState
         if (teleported)
         {
             ClearSelection();
-            ResetCameraPan();
+            _returning = false;
         }
     }
 
@@ -1103,11 +1110,16 @@ private sealed class RemotePlayerState
     }
 
     // Сколько клеток помещается во вьюпорт при текущем зуме и размере области.
+    // Размер клетки нормируется по высоте экрана относительно 1080p, чтобы при
+    // смене разрешения зум показывал одинаковое число клеток (мир не «растёт»
+    // на 2K и не «сжимается» на 720p).
+    private const float ReferenceScreenH = 1080f;
+
     private (int Cols, int Rows) ComputeViewCells(float areaW, float areaH)
     {
         float availW = areaW - LeftMargin - 4;
         float availH = areaH - HeaderH - 4;
-        float baseCell = BaseCellW * _zoom;
+        float baseCell = BaseCellW * _zoom * (areaH / ReferenceScreenH);
         return (Math.Max(1, (int)(availW / baseCell)), Math.Max(1, (int)(availH / baseCell)));
     }
 
@@ -1160,11 +1172,22 @@ private sealed class RemotePlayerState
         int viewW = endX - startX + 1, viewH = endY - startY + 1;
         _viewStartX = startX; _viewStartY = startY; _viewEndX = endX; _viewEndY = endY;
 
-        // Центрируем сетку
-        float gridTotalW = viewW * _cellW;
-        float gridTotalH = viewH * _cellH;
-        _gridOX = offsetX + LeftMargin + (availW - gridTotalW) / 2f;
-        _gridOY = offsetY + HeaderH + (availH - gridTotalH) / 2f;
+        // Центрируем сетку. Когда карта больше вьюпорта — сетка позиционируется
+        // так, чтобы персонаж (точка _camX/_camY) был ровно в центре экрана:
+        // иначе при нечётном количестве видимых клеток (cols/rows) персонаж
+        // «гуляет» на полклетки влево/вправо и при смене зума дёргается туда-сюда.
+        if (map.Width > cols && map.Height > rows)
+        {
+            _gridOX = offsetX + LeftMargin + availW / 2f - (centerX - startX) * _cellW;
+            _gridOY = offsetY + HeaderH + availH / 2f - (centerY - startY) * _cellH;
+        }
+        else
+        {
+            float gridTotalW = viewW * _cellW;
+            float gridTotalH = viewH * _cellH;
+            _gridOX = offsetX + LeftMargin + (availW - gridTotalW) / 2f;
+            _gridOY = offsetY + HeaderH + (availH - gridTotalH) / 2f;
+        }
     }
 
     private bool ScreenToMap(float sx, float sy, float areaW, float areaH, out int mapX, out int mapY)
@@ -1219,10 +1242,8 @@ private sealed class RemotePlayerState
         // Камера следует прямо за СПРАЙТОМ персонажа (интерполированной позицией),
         // без сглаживания и без отставания: спрайт жёстко стоит в центре экрана,
         // пока камера не упирается в границу карты.
-        // Панорама (смещение от игрока) ограничена радиусом CameraPanRadius;
-        // когда игрок начинает движение — камера возвращается к нему.
-        if (_isMoving && !_wasMovingPrev) ResetCameraPan();
-        _wasMovingPrev = _isMoving;
+        // Пока ЛКМ зажата (панорама) — камера стоит там, куда её перетащили,
+        // и не прыгает на персонажа. После отпускания — плавно возвращается к нему.
 
         float targetX, targetY;
         lock (_stateLock)
@@ -1237,8 +1258,33 @@ private sealed class RemotePlayerState
                 { targetX = m.X; targetY = m.Y; }
             }
         }
-        _camX = targetX + _camPanX;
-        _camY = targetY + _camPanY;
+        if (IsPanning)
+        {
+            _camX = _freeCamX;
+            _camY = _freeCamY;
+            float dx = _camX - targetX;
+            float dy = _camY - targetY;
+            float len = MathF.Sqrt(dx * dx + dy * dy);
+            if (len > CameraPanRadius)
+            {
+                float f = CameraPanRadius / len;
+                _camX = targetX + dx * f;
+                _camY = targetY + dy * f;
+            }
+        }
+        else if (_returning)
+        {
+            _returnT += dt / ReturnDurS;
+            if (_returnT >= 1f) { _returnT = 1f; _returning = false; }
+            float s = _returnT * _returnT * (3f - 2f * _returnT);
+            _camX = _returnFromX + (targetX - _returnFromX) * s;
+            _camY = _returnFromY + (targetY - _returnFromY) * s;
+        }
+        else
+        {
+            _camX = targetX;
+            _camY = targetY;
+        }
 
         // Прилипание камеры к границам карты: центр камеры не уходит за пределы, при которых
         // вьюпорт вылезает за край, поэтому у края карта "замирает", а не отскакивает.
@@ -2476,7 +2522,7 @@ private sealed class RemotePlayerState
                         tw.FromX = tx; tw.FromY = ty;
                         tw.ToX = tx; tw.ToY = ty;
                     }
-                    if (key == $"player:{_playerName}") ResetCameraPan();
+                    if (key == $"player:{_playerName}") _returning = false;
                 }
             }
             _visTarget[key] = (tx, ty);

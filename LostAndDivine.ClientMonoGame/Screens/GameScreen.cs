@@ -506,10 +506,13 @@ public class GameScreen : IScreen
         _lootWindow.DropOnInventory += (pt, item) =>
         {
             if (_inventoryWindow.Contains(pt))
+            {
                 if (_lootWindow.CorpseId.StartsWith("chest_"))
                     _ = _client.SendAsync("take_chest_loot", new { InstanceId = _lootWindow.CorpseId.Substring(6), ItemIds = new[] { item.Id }, TakeGold = false });
                 else
                     _ = _client.SendAsync("take_loot", new { CorpseId = _lootWindow.CorpseId, TakeAll = false, ItemIds = new[] { item.Id }, TakeGold = false });
+                _lootWindow.RemoveItem(item);
+            }
         };
         _inventoryWindow.DropOnEquip += (pt, item) =>
         {
@@ -1326,7 +1329,9 @@ public class GameScreen : IScreen
             int topH2 = 0;
             bool overMap = !mouseOverAnyWindow && !overHotbar && !overIconBar && !overMinimap && mouse.Y >= topH2;
             string ct = "main";
-            if (overMap)
+            if (_panDragging || _windows.AnyDragging || _input.DragOverlayItem != null || _input.DragOverlaySkill != null)
+                ct = "take";
+            else if (overMap)
             {
                 int areaW = w2;
                 int areaH = h2 - topH2;

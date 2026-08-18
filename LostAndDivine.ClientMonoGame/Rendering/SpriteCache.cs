@@ -55,6 +55,7 @@ public static class SpriteCache
         ["cursor_loot"] = new Point(32, 32),
         ["cursor_harvest"] = new Point(32, 32),
         ["cursor_moving"] = new Point(32, 32),
+        ["cursor_take"] = new Point(32, 32),
         ["cursor_portal"] = new Point(32, 32),
         ["cursor_player"] = new Point(32, 32),
     };
