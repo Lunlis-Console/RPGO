@@ -770,8 +770,9 @@ public sealed class GameServer : INetworkHub
             Parry = new BreakdownPart
             {
                 Base = player.BaseParryChance,
-                AttrBonus = (player.GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility,
-                EquipBonus = player.Equipment.GetBonusParryChance(),
+                AttrBonus = Math.Round(CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1) + player.Equipment.GetBonusParryChance())
+                             - CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1)), 2),
                 SkillBonus = player.GetReflexesParryBonus(),
                 Total = Math.Round(player.GetParryChance(), 2)
             },

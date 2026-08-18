@@ -163,6 +163,44 @@ public class PlayerStatsTests
     }
 
     [Fact]
+    public void GetParryChance_NoAgility_Returns1()
+    {
+        var p = new Player { Agility = 1, BaseParryChance = 1.0 };
+        Assert.Equal(1.0, p.GetParryChance());
+    }
+
+    [Fact]
+    public void GetParryChance_WithAgility_Returns2_5()
+    {
+        var p = new Player { Agility = 11, BaseParryChance = 1.0 };
+        // 1.0 + (11-1)*0.15 = 2.5 (убывающая отдача: 1 очко = 0.15%)
+        Assert.Equal(2.5, p.GetParryChance());
+    }
+
+    [Fact]
+    public void GetParryChance_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Agility = 111, BaseParryChance = 1.0 };
+        // 110 очков: 100 по 0.15 (15) + 10 по 0.075 (0.75) → 1 + 15.75 = 16.75
+        Assert.Equal(16.75, p.GetParryChance());
+    }
+
+    [Fact]
+    public void GetParryChance_CapReachedAt221Agility()
+    {
+        var p = new Player { Agility = 221, BaseParryChance = 1.0 };
+        // 220 очков: 100×0.15 + 120×0.075 = 24 → 1 + 24 = 25 → кап
+        Assert.Equal(25.0, p.GetParryChance());
+    }
+
+    [Fact]
+    public void GetParryChance_CappedAt25()
+    {
+        var p = new Player { Agility = 1000, BaseParryChance = 1.0 };
+        Assert.Equal(25.0, p.GetParryChance());
+    }
+
+    [Fact]
     public void GetEffStrength_WithEquipment_ReturnsSum()
     {
         var eq = new Equipment();

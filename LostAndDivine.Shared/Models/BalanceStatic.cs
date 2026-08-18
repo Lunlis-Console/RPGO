@@ -35,6 +35,14 @@ public static class BalanceStatic
     public const double EvadeLinearRate = 0.3;
     public const double EvadeDrRate = 0.15;
 
+    // Кап парирования: база 1 + очки (ловкость + шмот, очко = 1% хитча).
+    // До ParryLinearPoints очков — ParryLinearRate за очко (до 15%), дальше — ParryDrRate за очко,
+    // итог капится на MaxParryChance (25%; ~220 очков ловкости).
+    public const double MaxParryChance = 25.0;
+    public const double ParryLinearPoints = 100;
+    public const double ParryLinearRate = 0.15;
+    public const double ParryDrRate = 0.075;
+
     // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
     // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
     // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.

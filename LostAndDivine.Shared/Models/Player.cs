@@ -104,9 +104,10 @@ public class Player : ICombatant
     }
 
     public double GetParryChance()
-        => BaseParryChance + (GetEffAgility() - 1) * BalanceStatic.ParryChancePerAgility
-           + Equipment.GetBonusParryChance()
-           + GetReflexesParryBonus();
+        => Math.Min(BalanceStatic.MaxParryChance, BaseParryChance
+            + CombatMath.ApplyParryDiminishingReturns(
+                (GetEffAgility() - 1) + Equipment.GetBonusParryChance())
+            + GetReflexesParryBonus());
 
     // Пассивный навык «Рефлексы» (SK0008): +10% шанс парирования при двух одноручных оружиях.
     public double GetReflexesParryBonus()

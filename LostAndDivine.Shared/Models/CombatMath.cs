@@ -32,6 +32,14 @@ public static class CombatMath
         => ApplyDiminishingReturns(points, BalanceStatic.EvadeLinearPoints,
             BalanceStatic.EvadeLinearRate, BalanceStatic.EvadeDrRate);
 
+    /// <summary>
+    /// Убывающая отдача парирования: до порога очко даёт ParryLinearRate, дальше — ParryDrRate.
+    /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
+    /// </summary>
+    public static double ApplyParryDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.ParryLinearPoints,
+            BalanceStatic.ParryLinearRate, BalanceStatic.ParryDrRate);
+
     /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
     public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)
     {
