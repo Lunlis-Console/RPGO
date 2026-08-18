@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Runtime = "win-x64",
     [string]$Config = "Release",
     [switch]$NoZip

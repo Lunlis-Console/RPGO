@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory)]
     [string]$ServerIp,
     [string]$Runtime = "linux-x64",
