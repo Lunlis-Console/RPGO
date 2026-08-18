@@ -1178,25 +1178,25 @@ private sealed class RemotePlayerState
         var me = map.Players.FirstOrDefault(p => p.Name == _playerName);
         UpdateVisualInterpolation(map);
 
-        // Камера плавно следует за АВТОРИТЕТНОЙ клеткой игрока (не за интерполированным
-        // спрайтом), чтобы не наследовать дрожание/перелёт интерполяции движения.
-        float targetX = me?.X ?? (map.Merchant?.X ?? 50);
-        float targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
-        if (me == null && _visPos.TryGetValue($"merchant", out var m))
-        { targetX = m.X; targetY = m.Y; }
-
-        if (_cameraNeedsSnap && me != null)
+        // Камера следует прямо за СПРАЙТОМ персонажа (интерполированной позицией),
+        // без сглаживания и без отставания: спрайт жёстко стоит в центре экрана,
+        // пока камера не упирается в границу карты.
+        float targetX, targetY;
+        lock (_stateLock)
         {
-            _camX = targetX;
-            _camY = targetY;
-            _cameraNeedsSnap = false;
+            if (me != null && _visPos.TryGetValue($"player:{_playerName}", out var vp))
+            { targetX = vp.X; targetY = vp.Y; }
+            else
+            {
+                targetX = me?.X ?? (map.Merchant?.X ?? 50);
+                targetY = me?.Y ?? (map.Merchant?.Y ?? 50);
+                if (me == null && _visPos.TryGetValue($"merchant", out var m))
+                { targetX = m.X; targetY = m.Y; }
+            }
         }
-        else
-        {
-            float k = 1f - MathF.Exp(-10f * dt);
-            _camX += (targetX - _camX) * k;
-            _camY += (targetY - _camY) * k;
-        }
+        _cameraNeedsSnap = false;
+        _camX = targetX;
+        _camY = targetY;
 
         // Прилипание камеры к границам карты: центр камеры не уходит за пределы, при которых
         // вьюпорт вылезает за край, поэтому у края карта "замирает", а не отскакивает.
