@@ -48,6 +48,10 @@ if ($contentDbSrc) {
     Write-Host "  Copied content.db"
 }
 
+# dotnet publish не включает папку Content (карты, секторы, тайлсеты) в вывод,
+# поэтому копируем её целиком из результата сборки. Источник в bin (bin\...\Content)
+# создаётся таргетом CopyContent в LostAndDivine.Server.csproj: туда попадают только
+# нужные серверу файлы — *.tmj верхнего уровня, Sectors\*.tmj и Tilesets\*.png.
 $contentSrc = $null
 if (Test-Path (Join-Path $serverBin "Content")) {
     $contentSrc = Join-Path $serverBin "Content"
@@ -59,12 +63,13 @@ if (Test-Path (Join-Path $serverBin "Content")) {
 
 if ($contentSrc) {
     $contentDest = Join-Path $publishDir "Content"
-    if (-not (Test-Path $contentDest)) { New-Item -ItemType Directory -Path $contentDest | Out-Null }
-    $tmjFiles = Get-ChildItem -Path $contentSrc -Filter "*.tmj" -File
-    foreach ($f in $tmjFiles) {
-        Copy-Item $f.FullName $contentDest
-    }
-    Write-Host "  Copied $($tmjFiles.Count) .tmj files to Content/"
+    if (Test-Path $contentDest) { Remove-Item -Recurse -Force $contentDest }
+    Copy-Item -Recurse $contentSrc $contentDest
+    $tmjCount = @(Get-ChildItem -Path $contentDest -Filter "*.tmj" -File -Recurse).Count
+    $sectorCount = @(Get-ChildItem -Path (Join-Path $contentDest "Sectors") -Filter "*.tmj" -File -ErrorAction SilentlyContinue).Count
+    Write-Host "  Copied Content/ to publish: $tmjCount .tmj files (sectors: $sectorCount)"
+} else {
+    Write-Host "  WARNING: Content source not found!"
 }
 
 # Start script

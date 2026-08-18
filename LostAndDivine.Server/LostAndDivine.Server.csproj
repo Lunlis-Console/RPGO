@@ -15,16 +15,14 @@
     <ProjectReference Include="..\LostAndDivine.Shared\LostAndDivine.Shared.csproj" />
   </ItemGroup>
 
-  <Target Name="CopyContent" AfterTargets="Build">
-    <ItemGroup>
-      <_ContentFiles Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\*.tmj" />
-      <_TilesetFiles Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\Tilesets\*.png" />
-      <_SectorFiles Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\Sectors\*.tmj" />
-    </ItemGroup>
-    <Copy SourceFiles="@(_ContentFiles)" DestinationFolder="$(OutDir)Content\" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(_TilesetFiles)" DestinationFolder="$(OutDir)Content\Tilesets\" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="@(_SectorFiles)" DestinationFolder="$(OutDir)Content\Sectors\" SkipUnchangedFiles="true" />
-  </Target>
+  <!-- Карты, секторы и тайлсеты из исходного Content клиента. Копируются и в bin,
+       и в папку публикации (dotnet publish сам по себе не тянет файлы, добавленные
+       кастомными таргетами после сборки). -->
+  <ItemGroup>
+    <None Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\*.tmj" Link="Content\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\Sectors\*.tmj" Link="Content\Sectors\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(ProjectDir)..\LostAndDivine.ClientMonoGame\Content\Tilesets\*.png" Link="Content\Tilesets\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />

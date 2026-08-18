@@ -20,31 +20,29 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 
 $publishDir = Join-Path $env:TEMP "lost-and-divine-server-publish"
 
-# Ensure Content folder exists with maps
+# Content (карты, секторы, тайлсеты) копируется целиком в build-server.ps1.
+# Здесь только страховка на случай, если publish-папка без неё: копируем полную
+# папку Content (с Sectors и Tilesets), а не только верхнеуровневые *.tmj.
 $contentDir = Join-Path $publishDir "Content"
-$mapSources = @(
-    (Join-Path $root "LostAndDivine.Server\Content"),
+$contentSources = @(
     (Join-Path $root "LostAndDivine.Server\bin\Release\net8.0\$Runtime\Content"),
+    (Join-Path $root "LostAndDivine.Server\Content"),
     (Join-Path $root "LostAndDivine.ClientMonoGame\Content")
 )
 
-$tmjCopied = $false
-foreach ($src in $mapSources) {
-    if (Test-Path $src) {
-        $files = Get-ChildItem -Path $src -Filter "*.tmj" -File
-        if ($files.Count -gt 0) {
-            if (-not (Test-Path $contentDir)) { New-Item -ItemType Directory -Path $contentDir | Out-Null }
-            foreach ($f in $files) {
-                Copy-Item $f.FullName $contentDir -Force
-            }
-            Write-Host "  Maps: $($files.Count) .tmj files from $src"
-            $tmjCopied = $true
-            break
-        }
+$contentCopied = $false
+foreach ($src in $contentSources) {
+    if (Test-Path (Join-Path $src "Sectors")) {
+        if (Test-Path $contentDir) { Remove-Item -Recurse -Force $contentDir }
+        Copy-Item -Recurse $src $contentDir
+        $sectorCount = @(Get-ChildItem (Join-Path $contentDir "Sectors") -Filter "*.tmj" -File).Count
+        Write-Host "  Content/: maps, sectors ($sectorCount) and tilesets copied from $src"
+        $contentCopied = $true
+        break
     }
 }
-if (-not $tmjCopied) {
-    Write-Host "  WARNING: No .tmj map files found!"
+if (-not $contentCopied) {
+    Write-Host "  WARNING: папка Content\Sectors не найдена — открытый мир будет без тайлов!"
 }
 
 # Copy client build for auto-updater
