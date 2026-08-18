@@ -19,7 +19,7 @@ internal class GameHudRenderer
     private int _newInventoryCount;
     private int _attributePoints;
     private const int IconSize = 40;
-    private const int IconGap = 6;
+    private const int IconGap = 3;
 
     // Party button rects (used for click detection in Update)
     internal Rectangle InvitePartyRect = Rectangle.Empty;
@@ -167,7 +167,7 @@ internal class GameHudRenderer
     internal void DrawIconBar(SpriteBatch sb)
     {
         var mouse = Mouse.GetState();
-        if (_iconRects.Length < 8) return;
+        if (_iconRects.Length < 9) return;
         var icons = new Texture2D?[]
         {
             SpriteCache.GetIconStatus(),
@@ -175,13 +175,14 @@ internal class GameHudRenderer
             SpriteCache.GetIconSkills(),
             SpriteCache.GetIconEquipment(),
             SpriteCache.GetIconCommunication(),
+            SpriteCache.GetIconWorldMap(),
             SpriteCache.GetIconJournal(),
             SpriteCache.GetIconMail(),
             SpriteCache.GetIconSettings()
         };
-        var labels = new[] { "Статус", "Инвентарь", "Навыки", "Снаряжение", "Общение", "Журнал", "Почта", "Настройки" };
+        var labels = new[] { "Статус", "Инвентарь", "Навыки", "Снаряжение", "Общение", "Карта мира", "Журнал", "Почта", "Настройки" };
 
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 9; i++)
         {
             var r = _iconRects[i];
             bool hover = r.Contains(mouse.X, mouse.Y);
@@ -243,7 +244,7 @@ internal class GameHudRenderer
                 }
             }
 
-            if (i == 6 && _mailUnreadCount > 0)
+            if (i == 7 && _mailUnreadCount > 0)
             {
                 var bFont = SpriteCache.FontSmall ?? SpriteCache.Font;
                 if (bFont != null)
@@ -261,7 +262,7 @@ internal class GameHudRenderer
 
     internal void LayoutIconBar(int w, int h)
     {
-        int iconCount = 8;
+        int iconCount = 9;
         int iconsTotalW = iconCount * IconSize + (iconCount - 1) * IconGap;
         int iconY = h - IconSize - 8;
         int iconStartX = w - 8 - iconsTotalW;

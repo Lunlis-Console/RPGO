@@ -49,6 +49,7 @@ public class GameScreen : IScreen
     private readonly DialogueWindow _dialogueWindow = new();
     private readonly MailWindow _mailWindow = new();
     private readonly MailAttachmentWindow _mailAttachmentWindow = new();
+    private readonly WorldMapWindow _worldMapWindow = null!;
     private readonly StorageWindow _storageWindow = new();
     private readonly ChangelogWindow _changelogWindow = new();
     private readonly HashSet<string> _lootedCorpses = new();
@@ -62,6 +63,8 @@ public class GameScreen : IScreen
     // (дедупликация: повторный запрос сектора не уходит, пока он не пришёл).
     private string _currentZoneId = BalanceStatic.StartZoneId;
     private readonly HashSet<(int Col, int Row)> _requestedSectors = new();
+    // Слепок карты мира запрошен один раз за «сессию» (вход / перезагрузка секторов).
+    private bool _worldMapPreloaded;
 
     public GameScreen()
     {
@@ -76,6 +79,7 @@ public class GameScreen : IScreen
         _hudDraw = new GameHudRenderer(_hudRenderer, _mapRenderer);
 
         _socialWindow = new SocialWindow(_client);
+        _worldMapWindow = new WorldMapWindow(_client);
         _socialWindow.WhisperRequested += name =>
         {
             _chatRenderer.IsTyping = true;
@@ -110,6 +114,18 @@ public class GameScreen : IScreen
 
     private void WireMapEvents()
     {
+        _client.SectorsReloaded += () =>
+        {
+            _worldMapPreloaded = false;
+            // Карта мира показывает только открытый мир: сбрасываем кэш только в нём.
+            // Вернувшись в main после релоада, игрок получит свежий слепок из PreloadWorldMap.
+            if (_currentZoneId == BalanceStatic.MainZoneId)
+            {
+                _worldMapWindow.ResetSectors();
+                _requestedSectors.Clear();
+            }
+            PreloadWorldMap();
+        };
         _client.MapUpdated += map =>
         {
             _mapRenderer.SetMap(map);
@@ -127,7 +143,10 @@ public class GameScreen : IScreen
             else if (!_mapRenderer.HasValidTiles(map.Width, map.Height))
             {
                 if (map.ZoneId == BalanceStatic.MainZoneId)
+                {
                     RequestSectorsAround();
+                    PreloadWorldMap();
+                }
                 else
                     RequestTilesIfNeeded(map);
             }
@@ -178,8 +197,10 @@ public class GameScreen : IScreen
         {
             _mapRenderer.SetSectorData(sector);
             _minimap.SetSectorData(sector);
+            _worldMapWindow.SetSectorData(sector);
             _requestedSectors.Remove((sector.Col, sector.Row));
             RequestSectorsAround();
+            PreloadWorldMap();
         };
         _client.ChatReceived += (channel, name, text, isAdmin) =>
         {
@@ -1030,6 +1051,7 @@ public class GameScreen : IScreen
         _windows.Add(_mailAttachmentWindow);
         _windows.Add(_storageWindow);
         _windows.Add(_changelogWindow);
+        _windows.Add(_worldMapWindow);
     }
 
     /// <summary>
@@ -1081,6 +1103,29 @@ public class GameScreen : IScreen
         }
     }
 
+    /// <summary>
+    /// Слепок карты мира: один раз за «сессию» (вход в игру / /reload / /reloadmap)
+    /// запрашивает все секторы открытого мира, чтобы окно карты было готово сразу,
+    /// а не заполнялось построчно при открытии. Сервер дедуплицирует уже отправленные
+    /// секторы, повторные запросы лишний трафик не дают.
+    /// </summary>
+    private void PreloadWorldMap()
+    {
+        if (_worldMapPreloaded) return;
+        if (_currentZoneId != BalanceStatic.MainZoneId) return;
+        var st = _client.Status;
+        if (st == null || st.X < 0 || st.Y < 0) return;
+        _worldMapPreloaded = true;
+        for (int r = 0; r < BalanceStatic.SectorRows; r++)
+        {
+            for (int c = 0; c < BalanceStatic.SectorCols; c++)
+            {
+                _ = GameMain.Instance!.Client.SendAsync("sector_request", new { Col = c, Row = r });
+            }
+        }
+        Logger.Debug("WorldMap: запрошены все секторы открытого мира (слепок).");
+    }
+
     private void ApplySettings()
     {
         var g = GameMain.Instance!.Graphics;
@@ -1121,6 +1166,7 @@ public class GameScreen : IScreen
         _input.HandleHotbarDrop(mouse, game);
         _input.ItemUseLocked = _storageWindow.Visible;
         bool mouseOverAnyWindowBefore = _windows.IsMouseOverVisibleWindow(mouse.X, mouse.Y);
+        _worldMapWindow.SetPlayerPosition(_mapRenderer.GetPlayerX(), _mapRenderer.GetPlayerY());
         _windows.Update(gameTime, keyboard, mouse);
 
         bool settingsOpen = _settingsWindow.Visible;
@@ -1147,6 +1193,7 @@ public class GameScreen : IScreen
         _input.HandleHotbarClick(mouse, mouseOverAnyWindow, game);
 
         // Chat clicks
+        if (!mouseOverAnyWindow)
         {
             int hotbarW2 = (int)(game.Graphics.PreferredBackBufferWidth * 0.35f);
             int hotbarLeft2 = (game.Graphics.PreferredBackBufferWidth - hotbarW2) / 2;
@@ -1179,6 +1226,7 @@ public class GameScreen : IScreen
         // Icon clicks
         bool clickedIcon = false;
         if (_hudDraw.IconRects.Length >= 6 &&
+            !mouseOverAnyWindow &&
             mouse.LeftButton == ButtonState.Pressed && _input.PrevMouse.LeftButton == ButtonState.Released)
         {
             foreach (var r in _hudDraw.IconRects)
@@ -1187,7 +1235,7 @@ public class GameScreen : IScreen
             }
             _input.HandleIconClick(mouse, mouseOverAnyWindow, game,
                 _inventoryWindow, _statusWindow, _skillsWindow, _equipmentWindow,
-                _socialWindow, _questLogWindow, _settingsWindow, _mailWindow, _hudDraw.IconRects);
+                _socialWindow, _questLogWindow, _settingsWindow, _mailWindow, _worldMapWindow, _hudDraw.IconRects);
         }
         mouseOverAnyWindow |= clickedIcon;
 
@@ -1204,7 +1252,7 @@ public class GameScreen : IScreen
         bool overMinimap = mmRect.Contains(mouse.X, mouse.Y);
 
         bool overLeaveBtn = _hudDraw.InstanceLeaveRect.Contains(mouse.X, mouse.Y);
-        if (overLeaveBtn && _input.PrevMouse.LeftButton == ButtonState.Released && mouse.LeftButton == ButtonState.Pressed)
+        if (!mouseOverAnyWindow && overLeaveBtn && _input.PrevMouse.LeftButton == ButtonState.Released && mouse.LeftButton == ButtonState.Pressed)
             _ = client.SendAsync("leave_instance", new { });
 
         if (!mouseOverAnyWindow && !overHotbar && !overMinimap)

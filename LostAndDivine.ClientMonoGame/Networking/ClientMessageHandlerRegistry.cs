@@ -26,6 +26,7 @@ internal static class ClientMessageHandlerRegistry
         ["quest_log"] = HandleQuestLog,
         ["zone_transition"] = HandleZoneTransition,
         ["sector_data"] = HandleSectorData,
+        ["sectors_reloaded"] = HandleSectorsReloaded,
         ["shop_response"] = HandleShopResponse,
         ["shop_update"] = HandleShopResponse,
         ["trade_open"] = HandleTradeOpen,
@@ -266,6 +267,11 @@ internal static class ClientMessageHandlerRegistry
         var sector = m.Deserialize<SectorData>();
         if (sector != null)
             c.RaiseSectorDataReceived(sector);
+    }
+
+    private static void HandleSectorsReloaded(GameClient c, GameMessage m)
+    {
+        c.RaiseSectorsReloaded();
     }
 
     private static void HandleShopResponse(GameClient c, GameMessage m)

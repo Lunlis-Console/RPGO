@@ -94,7 +94,7 @@ public static class SpriteCache
              "grass", "ashes", "goblin", "dragon_baby", "dragon",
             "dark_mage", "consumable", "collectible", "bear", "armor", "accessory",
             "trader", "quest_desk", "maneken", "portal",
-            "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status", "icon_mail",
+            "icon_communication", "icon_equipment", "icon_inventory", "icon_journal", "icon_settings", "icon_skills", "icon_status", "icon_mail", "icon_worldmap",
             "skill",
             "Idle_front", "Idle_back", "Idle_side_left", "Idle_side_right"
         };
@@ -435,6 +435,7 @@ public static class SpriteCache
     public static Texture2D? GetIconSettings() => Get("icon_settings");
     public static Texture2D? GetIconJournal() => Get("icon_journal");
     public static Texture2D? GetIconMail() => Get("icon_mail");
+    public static Texture2D? GetIconWorldMap() => Get("icon_worldmap");
 
     public static Texture2D? ForItemType(string? type) => (type ?? "").ToLower() switch
     {

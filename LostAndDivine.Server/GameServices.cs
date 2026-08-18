@@ -217,6 +217,8 @@ public sealed class GameServices : IGameServices
             }
 
             await Hub.BroadcastChatAsync("Система", "Секторы открытого мира обновлены (карта, NPC, порталы, спавны).");
+            // Клиенты сбрасывают кэш секторов и запрашивают свежий слепок карты мира.
+            await Hub.SendToAllAsync(new GameMessage { Type = "sectors_reloaded", Data = new { } });
             if (connection != null)
             {
                 await Hub.SendToClient(connection, new GameMessage
