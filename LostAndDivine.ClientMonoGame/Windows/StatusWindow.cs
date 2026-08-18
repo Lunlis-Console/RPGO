@@ -232,7 +232,7 @@ public class StatusWindow : GameWindow
             ("Защита", $"{_data.Defense} ({(CombatMath.CalcDefenseReduction(_data.Defense) * 100):F0}%)"),
             ("Сопротив.", $"{_data.Resistance} ({(CombatMath.CalcDefenseReduction(_data.Resistance) * 100):F0}%)"),
             ("Крит %", $"{_data.CritChance}"),
-            ("Крит x", $"{_data.CritDamage}"),
+            ("Крит урон", $"{_data.CritDamage * 100:F0}%"),
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
@@ -360,7 +360,7 @@ public class StatusWindow : GameWindow
         DrawBreakdownRow(sb, ref cy, cx, cw, "Защита", b.Defense);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Сопротив.", b.Resistance);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Крит %", b.Crit);
-        DrawBreakdownRow(sb, ref cy, cx, cw, "Крит x", b.CritDmg);
+        DrawBreakdownRow(sb, ref cy, cx, cw, "Крит ур %", b.CritDmg);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Уклон %", b.Evade);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Блок %", b.Block);
         DrawBreakdownRow(sb, ref cy, cx, cw, "Парир %", b.Parry);

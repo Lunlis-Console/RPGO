@@ -13,11 +13,23 @@ public static class CombatMath
     /// Применяется к «очкам» хитча (хитрость + бонусы шмота).
     /// </summary>
     public static double ApplyCritDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.CritChanceLinearPoints,
+            BalanceStatic.CritChanceLinearRate, BalanceStatic.CritChanceDrRate);
+
+    /// <summary>
+    /// Убывающая отдача крит-урона: до порога очко даёт полный темп (0.05x), дальше — CritDmgDrRate от темпа.
+    /// Применяется к «очкам» (сила + бонусы шмота).
+    /// </summary>
+    public static double ApplyCritDamageDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.CritDmgLinearPoints,
+            1.0, BalanceStatic.CritDmgDrRate);
+
+    /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
+    public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)
     {
-        if (points <= BalanceStatic.CritChanceLinearPoints)
-            return points * BalanceStatic.CritChanceLinearRate;
-        return BalanceStatic.CritChanceLinearPoints * BalanceStatic.CritChanceLinearRate
-            + (points - BalanceStatic.CritChanceLinearPoints) * BalanceStatic.CritChanceDrRate;
+        if (points <= linearPoints) return points * linearRate;
+        return linearPoints * linearRate
+            + (points - linearPoints) * drRate;
     }
 
     /// <summary>Процентная защита: DR = Defense / (Defense + K), кап 90%.</summary>

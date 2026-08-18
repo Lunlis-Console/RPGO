@@ -746,10 +746,11 @@ public sealed class GameServer : INetworkHub
             },
             CritDmg = new BreakdownPart
             {
-                Base = player.BaseCritDamage,
-                AttrBonus = (player.GetEffStrength() - 1) * BalanceStatic.CritDamagePerStrength,
-                EquipBonus = player.Equipment.GetBonusCritDamage(),
-                Total = Math.Round(player.GetCritDamage(), 2)
+                Base = player.BaseCritDamage * 100,
+                AttrBonus = Math.Round(CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1)) * BalanceStatic.CritDamagePerStrength * 100, 1),
+                EquipBonus = Math.Round((CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1) + player.Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
+                             - CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1))) * BalanceStatic.CritDamagePerStrength * 100, 1),
+                Total = Math.Round(player.GetCritDamage() * 100, 1)
             },
             Evade = new BreakdownPart
             {

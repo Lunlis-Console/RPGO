@@ -26,7 +26,14 @@ public static class BalanceStatic
     public const double CritChanceLinearRate = 0.5;
     public const double CritChanceDrRate = 0.25;
     public const double CritChancePerCunning = 1.0;
-    public const double CritDamagePerStrength = 0.05;
+
+    // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
+    // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
+    // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.
+    public const double MaxCritDamage = 3.0;
+    public const double CritDmgLinearPoints = 25;
+    public const double CritDmgDrRate = 0.25;
+    public const double CritDamagePerStrength = 0.02;
     public const double EvadeChancePerCunning = 1.0;
     public const double BlockChancePerEndurance = 0.5;
     public const double ParryChancePerAgility = 0.5;

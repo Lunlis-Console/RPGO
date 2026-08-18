@@ -31,7 +31,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
-            if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+            if (hitCrit) hitDmg = (int)(hitDmg * Math.Min(BalanceStatic.MaxCritDamage, pl.GetCritDamage() + 0.2));
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
             if (blocked) hitDmg = 0;
             monster.Health -= hitDmg;
@@ -103,7 +103,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
-            if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
+            if (hitCrit) hitDmg = (int)(hitDmg * Math.Min(BalanceStatic.MaxCritDamage, pl.GetCritDamage() + 0.2));
             if (useOffHand)
             {
                 double offFrac = pl.GetOffHandDamageFraction();

@@ -103,7 +103,7 @@ public class InspectWindow : GameWindow
             ("Защита", $"{_data.Defense} ({(CombatMath.CalcDefenseReduction(_data.Defense) * 100):F0}%)"),
             ("Сопротив.", $"{_data.Resistance} ({(CombatMath.CalcDefenseReduction(_data.Resistance) * 100):F0}%)"),
             ("Крит %", $"{_data.CritChance}"),
-            ("Крит x", $"{_data.CritDamage}"),
+            ("Крит урон", $"{_data.CritDamage * 100:F0}%"),
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),

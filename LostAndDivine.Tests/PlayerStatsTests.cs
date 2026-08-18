@@ -96,9 +96,32 @@ public class PlayerStatsTests
     [Fact]
     public void GetCritDamage_WithStrength_Returns2()
     {
-        var p = new Player { Strength = 11, BaseCritDamage = 1.5 };
-        // 1.5 + (11-1)*0.05 = 2.0
+        var p = new Player { Strength = 26, BaseCritDamage = 1.5 };
+        // 25 очков по 0.02 = 0.5 → 2.0 (граница линейного участка)
         Assert.Equal(2.0, p.GetCritDamage());
+    }
+
+    [Fact]
+    public void GetCritDamage_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Strength = 31, BaseCritDamage = 1.5 };
+        // 30 очков: 25 по 0.02 (0.5) + 5 по 0.005 (0.025) → 1.5+0.525 = 2.025
+        Assert.Equal(2.025, p.GetCritDamage());
+    }
+
+    [Fact]
+    public void GetCritDamage_CapReachedAt226Strength()
+    {
+        var p = new Player { Strength = 226, BaseCritDamage = 1.5 };
+        // 225 очков: 25×0.02 + 200×0.005 = 1.5 → ровно кап 3.0
+        Assert.Equal(3.0, p.GetCritDamage());
+    }
+
+    [Fact]
+    public void GetCritDamage_CappedAt3()
+    {
+        var p = new Player { Strength = 1000, BaseCritDamage = 1.5 };
+        Assert.Equal(3.0, p.GetCritDamage());
     }
 
     [Fact]

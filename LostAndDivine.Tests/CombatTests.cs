@@ -84,8 +84,8 @@ public class CombatTests
             var (dmgToM, _, dead, isCrit, _, _, _) =
                 _monsters.CalculateCombat(player, monster);
 
-            // baseDmg = 21*(1-1/501)≈20.96 → 20; critDmg = 1.5+(11-1)*0.05=2.0 → 40
-            Assert.Equal(isCrit ? 40 : 20, dmgToM);
+            // baseDmg = 21*(1-1/501)≈20.96 → 20; critDmg = 1.5+10*0.02=1.7 → 34
+            Assert.Equal(isCrit ? 34 : 20, dmgToM);
             Assert.False(dead);
             if (isCrit) sawCrit = true;
         }
