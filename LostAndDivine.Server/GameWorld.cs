@@ -68,6 +68,8 @@ public sealed class GameMap
 
     public void AddObstacle(int x, int y) => _obstacles.Add((x, y));
 
+    public void ClearObstacles() => _obstacles.Clear();
+
     public bool IsObstacle(int x, int y) => _obstacles.Contains((x, y));
 
     /// <summary>

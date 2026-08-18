@@ -169,6 +169,34 @@ public class ZoneManager
     }
 
     /// <summary>
+    /// Сбрасывает Tiled-регистрации зоны (порталы секторов, двери, NPC) перед
+    /// перезагрузкой секторов (/reload). Порталы из БД и других зон не трогаются.
+    /// </summary>
+    public void ClearTiledRegistrations(string zoneId)
+    {
+        _portals.RemoveAll(p =>
+            string.Equals(p.FromZone, zoneId, StringComparison.OrdinalIgnoreCase) &&
+            (p.Id.StartsWith("sector_", StringComparison.OrdinalIgnoreCase) ||
+             p.Id.StartsWith("tiled_", StringComparison.OrdinalIgnoreCase)));
+
+        // Пересборка lookup-структур из оставшихся порталов
+        _portalLookup.Clear();
+        _portalsByZone.Clear();
+        foreach (var portal in _portals)
+        {
+            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+            if (!_portalsByZone.ContainsKey(portal.FromZone))
+                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+            _portalsByZone[portal.FromZone].Add(portal);
+        }
+
+        foreach (var key in _doors.Keys.Where(k => string.Equals(k.Zone, zoneId, StringComparison.OrdinalIgnoreCase)).ToList())
+            _doors.Remove(key);
+
+        _tiledNpcs.Remove(zoneId);
+    }
+
+    /// <summary>
     /// Регистрирует порталы, размещённые в Tiled-картах (добавляются поверх порталов из БД).
     /// </summary>
     public void RegisterTiledPortals(IEnumerable<WorldPortal> portals)

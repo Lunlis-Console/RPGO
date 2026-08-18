@@ -32,6 +32,9 @@ public class MonsterManager
         _mannequinPositions.Add((x, y));
     }
 
+    /// <summary>Сброс позиций манекенов перед перезагрузкой секторов (/reload).</summary>
+    public void ResetMannequinPositions() => _mannequinPositions.Clear();
+
     public double GetEffectiveAttack(ICombatant attacker, int baseAttack)
         => _svc.MonsterCombat.GetEffectiveAttack(attacker, baseAttack);
 

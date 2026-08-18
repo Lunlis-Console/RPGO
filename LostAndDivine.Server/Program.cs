@@ -75,8 +75,9 @@ partial class Program
         // Секторный открытый мир (main): тайлы/препятствия/NPC/порталы/спавны из
         // Content/Sectors/{col}_{row}.tmj встраиваются в карту мира (3000x1700).
         var sectorWorld = new SectorWorld();
-        var contentDir = Path.Combine(AppContext.BaseDirectory, "Content");
-        var sectorsDir = Path.Combine(contentDir, "Sectors");
+        var contentDir = ContentPaths.ContentDir;
+        var sectorsDir = ContentPaths.SectorsDir;
+        Log.Info($"Папка контента: {contentDir}");
         try
         {
             if (Directory.Exists(sectorsDir))
@@ -664,7 +665,7 @@ partial class Program
     /// </summary>
     private static List<TiledSpawn>? LoadTiledZone(ZoneManager zones, string fileName, string zoneId)
     {
-        string tiledPath = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
+        string tiledPath = Path.Combine(ContentPaths.ContentDir, fileName);
         if (!File.Exists(tiledPath))
         {
             Log.Warn($"Tiled-карта не найдена: {tiledPath}");
@@ -781,7 +782,7 @@ partial class Program
     /// </summary>
     private static GameMap? LoadTiledMap(string fileName)
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "Content", fileName);
+        string path = Path.Combine(ContentPaths.ContentDir, fileName);
         if (!File.Exists(path))
         {
             Log.Warn($"Tiled-карта не найдена: {path}");

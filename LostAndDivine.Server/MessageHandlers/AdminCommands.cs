@@ -39,7 +39,9 @@ public static class AdminCommands
             case "/announce":
                 return await HandleAnnounce(player, args, svc);
             case "/reload":
-                return await HandleReloadContent(player, svc);
+                return await HandleReload(player, svc);
+            case "/reloadmap":
+                return await HandleReloadSectors(player, svc);
             case "/save":
                 return await HandleSave(player, svc);
             case "/mute":
@@ -327,7 +329,8 @@ public static class AdminCommands
             "/level <уровень> [имя] — изменить уровень",
             "/setadmin <имя> — выдать/снять админку",
             "/spawn <id_монстра> — заспавнить монстра",
-            "/reload — перезагрузить контент",
+            "/reload — перезагрузить секторы и контент",
+            "/reloadmap — перезагрузить только секторы (карта, NPC, спавны)",
             "/save — сохранить всех игроков",
         };
         foreach (var line in lines)
@@ -438,11 +441,20 @@ public static class AdminCommands
         return true;
     }
 
-    private static async Task<bool> HandleReloadContent(Player player, GameServices svc)
+    private static async Task<bool> HandleReload(Player player, GameServices svc)
     {
-        await SystemToSelf(player, svc, "Перезагрузка контента...");
+        await SystemToSelf(player, svc, "Перезагрузка секторов и контента...");
         var conn = svc.World.FindClientByPlayer(player);
+        await svc.ReloadSectors(conn);
         await svc.ReloadContent(conn);
+        return true;
+    }
+
+    private static async Task<bool> HandleReloadSectors(Player player, GameServices svc)
+    {
+        await SystemToSelf(player, svc, "Перезагрузка секторов...");
+        var conn = svc.World.FindClientByPlayer(player);
+        await svc.ReloadSectors(conn);
         return true;
     }
 

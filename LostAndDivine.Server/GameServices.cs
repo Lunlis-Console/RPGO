@@ -153,4 +153,118 @@ public sealed class GameServices : IGameServices
             }
         }
     }
+
+    /// <summary>
+    /// Перезагружает секторы открытого мира с диска (Content/Sectors/*.tmj) и заново
+    /// встраивает их в карту мира: тайлы, препятствия, NPC, порталы, двери и точки спавна.
+    /// Монстры и коллекционки пересоздаются из свежих точек, склад переставляется.
+    /// Онлайн-игрокам повторно отправляются секторы вокруг их позиций — карту можно
+    /// рисовать в Tiled и смотреть результат без перезапуска сервера/клиента.
+    /// </summary>
+    public async Task ReloadSectors(ClientConnection? connection = null)
+    {
+        try
+        {
+            Log.Info("Перезагрузка секторов открытого мира...");
+            var sectorsDir = ContentPaths.SectorsDir;
+            if (!Directory.Exists(sectorsDir))
+                throw new InvalidOperationException($"Папка секторов не найдена: {sectorsDir}");
+
+            Zones.ClearTiledRegistrations(Balance.MainZoneId);
+            World.Map.ClearObstacles();
+            Sectors.Load(World.Map, Zones, sectorsDir);
+
+            // Спавн-данные: секторы дают main-зону, остальные зоны сохраняют свои точки.
+            var allSpawns = new List<TiledSpawn>(Sectors.AllSpawns);
+            var allCollectibleSpawns = new Dictionary<string, List<TiledSpawn>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (zoneId, spawns) in Sectors.AllCollectibleSpawns)
+                allCollectibleSpawns[zoneId] = spawns;
+            foreach (var (zoneId, spawns) in _collectibleSpawns)
+            {
+                if (string.Equals(zoneId, Balance.MainZoneId, StringComparison.OrdinalIgnoreCase)) continue;
+                allSpawns.AddRange(spawns);
+                allCollectibleSpawns[zoneId] = spawns;
+            }
+            SetSpawnData(allSpawns, allCollectibleSpawns);
+
+            // Позиции мерчанта/доски/манекенов из свежих NPC-точек секторов.
+            Monsters.ResetMannequinPositions();
+            var tiledNpcs = Zones.GetAllTiledNpcs();
+            var merchantTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
+            if (merchantTiled != null) Merchant.SetTiledPosition(merchantTiled.X, merchantTiled.Y);
+            var boardTiled = tiledNpcs.FirstOrDefault(n => string.Equals(n.Type, "board", StringComparison.OrdinalIgnoreCase));
+            if (boardTiled != null) Quests.SetTiledPosition(boardTiled.X, boardTiled.Y);
+            foreach (var dummyTiled in tiledNpcs.Where(n => string.Equals(n.Type, "dummy", StringComparison.OrdinalIgnoreCase)))
+                Monsters.AddMannequinPosition(dummyTiled.X, dummyTiled.Y);
+
+            Merchant.Initialize();
+            Quests.Initialize();
+            Monsters.Initialize(allSpawns.Count > 0 ? allSpawns : null);
+            foreach (var (zoneId, spawns) in allCollectibleSpawns)
+                Collectibles.Initialize(spawns, zoneId);
+
+            RelocateStorage();
+
+            Hub.LoadNpcCache();
+
+            // Онлайн-игрокам повторно шлём свежие секторы вокруг их позиций.
+            foreach (var conn in World.GetAllConnectionsSnapshot())
+            {
+                if (conn.Player == null) continue;
+                conn.ResetSectorsSent();
+                if (conn.Player.CurrentZoneId == Balance.MainZoneId)
+                    await Hub.SendSectorsAround(conn, conn.Player);
+            }
+
+            await Hub.BroadcastChatAsync("Система", "Секторы открытого мира обновлены (карта, NPC, порталы, спавны).");
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Секторы обновлены." }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Ошибка перезагрузки секторов: {ex.Message}", ex);
+            if (connection != null)
+            {
+                await Hub.SendToClient(connection, new GameMessage
+                {
+                    Type = "chat",
+                    Data = new { Name = "Система", Text = "Ошибка перезагрузки секторов: " + ex.Message }
+                });
+            }
+        }
+    }
+
+    /// <summary>Размещает склад рядом с мерчантом и добавляет его клетку как препятствие карты мира.</summary>
+    private void RelocateStorage()
+    {
+        int storageX = Merchant.MerchantX + 1;
+        int storageY = Merchant.MerchantY;
+        if (World.Map.IsObstacle(storageX, storageY))
+        {
+            int[] dx = { 0, 0, -1, 1, 1, -1, 1, -1 };
+            int[] dy = { -1, 1, 0, 0, -1, -1, 1, 1 };
+            storageX = Merchant.MerchantX;
+            storageY = Merchant.MerchantY;
+            for (int i = 0; i < 8; i++)
+            {
+                int nx = Merchant.MerchantX + dx[i];
+                int ny = Merchant.MerchantY + dy[i];
+                if (!World.Map.IsObstacle(nx, ny))
+                {
+                    storageX = nx;
+                    storageY = ny;
+                    break;
+                }
+            }
+        }
+        World.Map.AddObstacle(storageX, storageY);
+        Storage.SetPosition(storageX, storageY);
+        Log.Info($"Склад размещён на ({storageX}, {storageY})");
+    }
 }
