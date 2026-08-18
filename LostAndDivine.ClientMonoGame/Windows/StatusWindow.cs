@@ -236,7 +236,7 @@ public class StatusWindow : GameWindow
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
-            ("Точность", $"{_data.Accuracy:F0}%"),
+            ("Точность", $"{_data.Accuracy - 100:F0}%"),
             ("Скор. атк", $"{_data.AttackSpeed:F1}"),
         };
         for (int i = 0; i < combat.Length; i++)

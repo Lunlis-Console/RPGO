@@ -780,10 +780,10 @@ public sealed class GameServer : INetworkHub
             },
             Accuracy = new BreakdownPart
             {
-                Base = BalanceStatic.AccuracyBase,
+                Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns((player.GetEffAgility() - 1)), 2),
                 SkillBonus = player.GetBowAccuracyBonus(),
-                Total = Math.Round(player.GetAccuracy(), 2)
+                Total = Math.Round(player.GetAccuracy() - BalanceStatic.AccuracyBase, 2)
             },
             Effective = new EffectiveAttrs
             {
