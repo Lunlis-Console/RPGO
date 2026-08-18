@@ -75,6 +75,8 @@ public static class Balance
     public const int AttackSpeedAgilityDivisor = 12;
     public const double AgilityDrK = 30.0;
     public const int MinAttackIntervalMs = 300;
+    // Кап скорости атаки: не быстрее 2.0 (в два раза быстрее базовой) — «+100% скорости атаки».
+    public const double MaxAttackSpeed = 2.0;
 
     public const int MinDamage = BalanceStatic.MinDamage;
     public const int ChanceRollMax = BalanceStatic.ChanceRollMax;
@@ -202,16 +204,17 @@ public static class Balance
     public static int AttackIntervalMs(double baseAgilitySpeed, double weaponSpeedMod)
         => Math.Max(MinAttackIntervalMs, (int)(AttackBaseMs / Math.Max(0.1, baseAgilitySpeed * Math.Max(0.1, weaponSpeedMod))));
 
-    public static double GetAttackSpeed(int agility)
+    /// <summary>Скорость атаки от вложенных очков ловкости (выше базиса класса) + бонусов шмота.</summary>
+    public static double GetAttackSpeed(double points)
     {
-        double effective = AgilityDrK * agility / (AgilityDrK + agility);
+        double effective = AgilityDrK * points / (AgilityDrK + points);
         return Math.Max(1.0, AttackSpeedBase + effective / AttackSpeedAgilityDivisor);
     }
 
-    public static double GetAttackSpeedWithWeapon(int agility, double weaponSpeedMod)
+    public static double GetAttackSpeedWithWeapon(double points, double weaponSpeedMod)
     {
-        double baseSpeed = GetAttackSpeed(agility);
-        return Math.Max(1.0, baseSpeed * Math.Max(0.1, weaponSpeedMod));
+        double baseSpeed = GetAttackSpeed(points);
+        return Math.Min(MaxAttackSpeed, Math.Max(1.0, baseSpeed * Math.Max(0.1, weaponSpeedMod)));
     }
 
     public static int XpNeededForNextLevel(int level)

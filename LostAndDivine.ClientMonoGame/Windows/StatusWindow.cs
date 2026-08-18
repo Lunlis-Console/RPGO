@@ -418,8 +418,8 @@ public class StatusWindow : GameWindow
     {
         if (_data == null) return;
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, RowH), RowBg);
-        DrawText(sb, "Скор. атк", cx + 6, cy + 3, DimColor);
-        DrawText(sb, $"атк.скор {_data.AttackSpeed:F1}", cx + 120, cy + 3, DimColor);
+        DrawText(sb, "Скор. атк %", cx + 6, cy + 3, DimColor);
+        DrawText(sb, $"{( _data.AttackSpeed - 1.0) * 100:F0}%", cx + 120, cy + 3, DimColor);
         DrawText(sb, $"оруж.множ. {_data.WeaponSpeedModifier:F1}x", cx + 240, cy + 3, DimColor);
         DrawText(sb, $"= {_data.AttackIntervalMs}мс", cx + cw - 80, cy + 3, StatColor);
         cy += RowH;

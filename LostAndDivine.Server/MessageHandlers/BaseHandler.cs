@@ -94,7 +94,7 @@ public abstract class BaseHandler : IMessageHandler
         => Svc.ReloadContent(connection);
 
     protected double GetAttackSpeed(Player player)
-        => Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
+        => Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier());
 
     protected StatsBreakdown BuildBreakdown(Player player)
         => Hub.BuildBreakdown(player);

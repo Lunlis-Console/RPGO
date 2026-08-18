@@ -141,7 +141,7 @@ public class CombatService
             bool offHandCanShoot = offHandRange > 1 && dist <= offHandRange;
 
             int attackIntervalMs = Balance.AttackIntervalMs(
-                Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+                Balance.GetAttackSpeed(pl.GetAttackSpeedPoints()), pl.Equipment.GetWeaponSpeedModifier());
             double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
             attackIntervalMs = (int)(attackIntervalMs / speedBuff);
             bool offHandReady = pl.Equipment.IsDualWielding()

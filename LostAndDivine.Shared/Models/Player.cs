@@ -16,6 +16,10 @@ public class Player : ICombatant
     public int ClassBaseCunning => Class.BaseStats().Cun;
     public int ClassBaseIntellect => Class.BaseStats().Int;
     public int ClassBaseWisdom => Class.BaseStats().Wis;
+
+    /// <summary>Вложенная ловкость (выше базиса класса) + бонус шмота — «очки» скорости атаки.</summary>
+    public double GetAttackSpeedPoints()
+        => Math.Max(0, Agility - ClassBaseAgility) + Equipment.GetBonusAttackSpeed();
     public int X { get; set; }
     public int Y { get; set; }
     public int Health { get; set; } = 100;
@@ -96,7 +100,7 @@ public class Player : ICombatant
     public double GetCritDamage()
         => Math.Min(BalanceStatic.MaxCritDamage, BaseCritDamage
             + CombatMath.ApplyCritDamageDiminishingReturns(
-                (GetEffStrength() - 1) + Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
+                Math.Max(0, GetEffStrength() - ClassBaseStrength) + Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
             * BalanceStatic.CritDamagePerStrength);
 
     public double GetEvadeChance()

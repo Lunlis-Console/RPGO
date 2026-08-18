@@ -759,9 +759,9 @@ public sealed class GameServer : INetworkHub
             CritDmg = new BreakdownPart
             {
                 Base = player.BaseCritDamage * 100,
-                AttrBonus = Math.Round(CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1)) * BalanceStatic.CritDamagePerStrength * 100, 1),
-                EquipBonus = Math.Round((CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1) + player.Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
-                             - CombatMath.ApplyCritDamageDiminishingReturns((player.GetEffStrength() - 1))) * BalanceStatic.CritDamagePerStrength * 100, 1),
+                AttrBonus = Math.Round(CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)) * BalanceStatic.CritDamagePerStrength * 100, 1),
+                EquipBonus = Math.Round((CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength) + player.Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
+                             - CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength))) * BalanceStatic.CritDamagePerStrength * 100, 1),
                 Total = Math.Round(player.GetCritDamage() * 100, 1)
             },
             Evade = new BreakdownPart
@@ -848,15 +848,15 @@ public sealed class GameServer : INetworkHub
 
     internal static double GetAttackSpeed(Player player, DebuffManager debuffs)
     {
-        double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.Agility, player.Equipment.GetWeaponSpeedModifier());
+        double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier());
         double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
-        return baseSpeed * speedBuff;
+        return Math.Min(Balance.MaxAttackSpeed, baseSpeed * speedBuff);
     }
 
     internal static int GetAttackIntervalMs(Player player, DebuffManager debuffs)
     {
         int baseInterval = Balance.AttackIntervalMs(
-            Balance.GetAttackSpeed(player.Agility), player.Equipment.GetWeaponSpeedModifier());
+            Balance.GetAttackSpeed(player.GetAttackSpeedPoints()), player.Equipment.GetWeaponSpeedModifier());
         double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
         return (int)(baseInterval / speedBuff);
     }

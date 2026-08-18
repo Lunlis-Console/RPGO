@@ -393,7 +393,7 @@ public class PvPService
         }
 
         int attackIntervalMs = Balance.AttackIntervalMs(
-            Balance.GetAttackSpeed(pl.Agility), pl.Equipment.GetWeaponSpeedModifier());
+            Balance.GetAttackSpeed(pl.GetAttackSpeedPoints()), pl.Equipment.GetWeaponSpeedModifier());
         double speedBuff = 1.0 + _svc.Debuffs.GetDebuffValue(pl, DebuffType.AttackSpeedBonus);
         attackIntervalMs = (int)(attackIntervalMs / speedBuff);
         bool mainAttackReady = (DateTime.UtcNow - pl.Combat.LastAttackTime).TotalMilliseconds >= attackIntervalMs;

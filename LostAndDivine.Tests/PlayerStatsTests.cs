@@ -94,26 +94,34 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetCritDamage_WithStrength_Returns2()
+    public void GetCritDamage_ClassBaseStrength_NoBonus()
+    {
+        var p = new Player { Strength = 3, BaseCritDamage = 1.5 };
+        // Воин: сила 3 — это базис класса, «бесплатного» крит-урона нет
+        Assert.Equal(1.5, p.GetCritDamage());
+    }
+
+    [Fact]
+    public void GetCritDamage_WithStrength_Returns1_96()
     {
         var p = new Player { Strength = 26, BaseCritDamage = 1.5 };
-        // 25 очков по 0.02 = 0.5 → 2.0 (граница линейного участка)
-        Assert.Equal(2.0, p.GetCritDamage());
+        // Воин: 23 вложенных очка × 0.02 = 0.46 → 1.96
+        Assert.Equal(1.96, p.GetCritDamage(), 3);
     }
 
     [Fact]
     public void GetCritDamage_AfterDiminishingThreshold_SlowsDown()
     {
         var p = new Player { Strength = 31, BaseCritDamage = 1.5 };
-        // 30 очков: 25 по 0.02 (0.5) + 5 по 0.005 (0.025) → 1.5+0.525 = 2.025
-        Assert.Equal(2.025, p.GetCritDamage());
+        // Воин: 28 очков: 25 полных + 3 с половинным темпом = 25.75 × 0.02 = 0.515 → 2.015
+        Assert.Equal(2.015, p.GetCritDamage(), 3);
     }
 
     [Fact]
-    public void GetCritDamage_CapReachedAt226Strength()
+    public void GetCritDamage_CapReachedAt229Strength()
     {
-        var p = new Player { Strength = 226, BaseCritDamage = 1.5 };
-        // 225 очков: 25×0.02 + 200×0.005 = 1.5 → ровно кап 3.0
+        var p = new Player { Strength = 229, BaseCritDamage = 1.5 };
+        // Воин: 226 вложенных очков: 25 + 201×0.25 = 75.25 × 0.02 = 1.505 → кап 3.0
         Assert.Equal(3.0, p.GetCritDamage());
     }
 
@@ -122,6 +130,39 @@ public class PlayerStatsTests
     {
         var p = new Player { Strength = 1000, BaseCritDamage = 1.5 };
         Assert.Equal(3.0, p.GetCritDamage());
+    }
+
+    [Fact]
+    public void GetAttackSpeed_ClassBaseAgility_Returns1()
+    {
+        var p = new Player { Agility = 1 };
+        // Воин: ловкость 1 — базис класса, скорость атаки ровно 1.0
+        Assert.Equal(1.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()));
+    }
+
+    [Fact]
+    public void GetAttackSpeed_WithInvestedAgility_Increases()
+    {
+        var p = new Player { Agility = 11 };
+        // Воин: 10 вложенных очков: 30×10/40/12 = 0.625 → 1.625
+        Assert.Equal(1.625, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
+    }
+
+    [Fact]
+    public void GetAttackSpeed_WithGearBonus_AddsPoints()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusAttackSpeed = 10 };
+        var p = new Player { Agility = 11, Equipment = eq };
+        // 10 ловкости + 10 шмота = 20 очков: 30×20/50/12 = 1.0 → 2.0
+        Assert.Equal(2.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
+    }
+
+    [Fact]
+    public void GetAttackSpeedWithWeapon_CappedAt2x()
+    {
+        // Огромное количество очков + быстрый модификатор оружия — не быстрее 2.0 (100%)
+        Assert.Equal(2.0, Balance.GetAttackSpeedWithWeapon(10000, 1.4));
     }
 
     [Fact]
