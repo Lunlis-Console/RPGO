@@ -102,7 +102,8 @@ public class ClientBuildService
                 if (req == null || string.IsNullOrEmpty(req.Path))
                     return true;
 
-                if (!TryGetFile(req.Path, out var bytes))
+                string? full = ResolvePath(req.Path);
+                if (full == null)
                 {
                     await hub.SendToClient(connection, new GameMessage
                     {
@@ -112,24 +113,46 @@ public class ClientBuildService
                     return true;
                 }
 
-                string sha = Convert.ToHexString(SHA256.HashData(bytes));
-                long total = bytes.Length;
-                for (int offset = 0; offset < total; offset += ChunkSize)
+                var fileInfo = new FileInfo(full);
+                long total = fileInfo.Length;
+                var buffer = new byte[ChunkSize];
+
+                // Стриминг вместо File.ReadAllBytes: файлы клиента достигают сотен МБ,
+                // и загрузка целиком в память убивает процесс на маленьких VPS (OOM killer).
+                string sha;
+                using (var shaAlg = SHA256.Create())
+                using (var fs = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
-                    int len = (int)Math.Min(ChunkSize, total - offset);
-                    await hub.SendToClient(connection, new GameMessage
+                    int read;
+                    while ((read = await fs.ReadAsync(buffer.AsMemory(0, ChunkSize))) > 0)
+                        shaAlg.TransformBlock(buffer, 0, read, null, 0);
+                    shaAlg.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
+                    sha = Convert.ToHexString(shaAlg.Hash!);
+                }
+
+                using (var fs = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    long offset = 0;
+                    while (offset < total)
                     {
-                        Type = "update_file_chunk",
-                        Data = new UpdateFileChunk
+                        int len = (int)Math.Min(ChunkSize, total - offset);
+                        int read = await fs.ReadAsync(buffer.AsMemory(0, len));
+                        if (read == 0) break;
+                        await hub.SendToClient(connection, new GameMessage
                         {
-                            Path = req.Path,
-                            Offset = offset,
-                            Data = Convert.ToBase64String(bytes, offset, len),
-                            TotalLength = total,
-                            Sha256 = sha,
-                            Done = offset + len >= total
-                        }
-                    });
+                            Type = "update_file_chunk",
+                            Data = new UpdateFileChunk
+                            {
+                                Path = req.Path,
+                                Offset = offset,
+                                Data = Convert.ToBase64String(buffer, 0, read),
+                                TotalLength = total,
+                                Sha256 = sha,
+                                Done = offset + read >= total
+                            }
+                        });
+                        offset += read;
+                    }
                 }
                 Log.Info($"Отдан файл обновления: {req.Path} ({total} байт)");
                 return true;
@@ -165,19 +188,16 @@ public class ClientBuildService
         });
     }
 
-    private bool TryGetFile(string relPath, out byte[] bytes)
+    /// <summary>Проверяет путь в пределах _filesDir (без выхода за границы) и возвращает полный путь к файлу.</summary>
+    private string? ResolvePath(string relPath)
     {
-        bytes = Array.Empty<byte>();
-        if (Info == null || _filesDir.Length == 0) return false;
+        if (Info == null || _filesDir.Length == 0) return null;
 
         string root = Path.GetFullPath(_filesDir);
         string full = Path.GetFullPath(Path.Combine(root, relPath));
         if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            return false;
-        if (!File.Exists(full)) return false;
-
-        bytes = File.ReadAllBytes(full);
-        return true;
+            return null;
+        return File.Exists(full) ? full : null;
     }
 
     private static T? Deserialize<T>(object? data)

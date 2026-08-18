@@ -24,10 +24,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Спрайты и тайлсеты грузятся из ресурсов (SpriteCache.GetManifestResourceStream).
+         Карты и секторы клиент НЕ читает локально — они приходят от сервера по сети
+         (map/zone/sector_data), поэтому *.tmj и Sectors не встраиваются: иначе DLL
+         раздувается до сотен МБ и ломает обновление клиента на маленьких серверах. -->
     <EmbeddedResource Include="Content\Sprites\**\*.*" />
     <EmbeddedResource Include="Content\Tilesets\**\*.*" />
-    <EmbeddedResource Include="Content\*.tmj" />
-    <EmbeddedResource Include="Content\Sectors\**\*.tmj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -52,14 +54,6 @@
     </None>
     <None Include="Content\animations.json" Condition="Exists('Content\animations.json')">
       <Link>Content\animations.json</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Content\*.tmj">
-      <Link>Content\%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Content\Sectors\**\*.tmj">
-      <Link>Content\Sectors\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
