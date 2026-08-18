@@ -66,6 +66,14 @@ public class GameScreen : IScreen
     // Слепок карты мира запрошен один раз за «сессию» (вход / перезагрузка секторов).
     private bool _worldMapPreloaded;
 
+    // Панорамирование камеры зажатием ЛКМ по карте: перетаскивание двигает камеру,
+    // клик без перетаскивания — обычный клик по карте (движение/выбор цели).
+    private const int PanDragThresholdSq = 25; // ~5px — порог «это уже перетаскивание»
+    private bool _panPressed;
+    private bool _panDragging;
+    private int _panStartX, _panStartY;
+    private int _panPrevX, _panPrevY;
+
     public GameScreen()
     {
         _client = GameMain.Instance!.Client;
@@ -174,7 +182,6 @@ public class GameScreen : IScreen
             _mapRenderer.ClearSectors();
             _minimap.ClearSectors();
             _requestedSectors.Clear();
-            _mapRenderer.SnapCameraNextFrame();
             if (!zoneId.StartsWith("instance:"))
                 _hudRenderer.UpdateInstanceTimer(null);
         };
@@ -1255,14 +1262,61 @@ public class GameScreen : IScreen
         if (!mouseOverAnyWindow && overLeaveBtn && _input.PrevMouse.LeftButton == ButtonState.Released && mouse.LeftButton == ButtonState.Pressed)
             _ = client.SendAsync("leave_instance", new { });
 
-        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
+        bool mapArea = !mouseOverAnyWindow && !overHotbar && !overMinimap;
+        if (mapArea)
         {
             int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
             if (scroll != 0) _mapRenderer.ChangeZoom(scroll > 0 ? 0.15f : -0.15f);
         }
-        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
-            _inputManager.HandleMapClick(mouse, _input.PrevMouse, _mapRenderer);
-        if (!mouseOverAnyWindow && !overHotbar && !overMinimap)
+
+        // ЛКМ по карте: зажатие + перетаскивание двигает камеру (панорама, предел —
+        // радиус от игрока), клик без перетаскивания — обычный клик по карте.
+        bool leftDown = mouse.LeftButton == ButtonState.Pressed;
+        bool leftPressed = leftDown && _input.PrevMouse.LeftButton == ButtonState.Released;
+        bool leftReleased = !leftDown && _input.PrevMouse.LeftButton == ButtonState.Pressed;
+
+        if (mapArea && leftPressed)
+        {
+            _panPressed = true;
+            _panDragging = false;
+            _panStartX = mouse.X; _panStartY = mouse.Y;
+            _panPrevX = mouse.X; _panPrevY = mouse.Y;
+        }
+
+        if (_panPressed && leftDown)
+        {
+            if (!mapArea)
+            {
+                // Курсор ушёл с карты (окно/панель) — отменяем панораму и клик.
+                if (_panDragging) _mapRenderer.EndPan();
+                _panPressed = false;
+                _panDragging = false;
+            }
+            else
+            {
+                int dx = mouse.X - _panStartX;
+                int dy = mouse.Y - _panStartY;
+                if (!_panDragging && dx * dx + dy * dy > PanDragThresholdSq)
+                {
+                    _panDragging = true;
+                    _mapRenderer.BeginPan();
+                }
+                if (_panDragging)
+                    _mapRenderer.PanByScreenDelta(mouse.X - _panPrevX, mouse.Y - _panPrevY);
+                _panPrevX = mouse.X; _panPrevY = mouse.Y;
+            }
+        }
+        else if (_panPressed && leftReleased)
+        {
+            if (_panDragging)
+                _mapRenderer.EndPan();
+            else if (mapArea)
+                _inputManager.HandleMapClickAt(mouse.X, mouse.Y, _mapRenderer); // обычный клик
+            _panPressed = false;
+            _panDragging = false;
+        }
+
+        if (mapArea)
             _inputManager.HandleMapRightClick(mouse, _input.PrevMouse, _mapRenderer);
 
         // Compute cursor type for current frame

@@ -94,21 +94,29 @@ public class InputManager
     public void HandleMapClick(MouseState mouse, MouseState prevMouse, MapRenderer mapRenderer)
     {
         if (mouse.LeftButton == ButtonState.Pressed && prevMouse.LeftButton == ButtonState.Released)
-        {
-            // Координаты и размеры карты должны совпадать с GameScreen.Draw:
-            // карта растянута на весь экран.
-            int topH = 0;
-            int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
-            int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
-            int offsetX = 0;
-            int offsetY = topH;
-            int areaW = w;
-            int areaH = h - topH;
+            HandleMapClickAt(mouse.X, mouse.Y, mapRenderer);
+    }
 
-            if (mouse.X >= offsetX && mouse.X < offsetX + areaW && mouse.Y >= offsetY && mouse.Y < offsetY + areaH)
-            {
-                mapRenderer.HandleClick(mouse.X, mouse.Y, offsetX, offsetY, areaW, areaH);
-            }
+    /// <summary>
+    /// Обычный клик по карте по координатам экрана (без проверки кнопки).
+    /// Используется, когда клик определён как «нажали и отпустили без перетаскивания»
+    /// (зажатие ЛКМ с перетаскиванием теперь двигает камеру).
+    /// </summary>
+    public void HandleMapClickAt(int screenX, int screenY, MapRenderer mapRenderer)
+    {
+        // Координаты и размеры карты должны совпадать с GameScreen.Draw:
+        // карта растянута на весь экран.
+        int topH = 0;
+        int w = GameMain.Instance!.Graphics.PreferredBackBufferWidth;
+        int h = GameMain.Instance!.Graphics.PreferredBackBufferHeight;
+        int offsetX = 0;
+        int offsetY = topH;
+        int areaW = w;
+        int areaH = h - topH;
+
+        if (screenX >= offsetX && screenX < offsetX + areaW && screenY >= offsetY && screenY < offsetY + areaH)
+        {
+            mapRenderer.HandleClick(screenX, screenY, offsetX, offsetY, areaW, areaH);
         }
     }
 

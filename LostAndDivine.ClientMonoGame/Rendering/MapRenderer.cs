@@ -194,9 +194,44 @@ public class MapRenderer
 
     public (int X, int Y) CameraCenter => ((int)Math.Floor(_camX), (int)Math.Floor(_camY));
 
-    private bool _cameraNeedsSnap = true;
+    // Панорамирование камеры удержанием ЛКМ на карте: смещение от игрока в клетках,
+    // ограничено радиусом CameraPanRadius по кругу. При старте движения игрока
+    // камера возвращается к нему (панорама сбрасывается).
+    private const float CameraPanRadius = 5f;
+    private float _camPanX;
+    private float _camPanY;
+    private bool _wasMovingPrev;
 
-    public void SnapCameraNextFrame() => _cameraNeedsSnap = true;
+    public bool IsPanning { get; private set; }
+
+    public void BeginPan() => IsPanning = true;
+
+    public void EndPan() => IsPanning = false;
+
+    /// <summary>Сдвигает камеру на дельту экранных пикселей (минус: карта тянется за курсором).</summary>
+    public void PanByScreenDelta(float dxPixels, float dyPixels)
+    {
+        _camPanX -= dxPixels / _cellW;
+        _camPanY -= dyPixels / _cellH;
+        ClampPanOffset();
+    }
+
+    public void ResetCameraPan()
+    {
+        _camPanX = 0f;
+        _camPanY = 0f;
+    }
+
+    private void ClampPanOffset()
+    {
+        float len = MathF.Sqrt(_camPanX * _camPanX + _camPanY * _camPanY);
+        if (len > CameraPanRadius)
+        {
+            float f = CameraPanRadius / len;
+            _camPanX *= f;
+            _camPanY *= f;
+        }
+    }
 
     // Базовые размеры клеток (квадратные, как тайлы в тайлсете 32x32)
     private const float BaseCellW = 22f;
@@ -535,7 +570,10 @@ private sealed class RemotePlayerState
                 _spatialHash.Clear();
         }
         if (teleported)
+        {
             ClearSelection();
+            ResetCameraPan();
+        }
     }
 
     public void ClearMap()
@@ -1181,6 +1219,11 @@ private sealed class RemotePlayerState
         // Камера следует прямо за СПРАЙТОМ персонажа (интерполированной позицией),
         // без сглаживания и без отставания: спрайт жёстко стоит в центре экрана,
         // пока камера не упирается в границу карты.
+        // Панорама (смещение от игрока) ограничена радиусом CameraPanRadius;
+        // когда игрок начинает движение — камера возвращается к нему.
+        if (_isMoving && !_wasMovingPrev) ResetCameraPan();
+        _wasMovingPrev = _isMoving;
+
         float targetX, targetY;
         lock (_stateLock)
         {
@@ -1194,9 +1237,8 @@ private sealed class RemotePlayerState
                 { targetX = m.X; targetY = m.Y; }
             }
         }
-        _cameraNeedsSnap = false;
-        _camX = targetX;
-        _camY = targetY;
+        _camX = targetX + _camPanX;
+        _camY = targetY + _camPanY;
 
         // Прилипание камеры к границам карты: центр камеры не уходит за пределы, при которых
         // вьюпорт вылезает за край, поэтому у края карта "замирает", а не отскакивает.
@@ -2434,6 +2476,7 @@ private sealed class RemotePlayerState
                         tw.FromX = tx; tw.FromY = ty;
                         tw.ToX = tx; tw.ToY = ty;
                     }
+                    if (key == $"player:{_playerName}") ResetCameraPan();
                 }
             }
             _visTarget[key] = (tx, ty);
