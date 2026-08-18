@@ -1071,6 +1071,9 @@ public class InstanceManager
         BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
         BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
         BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+        BonusAccuracy = i.BonusAccuracy, BonusTenacity = i.BonusTenacity,
+        BonusArmorPenetration = i.BonusArmorPenetration, BonusCooldownReduction = i.BonusCooldownReduction,
+        BonusHpRegen = i.BonusHpRegen, BonusMpRegen = i.BonusMpRegen,
         i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
         i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
     };

@@ -7,6 +7,15 @@ public class Player : ICombatant
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "Безымянный";
     public CharacterClass Class { get; set; }
+
+    // Базовые атрибуты класса: производные характеристики считаются от вложенных очков (выше базиса),
+    // поэтому у свежего персонажа без вложений бонусы к стойкости/пробиву/точности и т.п. равны нулю.
+    public int ClassBaseStrength => Class.BaseStats().Str;
+    public int ClassBaseEndurance => Class.BaseStats().End;
+    public int ClassBaseAgility => Class.BaseStats().Agi;
+    public int ClassBaseCunning => Class.BaseStats().Cun;
+    public int ClassBaseIntellect => Class.BaseStats().Int;
+    public int ClassBaseWisdom => Class.BaseStats().Wis;
     public int X { get; set; }
     public int Y { get; set; }
     public int Health { get; set; } = 100;
@@ -193,25 +202,30 @@ public class Player : ICombatant
     public double GetSkillRankCdMult(string skillId)
         => Math.Max(0.5, (1.0 - (GetSkillRank(skillId) - 1) * 0.08) * (1.0 - GetCooldownReduction() / 100.0));
 
-    /// <summary>Стойкость: снижает шанс крита противника по вам. Кап 50%, от выносливости.</summary>
+    /// <summary>Стойкость: снижает шанс крита противника по вам. Кап 50%, от вложенной выносливости (выше базиса класса) + шмот.</summary>
     public double GetTenacity()
-        => Math.Min(BalanceStatic.MaxTenacity, CombatMath.ApplyTenacityDiminishingReturns(GetEffEndurance() - 1));
+        => Math.Min(BalanceStatic.MaxTenacity,
+            CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, GetEffEndurance() - ClassBaseEndurance) + Equipment.GetBonusTenacity()));
 
-    /// <summary>Пробивание брони: игнорирует % защиты цели. Кап 25%, от силы.</summary>
+    /// <summary>Пробивание брони: игнорирует % защиты цели. Кап 25%, от вложенной силы (выше базиса класса) + шмот.</summary>
     public double GetArmorPenetration()
-        => Math.Min(BalanceStatic.MaxArmorPenetration, CombatMath.ApplyArmorPenDiminishingReturns(GetEffStrength() - 1));
+        => Math.Min(BalanceStatic.MaxArmorPenetration,
+            CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, GetEffStrength() - ClassBaseStrength) + Equipment.GetBonusArmorPenetration()));
 
-    /// <summary>Сокращение перезарядки навыков. Кап 50%, от мудрости.</summary>
+    /// <summary>Сокращение перезарядки навыков. Кап 50%, от вложенной мудрости (выше базиса класса) + шмот.</summary>
     public double GetCooldownReduction()
-        => Math.Min(BalanceStatic.MaxCooldownReduction, CombatMath.ApplyCdrDiminishingReturns(GetEffWisdom() - 1));
+        => Math.Min(BalanceStatic.MaxCooldownReduction,
+            CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, GetEffWisdom() - ClassBaseWisdom) + Equipment.GetBonusCooldownReduction()));
 
-    /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от выносливости.</summary>
+    /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от вложенной выносливости (выше базиса класса) + шмот.</summary>
     public double GetHealthRegenPercent()
-        => Math.Min(BalanceStatic.MaxHealthRegen, CombatMath.ApplyHealthRegenDiminishingReturns(GetEffEndurance() - 1));
+        => Math.Min(BalanceStatic.MaxHealthRegen,
+            CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, GetEffEndurance() - ClassBaseEndurance) + Equipment.GetBonusHpRegen()));
 
-    /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от мудрости.</summary>
+    /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от вложенной мудрости (выше базиса класса) + шмот.</summary>
     public double GetManaRegenPercent()
-        => Math.Min(BalanceStatic.MaxManaRegen, CombatMath.ApplyManaRegenDiminishingReturns(GetEffWisdom() - 1));
+        => Math.Min(BalanceStatic.MaxManaRegen,
+            CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, GetEffWisdom() - ClassBaseWisdom) + Equipment.GetBonusMpRegen()));
 
     /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
     public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;
@@ -229,10 +243,10 @@ public class Player : ICombatant
         return BalanceStatic.ExtraArrowChance * GetPassiveRankMult(SkillIds.ExtraArrow);
     }
 
-    /// <summary>Точность: база 100% + убывающая отдача от ловкости + бонус «Белке в глаз» (лук), кап 150%.</summary>
+    /// <summary>Точность: база 100% + убывающая отдача от вложенной ловкости (выше базиса класса) + шмот + бонус «Белке в глаз» (лук), кап 150%.</summary>
     public double GetAccuracy()
         => Math.Min(BalanceStatic.AccuracyMax, BalanceStatic.AccuracyBase
-            + CombatMath.ApplyAccuracyDiminishingReturns(GetEffAgility() - 1)
+            + CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, GetEffAgility() - ClassBaseAgility) + Equipment.GetBonusAccuracy())
             + GetBowAccuracyBonus());
 
     /// <summary>«Белке в глаз» (SK0018): бонус точности (вычитается из уклона цели).</summary>

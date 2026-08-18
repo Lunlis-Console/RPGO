@@ -46,6 +46,12 @@ public class Equipment
     public double GetBonusAttackSpeed() => SumD(_slots.Values, i => i.BonusAttackSpeed);
     public double GetBonusBlockChance() => SumD(_slots.Values, i => i.BonusBlockChance);
     public double GetBonusParryChance() => SumD(_slots.Values, i => i.BonusParryChance);
+    public double GetBonusAccuracy() => SumD(_slots.Values, i => i.BonusAccuracy);
+    public double GetBonusTenacity() => SumD(_slots.Values, i => i.BonusTenacity);
+    public double GetBonusArmorPenetration() => SumD(_slots.Values, i => i.BonusArmorPenetration);
+    public double GetBonusCooldownReduction() => SumD(_slots.Values, i => i.BonusCooldownReduction);
+    public double GetBonusHpRegen() => SumD(_slots.Values, i => i.BonusHpRegen);
+    public double GetBonusMpRegen() => SumD(_slots.Values, i => i.BonusMpRegen);
 
     public Item? GetEquippedShield()
     {

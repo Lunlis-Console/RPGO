@@ -23,6 +23,7 @@ internal static class InventoryRepository
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 bonus_block_chance, bonus_parry_chance,
+                bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 template_id, quantity,
                 damage_min, damage_max, attack_range
                 FROM inventory WHERE player_name = $name";
@@ -62,11 +63,17 @@ internal static class InventoryRepository
                     BonusAttackSpeed = reader.GetDouble(21),
                     BonusBlockChance = reader.GetDouble(22),
                     BonusParryChance = reader.GetDouble(23),
-                    TemplateId = reader.IsDBNull(24) ? "" : reader.GetString(24),
-                    Quantity = reader.IsDBNull(25) ? 1 : reader.GetInt32(25),
-                    DamageMin = reader.GetInt32(26),
-                    DamageMax = reader.GetInt32(27),
-                    AttackRange = reader.IsDBNull(28) ? 1 : reader.GetInt32(28)
+                    BonusAccuracy = reader.IsDBNull(24) ? 0 : reader.GetDouble(24),
+                    BonusTenacity = reader.IsDBNull(25) ? 0 : reader.GetDouble(25),
+                    BonusArmorPenetration = reader.IsDBNull(26) ? 0 : reader.GetDouble(26),
+                    BonusCooldownReduction = reader.IsDBNull(27) ? 0 : reader.GetDouble(27),
+                    BonusHpRegen = reader.IsDBNull(28) ? 0 : reader.GetDouble(28),
+                    BonusMpRegen = reader.IsDBNull(29) ? 0 : reader.GetDouble(29),
+                    TemplateId = reader.IsDBNull(30) ? "" : reader.GetString(30),
+                    Quantity = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
+                    DamageMin = reader.GetInt32(32),
+                    DamageMax = reader.GetInt32(33),
+                    AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34)
                 });
             }
 
@@ -109,6 +116,12 @@ internal static class InventoryRepository
                             BonusAttackSpeed = item.BonusAttackSpeed,
                             BonusBlockChance = item.BonusBlockChance,
                             BonusParryChance = item.BonusParryChance,
+                            BonusAccuracy = item.BonusAccuracy,
+                            BonusTenacity = item.BonusTenacity,
+                            BonusArmorPenetration = item.BonusArmorPenetration,
+                            BonusCooldownReduction = item.BonusCooldownReduction,
+                            BonusHpRegen = item.BonusHpRegen,
+                            BonusMpRegen = item.BonusMpRegen,
                             TwoHanded = item.TwoHanded,
                             DamageType = item.DamageType,
                             AttackSpeedModifier = item.AttackSpeedModifier,
@@ -175,13 +188,14 @@ internal static class InventoryRepository
                 bonus_phys_attack, bonus_mag_attack, bonus_resistance,
                 bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
                 bonus_block_chance, bonus_parry_chance,
+                bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 template_id, quantity,
                 attack_range)
             VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $rmana, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
                 $cc, $cd, $ec, $as,
-                $bc, $pc,
+                $bc, $pc, $bacc, $bten, $bap, $bcdr, $bhpr, $bmpr,
                 $tid, $qty,
                 $ar)";
         insertItem.Parameters.AddWithValue("$name", playerName);
@@ -209,6 +223,12 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$as", item.BonusAttackSpeed);
         insertItem.Parameters.AddWithValue("$bc", item.BonusBlockChance);
         insertItem.Parameters.AddWithValue("$pc", item.BonusParryChance);
+        insertItem.Parameters.AddWithValue("$bacc", item.BonusAccuracy);
+        insertItem.Parameters.AddWithValue("$bten", item.BonusTenacity);
+        insertItem.Parameters.AddWithValue("$bap", item.BonusArmorPenetration);
+        insertItem.Parameters.AddWithValue("$bcdr", item.BonusCooldownReduction);
+        insertItem.Parameters.AddWithValue("$bhpr", item.BonusHpRegen);
+        insertItem.Parameters.AddWithValue("$bmpr", item.BonusMpRegen);
         insertItem.Parameters.AddWithValue("$tid", item.TemplateId);
         insertItem.Parameters.AddWithValue("$qty", qty);
         insertItem.Parameters.AddWithValue("$ar", item.AttackRange);
@@ -297,6 +317,7 @@ internal static class InventoryRepository
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
             bonus_block_chance, bonus_parry_chance,
+            bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
             template_id, quantity,
             damage_min, damage_max, attack_range
             FROM inventory WHERE player_name = $name AND item_id = $id";
@@ -332,11 +353,17 @@ internal static class InventoryRepository
                 BonusAttackSpeed = reader.GetDouble(21),
                 BonusBlockChance = reader.GetDouble(22),
                 BonusParryChance = reader.GetDouble(23),
-                TemplateId = reader.IsDBNull(24) ? "" : reader.GetString(24),
-                Quantity = reader.IsDBNull(25) ? 1 : reader.GetInt32(25),
-                DamageMin = reader.GetInt32(26),
-                DamageMax = reader.GetInt32(27),
-                AttackRange = reader.IsDBNull(28) ? 1 : reader.GetInt32(28)
+                BonusAccuracy = reader.IsDBNull(24) ? 0 : reader.GetDouble(24),
+                BonusTenacity = reader.IsDBNull(25) ? 0 : reader.GetDouble(25),
+                BonusArmorPenetration = reader.IsDBNull(26) ? 0 : reader.GetDouble(26),
+                BonusCooldownReduction = reader.IsDBNull(27) ? 0 : reader.GetDouble(27),
+                BonusHpRegen = reader.IsDBNull(28) ? 0 : reader.GetDouble(28),
+                BonusMpRegen = reader.IsDBNull(29) ? 0 : reader.GetDouble(29),
+                TemplateId = reader.IsDBNull(30) ? "" : reader.GetString(30),
+                Quantity = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
+                DamageMin = reader.GetInt32(32),
+                DamageMax = reader.GetInt32(33),
+                AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34)
             };
             return SyncItemFromTemplate(item);
         }
@@ -353,6 +380,7 @@ internal static class InventoryRepository
             bonus_phys_attack, bonus_mag_attack, bonus_resistance,
             bonus_crit_chance, bonus_crit_damage, bonus_evade_chance, bonus_attack_speed,
             bonus_block_chance, bonus_parry_chance,
+            bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
             two_handed, damage_type, attack_speed_modifier, weapon_subtype,
             damage_min, damage_max, attack_range, required_level
             FROM items WHERE id = $tid";
@@ -381,14 +409,20 @@ internal static class InventoryRepository
             item.BonusAttackSpeed = reader.GetDouble(18);
             item.BonusBlockChance = reader.GetDouble(19);
             item.BonusParryChance = reader.GetDouble(20);
-            item.TwoHanded = !reader.IsDBNull(21) && reader.GetInt32(21) != 0;
-            item.DamageType = reader.IsDBNull(22) ? "" : reader.GetString(22);
-            item.AttackSpeedModifier = reader.IsDBNull(23) ? 1.0 : reader.GetDouble(23);
-            item.WeaponSubtype = reader.IsDBNull(24) ? "" : reader.GetString(24);
-            item.DamageMin = reader.GetInt32(25);
-            item.DamageMax = reader.GetInt32(26);
-            item.AttackRange = reader.IsDBNull(27) ? 1 : reader.GetInt32(27);
-            item.RequiredLevel = reader.IsDBNull(28) ? 0 : reader.GetInt32(28);
+            item.BonusAccuracy = reader.IsDBNull(21) ? 0 : reader.GetDouble(21);
+            item.BonusTenacity = reader.IsDBNull(22) ? 0 : reader.GetDouble(22);
+            item.BonusArmorPenetration = reader.IsDBNull(23) ? 0 : reader.GetDouble(23);
+            item.BonusCooldownReduction = reader.IsDBNull(24) ? 0 : reader.GetDouble(24);
+            item.BonusHpRegen = reader.IsDBNull(25) ? 0 : reader.GetDouble(25);
+            item.BonusMpRegen = reader.IsDBNull(26) ? 0 : reader.GetDouble(26);
+            item.TwoHanded = !reader.IsDBNull(27) && reader.GetInt32(27) != 0;
+            item.DamageType = reader.IsDBNull(28) ? "" : reader.GetString(28);
+            item.AttackSpeedModifier = reader.IsDBNull(29) ? 1.0 : reader.GetDouble(29);
+            item.WeaponSubtype = reader.IsDBNull(30) ? "" : reader.GetString(30);
+            item.DamageMin = reader.GetInt32(31);
+            item.DamageMax = reader.GetInt32(32);
+            item.AttackRange = reader.IsDBNull(33) ? 1 : reader.GetInt32(33);
+            item.RequiredLevel = reader.IsDBNull(34) ? 0 : reader.GetInt32(34);
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;

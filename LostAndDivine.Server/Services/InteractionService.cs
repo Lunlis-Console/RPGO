@@ -307,6 +307,9 @@ public class InteractionService
                     BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
                     BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
                     BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
+                    BonusAccuracy = i.BonusAccuracy, BonusTenacity = i.BonusTenacity,
+                    BonusArmorPenetration = i.BonusArmorPenetration, BonusCooldownReduction = i.BonusCooldownReduction,
+                    BonusHpRegen = i.BonusHpRegen, BonusMpRegen = i.BonusMpRegen,
                     i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
                     i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
                 }).ToList(),
@@ -325,6 +328,9 @@ public class InteractionService
                     BonusCritChance = b.BonusCritChance, BonusCritDamage = b.BonusCritDamage,
                     BonusEvadeChance = b.BonusEvadeChance, BonusAttackSpeed = b.BonusAttackSpeed,
                     BonusBlockChance = b.BonusBlockChance, BonusParryChance = b.BonusParryChance,
+                    BonusAccuracy = b.BonusAccuracy, BonusTenacity = b.BonusTenacity,
+                    BonusArmorPenetration = b.BonusArmorPenetration, BonusCooldownReduction = b.BonusCooldownReduction,
+                    BonusHpRegen = b.BonusHpRegen, BonusMpRegen = b.BonusMpRegen,
                     b.DamageType, b.RequiredLevel, b.DamageMin, b.DamageMax,
                     b.AttackSpeedModifier, b.TwoHanded, b.AttackRange
                 }).ToList(),

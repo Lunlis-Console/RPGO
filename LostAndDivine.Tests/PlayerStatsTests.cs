@@ -284,19 +284,27 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetTenacity_WithEndurance_Returns15()
+    public void GetTenacity_WithEndurance_Returns14_4()
     {
         var p = new Player { Endurance = 51 };
-        // 50 очков × 0.3 = 15
-        Assert.Equal(15.0, p.GetTenacity());
+        // Воин (база выносливости 3): 48 вложенных очков × 0.3 = 14.4
+        Assert.Equal(14.4, p.GetTenacity(), 3);
     }
 
     [Fact]
     public void GetTenacity_AfterDiminishingThreshold_SlowsDown()
     {
         var p = new Player { Endurance = 111 };
-        // 110 очков: 100×0.3 + 10×0.15 = 31.5
-        Assert.Equal(31.5, p.GetTenacity());
+        // Воин: 108 очков: 100×0.3 + 8×0.15 = 31.2
+        Assert.Equal(31.2, p.GetTenacity());
+    }
+
+    [Fact]
+    public void GetTenacity_CapReachedAt237Endurance()
+    {
+        var p = new Player { Endurance = 237 };
+        // Воин: 234 очка: 100×0.3 + 134×0.15 = 50.1 → кап 50
+        Assert.Equal(50.0, p.GetTenacity());
     }
 
     [Fact]
@@ -314,18 +322,18 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetArmorPenetration_WithStrength_Returns7_5()
+    public void GetArmorPenetration_WithStrength_Returns7_2()
     {
         var p = new Player { Strength = 51 };
-        // 50 очков × 0.15 = 7.5
-        Assert.Equal(7.5, p.GetArmorPenetration());
+        // Воин (база силы 3): 48 очков × 0.15 = 7.2
+        Assert.Equal(7.2, p.GetArmorPenetration(), 3);
     }
 
     [Fact]
-    public void GetArmorPenetration_CapReachedAt235Strength()
+    public void GetArmorPenetration_CapReachedAt237Strength()
     {
-        var p = new Player { Strength = 235 };
-        // 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
+        var p = new Player { Strength = 237 };
+        // Воин: 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
         Assert.Equal(25.0, p.GetArmorPenetration());
     }
 
@@ -347,7 +355,7 @@ public class PlayerStatsTests
     public void GetCooldownReduction_WithWisdom_Returns15()
     {
         var p = new Player { Wisdom = 51 };
-        // 50 очков × 0.3 = 15
+        // Воин (база мудрости 1): 50 очков × 0.3 = 15
         Assert.Equal(15.0, p.GetCooldownReduction());
     }
 
@@ -374,11 +382,88 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetHealthRegenPercent_WithEndurance_Returns7_5()
+    public void GetHealthRegenPercent_WithEndurance_Returns7_2()
     {
         var p = new Player { Endurance = 51 };
-        // 50 очков × 0.15 = 7.5
-        Assert.Equal(7.5, p.GetHealthRegenPercent());
+        // Воин: 48 очков × 0.15 = 7.2
+        Assert.Equal(7.2, p.GetHealthRegenPercent(), 3);
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_CapReachedAt237Endurance()
+    {
+        var p = new Player { Endurance = 237 };
+        // Воин: 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
+        Assert.Equal(25.0, p.GetHealthRegenPercent());
+    }
+
+    [Fact]
+    public void GetTenacity_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusTenacity = 20 };
+        var p = new Player { Endurance = 51, Equipment = eq };
+        // (51 − 3) + 20 = 68 очков: 68 × 0.3 = 20.4
+        Assert.Equal(20.4, p.GetTenacity(), 3);
+    }
+
+    [Fact]
+    public void GetArmorPenetration_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusArmorPenetration = 20 };
+        var p = new Player { Strength = 51, Equipment = eq };
+        // (51 − 3) + 20 = 68 очков: 68 × 0.15 = 10.2
+        Assert.Equal(10.2, p.GetArmorPenetration(), 3);
+    }
+
+    [Fact]
+    public void GetCooldownReduction_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusCooldownReduction = 20 };
+        var p = new Player { Wisdom = 51, Equipment = eq };
+        // (51 − 1) + 20 = 70 очков: 70 × 0.3 = 21
+        Assert.Equal(21.0, p.GetCooldownReduction(), 3);
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 20 };
+        var p = new Player { Endurance = 51, Equipment = eq };
+        // (51 − 3) + 20 = 68 очков: 68 × 0.15 = 10.2
+        Assert.Equal(10.2, p.GetHealthRegenPercent(), 3);
+    }
+
+    [Fact]
+    public void GetManaRegenPercent_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusMpRegen = 20 };
+        var p = new Player { Wisdom = 51, Equipment = eq };
+        // (51 − 1) + 20 = 70 очков: 70 × 0.15 = 10.5
+        Assert.Equal(10.5, p.GetManaRegenPercent(), 3);
+    }
+
+    [Fact]
+    public void GetAccuracy_WithGearBonus_AddsToDiminishingCurve()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusAccuracy = 20 };
+        var p = new Player { Agility = 51, Equipment = eq };
+        // База 100 + (51 − 1) + 20 = 70 очков × 0.3 = 21 → 121
+        Assert.Equal(121.0, p.GetAccuracy(), 3);
+    }
+
+    [Fact]
+    public void GetTenacity_WithGearBonus_CapStillEnforced()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusTenacity = 500 };
+        var p = new Player { Endurance = 237, Equipment = eq };
+        Assert.Equal(50.0, p.GetTenacity());
     }
 
     [Fact]

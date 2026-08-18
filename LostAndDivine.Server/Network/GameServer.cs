@@ -792,38 +792,50 @@ public sealed class GameServer : INetworkHub
             Accuracy = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns((player.GetEffAgility() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility) + player.Equipment.GetBonusAccuracy())
+                             - CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility)), 2),
                 SkillBonus = player.GetBowAccuracyBonus(),
                 Total = Math.Round(player.GetAccuracy() - BalanceStatic.AccuracyBase, 2)
             },
             Tenacity = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance) + player.Equipment.GetBonusTenacity())
+                             - CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
                 Total = Math.Round(player.GetTenacity(), 2)
             },
             ArmorPen = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns((player.GetEffStrength() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength) + player.Equipment.GetBonusArmorPenetration())
+                             - CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)), 2),
                 Total = Math.Round(player.GetArmorPenetration(), 2)
             },
             CdReduction = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns((player.GetEffWisdom() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom) + player.Equipment.GetBonusCooldownReduction())
+                             - CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
                 Total = Math.Round(player.GetCooldownReduction(), 2)
             },
             HpRegen = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance) + player.Equipment.GetBonusHpRegen())
+                             - CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
                 Total = Math.Round(player.GetHealthRegenPercent(), 2)
             },
             MpRegen = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns((player.GetEffWisdom() - 1)), 2),
+                AttrBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
+                EquipBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom) + player.Equipment.GetBonusMpRegen())
+                             - CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
                 Total = Math.Round(player.GetManaRegenPercent(), 2)
             },
             Effective = new EffectiveAttrs

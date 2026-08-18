@@ -165,6 +165,12 @@ public sealed class TradeItemData
     public double BonusAttackSpeed { get; set; }
     public double BonusBlockChance { get; set; }
     public double BonusParryChance { get; set; }
+    public double BonusAccuracy { get; set; }
+    public double BonusTenacity { get; set; }
+    public double BonusArmorPenetration { get; set; }
+    public double BonusCooldownReduction { get; set; }
+    public double BonusHpRegen { get; set; }
+    public double BonusMpRegen { get; set; }
     public string DamageType { get; set; } = "";
     public int RequiredLevel { get; set; }
     public int DamageMin { get; set; }
@@ -189,6 +195,9 @@ public sealed class TradeItemData
         BonusCritChance = BonusCritChance, BonusCritDamage = BonusCritDamage,
         BonusEvadeChance = BonusEvadeChance, BonusAttackSpeed = BonusAttackSpeed,
         BonusBlockChance = BonusBlockChance, BonusParryChance = BonusParryChance,
+        BonusAccuracy = BonusAccuracy, BonusTenacity = BonusTenacity,
+        BonusArmorPenetration = BonusArmorPenetration, BonusCooldownReduction = BonusCooldownReduction,
+        BonusHpRegen = BonusHpRegen, BonusMpRegen = BonusMpRegen,
         DamageType = DamageType, RequiredLevel = RequiredLevel,
         DamageMin = DamageMin, DamageMax = DamageMax,
         AttackSpeedModifier = AttackSpeedModifier, TwoHanded = TwoHanded,
@@ -329,6 +338,12 @@ public sealed class LootItemInfo
     public double BonusAttackSpeed { get; set; }
     public double BonusBlockChance { get; set; }
     public double BonusParryChance { get; set; }
+    public double BonusAccuracy { get; set; }
+    public double BonusTenacity { get; set; }
+    public double BonusArmorPenetration { get; set; }
+    public double BonusCooldownReduction { get; set; }
+    public double BonusHpRegen { get; set; }
+    public double BonusMpRegen { get; set; }
     public string DamageType { get; set; } = "";
     public int RequiredLevel { get; set; }
     public int DamageMin { get; set; }

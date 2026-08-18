@@ -204,6 +204,12 @@ public static class ItemTooltip
         if (item.BonusEvadeChance > 0) lines.Add($"Уклонение: +{item.BonusEvadeChance}%");
         if (item.BonusBlockChance > 0) lines.Add($"Блок: +{item.BonusBlockChance}%");
         if (item.BonusParryChance > 0) lines.Add($"Парирование: +{item.BonusParryChance}%");
+        if (item.BonusAccuracy > 0) lines.Add($"Точность: +{item.BonusAccuracy}%");
+        if (item.BonusTenacity > 0) lines.Add($"Стойкость: +{item.BonusTenacity}%");
+        if (item.BonusArmorPenetration > 0) lines.Add($"Пробивание брони: +{item.BonusArmorPenetration}%");
+        if (item.BonusCooldownReduction > 0) lines.Add($"Скор. перезарядки: +{item.BonusCooldownReduction}%");
+        if (item.BonusHpRegen > 0) lines.Add($"Регенерация HP: +{item.BonusHpRegen}%");
+        if (item.BonusMpRegen > 0) lines.Add($"Регенерация MP: +{item.BonusMpRegen}%");
         if (item.BonusAttackSpeed > 0) lines.Add($"Скор. атаки: +{item.BonusAttackSpeed}");
 
         bool hasAttr = item.BonusStrength > 0 || item.BonusEndurance > 0 || item.BonusAgility > 0

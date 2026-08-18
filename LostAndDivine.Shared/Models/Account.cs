@@ -118,6 +118,12 @@ public class Item
     public double BonusAttackSpeed { get; set; }
     public double BonusBlockChance { get; set; }
     public double BonusParryChance { get; set; }
+    public double BonusAccuracy { get; set; }
+    public double BonusTenacity { get; set; }
+    public double BonusArmorPenetration { get; set; }
+    public double BonusCooldownReduction { get; set; }
+    public double BonusHpRegen { get; set; }
+    public double BonusMpRegen { get; set; }
 
     // Тип урона оружия
     public string DamageType { get; set; } = "";
