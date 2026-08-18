@@ -80,8 +80,9 @@ public class Player : ICombatant
         => GetBaseDefense() + Equipment.GetBonusResistance();
 
     public double GetCritChance()
-        => BaseCritChance + (GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning
-           + Equipment.GetBonusCritChance();
+        => Math.Min(BalanceStatic.MaxCritChance, BaseCritChance
+            + CombatMath.ApplyCritDiminishingReturns(
+                (GetEffCunning() - 1) + Equipment.GetBonusCritChance()));
 
     public double GetCritDamage()
         => BaseCritDamage + (GetEffStrength() - 1) * BalanceStatic.CritDamagePerStrength

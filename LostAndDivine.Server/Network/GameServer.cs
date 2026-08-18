@@ -739,8 +739,9 @@ public sealed class GameServer : INetworkHub
             Crit = new BreakdownPart
             {
                 Base = player.BaseCritChance,
-                AttrBonus = (player.GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning,
-                EquipBonus = player.Equipment.GetBonusCritChance(),
+                AttrBonus = CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1)),
+                EquipBonus = CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1) + player.Equipment.GetBonusCritChance())
+                             - CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1)),
                 Total = Math.Round(player.GetCritChance(), 2)
             },
             CritDmg = new BreakdownPart

@@ -16,6 +16,15 @@ public static class BalanceStatic
     // Целочисленная защита — только «валюта» для набора процента; урон режет сам процент.
     public const int DefenseReductionK = 500;
     public const double MaxDefenseReduction = 0.90;
+
+    // Капы боевых шансов (итоговый шанс с бонусами не выше капа)
+    public const double MaxCritChance = 75.0;
+    // Убывающая отдача крита: первые CritChanceLinearPoints очков хитча дают
+    // CritChanceLinearRate за очко (до 25%), дальше — CritChanceDrRate за очко,
+    // итог капится на MaxCritChance (75%). До 75% нужно ~250 очков.
+    public const double CritChanceLinearPoints = 50;
+    public const double CritChanceLinearRate = 0.5;
+    public const double CritChanceDrRate = 0.25;
     public const double CritChancePerCunning = 1.0;
     public const double CritDamagePerStrength = 0.05;
     public const double EvadeChancePerCunning = 1.0;

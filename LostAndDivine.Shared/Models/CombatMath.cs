@@ -9,9 +9,18 @@ public static class CombatMath
     public const int MinDamageConst = 1;
 
     /// <summary>
-    /// Процентная защита: DR = Defense / (Defense + K), кап 90%.
-    /// Чем больше целочисленная защита, тем выше процент снижения урона.
+    /// Убывающая отдача крита: до порога очко даёт CritChanceLinearRate, дальше — CritChanceDrRate.
+    /// Применяется к «очкам» хитча (хитрость + бонусы шмота).
     /// </summary>
+    public static double ApplyCritDiminishingReturns(double points)
+    {
+        if (points <= BalanceStatic.CritChanceLinearPoints)
+            return points * BalanceStatic.CritChanceLinearRate;
+        return BalanceStatic.CritChanceLinearPoints * BalanceStatic.CritChanceLinearRate
+            + (points - BalanceStatic.CritChanceLinearPoints) * BalanceStatic.CritChanceDrRate;
+    }
+
+    /// <summary>Процентная защита: DR = Defense / (Defense + K), кап 90%.</summary>
     public static double CalcDefenseReduction(double defense)
     {
         if (defense <= 0) return 0;

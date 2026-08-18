@@ -67,8 +67,23 @@ public class PlayerStatsTests
     public void GetCritChance_WithCunning_ReturnsCorrectly()
     {
         var p = new Player { Cunning = 6, BaseCritChance = 1.0 };
-        // 1.0 + (6-1)*1.0 = 6.0
-        Assert.Equal(6.0, p.GetCritChance());
+        // 1.0 + (6-1)*0.5 = 3.5 (убывающая отдача: 1 очко = 0.5%)
+        Assert.Equal(3.5, p.GetCritChance());
+    }
+
+    [Fact]
+    public void GetCritChance_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Cunning = 52, BaseCritChance = 1.0 };
+        // 51 очко: первые 50 дают 0.5% (25%), 51-е — 0.25% → 25.25 + 1 = 26.25
+        Assert.Equal(26.25, p.GetCritChance());
+    }
+
+    [Fact]
+    public void GetCritChance_CappedAt75()
+    {
+        var p = new Player { Cunning = 1000, BaseCritChance = 1.0 };
+        Assert.Equal(75.0, p.GetCritChance());
     }
 
     [Fact]

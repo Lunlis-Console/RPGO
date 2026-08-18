@@ -100,8 +100,8 @@ public class InspectWindow : GameWindow
         {
             ("Физ.Атака", $"{_data.PhysAttack}"),
             ("Маг.Атака", $"{_data.MagAttack}"),
-            ("Защита", $"{_data.Defense}"),
-            ("Сопротив.", $"{_data.Resistance}"),
+            ("Защита", $"{_data.Defense} ({(CombatMath.CalcDefenseReduction(_data.Defense) * 100):F0}%)"),
+            ("Сопротив.", $"{_data.Resistance} ({(CombatMath.CalcDefenseReduction(_data.Resistance) * 100):F0}%)"),
             ("Крит %", $"{_data.CritChance}"),
             ("Крит x", $"{_data.CritDamage}"),
             ("Уклон %", $"{_data.EvadeChance}"),
@@ -117,7 +117,9 @@ public class InspectWindow : GameWindow
             int ry = cy + row * (RowH + 1);
             sb.Draw(SpriteCache.Pixel, new Rectangle(rx, ry, cw / 2 - 4, RowH), RowBg);
             DrawText(sb, combat[i].Item1, rx + 6, ry + 2, DimColor);
-            DrawText(sb, combat[i].Item2, rx + cw / 2 - 44, ry + 2, StatColor);
+            var valFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+            float valW = valFont != null ? valFont.MeasureString(combat[i].Item2).X : 0;
+            DrawText(sb, combat[i].Item2, (int)(rx + cw / 2 - 4 - valW), ry + 2, StatColor);
         }
         cy += 5 * (RowH + 1) + 4;
 

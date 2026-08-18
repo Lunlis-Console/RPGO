@@ -64,18 +64,32 @@ public class CombatTests
     }
 
     [Fact]
+    public void PlayerCritChance_CappedAt75()
+    {
+        var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 100, evadeChance: 0);
+        // Убывающая отдача + кап: даже 100% базы не даёт больше 75%
+        Assert.Equal(75.0, player.GetCritChance());
+    }
+
+    [Fact]
     public void PlayerCrit_DoublesDamage()
     {
         var player = CreatePlayer(level: 1, str: 11, sta: 1, agi: 1, critChance: 100, evadeChance: 0);
-        var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 200);
+        var monster = CreateMonster(level: 1, str: 1, sta: 1, agi: 1, evade: 0, crit: 0, hp: 10000);
 
-        var (dmgToM, _, dead, isCrit, _, _, _) =
-            _monsters.CalculateCombat(player, monster);
+        bool sawCrit = false;
+        for (int i = 0; i < 200; i++)
+        {
+            monster.Health = monster.MaxHealth;
+            var (dmgToM, _, dead, isCrit, _, _, _) =
+                _monsters.CalculateCombat(player, monster);
 
-        // baseDmg = Max(1, 21-1) = 20, critDmg = 1.5+(11-1)*0.05=2.0 → 20*2.0=40
-        Assert.Equal(40, dmgToM);
-        Assert.True(isCrit);
-        Assert.False(dead);
+            // baseDmg = 21*(1-1/501)≈20.96 → 20; critDmg = 1.5+(11-1)*0.05=2.0 → 40
+            Assert.Equal(isCrit ? 40 : 20, dmgToM);
+            Assert.False(dead);
+            if (isCrit) sawCrit = true;
+        }
+        Assert.True(sawCrit);
     }
 
     [Fact]

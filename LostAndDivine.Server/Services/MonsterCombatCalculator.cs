@@ -99,7 +99,7 @@ public class MonsterCombatCalculator
         if (evaded) return (0, false, true, false, false);
         if (parried) return (0, false, false, true, false);
 
-        bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
+        bool isCrit = Balance.RollPercent(Math.Min(BalanceStatic.MaxCritChance, attacker.GetCritChance() + passiveCritBonus));
         int damage = CombatMath.CalcFinalDamage(
             (int)effectiveAttack, effectiveDefense,
             isCrit, critMult: attacker.GetCritDamage(),
