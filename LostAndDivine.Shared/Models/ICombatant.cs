@@ -19,7 +19,10 @@ public interface ICombatant
     int GetBaseDefense();
     int GetTotalAttack();
     int GetTotalDefense();
+    int GetTotalResistance();
     int RollAttackDamage();
+    /// <summary>Атака магическая (маг.защита цели снижает урон) или физическая (физ.защита).</summary>
+    bool IsMagicalDamage();
     double GetCritChance();
     double GetCritDamage();
     double GetEvadeChance();

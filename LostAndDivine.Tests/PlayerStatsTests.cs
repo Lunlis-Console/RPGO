@@ -49,11 +49,11 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetTotalDefense_WithStamina_ReturnsCorrectly()
+    public void GetTotalDefense_LevelOnly_ReturnsLevel()
     {
         var p = new Player { Level = 3, Endurance = 5 };
-        // BaseDef=3 + (5-1)*1=4 = 7
-        Assert.Equal(7, p.GetTotalDefense());
+        // Защита = база от уровня (1/уровень) + шмот; выносливость больше не даёт защиту.
+        Assert.Equal(3, p.GetTotalDefense());
     }
 
     [Fact]

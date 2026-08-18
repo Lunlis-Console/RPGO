@@ -41,8 +41,8 @@ public class MonsterManager
     public double GetEffectiveAttack(ICombatant attacker)
         => _svc.MonsterCombat.GetEffectiveAttack(attacker);
 
-    public double GetEffectiveDefense(ICombatant defender)
-        => _svc.MonsterCombat.GetEffectiveDefense(defender);
+    public double GetEffectiveDefense(ICombatant defender, double armorPen = 0, bool magic = false)
+        => _svc.MonsterCombat.GetEffectiveDefense(defender, armorPen, magic);
 
     public int ApplyDmgReduction(ICombatant attacker, int baseDamage)
         => _svc.MonsterCombat.ApplyDmgReduction(attacker, baseDamage);
@@ -367,7 +367,7 @@ public class MonsterManager
                     {
                         m.LastMoveTime = now.AddMilliseconds(m.MoveIntervalMs + _world.NextRandom(0, Balance.MonsterMoveMaxMs * 2));
                         m.StuckTicks = 0;
-                        int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) - GetEffectiveDefense(m.AggroTarget)));
+                        int dmg = Math.Max(1, (int)(GetEffectiveAttack(m) * (1.0 - GetEffectiveDefense(m.AggroTarget))));
                         _world.QueueMonsterAttack(m, m.AggroTarget, dmg);
                     }
                     continue;

@@ -71,13 +71,13 @@ public class Player : ICombatant
         => GetBaseDamage() + (GetEffIntellect() - 1) * BalanceStatic.AttackPerIntellect
            + Equipment.GetBonusMagAttack();
 
+    // Защита (физ.) и сопротивление (маг.): база от уровня (1 ед/уровень) + бонусы шмота.
+    // Целочисленное значение — «валюта» для процентной защиты DR = Def/(Def+K).
     public int GetDefense()
-        => GetBaseDefense() + (GetEffEndurance() - 1) * BalanceStatic.DefensePerEndurance
-           + Equipment.GetBonusDefense();
+        => GetBaseDefense() + Equipment.GetBonusDefense();
 
     public int GetResistance()
-        => GetBaseDefense() + (GetEffWisdom() - 1) * BalanceStatic.ResistancePerWisdom
-           + Equipment.GetBonusResistance();
+        => GetBaseDefense() + Equipment.GetBonusResistance();
 
     public double GetCritChance()
         => BaseCritChance + (GetEffCunning() - 1) * BalanceStatic.CritChancePerCunning
@@ -142,11 +142,18 @@ public class Player : ICombatant
     private bool UsesMagicAttack(int dist)
         => Equipment.GetWeaponCategory() is WeaponCategory.Staff or WeaponCategory.Grimoire or WeaponCategory.Sphere;
 
+    /// <summary>Магическая ли текущая атака (по категории оружия).</summary>
+    public bool IsMagicalDamage() => UsesMagicAttack(1);
+
+    /// <summary>Магическая ли атака оффхенд-оружия.</summary>
+    public bool IsOffHandMagical() => Equipment.GetOffHandWeapon() is { } oh && Equipment.IsCasterWeapon(oh);
+
     // Совместимость с ICombatant (физ. атака/защита) — без расстояния (ближний бой по умолчанию)
     public int GetBaseDamage() => 1 + (Level - 1);
     public int GetBaseDefense() => 1 + (Level - 1);
     public int GetTotalAttack() => GetTotalAttack(1);
     public int GetTotalDefense() => GetDefense();
+    public int GetTotalResistance() => GetResistance();
     public int RollAttackDamage() => RollAttackDamage(1);
     public int RollOffHandDamage()
     {

@@ -326,7 +326,8 @@ public class CombatService
                 else
                 {
                     int baseDamage = (int)Math.Max(Balance.MinDamage,
-                        _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage()) - _svc.Monsters.GetEffectiveDefense(monster));
+                        _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage())
+                        * (1.0 - _svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage())));
                     double rankMult = pl.GetSkillRankDmgMult(queuedSkill.Id);
                     int skillDamage = (int)Math.Max(Balance.MinDamage, baseDamage * queuedSkill.DamageMultiplier * rankMult);
                     skillDamage = _svc.Monsters.ApplyDmgReduction(pl, skillDamage);
@@ -500,7 +501,7 @@ public class CombatService
         });
 
         var rng = Random.Shared;
-        double effDefense = _svc.Monsters.GetEffectiveDefense(monster);
+        double effDefense = _svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAttack = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
         bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
@@ -509,7 +510,7 @@ public class CombatService
 
         if (!evaded && !parried)
         {
-            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack - effDefense));
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAttack * (1.0 - effDefense)));
             double mult = Balance.DuelPunishBaseMult + remainingHits * Balance.DuelPunishPerMissMult;
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * mult);
             hitDmg = _svc.Monsters.ApplyDmgReduction(pl, hitDmg);
@@ -1032,8 +1033,8 @@ public class CombatService
             if (!InFacingCone(pl.Facing, mdx, mdy)) continue;
 
             double effAtk = _svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage(dist));
-            double effDef = _svc.Monsters.GetEffectiveDefense(m) * (1.0 - pl.GetCloseRangeArmorPen(dist));
-            int dmg = Math.Max(Balance.MinDamage, (int)((effAtk - effDef) * mult));
+            double effDef = _svc.Monsters.GetEffectiveDefense(m, pl.GetCloseRangeArmorPen(dist), magic: pl.IsMagicalDamage());
+            int dmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef) * mult));
             var proj = _svc.Projectiles.Spawn(pl, m, visualType, dmg, false, "main", "Подавляющий огонь");
             await _svc.Projectiles.BroadcastSpawn(proj);
         }

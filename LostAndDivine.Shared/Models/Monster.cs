@@ -64,6 +64,8 @@ public class Monster : ICombatant
     public int GetDefense() => GetTotalDefense();
     public int GetResistance()
         => GetBaseDefense() + (Wisdom - 1) * BalanceStatic.ResistancePerWisdom;
+    public int GetTotalResistance() => GetResistance();
+    public bool IsMagicalDamage() => false;
 
     public int SpawnX { get; set; }
     public int SpawnY { get; set; }

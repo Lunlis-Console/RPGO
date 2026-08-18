@@ -19,7 +19,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         double rankMult = pl.GetSkillRankDmgMult(skill.Id);
         dmgMult *= rankMult;
 
-        double effDef = svc.Monsters.GetEffectiveDefense(monster);
+        double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = Balance.RollPercent(monster.GetEvadeChance());
         bool parried = !evaded && Balance.RollPercent(monster.GetParryChance());
@@ -29,7 +29,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         if (!evaded && !parried)
         {
             hitCrit = Balance.RollPercent(pl.GetCritChance());
-            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
@@ -88,7 +88,8 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendPlayerAttack(pl.Name, hitHand, pl.Combat.PendingSkillId,
             targetX: monster.X, targetY: monster.Y);
 
-        double effDef = svc.Monsters.GetEffectiveDefense(monster);
+        double effDef = svc.Monsters.GetEffectiveDefense(monster,
+            magic: useOffHand ? pl.IsOffHandMagical() : pl.IsMagicalDamage());
         double effAtk = useOffHand
             ? svc.Monsters.GetEffectiveAttack(pl, pl.RollOffHandDamage())
             : svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
@@ -100,7 +101,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         if (!evaded && !parried)
         {
             hitCrit = Balance.RollPercent(pl.GetCritChance());
-            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * (pl.GetCritDamage() + 0.2));
             if (useOffHand)
@@ -192,7 +193,9 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
 
         if (!evaded && !parried)
         {
-            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            double reduction = CombatMath.CalcDefenseReduction(
+                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+            int rawDmg = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
@@ -266,7 +269,9 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
 
         if (!evaded && !parried)
         {
-            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            double reduction = CombatMath.CalcDefenseReduction(
+                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+            int rawDmg = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * dmgMult);
             hitCrit = Balance.RollPercent(pl.GetCritChance());
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());

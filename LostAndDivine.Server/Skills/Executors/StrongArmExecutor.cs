@@ -21,7 +21,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
 
         double dmgMult = skill.DamageMultiplier * pl.GetSkillRankDmgMult(skill.Id);
         var rng = Random.Shared;
-        double effDef = svc.Monsters.GetEffectiveDefense(monster);
+        double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
         bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
@@ -31,7 +31,7 @@ public sealed class StrongArmExecutor : SkillExecutorBase
         if (!evaded && !parried)
         {
             hitCrit = rng.Next(Balance.ChanceRollMax) < pl.GetCritChance();
-            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * dmgMult);
             if (hitCrit) hitDmg = (int)(hitDmg * pl.GetCritDamage());
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);

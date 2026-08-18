@@ -23,10 +23,16 @@ public class MonsterCombatCalculator
     public double GetEffectiveAttack(ICombatant attacker)
         => GetEffectiveAttack(attacker, attacker.GetTotalAttack());
 
-    public double GetEffectiveDefense(ICombatant defender)
+    /// <summary>
+    /// Процент снижения урона защитой цели (0..кап 90%): физ. защита или маг. сопротивление,
+    /// с учётом пробития брони (дебак + параметр). Возвращает именно долю 0..1, а не целую защиту.
+    /// </summary>
+    public double GetEffectiveDefense(ICombatant defender, double armorPen = 0, bool magic = false)
     {
-        double armorPen = _svc.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
-        return defender.GetTotalDefense() * (1.0 - Math.Min(armorPen, 1.0));
+        double debuffPen = _svc.Debuffs.GetDebuffValue(defender, DebuffType.ArmorPenetration);
+        double totalPen = Math.Min(1.0, debuffPen + Math.Max(0, armorPen));
+        int raw = magic ? defender.GetTotalResistance() : defender.GetTotalDefense();
+        return CombatMath.CalcDefenseReduction(raw) * (1.0 - totalPen);
     }
 
     public int ApplyDmgReduction(ICombatant attacker, int baseDamage)
@@ -64,7 +70,6 @@ public class MonsterCombatCalculator
         RollAttack(ICombatant attacker, ICombatant defender, int baseAttack, double attackFraction, bool isMelee = true)
     {
         double effectiveAttack = GetEffectiveAttack(attacker, baseAttack);
-        double effectiveDefense = GetEffectiveDefense(defender);
         double accuracyReduction = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.AccuracyReduction);
 
         double passiveAccuracyBonus = 0;
@@ -83,6 +88,8 @@ public class MonsterCombatCalculator
             armorPenExtra = plPassive.GetCloseRangeArmorPen(isMelee ? 1 : 3);
         }
 
+        double effectiveDefense = GetEffectiveDefense(defender, armorPenExtra, attacker.IsMagicalDamage());
+
         double defenderEvade = defender.GetEvadeChance() + accuracyReduction * 100 - passiveAccuracyBonus;
         if (isMelee && defender is Player plDef)
             defenderEvade += plDef.GetMeleeEvadeBonus();
@@ -94,8 +101,8 @@ public class MonsterCombatCalculator
 
         bool isCrit = Balance.RollPercent(attacker.GetCritChance() + passiveCritBonus);
         int damage = CombatMath.CalcFinalDamage(
-            (int)effectiveAttack, (int)effectiveDefense,
-            armorPen: armorPenExtra, isCrit, critMult: attacker.GetCritDamage(),
+            (int)effectiveAttack, effectiveDefense,
+            isCrit, critMult: attacker.GetCritDamage(),
             block: 0);
         if (blocked) damage = 0;
         damage = ApplyDmgReduction(attacker, damage);
@@ -118,7 +125,8 @@ public class MonsterCombatCalculator
 
         bool crit = Balance.RollPercent(attacker.GetCritChance());
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.RollOffHandDamage());
-        int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack - GetEffectiveDefense(target)));
+        double reduction = GetEffectiveDefense(target, 0, attacker.IsOffHandMagical());
+        int baseDmg = Math.Max(Balance.MinDamage, (int)(effectiveAttack * (1.0 - reduction)));
         int finalDmg = CombatMath.ApplyCrit(baseDmg, crit, attacker.GetCritDamage());
         finalDmg = Math.Max(Balance.MinDamage, (int)(finalDmg * attacker.GetOffHandDamageFraction()));
         if (blocked) finalDmg = 0;
@@ -130,8 +138,9 @@ public class MonsterCombatCalculator
     {
         var positions = GetCleavePositions(attacker.X, attacker.Y, attacker.Facing);
         double effectiveAttack = GetEffectiveAttack(attacker, attacker.GetMaxAttackDamage());
+        double reduction = GetEffectiveDefense(primaryTarget, 0, attacker.IsMagicalDamage());
         int cleaveDmg = Math.Max(Balance.MinDamage,
-            (int)((effectiveAttack - GetEffectiveDefense(primaryTarget)) * Balance.CleaveDamageFraction));
+            (int)(effectiveAttack * (1.0 - reduction) * Balance.CleaveDamageFraction));
 
         foreach (var (cx, cy) in positions)
         {

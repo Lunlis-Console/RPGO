@@ -162,8 +162,8 @@ public class CombatTests
         var (dmgToM, dmgToP, dead, _, _, _, _) =
             _monsters.CalculateCombat(player, monster);
 
-        // Player: BaseDmg=10 + (10-1)*2=18 = 28. Monster def: 10+(10-1)*1=19. → 9
-        Assert.Equal(9, dmgToM);
+        // Player: BaseDmg=10 + (10-1)*2=18 = 28. Monster def=19 → DR=19/519≈3.66% → 28*0.9634≈26.97 → 26
+        Assert.Equal(26, dmgToM);
         Assert.False(dead);
 
         // No counter-attack (removed from CalculateCombat)
@@ -182,8 +182,8 @@ public class CombatTests
         var (dmgToDefender, dmgToAttacker, dead, _, _, _, _) =
             _monsters.CalculateCombat(attacker, defender);
 
-        // Attacker atk = 1 + (11-1)*2 = 21, defender def = 1 → 20
-        Assert.Equal(20, dmgToDefender);
+        // Attacker atk = 5 + (11-1)*2 = 25, defender def = 5 → DR=5/505≈0.99% → 25*0.9901≈24.75 → 24
+        Assert.Equal(24, dmgToDefender);
         // No counter-attack (removed from CalculateCombat)
         Assert.Equal(0, dmgToAttacker);
         Assert.False(dead);

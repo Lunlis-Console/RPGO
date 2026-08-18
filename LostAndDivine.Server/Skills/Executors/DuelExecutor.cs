@@ -59,7 +59,7 @@ public sealed class DuelExecutor : SkillExecutorBase
 
         await svc.SendPlayerAttack(pl.Name, "main", targetX: monster.X, targetY: monster.Y);
         var rng = Random.Shared;
-        double effDef = svc.Monsters.GetEffectiveDefense(monster);
+        double effDef = svc.Monsters.GetEffectiveDefense(monster, magic: pl.IsMagicalDamage());
         double effAtk = svc.Monsters.GetEffectiveAttack(pl, pl.GetMaxAttackDamage());
         bool evaded = rng.Next(Balance.ChanceRollMax) < monster.GetEvadeChance();
         bool parried = !evaded && rng.Next(Balance.ChanceRollMax) < monster.GetParryChance();
@@ -68,7 +68,7 @@ public sealed class DuelExecutor : SkillExecutorBase
 
         if (!evaded && !parried)
         {
-            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk - effDef));
+            int baseDmg = Math.Max(Balance.MinDamage, (int)(effAtk * (1.0 - effDef)));
             double mult = Balance.DuelPunishBaseMult + remaining * Balance.DuelPunishPerMissMult;
             hitDmg = (int)Math.Max(Balance.MinDamage, baseDmg * mult);
             hitDmg = svc.Monsters.ApplyDmgReduction(pl, hitDmg);
@@ -126,7 +126,9 @@ public sealed class DuelExecutor : SkillExecutorBase
 
         if (!evaded && !parried)
         {
-            int rawDmg = Math.Max(Balance.MinDamage, pl.GetTotalAttack(dist) - target.GetTotalDefense());
+            double reduction = CombatMath.CalcDefenseReduction(
+                pl.IsMagicalDamage() ? target.GetTotalResistance() : target.GetTotalDefense());
+            int rawDmg = Math.Max(Balance.MinDamage, (int)(pl.GetTotalAttack(dist) * (1.0 - reduction)));
             double mult = Balance.DuelPunishBaseMult + remaining * Balance.DuelPunishPerMissMult;
             hitDmg = (int)Math.Max(Balance.MinDamage, rawDmg * mult);
             if (blocked) hitDmg = 0;

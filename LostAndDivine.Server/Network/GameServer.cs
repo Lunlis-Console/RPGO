@@ -727,14 +727,12 @@ public sealed class GameServer : INetworkHub
             Defense = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                AttrBonus = (player.GetEffEndurance() - 1) * BalanceStatic.DefensePerEndurance,
                 EquipBonus = player.Equipment.GetBonusDefense(),
                 Total = player.GetDefense()
             },
             Resistance = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                AttrBonus = (player.GetEffWisdom() - 1) * BalanceStatic.ResistancePerWisdom,
                 EquipBonus = player.Equipment.GetBonusResistance(),
                 Total = player.GetResistance()
             },
