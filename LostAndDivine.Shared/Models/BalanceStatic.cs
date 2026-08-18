@@ -35,21 +35,15 @@ public static class BalanceStatic
     public const double EvadeLinearRate = 0.3;
     public const double EvadeDrRate = 0.15;
 
-    // Кап парирования: база 1 + очки (ловкость + шмот, очко = 1% хитча).
-    // До ParryLinearPoints очков — ParryLinearRate за очко (до 15%), дальше — ParryDrRate за очко,
-    // итог капится на MaxParryChance (25%; ~220 очков ловкости).
+    // Кап парирования: база 1 + шмот (прямой процент, не более MaxParryGearBonus) + навык «Рефлексы»,
+    // итог капится на MaxParryChance (25%). Атрибуты не влияют.
     public const double MaxParryChance = 25.0;
-    public const double ParryLinearPoints = 100;
-    public const double ParryLinearRate = 0.15;
-    public const double ParryDrRate = 0.075;
+    public const double MaxParryGearBonus = 5.0;
 
-    // Кап блока: база 1 (+2 с щитом) + очки (выносливость + шмот, очко = 1% хитча).
-    // До BlockLinearPoints очков — BlockLinearRate за очко (до 15%), дальше — BlockDrRate за очко,
-    // итог капится на MaxBlockChance (25%; ~220 очков выносливости).
+    // Кап блока: база 1 (+2 с щитом) + шмот (прямой процент, не более MaxBlockGearBonus),
+    // итог капится на MaxBlockChance (25%). Атрибуты не влияют.
     public const double MaxBlockChance = 25.0;
-    public const double BlockLinearPoints = 100;
-    public const double BlockLinearRate = 0.15;
-    public const double BlockDrRate = 0.075;
+    public const double MaxBlockGearBonus = 5.0;
 
     // Точность: база 100% + очки (ловкость + бонус лука). До AccuracyLinearPoints очков —
     // AccuracyLinearRate за очко (до 130%), дальше — AccuracyDrRate за очко,

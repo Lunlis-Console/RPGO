@@ -104,18 +104,18 @@ public class Player : ICombatant
             + CombatMath.ApplyEvadeDiminishingReturns(
                 (GetEffCunning() - 1) + Equipment.GetBonusEvadeChance()));
 
+    /// <summary>Блок: базовый + щит (+2%) + бонус шмота (прямой процент, не более 5%), кап 25%. Атрибуты не влияют.</summary>
     public double GetBlockChance()
     {
         double shieldBase = Equipment.GetEquippedShield() != null ? 2.0 : 0.0;
         return Math.Min(BalanceStatic.MaxBlockChance, BaseBlockChance + shieldBase
-            + CombatMath.ApplyBlockDiminishingReturns(
-                (GetEffEndurance() - 1) + Equipment.GetBonusBlockChance()));
+            + Math.Min(BalanceStatic.MaxBlockGearBonus, Equipment.GetBonusBlockChance()));
     }
 
+    /// <summary>Парирование: базовый + бонус шмота (прямой процент, не более 5%) + навык «Рефлексы», кап 25%. Атрибуты не влияют.</summary>
     public double GetParryChance()
         => Math.Min(BalanceStatic.MaxParryChance, BaseParryChance
-            + CombatMath.ApplyParryDiminishingReturns(
-                (GetEffAgility() - 1) + Equipment.GetBonusParryChance())
+            + Math.Min(BalanceStatic.MaxParryGearBonus, Equipment.GetBonusParryChance())
             + GetReflexesParryBonus());
 
     // Пассивный навык «Рефлексы» (SK0008): +10% шанс парирования при двух одноручных оружиях.

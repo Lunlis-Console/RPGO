@@ -775,17 +775,13 @@ public sealed class GameServer : INetworkHub
             Block = new BreakdownPart
             {
                 Base = player.BaseBlockChance + (player.Equipment.GetEquippedShield() != null ? 2.0 : 0.0),
-                AttrBonus = Math.Round(CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1) + player.Equipment.GetBonusBlockChance())
-                             - CombatMath.ApplyBlockDiminishingReturns((player.GetEffEndurance() - 1)), 2),
+                EquipBonus = Math.Round(Math.Min(BalanceStatic.MaxBlockGearBonus, player.Equipment.GetBonusBlockChance()), 2),
                 Total = Math.Round(player.GetBlockChance(), 2)
             },
             Parry = new BreakdownPart
             {
                 Base = player.BaseParryChance,
-                AttrBonus = Math.Round(CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1) + player.Equipment.GetBonusParryChance())
-                             - CombatMath.ApplyParryDiminishingReturns((player.GetEffAgility() - 1)), 2),
+                EquipBonus = Math.Round(Math.Min(BalanceStatic.MaxParryGearBonus, player.Equipment.GetBonusParryChance()), 2),
                 SkillBonus = player.GetReflexesParryBonus(),
                 Total = Math.Round(player.GetParryChance(), 2)
             },

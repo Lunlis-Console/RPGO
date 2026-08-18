@@ -33,22 +33,6 @@ public static class CombatMath
             BalanceStatic.EvadeLinearRate, BalanceStatic.EvadeDrRate);
 
     /// <summary>
-    /// Убывающая отдача парирования: до порога очко даёт ParryLinearRate, дальше — ParryDrRate.
-    /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
-    /// </summary>
-    public static double ApplyParryDiminishingReturns(double points)
-        => ApplyDiminishingReturns(points, BalanceStatic.ParryLinearPoints,
-            BalanceStatic.ParryLinearRate, BalanceStatic.ParryDrRate);
-
-    /// <summary>
-    /// Убывающая отдача блока: до порога очко даёт BlockLinearRate, дальше — BlockDrRate.
-    /// Применяется к «очкам» выносливости (выносливость + бонусы шмота).
-    /// </summary>
-    public static double ApplyBlockDiminishingReturns(double points)
-        => ApplyDiminishingReturns(points, BalanceStatic.BlockLinearPoints,
-            BalanceStatic.BlockLinearRate, BalanceStatic.BlockDrRate);
-
-    /// <summary>
     /// Убывающая отдача точности: до порога очко даёт AccuracyLinearRate, дальше — AccuracyDrRate.
     /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
     /// </summary>

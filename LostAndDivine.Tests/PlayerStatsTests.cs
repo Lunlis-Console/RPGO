@@ -163,79 +163,87 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetParryChance_NoAgility_Returns1()
+    public void GetParryChance_NoGear_ReturnsBase()
     {
-        var p = new Player { Agility = 1, BaseParryChance = 1.0 };
+        var p = new Player { Agility = 1000, BaseParryChance = 1.0 };
+        // Атрибуты больше не влияют на парирование — только шмот
         Assert.Equal(1.0, p.GetParryChance());
     }
 
     [Fact]
-    public void GetParryChance_WithAgility_Returns2_5()
+    public void GetParryChance_WithGearPercent_AddsDirectly()
     {
-        var p = new Player { Agility = 11, BaseParryChance = 1.0 };
-        // 1.0 + (11-1)*0.15 = 2.5 (убывающая отдача: 1 очко = 0.15%)
-        Assert.Equal(2.5, p.GetParryChance());
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusParryChance = 3 };
+        var p = new Player { BaseParryChance = 1.0, Equipment = eq };
+        // Шмот даёт прямой процент: 1.0 + 3.0 = 4.0
+        Assert.Equal(4.0, p.GetParryChance());
     }
 
     [Fact]
-    public void GetParryChance_AfterDiminishingThreshold_SlowsDown()
+    public void GetParryChance_GearPercentCappedAt5()
     {
-        var p = new Player { Agility = 111, BaseParryChance = 1.0 };
-        // 110 очков: 100 по 0.15 (15) + 10 по 0.075 (0.75) → 1 + 15.75 = 16.75
-        Assert.Equal(16.75, p.GetParryChance());
-    }
-
-    [Fact]
-    public void GetParryChance_CapReachedAt221Agility()
-    {
-        var p = new Player { Agility = 221, BaseParryChance = 1.0 };
-        // 220 очков: 100×0.15 + 120×0.075 = 24 → 1 + 24 = 25 → кап
-        Assert.Equal(25.0, p.GetParryChance());
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusParryChance = 10 };
+        var p = new Player { BaseParryChance = 1.0, Equipment = eq };
+        // Вклад шмота не больше 5%: 1.0 + 5.0 = 6.0
+        Assert.Equal(6.0, p.GetParryChance());
     }
 
     [Fact]
     public void GetParryChance_CappedAt25()
     {
-        var p = new Player { Agility = 1000, BaseParryChance = 1.0 };
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusParryChance = 5 };
+        var p = new Player { BaseParryChance = 20.0, Equipment = eq };
         Assert.Equal(25.0, p.GetParryChance());
     }
 
     [Fact]
-    public void GetBlockChance_NoEndurance_Returns1()
+    public void GetBlockChance_NoGear_ReturnsBase()
     {
-        var p = new Player { Endurance = 1, BaseBlockChance = 1.0 };
+        var p = new Player { Endurance = 1000, BaseBlockChance = 1.0 };
+        // Атрибуты больше не влияют на блок — только шмот
         Assert.Equal(1.0, p.GetBlockChance());
     }
 
     [Fact]
-    public void GetBlockChance_WithEndurance_Returns2_5()
+    public void GetBlockChance_WithGearPercent_AddsDirectly()
     {
-        var p = new Player { Endurance = 11, BaseBlockChance = 1.0 };
-        // 1.0 + (11-1)*0.15 = 2.5 (убывающая отдача: 1 очко = 0.15%)
-        Assert.Equal(2.5, p.GetBlockChance());
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusBlockChance = 3 };
+        var p = new Player { BaseBlockChance = 1.0, Equipment = eq };
+        // Шмот даёт прямой процент: 1.0 + 3.0 = 4.0
+        Assert.Equal(4.0, p.GetBlockChance());
     }
 
     [Fact]
-    public void GetBlockChance_AfterDiminishingThreshold_SlowsDown()
+    public void GetBlockChance_GearPercentCappedAt5()
     {
-        var p = new Player { Endurance = 111, BaseBlockChance = 1.0 };
-        // 110 очков: 100 по 0.15 (15) + 10 по 0.075 (0.75) → 1 + 15.75 = 16.75
-        Assert.Equal(16.75, p.GetBlockChance());
-    }
-
-    [Fact]
-    public void GetBlockChance_CapReachedAt221Endurance()
-    {
-        var p = new Player { Endurance = 221, BaseBlockChance = 1.0 };
-        // 220 очков: 100×0.15 + 120×0.075 = 24 → 1 + 24 = 25 → кап
-        Assert.Equal(25.0, p.GetBlockChance());
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusBlockChance = 10 };
+        var p = new Player { BaseBlockChance = 1.0, Equipment = eq };
+        // Вклад шмота не больше 5%: 1.0 + 5.0 = 6.0
+        Assert.Equal(6.0, p.GetBlockChance());
     }
 
     [Fact]
     public void GetBlockChance_CappedAt25()
     {
-        var p = new Player { Endurance = 1000, BaseBlockChance = 1.0 };
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusBlockChance = 5 };
+        var p = new Player { BaseBlockChance = 20.0, Equipment = eq };
         Assert.Equal(25.0, p.GetBlockChance());
+    }
+
+    [Fact]
+    public void GetBlockChance_WithShield_AddsBaseBonus()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.LeftHand] = new Item { Type = "shield" };
+        var p = new Player { BaseBlockChance = 1.0, Equipment = eq };
+        // Щит даёт базовые +2% к блоку (атрибуты не влияют)
+        Assert.Equal(3.0, p.GetBlockChance());
     }
 
     [Fact]
