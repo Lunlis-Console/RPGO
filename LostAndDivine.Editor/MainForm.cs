@@ -197,6 +197,9 @@ public partial class MainForm : Form
         var dialogBtn = MakeSaveButton("Редактор диалогов NPC...");
         dialogBtn.Click += (s, e) => OpenDialogueEditor();
         worldPanel.Controls.Add(dialogBtn);
+        var placeBtn = MakeSaveButton("Разместить на карте...");
+        placeBtn.Click += (s, e) => PlaceSelectedNpcOnMap();
+        worldPanel.Controls.Add(placeBtn);
         var worldBtn = MakeSaveButton("Сохранить NPC и мир");
         worldBtn.Click += (s, e) => SaveWorld();
         worldPanel.Controls.Add(worldBtn);
@@ -2535,6 +2538,67 @@ public partial class MainForm : Form
     {
         using var dlg = new NpcDialogueEditorForm(_contentDbFile);
         dlg.ShowDialog(this);
+    }
+
+    /// <summary>
+    /// Открывает карту (zone_*.tmj / секторы открытого мира) и позволяет выбрать клетку
+    /// для размещения NPC: объект пишется в слой «NPC» карты, локация NPC обновляется в БД.
+    /// </summary>
+    private void PlaceSelectedNpcOnMap()
+    {
+        if (_worldGrid.CurrentRow == null)
+        {
+            SetStatus("Выберите NPC в таблице, затем нажмите «Разместить на карте...»");
+            return;
+        }
+        _worldGrid.EndEdit();
+        var row = _worldGrid.CurrentRow;
+        string name = CellStr(row, "name");
+        string type = CellStr(row, "type");
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+        {
+            SetStatus("Заполните имя и тип NPC перед размещением");
+            return;
+        }
+        string id = CellStr(row, "id");
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            // Новой строке грида id ещё не назначен — сохраняем (SaveWorld сам выдаст N0004...).
+            SaveWorld();
+            foreach (DataGridViewRow r in _worldGrid.Rows)
+            {
+                if (r.IsNewRow) continue;
+                if (CellStr(r, "name") == name) { id = CellStr(r, "id"); break; }
+            }
+        }
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            SetStatus("Не удалось определить id NPC");
+            return;
+        }
+
+        string contentDir = ClientSrcContent();
+        if (!Directory.Exists(contentDir))
+        {
+            SetStatus("Не найдена папка контента клиента: " + contentDir);
+            return;
+        }
+
+        using var dlg = new NpcMapPickerForm(id, name, type, contentDir);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        using (var conn = new SqliteConnection($"Data Source={_contentDbFile}"))
+        {
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "UPDATE npcs SET location = $z WHERE id = $i";
+            cmd.Parameters.AddWithValue("$z", dlg.PlacedZoneId);
+            cmd.Parameters.AddWithValue("$i", id);
+            cmd.ExecuteNonQuery();
+        }
+        BuildNpcZoneMapFromTiled();
+        LoadWorld();
+        SetStatus($"NPC {id} размещён в зоне {dlg.PlacedZoneId} на клетке {dlg.PlacedTileX},{dlg.PlacedTileY}");
     }
 
     // === HELPERS ===
