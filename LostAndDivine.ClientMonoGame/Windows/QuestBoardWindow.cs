@@ -402,7 +402,7 @@ public sealed class QuestBoardWindow : GameWindow
     {
         bool completed = q.Completed;
         Color accent = completed ? AccentGreen : AccentBlue;
-        string stateText = completed ? "✔ ГОТОВО К СДАЧЕ" : "В ПРОЦЕССЕ";
+        string stateText = completed ? "+ ГОТОВО К СДАЧЕ" : "В ПРОЦЕССЕ";
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, w, h), BgCard);
         sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, BarWidth, h), accent);
@@ -447,7 +447,7 @@ public sealed class QuestBoardWindow : GameWindow
         foreach (var obj in objectives)
         {
             bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
-            string mark = objDone ? "✔" : "•";
+            string mark = objDone ? "+" : "·";
             string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
             DrawText(sb, line, textX, textY, objDone ? AccentGreen : TextProgress);
             textY += LineHeight;

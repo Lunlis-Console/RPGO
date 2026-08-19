@@ -187,7 +187,7 @@ public sealed class ChangelogWindow : GameWindow
                 continue;
             }
 
-            DrawText(sb, "•", x + EntryPadX + 3, textY, AccentGold);
+            DrawText(sb, "·", x + EntryPadX + 3, textY, AccentGold);
             DrawWrappedText(sb, item, textX + BulletIndent, textY, innerW, TextBody, font);
             textY += MeasureWrappedText(item, innerW, font).H + 2;
         }

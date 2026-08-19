@@ -136,7 +136,7 @@ public class HudRenderer
             foreach (var m in _party.Members)
             {
                 bool isLeader = m.PlayerId == _party.LeaderId;
-                string nameStr = (isLeader ? "★ " : "  ") + m.Name + $" (ур. {m.Level})";
+                string nameStr = (isLeader ? "* " : "  ") + m.Name + $" (ур. {m.Level})";
                 sb.DrawString(fontSmall, nameStr, new Vector2(x + 8, curY), isLeader ? new Color(220, 200, 100) : new Color(200, 200, 210));
 
                 // HP bar

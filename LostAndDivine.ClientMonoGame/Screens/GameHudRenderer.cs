@@ -53,7 +53,7 @@ internal class GameHudRenderer
         foreach (var q in tracked)
         {
             var (cur, tgt) = Overall(q);
-            string objLine = $"• {q.Title}  [{cur}/{tgt}]";
+            string objLine = $"· {q.Title}  [{cur}/{tgt}]";
             maxW = Math.Max(maxW, (int)font.MeasureString(objLine).X);
         }
         maxW = Math.Min(maxW, maxTextW);
@@ -71,7 +71,7 @@ internal class GameHudRenderer
             bool done = q.Completed;
             Color c = done ? new Color(255, 210, 60) : Color.White;
             var (cur, tgt) = Overall(q);
-            string line = $"• {q.Title}  [{cur}/{tgt}]";
+            string line = $"· {q.Title}  [{cur}/{tgt}]";
             while (line.Length > 4 && font.MeasureString(line).X > maxTextW)
                 line = line.Substring(0, line.Length - 4) + "...";
             sb.DrawString(font, line, new Vector2(boxX + pad, y), c);
@@ -126,7 +126,7 @@ internal class GameHudRenderer
         foreach (var m in party.Members)
         {
             bool mLdr = m.PlayerId == party.LeaderId;
-            string nameStr = (mLdr ? "★ " : "  ") + m.Name;
+            string nameStr = (mLdr ? "* " : "  ") + m.Name;
             sb.DrawString(font, nameStr, new Vector2(cx, cy), mLdr ? new Color(220, 200, 120) : new Color(200, 200, 210));
             cy += memberNameH;
 

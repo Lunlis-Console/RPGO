@@ -96,7 +96,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
 
                 string text = e.Type switch
                 {
-                    "monster" => $"⚔ {e.Name} [Ур.{e.Level}] HP {e.Hp}/{e.MaxHp}",
+                    "monster" => $"× {e.Name} [Ур.{e.Level}] HP {e.Hp}/{e.MaxHp}",
                     "player" => $"👤 {e.Name} [Ур.{e.Level}] HP {e.Hp}/{e.MaxHp}",
                     "merchant" => $"Магазин: {e.Name}",
                     "board" => "Доска заданий",

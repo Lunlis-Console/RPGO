@@ -385,8 +385,8 @@ public class LoginScreen : IScreen
         }
         else
         {
-            var sSize = font.MeasureString("⚙");
-            spriteBatch.DrawString(font, "⚙", new Vector2(_settingsIconRect.X + (_settingsIconRect.Width - sSize.X) / 2, _settingsIconRect.Y + (_settingsIconRect.Height - sSize.Y) / 2), Color.White);
+            var sSize = font.MeasureString("*");
+            spriteBatch.DrawString(font, "*", new Vector2(_settingsIconRect.X + (_settingsIconRect.Width - sSize.X) / 2, _settingsIconRect.Y + (_settingsIconRect.Height - sSize.Y) / 2), Color.White);
         }
 
         spriteBatch.End();

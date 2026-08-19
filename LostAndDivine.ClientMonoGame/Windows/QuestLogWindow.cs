@@ -322,7 +322,7 @@ public sealed class QuestLogWindow : GameWindow
     private static string? GetChainText(QuestInfo q)
     {
         if (string.IsNullOrEmpty(q.ChainId)) return null;
-        return q.Step > 0 ? $"★ Сюжет: {q.ChainId} · Шаг {q.Step}" : $"★ Сюжет: {q.ChainId}";
+        return q.Step > 0 ? $"* Сюжет: {q.ChainId} · Шаг {q.Step}" : $"* Сюжет: {q.ChainId}";
     }
 
     private static (int W, int H) MeasureWrappedText(string text, int maxW, SpriteFont font)
@@ -392,13 +392,13 @@ public sealed class QuestLogWindow : GameWindow
 
     private static string GetIconSymbol(QuestInfo q) => (q.Type ?? "").ToLower() switch
     {
-        "kill" => "⚔",
-        "collect" => "⚒",
-        "use" => "⚗",
-        "talk" => "♦",
-        "travel" => "→",
-        "explore" => "★",
-        _ => "•"
+        "kill" => "×",
+        "collect" => "»",
+        "use" => "!",
+        "talk" => "«",
+        "travel" => ">",
+        "explore" => "*",
+        _ => "·"
     };
 
     private void DrawQuestCard(SpriteBatch sb, QuestInfo q, int x, int y, int w, int h, SpriteFont font, MouseState mouse)
@@ -411,12 +411,12 @@ public sealed class QuestLogWindow : GameWindow
         if (completed)
         {
             accent = AccentGreen;
-            stateText = "✔ ВЫПОЛНЕНО";
+            stateText = "+ ВЫПОЛНЕНО";
         }
         else if (readyToComplete)
         {
             accent = AccentReady;
-            stateText = "★ МОЖНО СДАТЬ!";
+            stateText = "* МОЖНО СДАТЬ!";
         }
         else
         {
@@ -455,7 +455,7 @@ public sealed class QuestLogWindow : GameWindow
         }
         // Бейдж сюжетного квеста — золотая звезда на иконке
         if (!string.IsNullOrEmpty(q.ChainId))
-            DrawText(sb, "★", iconRect.X + IconSize - 11, iconRect.Y - 3, HeaderGold);
+            DrawText(sb, "*", iconRect.X + IconSize - 11, iconRect.Y - 3, HeaderGold);
 
         Color titleColor = completed ? new Color(170, 175, 185) : TextWhite;
         DrawText(sb, q.Title ?? "Без названия", textX, textY, titleColor);
@@ -511,7 +511,7 @@ public sealed class QuestLogWindow : GameWindow
         foreach (var obj in objectives)
         {
             bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
-            string mark = objDone ? "✔" : "•";
+            string mark = objDone ? "+" : "·";
             string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
             DrawText(sb, line, textX, objY, completed ? TextMuted : objDone ? AccentGreen : TextProgress);
             objY += LineHeight;

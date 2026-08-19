@@ -374,7 +374,7 @@ public class SocialWindow : GameWindow
                     if (i == _selectedMemberIndex)
                         sb.Draw(SpriteCache.Pixel, row, new Color(60, 70, 95));
                     bool isLeader = m.PlayerId == _party!.LeaderId;
-                    string nameStr = (isLeader ? "★ " : "  ") + m.Name + $" (ур. {m.Level})";
+                    string nameStr = (isLeader ? "* " : "  ") + m.Name + $" (ур. {m.Level})";
                     Color c = isLeader ? new Color(220, 200, 100) : new Color(200, 200, 210);
                     DrawText(sb, nameStr, cx + 4, listY + i * rowH + 6, c);
                     if (font != null)
