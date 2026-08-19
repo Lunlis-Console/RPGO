@@ -352,9 +352,10 @@ public sealed class GameServer : INetworkHub
                      svc.Dialogue.OffersAction(npcId, "accept_quest:" + def.Id)))
                     result = "available";
             }
-            else if (prog.Completed)
+            else if (prog.Completed || QuestManager.IsReadyToComplete(QuestManager.GetObjectives(def), prog.Currents))
             {
-                // «?» (жёлтый) — квест можно сдать этому NPC (условия выполнены)
+                // «?» (жёлтый) — квест готов к сдаче: остался только последний
+                // этап (или все условия выполнены)
                 if ((result == null || result == "active") &&
                     (def.GiverNpcId == npcId || def.TargetNpcId == npcId ||
                      svc.Dialogue.OffersAction(npcId, "complete_quest:" + def.Id)))
@@ -375,8 +376,12 @@ public sealed class GameServer : INetworkHub
         // Доска показывает все доступные квесты (без привязки к NPC)
         if (svc.Quests.GetAvailableQuests(player).Count > 0)
             return "available";
-        // Готовые к сдаче активные квесты
-        if (player.ActiveQuests.Any(q => q.Completed))
+        // Готовые к сдаче активные квесты (остался последний этап или всё выполнено)
+        if (player.ActiveQuests.Any(q =>
+        {
+            var def = svc.Quests.FindQuest(q.QuestId);
+            return def != null && QuestManager.IsReadyToComplete(QuestManager.GetObjectives(def), q.Currents);
+        }))
             return "ready";
         if (player.ActiveQuests.Count > 0)
             return "active";

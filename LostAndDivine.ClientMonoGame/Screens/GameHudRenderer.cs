@@ -68,7 +68,7 @@ internal class GameHudRenderer
         int y = boxY + headerH;
         foreach (var q in tracked)
         {
-            bool done = q.Completed;
+            bool done = q.Completed || q.IsReadyToComplete();
             Color c = done ? new Color(255, 210, 60) : Color.White;
             var (cur, tgt) = Overall(q);
             string line = $"· {q.Title}  [{cur}/{tgt}]";
@@ -81,9 +81,9 @@ internal class GameHudRenderer
 
     private static (int Cur, int Tgt) Overall(QuestInfo q)
     {
-        var visible = q.VisibleObjectives();
-        if (visible.Count > 0)
-            return (visible.Sum(o => Math.Min(o.Current, o.Count)), visible.Sum(o => o.Count));
+        var all = q.Objectives ?? new List<QuestObjectiveInfo>();
+        if (all.Count > 0)
+            return (all.Sum(o => Math.Min(o.Current, o.Count)), all.Sum(o => o.Count));
         return (Math.Min(q.Current, q.Target), q.Target);
     }
 

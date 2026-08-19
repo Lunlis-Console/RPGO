@@ -337,6 +337,25 @@ public class QuestManager
     }
 
     /// <summary>
+    /// Готов ли квест к сдаче: выполнены все стадии, кроме последней — остался
+    /// только последний этап (например, «рассказать старосте»). Для квестов без
+    /// этапов — обычное «все цели выполнены».
+    /// </summary>
+    public static bool IsReadyToComplete(List<QuestObjective> objectives, List<int> currents)
+    {
+        if (objectives == null || objectives.Count == 0) return true;
+        int lastStage = objectives.Max(o => o.Stage);
+        if (!objectives.Any(o => o.Stage < lastStage)) return IsAllCompleted(objectives, currents);
+        for (int i = 0; i < objectives.Count; i++)
+        {
+            if (objectives[i].Stage >= lastStage) continue;
+            if (i >= currents.Count || currents[i] < objectives[i].Count)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Открыта ли цель с индексом index: все цели предыдущих стадий (с меньшим
     /// номером Stage) должны быть выполнены. Цели одной стадии не блокируют друг друга.
     /// </summary>

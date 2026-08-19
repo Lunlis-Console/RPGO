@@ -94,7 +94,7 @@ public sealed class QuestLogWindow : GameWindow
             if (q.Repeatable) continue;
             list.Add((CategoryOf(q), q));
         }
-        int Rank(QuestInfo q) => q.Completed ? 3 : AllDone(q) ? 1 : 2;
+        int Rank(QuestInfo q) => q.Completed ? 3 : q.IsReadyToComplete() ? 1 : 2;
         return list
             .OrderBy(e => e.Key)
             .ThenBy(e => Rank(e.Quest))
@@ -104,13 +104,6 @@ public sealed class QuestLogWindow : GameWindow
 
     private QuestInfo? SelectedQuest()
         => Entries().FirstOrDefault(e => e.Quest.QuestId == _selectedQuestId).Quest;
-
-    private static bool AllDone(QuestInfo q)
-    {
-        if (q.Objectives != null && q.Objectives.Count > 0)
-            return q.Objectives.All(o => o.Current >= o.Count);
-        return q.Target > 0 && q.Current >= q.Target;
-    }
 
     private static string FormatDate(string? iso)
     {
@@ -266,7 +259,7 @@ public sealed class QuestLogWindow : GameWindow
                 bool selected = q.QuestId == _selectedQuestId;
                 if (selected)
                     sb.Draw(SpriteCache.Pixel, row, BgSelected);
-                Color c = q.Completed ? TextMuted : AllDone(q) ? AccentReady : selected ? TextWhite : TextWhite;
+                Color c = q.Completed ? TextMuted : q.IsReadyToComplete() ? AccentReady : TextWhite;
                 string name = q.Title ?? "";
                 while (name.Length > 0 && font.MeasureString(name).X > ListW - RowIndent - 8)
                     name = name.Substring(0, name.Length - 1);
@@ -312,7 +305,7 @@ public sealed class QuestLogWindow : GameWindow
         }
 
         bool completed = q.Completed;
-        bool ready = !completed && AllDone(q);
+        bool ready = !completed && q.IsReadyToComplete();
         Color accent = completed ? AccentGreen : ready ? AccentReady : AccentBlue;
 
         string stateText = completed ? "+ ВЫПОЛНЕНО" : ready ? "* МОЖНО СДАТЬ!" : "АКТИВНО";
@@ -377,8 +370,8 @@ public sealed class QuestLogWindow : GameWindow
         DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, completed ? TextMuted : TextDesc, font);
         textY += MeasureWrappedText(q.Description ?? "", innerW, font).H + 8;
 
-        // Цели (открытые на текущем этапе)
-        var objectives = q.VisibleObjectives();
+        // Цели (все этапы; закрытые — приглушённые)
+        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
         if (objectives.Count == 0)
         {
             objectives = new List<QuestObjectiveInfo>
@@ -389,9 +382,11 @@ public sealed class QuestLogWindow : GameWindow
         foreach (var obj in objectives)
         {
             bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
-            string mark = objDone ? "+" : "·";
+            bool locked = !obj.IsUnlocked(objectives);
+            string mark = locked ? "?" : objDone ? "+" : "·";
             string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
-            DrawText(sb, line, textX, textY, completed ? TextMuted : objDone ? AccentGreen : TextProgress);
+            Color lineColor = completed ? TextMuted : locked ? new Color(120, 122, 130) : objDone ? AccentGreen : TextProgress;
+            DrawText(sb, line, textX, textY, lineColor);
             textY += LineHeight;
         }
 

@@ -295,13 +295,13 @@ public sealed class QuestBoardWindow : GameWindow
     }
 
     private static int ObjectiveCount(QuestInfo q)
-        => q.Objectives is { Count: > 0 } ? q.VisibleObjectives().Count : 1;
+        => q.Objectives is { Count: > 0 } ? q.Objectives.Count : 1;
 
     private static (int Cur, int Tgt) OverallProgress(QuestInfo q)
     {
-        var visible = q.VisibleObjectives();
-        if (visible.Count > 0)
-            return (visible.Sum(o => Math.Min(o.Current, o.Count)), visible.Sum(o => o.Count));
+        var all = q.Objectives ?? new List<QuestObjectiveInfo>();
+        if (all.Count > 0)
+            return (all.Sum(o => Math.Min(o.Current, o.Count)), all.Sum(o => o.Count));
         return (Math.Min(q.Current, q.Target), q.Target);
     }
 
@@ -436,8 +436,8 @@ public sealed class QuestBoardWindow : GameWindow
             textY += LineHeight;
         }
 
-        // Цели (открытые на текущем этапе, по одной строке)
-        var objectives = q.VisibleObjectives();
+        // Цели (все этапы; закрытые — приглушённые)
+        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
         if (objectives.Count == 0)
         {
             objectives = new List<QuestObjectiveInfo>
@@ -448,9 +448,10 @@ public sealed class QuestBoardWindow : GameWindow
         foreach (var obj in objectives)
         {
             bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
-            string mark = objDone ? "+" : "·";
+            bool locked = !obj.IsUnlocked(objectives);
+            string mark = locked ? "?" : objDone ? "+" : "·";
             string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
-            DrawText(sb, line, textX, textY, objDone ? AccentGreen : TextProgress);
+            DrawText(sb, line, textX, textY, completed ? TextMuted : locked ? new Color(120, 122, 130) : objDone ? AccentGreen : TextProgress);
             textY += LineHeight;
         }
 

@@ -284,12 +284,19 @@ public static class QuestStageHelper
         return true;
     }
 
-    /// <summary>Цели квеста, открытые на текущем этапе (выполненные стадии + текущая).</summary>
-    public static List<QuestObjectiveInfo> VisibleObjectives(this QuestInfo q)
+    /// <summary>
+    /// Готов ли квест к сдаче: выполнены все стадии, кроме последней — остался
+    /// только последний этап (например, «рассказать старосте»). Для квестов без
+    /// этапов — обычное «все цели выполнены».
+    /// </summary>
+    public static bool IsReadyToComplete(this QuestInfo q)
     {
         var all = q.Objectives ?? new List<QuestObjectiveInfo>();
-        if (all.Count == 0) return all;
-        return all.Where(o => o.IsUnlocked(all)).ToList();
+        if (all.Count == 0) return q.Target > 0 && q.Current >= q.Target;
+        int lastStage = all.Max(o => o.Stage);
+        if (!all.Any(o => o.Stage < lastStage))
+            return all.All(o => o.Count <= 0 || o.Current >= o.Count);
+        return all.Where(o => o.Stage < lastStage).All(o => o.Count <= 0 || o.Current >= o.Count);
     }
 }
 

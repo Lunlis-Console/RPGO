@@ -108,6 +108,35 @@ public class QuestStageTests
     }
 
     [Fact]
+    public void IsReadyToComplete_TrueWhenOnlyLastStageRemains()
+    {
+        var objectives = new List<QuestObjective>
+        {
+            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
+            new() { Type = "talk", Target = "N0003", Count = 1, Stage = 1 }
+        };
+
+        Assert.False(QuestManager.IsReadyToComplete(objectives, new List<int> { 4, 0 }));
+        // Все стадии, кроме последней, выполнены — квест готов к сдаче,
+        // даже если последний этап («рассказать старосте») ещё не начат
+        Assert.True(QuestManager.IsReadyToComplete(objectives, new List<int> { 5, 0 }));
+        Assert.True(QuestManager.IsReadyToComplete(objectives, new List<int> { 5, 1 }));
+    }
+
+    [Fact]
+    public void IsReadyToComplete_NoStages_RequiresAllDone()
+    {
+        var objectives = new List<QuestObjective>
+        {
+            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
+            new() { Type = "kill", Target = "M0013", Count = 3, Stage = 0 }
+        };
+
+        Assert.False(QuestManager.IsReadyToComplete(objectives, new List<int> { 5, 2 }));
+        Assert.True(QuestManager.IsReadyToComplete(objectives, new List<int> { 5, 3 }));
+    }
+
+    [Fact]
     public void Migrations_1061_StagesQuestsAndRemovesQ0011()
     {
         string db = Path.Combine(Path.GetTempPath(), $"rpg_mig_{Guid.NewGuid():N}.db");
