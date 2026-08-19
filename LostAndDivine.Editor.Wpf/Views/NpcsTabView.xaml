@@ -1,0 +1,29 @@
+<UserControl x:Class="LostAndDivine.Editor.Views.NpcsTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="4">
+            <TextBlock Text="Карта мира:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox x:Name="WorldWidth" Width="50" VerticalContentAlignment="Center" ToolTip="Ширина мира (клеток)"/>
+            <TextBlock Text="x" VerticalAlignment="Center" Margin="2,0"/>
+            <TextBox x:Name="WorldHeight" Width="50" VerticalContentAlignment="Center" ToolTip="Высота мира (клеток)"/>
+            <Button x:Name="AddBtn" Content="Добавить NPC" Margin="12,0,6,0" Padding="10,3"/>
+            <Button x:Name="DeleteBtn" Content="Удалить" Margin="0,0,6,0" Padding="10,3"/>
+            <Button x:Name="DialogueBtn" Content="Редактор диалогов (выбранный NPC)..." Margin="0,0,6,0" Padding="10,3"/>
+            <Button x:Name="PlaceBtn" Content="Разместить на карте..." Margin="0,0,6,0" Padding="10,3"/>
+            <Button x:Name="SaveBtn" Content="Сохранить NPC и мир" Margin="20,0,0,0" Padding="10,3" FontWeight="Bold"/>
+        </StackPanel>
+        <DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  HeadersVisibility="Column" GridLinesVisibility="All"
+                  RowHeaderWidth="0"/>
+        <TextBlock x:Name="Hint" Grid.Row="2" Margin="4,2" Foreground="Gray"
+                   Text="ID и имя — обязательно. Тип: npc/merchant/board/instance_portal. Позиция задаётся кнопкой «Разместить на карте...»."/>
+    </Grid>
+</UserControl>

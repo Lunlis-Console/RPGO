@@ -1,0 +1,36 @@
+<UserControl x:Class="LostAndDivine.Editor.Views.AccountsTabView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="200"/>
+        </Grid.RowDefinitions>
+        <TextBox x:Name="Search" Width="240" HorizontalAlignment="Left" Margin="4,4,0,2"
+                 VerticalContentAlignment="Center" ToolTip="Поиск по логину и имени персонажа"/>
+        <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="4,0">
+            <Button x:Name="AddBtn" Content="Добавить" Padding="10,3"/>
+            <Button x:Name="DeleteBtn" Content="Удалить" Margin="6,0,0,0" Padding="10,3"/>
+            <Button x:Name="BanBtn" Content="Забанить" Margin="12,0,0,0" Padding="10,3"/>
+            <Button x:Name="AdminBtn" Content="Админ" Margin="6,0,0,0" Padding="10,3"/>
+            <Button x:Name="ResetPwdBtn" Content="Сбросить пароль" Margin="6,0,0,0" Padding="10,3"/>
+            <Button x:Name="GiveItemBtn" Content="Выдать предмет..." Margin="6,0,0,0" Padding="10,3"/>
+            <Button x:Name="SaveBtn" Content="Сохранить аккаунты" Margin="20,0,0,0" Padding="10,3" FontWeight="Bold"/>
+        </StackPanel>
+        <DataGrid x:Name="Grid" Grid.Row="2" AutoGenerateColumns="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  HeadersVisibility="Column" GridLinesVisibility="All"
+                  RowHeaderWidth="0"/>
+        <TextBlock x:Name="SelectedPlayerLabel" Grid.Row="3" Margin="4,4" FontWeight="Bold"
+                   Text="Инвентарь: выберите аккаунт"/>
+        <DataGrid x:Name="InventoryGrid" Grid.Row="4" AutoGenerateColumns="True"
+                  CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True"
+                  SelectionMode="Single" SelectionUnit="FullRow"
+                  HeadersVisibility="Column" GridLinesVisibility="All"
+                  RowHeaderWidth="0"/>
+    </Grid>
+</UserControl>
