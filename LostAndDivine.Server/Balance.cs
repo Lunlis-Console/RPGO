@@ -185,7 +185,9 @@ public static class Balance
     // клиентской интерполяции (1000 / MoveIntervalMs): персонаж то телепортируется, то стоит.
     public const int LoopMovePathMs = 50;
     public const int LoopCombatMs = 200;
-    public const int LoopMonsterAttackMs = 500;
+    // Разбор атак монстров должен тикать так же часто, как и шаг монстров (50 мс),
+    // иначе удары, накопленные за окно, применяются батчем и выглядят как одновременный урон.
+    public const int LoopMonsterAttackMs = 50;
     public const int LoopDeathTimerMs = 500;
     public const int LoopInstanceMs = 1000;
     public const int LoopRespawnMs = 1000;

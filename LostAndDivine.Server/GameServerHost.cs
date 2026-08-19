@@ -69,7 +69,7 @@ public class GameServerHost
                 catch (Exception ex) { Log.Error("[Tick] MovePath", ex); }
             }
 
-            // 500ms — monster attacks, death timers, monster wander
+            // 50ms — monster attacks, 500ms — death timers, 50ms — monster wander
             if (now - lastMonsterAttack >= Balance.LoopMonsterAttackMs)
             {
                 lastMonsterAttack = now;
