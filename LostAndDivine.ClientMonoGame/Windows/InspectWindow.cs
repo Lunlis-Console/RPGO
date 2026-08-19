@@ -103,7 +103,7 @@ public class InspectWindow : GameWindow
             ("Защита", $"{_data.Defense} ({(CombatMath.CalcDefenseReduction(_data.Defense) * 100):F0}%)"),
             ("Сопротив.", $"{_data.Resistance} ({(CombatMath.CalcDefenseReduction(_data.Resistance) * 100):F0}%)"),
             ("Крит %", $"{_data.CritChance}"),
-            ("Крит урон", $"{_data.CritDamage * 100:F0}%"),
+            ("Крит урон %", $"{_data.CritDamage * 100:F0}"),
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
@@ -113,7 +113,7 @@ public class InspectWindow : GameWindow
             ("Откат %", $"{_data.CooldownReduction}"),
             ("Реген ХП %", $"{_data.HealthRegen}"),
             ("Реген МП %", $"{_data.ManaRegen}"),
-            ("Скор. атк %", $"{(_data.AttackSpeed - 1.0) * 100:F0}%"),
+            ("Скор. атк %", $"{_data.AttackSpeed * 100:F0}"),
         };
         for (int i = 0; i < combat.Length; i++)
         {

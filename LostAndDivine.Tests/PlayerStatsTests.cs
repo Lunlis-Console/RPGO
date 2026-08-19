@@ -161,8 +161,15 @@ public class PlayerStatsTests
     [Fact]
     public void GetAttackSpeedWithWeapon_CappedAt2x()
     {
-        // Огромное количество очков + быстрый модификатор оружия — не быстрее 2.0 (100%)
+        // Огромное количество очков + быстрый модификатор оружия — не быстрее 2.0 (200%)
         Assert.Equal(2.0, Balance.GetAttackSpeedWithWeapon(10000, 1.4));
+    }
+
+    [Fact]
+    public void GetAttackSpeedWithWeapon_SlowWeapon_GoesBelow100()
+    {
+        // Молот с множителем 0.7 — медленнее базовой скорости (70%)
+        Assert.Equal(0.7, Balance.GetAttackSpeedWithWeapon(0, 0.7), 3);
     }
 
     [Fact]

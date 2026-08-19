@@ -211,10 +211,11 @@ public static class Balance
         return Math.Max(1.0, AttackSpeedBase + effective / AttackSpeedAgilityDivisor);
     }
 
+    /// <summary>Скорость атаки с учётом оружия: база 100% × множитель оружия (молот 0.7 — медленнее базы, кинжал 1.1 — быстрее), кап 200%.</summary>
     public static double GetAttackSpeedWithWeapon(double points, double weaponSpeedMod)
     {
         double baseSpeed = GetAttackSpeed(points);
-        return Math.Min(MaxAttackSpeed, Math.Max(1.0, baseSpeed * Math.Max(0.1, weaponSpeedMod)));
+        return Math.Min(MaxAttackSpeed, baseSpeed * Math.Max(0.1, weaponSpeedMod));
     }
 
     public static int XpNeededForNextLevel(int level)

@@ -232,7 +232,7 @@ public class StatusWindow : GameWindow
             ("Защита", $"{_data.Defense} ({(CombatMath.CalcDefenseReduction(_data.Defense) * 100):F0}%)"),
             ("Сопротив.", $"{_data.Resistance} ({(CombatMath.CalcDefenseReduction(_data.Resistance) * 100):F0}%)"),
             ("Крит %", $"{_data.CritChance}"),
-            ("Крит урон", $"{_data.CritDamage * 100:F0}%"),
+            ("Крит урон %", $"{_data.CritDamage * 100:F0}"),
             ("Уклон %", $"{_data.EvadeChance}"),
             ("Блок %", $"{_data.BlockChance}"),
             ("Парир %", $"{_data.ParryChance}"),
@@ -419,7 +419,7 @@ public class StatusWindow : GameWindow
         if (_data == null) return;
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, RowH), RowBg);
         DrawText(sb, "Скор. атк %", cx + 6, cy + 3, DimColor);
-        DrawText(sb, $"{( _data.AttackSpeed - 1.0) * 100:F0}%", cx + 120, cy + 3, DimColor);
+        DrawText(sb, $"{_data.AttackSpeed * 100:F0}", cx + 120, cy + 3, DimColor);
         DrawText(sb, $"оруж.множ. {_data.WeaponSpeedModifier:F1}x", cx + 240, cy + 3, DimColor);
         DrawText(sb, $"= {_data.AttackIntervalMs}мс", cx + cw - 80, cy + 3, StatColor);
         cy += RowH;
