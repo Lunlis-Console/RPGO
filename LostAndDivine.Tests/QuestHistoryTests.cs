@@ -88,4 +88,43 @@ public class QuestHistoryTests
         }
         finally { Cleanup(db); }
     }
+
+    [Fact]
+    public void LoadCompleted_DeduplicatesDuplicateRows_KeepsEarliest()
+    {
+        // Реальная схема (миграция 1029) не имела UNIQUE-ограничения — дубли
+        // могли накопиться; загрузчик должен вернуть одну запись на квест.
+        string db = TempDb();
+        try
+        {
+            using (var conn = new SqliteConnection($"Data Source={db}"))
+            {
+                conn.Open();
+                using var create = conn.CreateCommand();
+                create.CommandText = @"
+                    CREATE TABLE player_completed_quests (
+                        player_name TEXT NOT NULL,
+                        quest_id TEXT NOT NULL,
+                        completed_at TEXT NOT NULL
+                    )";
+                create.ExecuteNonQuery();
+
+                using (var insert = conn.CreateCommand())
+                {
+                    insert.CommandText = "INSERT INTO player_completed_quests (player_name, quest_id, completed_at) VALUES ('Hero', 'Q0001', $at)";
+                    insert.Parameters.AddWithValue("$at", "2026-08-01T10:00:00Z");
+                    insert.ExecuteNonQuery();
+                    insert.Parameters["$at"].Value = "2026-08-10T10:00:00Z";
+                    insert.ExecuteNonQuery();
+                    insert.Parameters["$at"].Value = "2026-08-05T10:00:00Z";
+                    insert.ExecuteNonQuery();
+                }
+
+                var loaded = QuestRepository.LoadCompleted(conn, "Hero");
+                var q1 = loaded.Single(c => c.QuestId == "Q0001");
+                Assert.Equal("2026-08-01T10:00:00Z", q1.CompletedAt);
+            }
+        }
+        finally { Cleanup(db); }
+    }
 }

@@ -143,8 +143,10 @@ internal static class CharacterRepository
             Inventory = InventoryRepository.GetForPlayer(playerName),
             Equipment = InventoryRepository.LoadEquipment(conn, playerName),
             ActiveQuests = QuestRepository.Load(conn, playerName),
-            CompletedQuestIds = completed.Select(c => c.QuestId).ToList(),
-            CompletedQuestTimes = completed.ToDictionary(c => c.QuestId, c => c.CompletedAt, StringComparer.OrdinalIgnoreCase)
+            CompletedQuestIds = completed.Select(c => c.QuestId).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            CompletedQuestTimes = completed
+                .GroupBy(c => c.QuestId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First().CompletedAt, StringComparer.OrdinalIgnoreCase)
         };
     }
 

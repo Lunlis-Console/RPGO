@@ -43,6 +43,31 @@ public class MigrationRepairTests
 
             cmd.CommandText = "SELECT COUNT(*) FROM pragma_table_info('monsters') WHERE name='gold_max'";
             Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
+
+            cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='uq_player_completed_quests'";
+            Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
+        }
+        finally { Cleanup(db); }
+    }
+
+    [Fact]
+    public void Migrations_1062_UniqueIndex_BlocksDuplicateCompletedQuests()
+    {
+        string db = TempDb();
+        try
+        {
+            DbMigrationRunner.RunMigrations($"Data Source={db}");
+
+            using var conn = new SqliteConnection($"Data Source={db}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT INTO player_completed_quests (player_name, quest_id, completed_at) VALUES ('Hero', 'Q0001', '2026-08-01T10:00:00Z')";
+            cmd.ExecuteNonQuery();
+            cmd.CommandText = "INSERT OR IGNORE INTO player_completed_quests (player_name, quest_id, completed_at) VALUES ('Hero', 'Q0001', '2026-08-02T10:00:00Z')";
+            cmd.ExecuteNonQuery();
+
+            cmd.CommandText = "SELECT COUNT(*) FROM player_completed_quests WHERE player_name = 'Hero' AND quest_id = 'Q0001'";
+            Assert.Equal(1, Convert.ToInt32(cmd.ExecuteScalar()));
         }
         finally { Cleanup(db); }
     }

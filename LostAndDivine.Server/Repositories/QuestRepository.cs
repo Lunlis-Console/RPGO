@@ -162,8 +162,14 @@ internal static class QuestRepository
 
     internal static List<(string QuestId, string CompletedAt)> LoadCompleted(SqliteConnection connection, string playerName)
     {
+        // Дедупликация на всякий случай: старые БД могли накопить дубли
+        // (до миграции 1062), оставляем самую раннюю запись по каждой цели.
         var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT quest_id, completed_at FROM player_completed_quests WHERE player_name = $name ORDER BY rowid";
+        cmd.CommandText = @"SELECT quest_id, completed_at FROM player_completed_quests
+            WHERE player_name = $name AND rowid IN (
+                SELECT MIN(rowid) FROM player_completed_quests WHERE player_name = $name GROUP BY quest_id
+            )
+            ORDER BY rowid";
         cmd.Parameters.AddWithValue("$name", playerName);
 
         var list = new List<(string, string)>();
