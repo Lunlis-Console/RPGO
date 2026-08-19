@@ -242,7 +242,7 @@ public class StatusWindow : GameWindow
             ("Откат %", $"{_data.CooldownReduction}"),
             ("Реген ХП %", $"{_data.HealthRegen}"),
             ("Реген МП %", $"{_data.ManaRegen}"),
-            ("Скор. атк", $"{_data.AttackSpeed:F1}"),
+            ("Скор. атк %", $"{_data.AttackSpeed * 100:F0}"),
         };
         for (int i = 0; i < combat.Length; i++)
         {
