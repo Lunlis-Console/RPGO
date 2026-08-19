@@ -654,9 +654,9 @@ public class GameScreen : IScreen
         _questBoardWindow.CompleteQuest += id => _ = _client.SendAsync("complete_quest", new { QuestId = id });
         _questBoardWindow.AbandonQuest += id => _ = _client.SendAsync("abandon_quest", new { QuestId = id });
         _questLogWindow.AbandonQuest += id => _ = _client.SendAsync("abandon_quest", new { QuestId = id });
-        _client.QuestLogUpdated += (available, active) =>
+        _client.QuestLogUpdated += (available, active, history) =>
         {
-            _questLogWindow.UpdateActive(active);
+            _questLogWindow.UpdateData(active, history);
             _activeQuests = active ?? new List<QuestInfo>();
             _questBoardWindow.UpdateData(available, _activeQuests);
         };

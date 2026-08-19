@@ -111,6 +111,8 @@ internal static class CharacterRepository
         using var reader = cmd.ExecuteReader();
         if (!reader.Read()) return null;
 
+        var completed = QuestRepository.LoadCompleted(conn, playerName);
+
         return new CharacterModel
         {
             Name = reader.GetString(0),
@@ -141,7 +143,8 @@ internal static class CharacterRepository
             Inventory = InventoryRepository.GetForPlayer(playerName),
             Equipment = InventoryRepository.LoadEquipment(conn, playerName),
             ActiveQuests = QuestRepository.Load(conn, playerName),
-            CompletedQuestIds = QuestRepository.LoadCompleted(conn, playerName)
+            CompletedQuestIds = completed.Select(c => c.QuestId).ToList(),
+            CompletedQuestTimes = completed.ToDictionary(c => c.QuestId, c => c.CompletedAt, StringComparer.OrdinalIgnoreCase)
         };
     }
 

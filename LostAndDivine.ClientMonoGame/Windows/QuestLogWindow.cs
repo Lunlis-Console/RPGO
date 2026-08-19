@@ -8,7 +8,11 @@ namespace LostAndDivine.ClientMonoGame.Windows;
 
 public sealed class QuestLogWindow : GameWindow
 {
-    private List<QuestInfo> _quests = new();
+    private enum Filter { All, Active, History }
+
+    private List<QuestInfo> _active = new();
+    private List<QuestInfo> _history = new();
+    private Filter _filter = Filter.All;
     private int _scrollOffset;
     private new MouseState _prevMouse;
     private readonly List<(Rectangle Rect, string QuestId)> _cardButtons = new();
@@ -21,15 +25,23 @@ public sealed class QuestLogWindow : GameWindow
     private const int BarWidth = 4;
     private const int LineHeight = 14;
     private const int HeaderHeight = 30;
+    private const int TabHeight = 24;
+    private const int IconSize = 26;
+    private const int IconGap = 6;
 
     private static readonly Color BgCard = new(38, 40, 52);
+    private static readonly Color BgCardHistory = new(32, 34, 42);
     private static readonly Color AccentBlue = new(0, 120, 215);
     private static readonly Color AccentGreen = new(0, 180, 90);
+    private static readonly Color AccentReady = new(255, 210, 60);
     private static readonly Color TextWhite = Color.White;
     private static readonly Color TextMuted = new(150, 150, 160);
     private static readonly Color TextDesc = new(200, 200, 210);
     private static readonly Color TextProgress = new(150, 200, 255);
     private static readonly Color HeaderGold = new(220, 200, 120);
+    private static readonly Color TabIdle = new(42, 46, 60);
+    private static readonly Color TabHover = new(55, 60, 78);
+    private static readonly Color TabActive = new(70, 80, 105);
 
     public QuestLogWindow()
     {
@@ -39,19 +51,16 @@ public sealed class QuestLogWindow : GameWindow
         Visible = false;
     }
 
-    public void UpdateData(List<QuestInfo> quests) => SetQuests(quests);
-
-    public void UpdateActive(List<QuestInfo> quests) => SetQuests(quests);
-
-    private void SetQuests(List<QuestInfo>? quests)
+    public void UpdateData(List<QuestInfo> active, List<QuestInfo> history)
     {
-        _quests = SortQuests(quests ?? new List<QuestInfo>());
+        _active = SortQuests(active ?? new List<QuestInfo>());
+        _history = history ?? new List<QuestInfo>();
         _scrollOffset = 0;
     }
 
     private static List<QuestInfo> SortQuests(List<QuestInfo> quests)
     {
-        // Выполненные сверху, затем активные (готовые к завершению), затем в процессе
+        // Готовые к сдаче сверху, затем в процессе
         int Rank(QuestInfo q)
         {
             if (q.Completed) return 0;
@@ -71,6 +80,27 @@ public sealed class QuestLogWindow : GameWindow
     {
         if (q.Objectives != null && q.Objectives.Count > 0) return q.Objectives.Count;
         return 1;
+    }
+
+    private List<QuestInfo> GetVisibleQuests()
+    {
+        switch (_filter)
+        {
+            case Filter.Active:
+                return _active;
+            case Filter.History:
+                return _history;
+            default:
+                return _active.Concat(_history).ToList();
+        }
+    }
+
+    private static string FormatDate(string? iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return "";
+        if (DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+            return dt.ToLocalTime().ToString("dd.MM.yyyy");
+        return "";
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -93,8 +123,8 @@ public sealed class QuestLogWindow : GameWindow
             _scrollOffset += 30;
 
         int cx = ContentX, cy = ContentY + HeaderHeight, cw = ContentW, ch = ContentH;
-        int listH = ch - HeaderHeight - 32;
-        int btnY = cy + listH + 6;
+        int listH = ch - HeaderHeight - TabHeight - 32;
+        int btnY = cy + TabHeight + listH + 6;
         int btnW = 100, btnH = 22;
         int btnX = cx + (cw - btnW) / 2;
 
@@ -106,13 +136,33 @@ public sealed class QuestLogWindow : GameWindow
             }
             else
             {
-                // Кнопка «Отказаться» на карточках
-                foreach (var b in _cardButtons)
+                // Вкладки фильтров
+                var tabs = GetTabRects(cx, cy, cw);
+                bool tabHit = false;
+                for (int i = 0; i < tabs.Count; i++)
                 {
-                    if (b.Rect.Contains(mouse.X, mouse.Y))
+                    if (tabs[i].Contains(mouse.X, mouse.Y))
                     {
-                        AbandonQuest?.Invoke(b.QuestId);
+                        var newFilter = (Filter)i;
+                        if (newFilter != _filter)
+                        {
+                            _filter = newFilter;
+                            _scrollOffset = 0;
+                        }
+                        tabHit = true;
                         break;
+                    }
+                }
+                if (!tabHit)
+                {
+                    // Кнопка «Отказаться» на карточках
+                    foreach (var b in _cardButtons)
+                    {
+                        if (b.Rect.Contains(mouse.X, mouse.Y))
+                        {
+                            AbandonQuest?.Invoke(b.QuestId);
+                            break;
+                        }
                     }
                 }
             }
@@ -120,6 +170,18 @@ public sealed class QuestLogWindow : GameWindow
 
         _cardButtons.Clear();
         _prevMouse = mouse;
+    }
+
+    private List<Rectangle> GetTabRects(int cx, int cy, int cw)
+    {
+        int gap = 4;
+        int tabW = (cw - gap * 2) / 3;
+        return new List<Rectangle>
+        {
+            new Rectangle(cx, cy, tabW, TabHeight),
+            new Rectangle(cx + tabW + gap, cy, tabW, TabHeight),
+            new Rectangle(cx + tabW * 2 + gap * 2, cy, tabW, TabHeight)
+        };
     }
 
     public override void Draw(SpriteBatch sb)
@@ -141,20 +203,43 @@ public sealed class QuestLogWindow : GameWindow
         DrawText(sb, header, cx + (cw - (int)headerSize.X) / 2, cy, HeaderGold);
         cy += HeaderHeight;
 
-        int listH = ch - HeaderHeight - 32;
+        // Вкладки фильтров
+        int totalCount = _active.Count + _history.Count;
+        var tabs = GetTabRects(cx, cy, cw);
+        string[] tabLabels =
+        {
+            $"Все ({totalCount})",
+            $"Активные ({_active.Count})",
+            $"История ({_history.Count})"
+        };
+        var ms = Mouse.GetState();
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            bool selected = (int)_filter == i;
+            bool hover = tabs[i].Contains(ms.X, ms.Y);
+            Color bg = selected ? TabActive : hover ? TabHover : TabIdle;
+            sb.Draw(SpriteCache.Pixel, tabs[i], bg);
+            Color fg = selected ? Color.White : TextMuted;
+            var labelSize = font.MeasureString(tabLabels[i]);
+            DrawText(sb, tabLabels[i], tabs[i].X + (tabs[i].Width - (int)labelSize.X) / 2, tabs[i].Y + (tabs[i].Height - (int)labelSize.Y) / 2, fg);
+        }
+        cy += TabHeight;
+
+        int listH = ch - HeaderHeight - TabHeight - 32;
 
         sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, listH), new Color(20, 22, 28));
 
-        if (_quests.Count == 0)
+        var visible = GetVisibleQuests();
+        if (visible.Count == 0)
         {
-            string empty = "У вас пока нет заданий.";
+            string empty = _filter == Filter.History ? "История пуста." : "У вас пока нет заданий.";
             var emptySize = font.MeasureString(empty);
             DrawText(sb, empty, cx + (cw - (int)emptySize.X) / 2, cy + listH / 2 - (int)emptySize.Y / 2, TextMuted);
         }
         else
         {
             int totalContentHeight = 0;
-            foreach (var q in _quests)
+            foreach (var q in visible)
                 totalContentHeight += GetCardHeight(q, cw, font) + CardSpacing;
             totalContentHeight = Math.Max(0, totalContentHeight - CardSpacing);
 
@@ -170,11 +255,11 @@ public sealed class QuestLogWindow : GameWindow
                 new RasterizerState { ScissorTestEnable = true, CullMode = CullMode.None });
             sb.GraphicsDevice.ScissorRectangle = clipRect;
 
-            foreach (var q in _quests)
+            foreach (var q in visible)
             {
                 int cardH = GetCardHeight(q, cw, font);
                 if (drawY < cy + listH && drawY + cardH > cy)
-                    DrawQuestCard(sb, q, cx, drawY, cw, cardH, font, Mouse.GetState());
+                    DrawQuestCard(sb, q, cx, drawY, cw, cardH, font, ms);
                 drawY += cardH + CardSpacing;
             }
 
@@ -194,7 +279,6 @@ public sealed class QuestLogWindow : GameWindow
         int btnW = 100;
         int btnH = 22;
         int btnX = cx + (cw - btnW) / 2;
-        var ms = Mouse.GetState();
         // Кнопка «Закрыть» — клик обрабатывается в Update
         var closeRect = new Rectangle(btnX, btnY, btnW, btnH);
         bool closeHover = closeRect.Contains(ms.X, ms.Y);
@@ -204,7 +288,7 @@ public sealed class QuestLogWindow : GameWindow
 
     private int GetCardHeight(QuestInfo q, int availableWidth, SpriteFont font)
     {
-        int innerW = availableWidth - CardPadX * 2 - BarWidth - 4;
+        int innerW = availableWidth - CardPadX * 2 - BarWidth - 4 - IconSize - IconGap;
         int h = CardPadY * 2;
         h += LineHeight;        // заголовок
         h += LineHeight;        // статус
@@ -212,7 +296,7 @@ public sealed class QuestLogWindow : GameWindow
         h += MeasureWrappedText(q.Description ?? "", innerW, font).H; // описание
         h += ObjectiveCount(q) * LineHeight; // цели
         h += LineHeight;        // награда
-        h += LineHeight;        // отступ под кнопку «Отказаться»
+        if (!q.Completed) h += LineHeight; // отступ под кнопку «Отказаться»
         return h;
     }
 
@@ -238,7 +322,7 @@ public sealed class QuestLogWindow : GameWindow
     private static string? GetChainText(QuestInfo q)
     {
         if (string.IsNullOrEmpty(q.ChainId)) return null;
-        return q.Step > 0 ? $"Сюжет: {q.ChainId} · Шаг {q.Step}" : $"Сюжет: {q.ChainId}";
+        return q.Step > 0 ? $"★ Сюжет: {q.ChainId} · Шаг {q.Step}" : $"★ Сюжет: {q.ChainId}";
     }
 
     private static (int W, int H) MeasureWrappedText(string text, int maxW, SpriteFont font)
@@ -289,6 +373,34 @@ public sealed class QuestLogWindow : GameWindow
         }
     }
 
+    /// <summary>Иконка квеста по ключу с сервера (monster:{id}, item:{type}, npc, worldmap).</summary>
+    private static Texture2D? GetQuestIcon(QuestInfo q)
+    {
+        string? icon = q.Icon;
+        if (string.IsNullOrEmpty(icon)) return null;
+        if (icon.StartsWith("monster:", StringComparison.OrdinalIgnoreCase))
+            return SpriteCache.GetMonsterSprite(icon.Substring(8));
+        if (icon.StartsWith("item:", StringComparison.OrdinalIgnoreCase))
+            return SpriteCache.ForItemType(icon.Substring(5));
+        return icon.ToLowerInvariant() switch
+        {
+            "npc" => SpriteCache.GetIconCommunication(),
+            "worldmap" => SpriteCache.GetIconWorldMap(),
+            _ => null
+        };
+    }
+
+    private static string GetIconSymbol(QuestInfo q) => (q.Type ?? "").ToLower() switch
+    {
+        "kill" => "⚔",
+        "collect" => "⚒",
+        "use" => "⚗",
+        "talk" => "♦",
+        "travel" => "→",
+        "explore" => "★",
+        _ => "•"
+    };
+
     private void DrawQuestCard(SpriteBatch sb, QuestInfo q, int x, int y, int w, int h, SpriteFont font, MouseState mouse)
     {
         bool completed = q.Completed;
@@ -303,7 +415,7 @@ public sealed class QuestLogWindow : GameWindow
         }
         else if (readyToComplete)
         {
-            accent = new Color(255, 210, 60);
+            accent = AccentReady;
             stateText = "★ МОЖНО СДАТЬ!";
         }
         else
@@ -312,17 +424,50 @@ public sealed class QuestLogWindow : GameWindow
             stateText = "АКТИВНО";
         }
 
-        sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, w, h), BgCard);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, w, h), completed ? BgCardHistory : BgCard);
         sb.Draw(SpriteCache.Pixel, new Rectangle(x, y, BarWidth, h), accent);
 
-        int textX = x + BarWidth + 4;
+        int textX = x + BarWidth + 4 + IconSize + IconGap;
         int textY = y + CardPadY;
-        int innerW = w - CardPadX * 2 - BarWidth - 4;
+        int innerW = w - CardPadX * 2 - BarWidth - 4 - IconSize - IconGap;
 
-        DrawText(sb, q.Title ?? "Без названия", textX, textY, TextWhite);
+        // Иконка квеста (первая цель): текстура или символ типа
+        var iconRect = new Rectangle(x + BarWidth + 6, y + CardPadY, IconSize, IconSize);
+        sb.Draw(SpriteCache.Pixel, iconRect, new Color(24, 26, 34));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(iconRect.X, iconRect.Y, iconRect.Width, 1), accent);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(iconRect.X, iconRect.Y, 1, iconRect.Height), accent);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(iconRect.X, iconRect.Bottom - 1, iconRect.Width, 1), accent);
+        sb.Draw(SpriteCache.Pixel, new Rectangle(iconRect.Right - 1, iconRect.Y, 1, iconRect.Height), accent);
+        var iconTex = GetQuestIcon(q);
+        if (iconTex != null)
+        {
+            int inner = IconSize - 6;
+            float scale = Math.Min((float)inner / iconTex.Width, (float)inner / iconTex.Height);
+            int dw = (int)(iconTex.Width * scale);
+            int dh = (int)(iconTex.Height * scale);
+            sb.Draw(iconTex, new Rectangle(iconRect.X + (IconSize - dw) / 2, iconRect.Y + (IconSize - dh) / 2, dw, dh), completed ? new Color(140, 150, 160) : Color.White);
+        }
+        else
+        {
+            string sym = GetIconSymbol(q);
+            var symSize = font.MeasureString(sym);
+            DrawText(sb, sym, iconRect.X + (IconSize - (int)symSize.X) / 2, iconRect.Y + (IconSize - (int)symSize.Y) / 2, completed ? TextMuted : accent);
+        }
+        // Бейдж сюжетного квеста — золотая звезда на иконке
+        if (!string.IsNullOrEmpty(q.ChainId))
+            DrawText(sb, "★", iconRect.X + IconSize - 11, iconRect.Y - 3, HeaderGold);
+
+        Color titleColor = completed ? new Color(170, 175, 185) : TextWhite;
+        DrawText(sb, q.Title ?? "Без названия", textX, textY, titleColor);
         textY += LineHeight;
 
-        DrawText(sb, stateText, textX, textY, accent);
+        string stateLine = stateText;
+        if (completed)
+        {
+            string date = FormatDate(q.CompletedAt);
+            if (date.Length > 0) stateLine += $" · {date}";
+        }
+        DrawText(sb, stateLine, textX, textY, accent);
         textY += LineHeight;
 
         string? chain = GetChainText(q);
@@ -332,14 +477,13 @@ public sealed class QuestLogWindow : GameWindow
             textY += LineHeight;
         }
 
-        DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, TextDesc, font);
+        DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, completed ? TextMuted : TextDesc, font);
         textY += MeasureWrappedText(q.Description ?? "", innerW, font).H;
 
         // Кнопка «Отказаться» только для активных (не выполненных) заданий — в самом низу справа
         int btnH = 20;
         int bottomY = y + h - CardPadY;
 
-        // Кнопка «Отказаться» только для активных (не выполненных) заданий — в самом низу справа
         int btnW = 90;
         int btnX = x + w - btnW - CardPadX;
         int btnY = bottomY - btnH;
@@ -369,10 +513,10 @@ public sealed class QuestLogWindow : GameWindow
             bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
             string mark = objDone ? "✔" : "•";
             string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
-            DrawText(sb, line, textX, objY, objDone ? AccentGreen : TextProgress);
+            DrawText(sb, line, textX, objY, completed ? TextMuted : objDone ? AccentGreen : TextProgress);
             objY += LineHeight;
         }
 
-        DrawText(sb, $"Награда: {q.XpReward} XP, {q.GoldReward} зол.", textX, objY, new Color(220, 200, 120));
+        DrawText(sb, $"Награда: {q.XpReward} XP, {q.GoldReward} зол.", textX, objY, completed ? new Color(150, 140, 100) : new Color(220, 200, 120));
     }
 }

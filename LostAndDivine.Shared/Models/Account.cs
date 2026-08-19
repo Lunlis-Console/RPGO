@@ -25,6 +25,8 @@ public class PlayerData
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
     public List<string> CompletedQuestIds { get; set; } = new();
+    // Время первого выполнения квеста (UTC ISO) по id — для истории в журнале
+    public Dictionary<string, string> CompletedQuestTimes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
     public Guid? PartyId { get; set; }
     public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
@@ -58,6 +60,8 @@ public class CharacterModel
     public Equipment Equipment { get; set; } = new();
     public List<QuestProgress> ActiveQuests { get; set; } = new();
     public List<string> CompletedQuestIds { get; set; } = new();
+    // Время первого выполнения квеста (UTC ISO) по id — для истории в журнале
+    public Dictionary<string, string> CompletedQuestTimes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
     public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
     public DateTime CreatedAt { get; set; } = DateTime.Now;

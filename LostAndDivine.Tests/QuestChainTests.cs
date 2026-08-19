@@ -82,6 +82,7 @@ public class QuestChainTests
 
         Assert.True(result.Success);
         Assert.Contains("Q0009", p.CompletedQuestIds);
+        Assert.True(p.CompletedQuestTimes.ContainsKey("Q0009"), "время первого выполнения фиксируется");
         Assert.Empty(p.ActiveQuests);
     }
 

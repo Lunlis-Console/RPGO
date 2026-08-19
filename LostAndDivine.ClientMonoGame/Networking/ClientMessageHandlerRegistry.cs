@@ -210,7 +210,8 @@ internal static class ClientMessageHandlerRegistry
         var log = m.Deserialize<QuestLogData>();
         c.AvailableQuests = log?.Available ?? new List<QuestInfo>();
         c.ActiveQuests = log?.Active ?? new List<QuestInfo>();
-        c.RaiseQuestLogUpdated(c.AvailableQuests, c.ActiveQuests);
+        c.HistoryQuests = log?.History ?? new List<QuestInfo>();
+        c.RaiseQuestLogUpdated(c.AvailableQuests, c.ActiveQuests, c.HistoryQuests);
     }
 
     private static void HandleZoneTransition(GameClient c, GameMessage m)

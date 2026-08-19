@@ -112,6 +112,7 @@ public sealed class QuestLogData
 {
     public List<QuestInfo>? Available { get; set; }
     public List<QuestInfo>? Active { get; set; }
+    public List<QuestInfo>? History { get; set; }
 }
 
 public sealed class StorageData
@@ -247,6 +248,10 @@ public sealed class QuestInfo
     public string? PrerequisiteQuestId { get; set; }
     public int MinLevel { get; set; }
     public List<QuestObjectiveInfo>? Objectives { get; set; }
+    // Иконка квеста: monster:{id} / item:{type} / npc / worldmap / default
+    public string? Icon { get; set; }
+    // Дата первого выполнения (UTC ISO) — заполнена только в истории
+    public string? CompletedAt { get; set; }
 }
 
 public sealed class QuestObjectiveInfo

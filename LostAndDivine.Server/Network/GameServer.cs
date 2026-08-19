@@ -408,6 +408,7 @@ public sealed class GameServer : INetworkHub
                 Step = def?.Step ?? 0,
                 PrerequisiteQuestId = def?.PrerequisiteQuestId ?? "",
                 MinLevel = def?.MinLevel ?? 1,
+                Icon = svc.Quests.QuestIconKey(objectives),
                 Objectives = objectives.Select((o, i) => new
                 {
                     o.Type,
@@ -421,23 +422,63 @@ public sealed class GameServer : INetworkHub
             };
         }).ToList();
 
+        // История выполненных квестов (свежие сверху)
+        var history = player.CompletedQuestIds
+            .OrderByDescending(id => player.CompletedQuestTimes.TryGetValue(id, out var t) ? t : "")
+            .Select(id =>
+            {
+                var def = svc.Quests.FindQuest(id);
+                var objectives = def == null ? new List<QuestObjective>() : QuestManager.GetObjectives(def);
+                return new
+                {
+                    QuestId = id,
+                    Title = def?.Title ?? id,
+                    Description = def?.Description ?? "",
+                    Type = objectives.Count > 0 ? objectives[0].Type ?? "kill" : "kill",
+                    Target = objectives.Count > 0 ? objectives[0].Count : 0,
+                    XpReward = def?.XpReward ?? 0,
+                    GoldReward = def?.GoldReward ?? 0,
+                    ChainId = def?.ChainId ?? "",
+                    Step = def?.Step ?? 0,
+                    MinLevel = def?.MinLevel ?? 1,
+                    CompletedAt = player.CompletedQuestTimes.TryGetValue(id, out var at) ? at : "",
+                    Icon = svc.Quests.QuestIconKey(objectives),
+                    Objectives = objectives.Select(o => new
+                    {
+                        o.Type,
+                        o.Target,
+                        o.TargetX,
+                        o.TargetY,
+                        o.Count,
+                        Current = o.Count,
+                        Label = svc.Quests.ObjectiveLabel(o)
+                    }).ToList()
+                };
+            }).ToList();
+
         await SendToClient(connection, new GameMessage
         {
             Type = "quest_log",
             Data = new
             {
-                Available = svc.Quests.GetAvailableQuests(player).Select(d => new
+                Available = svc.Quests.GetAvailableQuests(player).Select(d =>
                 {
-                    QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward,
-                    d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel,
-                    Objectives = QuestManager.GetObjectives(d).Select(o => new
+                    var objectives = QuestManager.GetObjectives(d);
+                    return new
                     {
-                        o.Type, o.Target, o.TargetX, o.TargetY, o.Count,
-                        Current = 0,
-                        Label = svc.Quests.ObjectiveLabel(o)
-                    }).ToList()
+                        QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward,
+                        d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel,
+                        Icon = svc.Quests.QuestIconKey(objectives),
+                        Objectives = objectives.Select(o => new
+                        {
+                            o.Type, o.Target, o.TargetX, o.TargetY, o.Count,
+                            Current = 0,
+                            Label = svc.Quests.ObjectiveLabel(o)
+                        }).ToList()
+                    };
                 }).ToList(),
-                Active = quests
+                Active = quests,
+                History = history
             }
         });
     }

@@ -134,16 +134,24 @@ internal static class QuestRepository
 
     internal static void SaveCompleted(SqliteConnection connection, string playerName, List<string> completedQuestIds)
     {
-        var delete = connection.CreateCommand();
-        delete.CommandText = "DELETE FROM player_completed_quests WHERE player_name = $name";
-        delete.Parameters.AddWithValue("$name", playerName);
-        delete.ExecuteNonQuery();
+        // Существующие записи не трогаем (completed_at = время первого выполнения):
+        // удаляем только те, которых больше нет в списке, остальные сохраняем как есть.
+        var existing = LoadCompleted(connection, playerName);
+        foreach (var (questId, _) in existing)
+        {
+            if (completedQuestIds.Contains(questId)) continue;
+            var del = connection.CreateCommand();
+            del.CommandText = "DELETE FROM player_completed_quests WHERE player_name = $name AND quest_id = $qid";
+            del.Parameters.AddWithValue("$name", playerName);
+            del.Parameters.AddWithValue("$qid", questId);
+            del.ExecuteNonQuery();
+        }
 
         foreach (var qid in completedQuestIds)
         {
             var insert = connection.CreateCommand();
             insert.CommandText = @"
-                INSERT INTO player_completed_quests (player_name, quest_id, completed_at)
+                INSERT OR IGNORE INTO player_completed_quests (player_name, quest_id, completed_at)
                 VALUES ($name, $qid, $at)";
             insert.Parameters.AddWithValue("$name", playerName);
             insert.Parameters.AddWithValue("$qid", qid);
@@ -152,17 +160,17 @@ internal static class QuestRepository
         }
     }
 
-    internal static List<string> LoadCompleted(SqliteConnection connection, string playerName)
+    internal static List<(string QuestId, string CompletedAt)> LoadCompleted(SqliteConnection connection, string playerName)
     {
         var cmd = connection.CreateCommand();
-        cmd.CommandText = "SELECT quest_id FROM player_completed_quests WHERE player_name = $name";
+        cmd.CommandText = "SELECT quest_id, completed_at FROM player_completed_quests WHERE player_name = $name ORDER BY rowid";
         cmd.Parameters.AddWithValue("$name", playerName);
 
-        var list = new List<string>();
+        var list = new List<(string, string)>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
-            list.Add(reader.GetString(0));
+            list.Add((reader.GetString(0), reader.IsDBNull(1) ? "" : reader.GetString(1)));
         }
         return list;
     }

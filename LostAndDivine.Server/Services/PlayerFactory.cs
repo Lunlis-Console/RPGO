@@ -64,6 +64,7 @@ public static class PlayerFactory
             Equipment = ch.Equipment,
             ActiveQuests = ch.ActiveQuests,
             CompletedQuestIds = ch.CompletedQuestIds,
+            CompletedQuestTimes = ch.CompletedQuestTimes,
             HotbarSlots = ch.HotbarSlots,
             SkillPoints = ch.SkillPoints,
             LearnedSkills = ch.LearnedSkills,

@@ -23,6 +23,7 @@ public class QuestManager
     // Справочники названий для меток целей (заполняются в Initialize/Reload)
     private readonly Dictionary<string, string> _monsterNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _itemNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _itemTypes = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _npcNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _zoneNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _labelsLock = new();
@@ -91,8 +92,12 @@ public class QuestManager
                 foreach (var t in DatabaseManager.LoadMonsterTemplates())
                     _monsterNames[t.Id] = t.Name;
                 _itemNames.Clear();
+                _itemTypes.Clear();
                 foreach (var i in DatabaseManager.LoadItems())
+                {
                     _itemNames[i.Id] = i.Name;
+                    _itemTypes[i.Id] = i.Type;
+                }
                 _npcNames.Clear();
                 foreach (var n in DatabaseManager.LoadNpcs())
                     _npcNames[n.Id] = n.Name;
@@ -260,7 +265,10 @@ public class QuestManager
         player.ActiveQuests.Remove(prog);
         // Повторяемые квесты не попадают в историю выполненных — их можно взять снова.
         if (!def.Repeatable && !player.CompletedQuestIds.Contains(def.Id))
+        {
             player.CompletedQuestIds.Add(def.Id);
+            player.CompletedQuestTimes[def.Id] = DateTime.UtcNow.ToString("o");
+        }
 
         player.Experience += def.XpReward;
         player.Gold += def.GoldReward;
@@ -379,6 +387,37 @@ public class QuestManager
             return $"{verb}: ({obj.TargetX}, {obj.TargetY})";
         if (string.IsNullOrEmpty(target)) target = obj.Target ?? "";
         return target.Length > 0 ? $"{verb}: {target}" : $"{verb}";
+    }
+
+    /// <summary>
+    /// Ключ иконки квеста (по первой цели) для клиента:
+    /// monster:{id} — спрайт монстра, item:{type} — иконка предмета по типу,
+    /// npc — разговор, worldmap — путешествие/исследование, type-символы как запасной вариант.
+    /// </summary>
+    public string QuestIconKey(List<QuestObjective> objectives)
+    {
+        var obj = objectives.FirstOrDefault();
+        if (obj == null) return "default";
+        switch (obj.Type?.ToLower())
+        {
+            case "kill":
+                return string.IsNullOrEmpty(obj.Target) ? "kill" : $"monster:{obj.Target}";
+            case "collect":
+            case "use":
+                string? itemType = null;
+                if (!string.IsNullOrEmpty(obj.Target))
+                {
+                    lock (_labelsLock) _itemTypes.TryGetValue(obj.Target, out itemType);
+                }
+                return string.IsNullOrEmpty(itemType) ? "item" : $"item:{itemType}";
+            case "talk":
+                return "npc";
+            case "travel":
+            case "explore":
+                return "worldmap";
+            default:
+                return "default";
+        }
     }
 
     /// <summary>

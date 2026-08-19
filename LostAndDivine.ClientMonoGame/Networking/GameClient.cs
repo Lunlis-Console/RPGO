@@ -39,6 +39,7 @@ public sealed class GameClient
     public InventoryData? Inventory { get; internal set; }
     public List<QuestInfo> AvailableQuests { get; internal set; } = new();
     public List<QuestInfo> ActiveQuests { get; internal set; } = new();
+    public List<QuestInfo> HistoryQuests { get; internal set; } = new();
 
     public bool IsConnected { get; set; }
     public string? SessionToken { get; internal set; }
@@ -57,7 +58,7 @@ public sealed class GameClient
     public event Action<WorldMap>? MapUpdated;
     public event Action<StatusData>? StatusUpdated;
     public event Action<InventoryData>? InventoryUpdated;
-    public event Action<List<QuestInfo>, List<QuestInfo>>? QuestLogUpdated;
+    public event Action<List<QuestInfo>, List<QuestInfo>, List<QuestInfo>>? QuestLogUpdated;
     public event Action<string>? ErrorReceived;
     public event Action<GameMessage>? UnknownMessage;
     public event Action<int, int, string, uint, bool>? FloatingTextReceived;
@@ -161,7 +162,7 @@ public sealed class GameClient
     internal void RaiseStatusUpdated(StatusData st) => Ui(() => StatusUpdated?.Invoke(st));
     internal void RaiseStatusDetailsUpdated(StatusData st) => Ui(() => StatusDetailsUpdated?.Invoke(st));
     internal void RaiseInventoryUpdated(InventoryData inv) => Ui(() => InventoryUpdated?.Invoke(inv));
-    internal void RaiseQuestLogUpdated(List<QuestInfo> available, List<QuestInfo> active) => Ui(() => QuestLogUpdated?.Invoke(available, active));
+    internal void RaiseQuestLogUpdated(List<QuestInfo> available, List<QuestInfo> active, List<QuestInfo> history) => Ui(() => QuestLogUpdated?.Invoke(available, active, history));
     internal void RaiseZoneChanged(string zoneId, string zoneName, bool pvp) => Ui(() => ZoneChanged?.Invoke(zoneId, zoneName, pvp));
     internal void RaiseTileDataReceived(byte[] data, int width, int height, string tilesetId, int tileSize) => Ui(() => TileDataReceived?.Invoke(data, width, height, tilesetId, tileSize));
     internal void RaiseObstacleDataReceived(byte[] data, int width, int height) => Ui(() => ObstacleDataReceived?.Invoke(data, width, height));

@@ -46,6 +46,9 @@ public class Player : ICombatant
     // История выполненных квестов (для цепочек и условий диалогов)
     public List<string> CompletedQuestIds { get; set; } = new();
 
+    // Время первого выполнения квеста (UTC ISO) по id — для истории в журнале
+    public Dictionary<string, string> CompletedQuestTimes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     // Первичные атрибуты (качаются с уровнем)
     public int Strength { get; set; } = 1;   // +физ.атака, +крит урон
     public int Endurance { get; set; } = 1;  // +MaxHP, +сопротивление физ.эффектам
