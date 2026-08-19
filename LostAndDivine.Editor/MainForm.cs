@@ -116,6 +116,7 @@ public partial class MainForm : Form
         _itemsGrid.AllowUserToAddRows = true;
         _itemsGrid.AllowUserToDeleteRows = true;
         _itemsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _itemsGrid.RowsAdded += (s, e) => AutoFillNewRowId(_itemsGrid, "I");
         _itemsGrid.CellDoubleClick += (s, e) =>
         {
             if (e.RowIndex < 0 || e.RowIndex >= _itemsGrid.Rows.Count) return;
@@ -150,6 +151,7 @@ public partial class MainForm : Form
         _monstersGrid.AllowUserToAddRows = true;
         _monstersGrid.AllowUserToDeleteRows = true;
         _monstersGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _monstersGrid.RowsAdded += (s, e) => AutoFillNewRowId(_monstersGrid, "M");
         _monstersGrid.CellDoubleClick += (s, e) =>
         {
             if (e.RowIndex < 0 || e.RowIndex >= _monstersGrid.Rows.Count) return;
@@ -174,6 +176,7 @@ public partial class MainForm : Form
         _questsGrid.AllowUserToAddRows = true;
         _questsGrid.AllowUserToDeleteRows = true;
         _questsGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        _questsGrid.RowsAdded += (s, e) => AutoFillNewRowId(_questsGrid, "Q");
         _questsGrid.CellDoubleClick += (s, e) =>
         {
             if (e.RowIndex < 0 || e.RowIndex >= _questsGrid.Rows.Count) return;
@@ -193,6 +196,7 @@ public partial class MainForm : Form
         _worldGrid = MakeGrid();
         _worldGrid.AllowUserToAddRows = true;
         _worldGrid.AllowUserToDeleteRows = true;
+        _worldGrid.RowsAdded += (s, e) => AutoFillNewRowId(_worldGrid, "N");
         worldPanel.Controls.Add(_worldGrid);
         var dialogBtn = MakeSaveButton("Редактор диалогов NPC...");
         dialogBtn.Click += (s, e) => OpenDialogueEditor();
@@ -1394,6 +1398,7 @@ public partial class MainForm : Form
         _accountsGrid = MakeGrid();
         _accountsGrid.AllowUserToAddRows = true;
         _accountsGrid.AllowUserToDeleteRows = true;
+        _accountsGrid.RowsAdded += (s, e) => AutoFillNewRowId(_accountsGrid, "A");
         _accountsGrid.SelectionChanged += (s, e) => LoadPlayerInventory();
 
         topPanel.Controls.Add(_accountsGrid);
@@ -2669,6 +2674,32 @@ public partial class MainForm : Form
                 maxNum++;
                 row["id"] = prefix + maxNum.ToString("D4");
             }
+        }
+    }
+
+    /// <summary>
+    /// Автозаполнение ID для новой строки грида: при появлении строки «новый элемент»
+    /// сразу подставляется следующий свободный ID с префиксом (I0007, M0012, Q0003, N0005...),
+    /// чтобы видеть его до сохранения и ссылаться на него в других таблицах.
+    /// </summary>
+    private void AutoFillNewRowId(DataGridView grid, string prefix)
+    {
+        if (grid.DataSource is not DataTable dt) return;
+        if (grid.Columns["id"] is not DataGridViewColumn idCol) return;
+        foreach (DataGridViewRow row in grid.Rows)
+        {
+            if (!row.IsNewRow) continue;
+            var cell = row.Cells[idCol.Index];
+            if (cell.Value is string cur && !string.IsNullOrWhiteSpace(cur)) continue;
+            int maxNum = 0;
+            foreach (DataRow dr in dt.Rows)
+            {
+                if (dr.RowState == DataRowState.Deleted) continue;
+                var id = dr["id"]?.ToString() ?? "";
+                if (id.StartsWith(prefix) && int.TryParse(id.Substring(prefix.Length), out int num))
+                    maxNum = Math.Max(maxNum, num);
+            }
+            cell.Value = prefix + (maxNum + 1).ToString("D4");
         }
     }
 
