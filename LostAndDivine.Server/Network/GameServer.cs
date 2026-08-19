@@ -408,6 +408,8 @@ public sealed class GameServer : INetworkHub
                 Step = def?.Step ?? 0,
                 PrerequisiteQuestId = def?.PrerequisiteQuestId ?? "",
                 MinLevel = def?.MinLevel ?? 1,
+                IsStory = def?.IsStory ?? false,
+                Repeatable = def?.Repeatable ?? false,
                 Icon = svc.Quests.QuestIconKey(objectives),
                 Objectives = objectives.Select((o, i) => new
                 {
@@ -442,6 +444,8 @@ public sealed class GameServer : INetworkHub
                     ChainId = def?.ChainId ?? "",
                     Step = def?.Step ?? 0,
                     MinLevel = def?.MinLevel ?? 1,
+                    IsStory = def?.IsStory ?? false,
+                    Repeatable = def?.Repeatable ?? false,
                     CompletedAt = player.CompletedQuestTimes.TryGetValue(id, out var at) ? at : "",
                     Icon = svc.Quests.QuestIconKey(objectives),
                     Objectives = objectives.Select(o => new
@@ -469,7 +473,7 @@ public sealed class GameServer : INetworkHub
                     return new
                     {
                         QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward,
-                        d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel,
+                        d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel, d.IsStory, d.Repeatable,
                         Icon = svc.Quests.QuestIconKey(objectives),
                         Objectives = objectives.Select(o => new
                         {

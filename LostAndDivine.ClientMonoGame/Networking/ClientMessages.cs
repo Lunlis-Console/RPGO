@@ -247,6 +247,8 @@ public sealed class QuestInfo
     public int Step { get; set; }
     public string? PrerequisiteQuestId { get; set; }
     public int MinLevel { get; set; }
+    public bool IsStory { get; set; }
+    public bool Repeatable { get; set; }
     public List<QuestObjectiveInfo>? Objectives { get; set; }
     // Иконка квеста: monster:{id} / item:{type} / npc / worldmap / default
     public string? Icon { get; set; }

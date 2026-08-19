@@ -210,7 +210,10 @@ internal static class ClientMessageHandlerRegistry
         var log = m.Deserialize<QuestLogData>();
         c.AvailableQuests = log?.Available ?? new List<QuestInfo>();
         c.ActiveQuests = log?.Active ?? new List<QuestInfo>();
-        c.HistoryQuests = log?.History ?? new List<QuestInfo>();
+        var history = log?.History ?? new List<QuestInfo>();
+        // История приходит без флага Completed — помечаем здесь
+        foreach (var q in history) q.Completed = true;
+        c.HistoryQuests = history;
         c.RaiseQuestLogUpdated(c.AvailableQuests, c.ActiveQuests, c.HistoryQuests);
     }
 
