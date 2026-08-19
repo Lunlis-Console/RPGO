@@ -65,7 +65,7 @@ public class NpcDialogueEditorForm : Form
         nodeButtons.Controls.Add(addNodeBtn);
 
         _nodeKeyBox = new TextBox { Dock = DockStyle.Top, Height = 28, BorderStyle = BorderStyle.FixedSingle, PlaceholderText = "greeting (ключ узла)" };
-        _nodeTree = new TreeView { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10) };
+        _nodeTree = new TreeView { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10), LabelEdit = true };
         _nodeTree.AfterSelect += (s, e) => LoadNodeEditor();
         _nodeTree.AfterLabelEdit += (s, e) => { if (!string.IsNullOrWhiteSpace(e.Label)) RenameNodeTo(e.Label); };
 
