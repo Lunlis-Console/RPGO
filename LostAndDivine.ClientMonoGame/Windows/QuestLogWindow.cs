@@ -55,10 +55,22 @@ public sealed class QuestLogWindow : GameWindow
         int Rank(QuestInfo q)
         {
             if (q.Completed) return 0;
-            bool ready = !q.Completed && q.Target > 0 && q.Current >= q.Target;
-            return ready ? 1 : 2;
+            return AllDone(q) ? 1 : 2;
         }
         return quests.OrderBy(Rank).ThenBy(q => q.Title ?? "").ToList();
+    }
+
+    private static bool AllDone(QuestInfo q)
+    {
+        if (q.Objectives != null && q.Objectives.Count > 0)
+            return q.Objectives.All(o => o.Current >= o.Count);
+        return q.Target > 0 && q.Current >= q.Target;
+    }
+
+    private static int ObjectiveCount(QuestInfo q)
+    {
+        if (q.Objectives != null && q.Objectives.Count > 0) return q.Objectives.Count;
+        return 1;
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -198,8 +210,7 @@ public sealed class QuestLogWindow : GameWindow
         h += LineHeight;        // статус
         if (GetChainText(q) != null) h += LineHeight; // сюжет
         h += MeasureWrappedText(q.Description ?? "", innerW, font).H; // описание
-        h += LineHeight;        // цель
-        h += LineHeight;        // прогресс
+        h += ObjectiveCount(q) * LineHeight; // цели
         h += LineHeight;        // награда
         h += LineHeight;        // отступ под кнопку «Отказаться»
         return h;
@@ -281,7 +292,7 @@ public sealed class QuestLogWindow : GameWindow
     private void DrawQuestCard(SpriteBatch sb, QuestInfo q, int x, int y, int w, int h, SpriteFont font, MouseState mouse)
     {
         bool completed = q.Completed;
-        bool readyToComplete = !completed && q.Current >= q.Target && q.Target > 0;
+        bool readyToComplete = !completed && AllDone(q);
 
         Color accent;
         string stateText;
@@ -322,8 +333,9 @@ public sealed class QuestLogWindow : GameWindow
         }
 
         DrawWrappedText(sb, q.Description ?? "", textX, textY, innerW, TextDesc, font);
+        textY += MeasureWrappedText(q.Description ?? "", innerW, font).H;
 
-        // Нижняя зона: цель, прогресс, награда (без наложения), кнопка «Отказаться» отдельно
+        // Кнопка «Отказаться» только для активных (не выполненных) заданий — в самом низу справа
         int btnH = 20;
         int bottomY = y + h - CardPadY;
 
@@ -341,14 +353,26 @@ public sealed class QuestLogWindow : GameWindow
             _cardButtons.Add((new Rectangle(btnX, btnY, btnW, btnH), q.QuestId ?? ""));
         }
 
-        // Текстовая зона над кнопкой (слева, не под кнопкой)
-        int textBottom = bottomY - (completed ? 0 : btnH + 2);
-        int lineY = textBottom;
-        string reward = $"Награда: {q.XpReward} XP, {q.GoldReward} зол.";
-        DrawText(sb, reward, textX, lineY - LineHeight, new Color(220, 200, 120));
-        string progress = completed ? "✔ Выполнено" : $"Прогресс: {Math.Min(q.Current, q.Target)} / {q.Target}";
-        DrawText(sb, progress, textX, lineY - LineHeight * 2, readyToComplete ? accent : TextProgress);
-        string objective = $"Цель: {GetObjectiveText(q)}";
-        DrawText(sb, objective, textX, lineY - LineHeight * 3, TextMuted);
+        // Текстовая зона: цели (по одной строке) + награда
+        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
+        if (objectives.Count == 0)
+        {
+            objectives = new List<QuestObjectiveInfo>
+            {
+                new() { Type = q.Type, Target = q.TargetNpcId, Count = q.Target, Current = q.Current, Label = GetObjectiveText(q) }
+            };
+        }
+
+        int objY = textY;
+        foreach (var obj in objectives)
+        {
+            bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
+            string mark = objDone ? "✔" : "•";
+            string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
+            DrawText(sb, line, textX, objY, objDone ? AccentGreen : TextProgress);
+            objY += LineHeight;
+        }
+
+        DrawText(sb, $"Награда: {q.XpReward} XP, {q.GoldReward} зол.", textX, objY, new Color(220, 200, 120));
     }
 }

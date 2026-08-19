@@ -389,19 +389,35 @@ public sealed class GameServer : INetworkHub
         var quests = player.ActiveQuests.Select(q =>
         {
             var def = svc.Quests.FindQuest(q.QuestId);
+            var objectives = def == null ? new List<QuestObjective>() : QuestManager.GetObjectives(def);
+            var first = objectives.Count > 0 ? objectives[0] : null;
             return new
             {
                 q.QuestId,
                 Title = def?.Title ?? q.QuestId,
                 Description = def?.Description ?? "",
-                Type = def?.Type ?? "kill",
-                Target = def?.Target ?? 0,
-                TargetZoneId = def?.TargetZoneId ?? "",
-                TargetNpcId = def?.TargetNpcId ?? "",
+                Type = first?.Type ?? "kill",
+                Target = first?.Count ?? 0,
+                TargetZoneId = first?.Target ?? "",
+                TargetNpcId = first?.Target ?? "",
                 XpReward = def?.XpReward ?? 0,
                 GoldReward = def?.GoldReward ?? 0,
-                q.Current,
-                q.Completed
+                Current = QuestManager.GetObjectiveCurrent(q, 0),
+                q.Completed,
+                ChainId = def?.ChainId ?? "",
+                Step = def?.Step ?? 0,
+                PrerequisiteQuestId = def?.PrerequisiteQuestId ?? "",
+                MinLevel = def?.MinLevel ?? 1,
+                Objectives = objectives.Select((o, i) => new
+                {
+                    o.Type,
+                    o.Target,
+                    o.TargetX,
+                    o.TargetY,
+                    o.Count,
+                    Current = QuestManager.GetObjectiveCurrent(q, i),
+                    Label = svc.Quests.ObjectiveLabel(o)
+                }).ToList()
             };
         }).ToList();
 
@@ -413,7 +429,13 @@ public sealed class GameServer : INetworkHub
                 Available = svc.Quests.GetAvailableQuests(player).Select(d => new
                 {
                     QuestId = d.Id, d.Title, d.Description, d.Type, d.Target, d.XpReward, d.GoldReward,
-                    d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel
+                    d.ChainId, d.Step, d.PrerequisiteQuestId, d.MinLevel,
+                    Objectives = QuestManager.GetObjectives(d).Select(o => new
+                    {
+                        o.Type, o.Target, o.TargetX, o.TargetY, o.Count,
+                        Current = 0,
+                        Label = svc.Quests.ObjectiveLabel(o)
+                    }).ToList()
                 }).ToList(),
                 Active = quests
             }

@@ -246,6 +246,18 @@ public sealed class QuestInfo
     public int Step { get; set; }
     public string? PrerequisiteQuestId { get; set; }
     public int MinLevel { get; set; }
+    public List<QuestObjectiveInfo>? Objectives { get; set; }
+}
+
+public sealed class QuestObjectiveInfo
+{
+    public string? Type { get; set; }
+    public string? Target { get; set; }
+    public int TargetX { get; set; }
+    public int TargetY { get; set; }
+    public int Count { get; set; }
+    public int Current { get; set; }
+    public string? Label { get; set; }
 }
 
 public sealed class BreakdownData

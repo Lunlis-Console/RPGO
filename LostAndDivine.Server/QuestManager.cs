@@ -20,6 +20,13 @@ public class QuestManager
 
     private List<QuestDefinition> _quests = new();
 
+    // Справочники названий для меток целей (заполняются в Initialize/Reload)
+    private readonly Dictionary<string, string> _monsterNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _itemNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _npcNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _zoneNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _labelsLock = new();
+
     private int? _tiledX;
     private int? _tiledY;
 
@@ -68,6 +75,36 @@ public class QuestManager
         _quests = DatabaseManager.LoadQuestDefinitions();
         Log.Info($"Загружено квестов: {_quests.Count}");
         ReloadQuestItems();
+        ReloadLabelDictionaries();
+    }
+
+    /// <summary>
+    /// Справочники названий монстров/предметов/NPC/зон для меток целей в журнале.
+    /// </summary>
+    public void ReloadLabelDictionaries()
+    {
+        try
+        {
+            lock (_labelsLock)
+            {
+                _monsterNames.Clear();
+                foreach (var t in DatabaseManager.LoadMonsterTemplates())
+                    _monsterNames[t.Id] = t.Name;
+                _itemNames.Clear();
+                foreach (var i in DatabaseManager.LoadItems())
+                    _itemNames[i.Id] = i.Name;
+                _npcNames.Clear();
+                foreach (var n in DatabaseManager.LoadNpcs())
+                    _npcNames[n.Id] = n.Name;
+                _zoneNames.Clear();
+                foreach (var z in DatabaseManager.LoadZones())
+                    _zoneNames[z.Id] = z.Name;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Не удалось загрузить справочники меток квестов: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -153,20 +190,49 @@ public class QuestManager
         _quests.Where(q => q.GiverNpcId == BoardNpcId && CanTakeQuest(player, q)).ToList();
 
     /// <summary>
-    /// Взять квест: добавляет в активные с текущим прогрессом (для collect — по инвентарю).
+    /// Взять квест: добавляет в активные с прогрессом по каждой цели
+    /// (для collect — по текущему количеству в инвентаре).
     /// Возвращает false, если квест недоступен.
     /// </summary>
     public bool TakeQuest(Player player, QuestDefinition def)
     {
         if (!CanTakeQuest(player, def)) return false;
 
-        int currentProgress = 0;
-        if (def.Type == "collect" && !string.IsNullOrEmpty(def.TargetItemId))
-            currentProgress = player.Inventory.Count(i => i.Id == def.TargetItemId);
-        bool alreadyCompleted = currentProgress >= def.Target;
+        var objectives = GetObjectives(def);
+        var currents = new List<int>(objectives.Count);
+        foreach (var obj in objectives)
+        {
+            int cur = 0;
+            if (obj.Type == "collect" && !string.IsNullOrEmpty(obj.Target))
+                cur = CountItems(player, obj.Target);
+            currents.Add(Math.Min(cur, obj.Count));
+        }
+        bool alreadyCompleted = IsAllCompleted(objectives, currents);
 
-        player.ActiveQuests.Add(new QuestProgress { QuestId = def.Id, Current = currentProgress, Completed = alreadyCompleted });
+        player.ActiveQuests.Add(new QuestProgress { QuestId = def.Id, Currents = currents, Completed = alreadyCompleted });
         return true;
+    }
+
+    /// <summary>Количество предметов шаблона в инвентаре игрока.</summary>
+    private static int CountItems(Player player, string itemId)
+        => player.Inventory
+            .Where(i => i.TemplateId == itemId || i.Id == itemId)
+            .Sum(i => i.Quantity);
+
+    /// <summary>Снять заданное количество предметов из инвентаря (для сдачи collect-целей).</summary>
+    private void RemoveItems(Player player, string itemId, int count)
+    {
+        var records = player.Inventory
+            .Where(i => i.TemplateId == itemId || i.Id == itemId)
+            .ToList();
+        int toRemove = Math.Min(count, records.Sum(i => i.Quantity));
+        foreach (var rec in records)
+        {
+            if (toRemove <= 0) break;
+            int take = Math.Min(toRemove, rec.Quantity);
+            InventoryHelper.RemoveFromRecord(player, rec.Id, take);
+            toRemove -= take;
+        }
     }
 
     /// <summary>
@@ -182,21 +248,13 @@ public class QuestManager
         if (prog == null || def == null)
             return new QuestCompleteResult(false, 1, "У вас нет этого задания.", false);
         if (!prog.Completed)
-            return new QuestCompleteResult(false, 2, $"Задание ещё не выполнено ({prog.Current}/{def.Target}).", false);
+            return new QuestCompleteResult(false, 2, $"Задание ещё не выполнено.", false);
 
-        // Списываем предметы, нужные для сдачи квеста (collect)
-        if (def.Type == "collect" && !string.IsNullOrEmpty(def.TargetItemId))
+        // Списываем предметы для каждой collect-цели
+        foreach (var obj in GetObjectives(def))
         {
-            var records = player.Inventory.Where(i => i.TemplateId == def.TargetItemId || i.Id == def.TargetItemId).ToList();
-            int available = records.Sum(i => i.Quantity);
-            int toRemove = Math.Min(def.Target, available);
-            foreach (var rec in records)
-            {
-                if (toRemove <= 0) break;
-                int take = Math.Min(toRemove, rec.Quantity);
-                InventoryHelper.RemoveFromRecord(player, rec.Id, take);
-                toRemove -= take;
-            }
+            if (obj.Type == "collect" && !string.IsNullOrEmpty(obj.Target))
+                RemoveItems(player, obj.Target, obj.Count);
         }
 
         player.ActiveQuests.Remove(prog);
@@ -233,148 +291,175 @@ public class QuestManager
     }
 
     /// <summary>
+    /// Нормализует цели квеста: если Objectives пуст (legacy-запись), строит
+    /// список из одной цели по legacy-полям (Type/Target*/Target).
+    /// </summary>
+    public static List<QuestObjective> GetObjectives(QuestDefinition def)
+    {
+        if (def == null) return new List<QuestObjective>();
+        if (def.Objectives != null && def.Objectives.Count > 0)
+            return def.Objectives;
+
+        var obj = new QuestObjective { Type = def.Type, Count = Math.Max(1, def.Target) };
+        switch (def.Type)
+        {
+            case "kill": obj.Target = def.TargetMonsterId; break;
+            case "collect":
+            case "use": obj.Target = def.TargetItemId; break;
+            case "talk":
+            case "travel": obj.Target = def.TargetNpcId; obj.TargetX = def.TargetX; obj.TargetY = def.TargetY; break;
+            case "explore": obj.Target = def.TargetZoneId; break;
+        }
+        return new List<QuestObjective> { obj };
+    }
+
+    /// <summary>Прогресс цели по индексу (с защитой от несовпадения размеров).</summary>
+    public static int GetObjectiveCurrent(QuestProgress prog, int index)
+        => prog != null && index >= 0 && index < prog.Currents.Count ? prog.Currents[index] : 0;
+
+    /// <summary>Все ли цели квеста выполнены.</summary>
+    public static bool IsAllCompleted(List<QuestObjective> objectives, List<int> currents)
+    {
+        for (int i = 0; i < objectives.Count; i++)
+        {
+            if (i >= currents.Count || currents[i] < objectives[i].Count)
+                return false;
+        }
+        return true;
+    }
+
+    /// <summary>Текущий прогресс по каждой цели квеста (нормализованный список с Current).</summary>
+    public List<QuestObjective> GetObjectiveStates(Player player, QuestProgress prog)
+    {
+        var def = FindQuest(prog.QuestId);
+        if (def == null) return new List<QuestObjective>();
+        var objectives = GetObjectives(def);
+        for (int i = 0; i < objectives.Count; i++)
+            objectives[i].Current = GetObjectiveCurrent(prog, i);
+        return objectives;
+    }
+
+    /// <summary>Текстовая метка цели: «Убить: Крыса», «Собрать: Ягоды (5)» и т.п.</summary>
+    public string ObjectiveLabel(QuestObjective obj)
+    {
+        string verb = obj.Type?.ToLower() switch
+        {
+            "kill" => "Убить",
+            "collect" => "Собрать",
+            "talk" => "Поговорить",
+            "travel" => "Отправиться",
+            "use" => "Использовать",
+            "explore" => "Исследовать",
+            _ => "Выполнить"
+        };
+
+        string target;
+        switch (obj.Type?.ToLower())
+        {
+            case "kill":
+                lock (_labelsLock) target = _monsterNames.TryGetValue(obj.Target ?? "", out var mn) ? mn ?? "" : obj.Target ?? "";
+                break;
+            case "collect":
+            case "use":
+                lock (_labelsLock) target = _itemNames.TryGetValue(obj.Target ?? "", out var iname) ? iname ?? "" : obj.Target ?? "";
+                break;
+            case "talk":
+            case "travel":
+                lock (_labelsLock) target = _npcNames.TryGetValue(obj.Target ?? "", out var nn) ? nn ?? "" : obj.Target ?? "";
+                break;
+            case "explore":
+                lock (_labelsLock) target = _zoneNames.TryGetValue(obj.Target ?? "", out var zn) ? zn ?? "" : obj.Target ?? "";
+                break;
+            default:
+                target = obj.Target ?? "";
+                break;
+        }
+
+        if (obj.Type?.ToLower() == "travel" && string.IsNullOrEmpty(target))
+            return $"{verb}: ({obj.TargetX}, {obj.TargetY})";
+        if (string.IsNullOrEmpty(target)) target = obj.Target ?? "";
+        return target.Length > 0 ? $"{verb}: {target}" : $"{verb}";
+    }
+
+    /// <summary>
+    /// Общий механизм прогресса: ищет у всех активных квестов цели заданного типа,
+    /// подходящие под предикат, инкрементит их и помечает квест выполненным,
+    /// когда выполнены ВСЕ его цели.
+    /// </summary>
+    private List<(string Title, int Current, int Target, bool Completed)> IncrementProgress(
+        Player player, string objectiveType, Func<QuestObjective, bool> match)
+    {
+        var results = new List<(string, int, int, bool)>();
+        foreach (var q in player.ActiveQuests)
+        {
+            if (q.Completed) continue;
+            var def = FindQuest(q.QuestId);
+            if (def == null) continue;
+            var objectives = GetObjectives(def);
+            if (objectives.Count == 0) continue;
+
+            bool anyChanged = false;
+            (int Cur, int Tgt) lastChanged = (0, 0);
+            for (int i = 0; i < objectives.Count; i++)
+            {
+                var obj = objectives[i];
+                if (obj.Type != objectiveType || !match(obj)) continue;
+                int cur = GetObjectiveCurrent(q, i);
+                if (cur >= obj.Count) continue;
+                while (q.Currents.Count <= i) q.Currents.Add(0);
+                q.Currents[i] = cur + 1;
+                lastChanged = (q.Currents[i], obj.Count);
+                anyChanged = true;
+            }
+            if (!anyChanged) continue;
+
+            q.Completed = IsAllCompleted(objectives, q.Currents);
+            results.Add((def.Title, lastChanged.Cur, lastChanged.Tgt, q.Completed));
+        }
+        return results;
+    }
+
+    /// <summary>
     /// Прогресс talk-квестов при разговоре с NPC: все активные невыполненные
-    /// talk-квесты, цель которых — этот NPC, получают +1 к прогрессу.
+    /// talk-цели, нацеленные на этого NPC, получают +1 к прогрессу.
     /// </summary>
     public void IncrementTalkProgress(Player player, string npcId)
-    {
-        foreach (var q in player.ActiveQuests.Where(q => !q.Completed))
-        {
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "talk") continue;
-            if (def.TargetNpcId != npcId) continue;
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-    }
+        => IncrementProgress(player, "talk", obj => obj.Target == npcId);
 
     public List<(string Title, int Current, int Target, bool Completed)> IncrementKillProgress(Player player, string monsterTemplateId)
-    {
-        var results = new List<(string, int, int, bool)>();
-        foreach (var q in player.ActiveQuests)
-        {
-            if (q.Completed) continue;
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "kill") continue;
-            if (def.TargetMonsterId != monsterTemplateId) continue;
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-        return results;
-    }
+        => IncrementProgress(player, "kill", obj => obj.Target == monsterTemplateId);
 
     public List<(string Title, int Current, int Target, bool Completed)> IncrementCollectProgress(Player player, string itemId)
-    {
-        var results = new List<(string, int, int, bool)>();
-        foreach (var q in player.ActiveQuests)
-        {
-            if (q.Completed) continue;
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "collect") continue;
-            if (def.TargetItemId != itemId) continue;
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-        return results;
-    }
+        => IncrementProgress(player, "collect", obj => obj.Target == itemId);
 
     /// <summary>
     /// Прогресс travel-квестов: цель — NPC (рядом с ним) или точка на карте.
     /// Проверяется после каждого перемещения игрока.
     /// </summary>
     public List<(string Title, int Current, int Target, bool Completed)> IncrementTravelProgress(Player player, string zoneId, int x, int y)
-    {
-        var results = new List<(string, int, int, bool)>();
-        foreach (var q in player.ActiveQuests)
+        => IncrementProgress(player, "travel", obj =>
         {
-            if (q.Completed) continue;
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "travel") continue;
-
-            bool reached;
-            if (!string.IsNullOrEmpty(def.TargetNpcId))
+            if (!string.IsNullOrEmpty(obj.Target))
             {
-                var npc = NpcLookup?.Invoke(zoneId, def.TargetNpcId);
-                reached = npc != null && Math.Abs(npc.X - x) + Math.Abs(npc.Y - y) <= 1;
+                var npc = NpcLookup?.Invoke(zoneId, obj.Target);
+                return npc != null && Math.Abs(npc.X - x) + Math.Abs(npc.Y - y) <= 1;
             }
-            else
-            {
-                reached = def.TargetX == x && def.TargetY == y;
-            }
-            if (!reached) continue;
-
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-        return results;
-    }
+            return obj.TargetX == x && obj.TargetY == y;
+        });
 
     /// <summary>
     /// Прогресс use-квестов: используется предмет нужного шаблона.
     /// Проверяется после успешного использования предмета.
     /// </summary>
     public List<(string Title, int Current, int Target, bool Completed)> IncrementUseProgress(Player player, string itemId)
-    {
-        var results = new List<(string, int, int, bool)>();
-        foreach (var q in player.ActiveQuests)
-        {
-            if (q.Completed) continue;
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "use") continue;
-            if (def.TargetItemId != itemId) continue;
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-        return results;
-    }
+        => IncrementProgress(player, "use", obj => obj.Target == itemId);
 
     /// <summary>
     /// Прогресс explore-квестов: игрок вошёл в целевую зону.
     /// Проверяется при смене зоны.
     /// </summary>
     public List<(string Title, int Current, int Target, bool Completed)> IncrementExploreProgress(Player player, string zoneId)
-    {
-        var results = new List<(string, int, int, bool)>();
-        foreach (var q in player.ActiveQuests)
-        {
-            if (q.Completed) continue;
-            var def = FindQuest(q.QuestId);
-            if (def == null || def.Type != "explore") continue;
-            if (def.TargetZoneId != zoneId) continue;
-            if (q.Current < def.Target)
-            {
-                q.Current++;
-                results.Add((def.Title, q.Current, def.Target, q.Current >= def.Target));
-                if (q.Current >= def.Target)
-                    q.Completed = true;
-            }
-        }
-        return results;
-    }
+        => IncrementProgress(player, "explore", obj => obj.Target == zoneId);
 
     /// <summary>
     /// Авто-выдача квестов при входе в зону: выдаёт все квесты с auto_grant,

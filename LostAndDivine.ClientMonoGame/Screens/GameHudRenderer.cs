@@ -52,7 +52,8 @@ internal class GameHudRenderer
         int maxTextW = 320;
         foreach (var q in tracked)
         {
-            string objLine = $"• {q.Title}  [{Math.Min(q.Current, q.Target)}/{q.Target}]";
+            var (cur, tgt) = Overall(q);
+            string objLine = $"• {q.Title}  [{cur}/{tgt}]";
             maxW = Math.Max(maxW, (int)font.MeasureString(objLine).X);
         }
         maxW = Math.Min(maxW, maxTextW);
@@ -67,14 +68,22 @@ internal class GameHudRenderer
         int y = boxY + headerH;
         foreach (var q in tracked)
         {
-            bool done = q.Completed || (q.Current >= q.Target && q.Target > 0);
+            bool done = q.Completed;
             Color c = done ? new Color(255, 210, 60) : Color.White;
-            string line = $"• {q.Title}  [{Math.Min(q.Current, q.Target)}/{q.Target}]";
+            var (cur, tgt) = Overall(q);
+            string line = $"• {q.Title}  [{cur}/{tgt}]";
             while (line.Length > 4 && font.MeasureString(line).X > maxTextW)
                 line = line.Substring(0, line.Length - 4) + "...";
             sb.DrawString(font, line, new Vector2(boxX + pad, y), c);
             y += lineH;
         }
+    }
+
+    private static (int Cur, int Tgt) Overall(QuestInfo q)
+    {
+        if (q.Objectives is { Count: > 0 })
+            return (q.Objectives.Sum(o => Math.Min(o.Current, o.Count)), q.Objectives.Sum(o => o.Count));
+        return (Math.Min(q.Current, q.Target), q.Target);
     }
 
     internal void DrawPartyPanel(SpriteBatch sb, int x, int y, int panelW, GameMain game)

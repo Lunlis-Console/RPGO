@@ -65,7 +65,9 @@ public sealed class QuestBoardWindow : GameWindow
         int Rank(QuestInfo q)
         {
             if (q.Completed) return 0;
-            bool ready = !q.Completed && q.Target > 0 && q.Current >= q.Target;
+            bool ready = !q.Completed && q.Objectives is { Count: > 0 }
+                ? q.Objectives.All(o => o.Current >= o.Count)
+                : q.Target > 0 && q.Current >= q.Target;
             return ready ? 1 : 2;
         }
         return quests.OrderBy(Rank).ThenBy(q => q.Title ?? "").ToList();
@@ -286,8 +288,20 @@ public sealed class QuestBoardWindow : GameWindow
         h += MeasureWrappedText(q.Description ?? "", innerW, font).H; // описание
         if (GetChainText(q) != null) h += LineHeight;
         if (GetRequirementText(q) != null) h += LineHeight;
+        h += ObjectiveCount(q) * LineHeight; // цели
+        h += LineHeight;   // награда
         h += 10 + LineHeight + CardPadY; // прогресс-бар + текст
         return h;
+    }
+
+    private static int ObjectiveCount(QuestInfo q)
+        => q.Objectives != null && q.Objectives.Count > 0 ? q.Objectives.Count : 1;
+
+    private static (int Cur, int Tgt) OverallProgress(QuestInfo q)
+    {
+        if (q.Objectives != null && q.Objectives.Count > 0)
+            return (q.Objectives.Sum(o => Math.Min(o.Current, o.Count)), q.Objectives.Sum(o => o.Count));
+        return (Math.Min(q.Current, q.Target), q.Target);
     }
 
     private static (int W, int H) MeasureWrappedText(string text, int maxW, SpriteFont font)
@@ -421,15 +435,37 @@ public sealed class QuestBoardWindow : GameWindow
             textY += LineHeight;
         }
 
-        // Прогресс-бар
+        // Цели (по одной строке)
+        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
+        if (objectives.Count == 0)
+        {
+            objectives = new List<QuestObjectiveInfo>
+            {
+                new() { Type = q.Type, Target = q.TargetNpcId, Count = q.Target, Current = q.Current, Label = q.TargetNpcId ?? $"{q.Current}/{q.Target}" }
+            };
+        }
+        foreach (var obj in objectives)
+        {
+            bool objDone = obj.Count > 0 && obj.Current >= obj.Count;
+            string mark = objDone ? "✔" : "•";
+            string line = $"{mark} {obj.Label} — {Math.Min(obj.Current, obj.Count)}/{obj.Count}";
+            DrawText(sb, line, textX, textY, objDone ? AccentGreen : TextProgress);
+            textY += LineHeight;
+        }
+
+        DrawText(sb, $"Награда: {q.XpReward} XP, {q.GoldReward} зол.", textX, textY, new Color(220, 200, 120));
+        textY += LineHeight;
+
+        // Прогресс-бар (общий по всем целям)
+        var (cur, tgt) = OverallProgress(q);
         int barW = innerW;
         int barH = 8;
         int barX = textX;
         int barY = y + h - barH - CardPadY;
-        float pct = q.Target > 0 ? Math.Min(1f, (float)q.Current / q.Target) : 0f;
+        float pct = tgt > 0 ? Math.Min(1f, (float)cur / tgt) : 0f;
         sb.Draw(SpriteCache.Pixel, new Rectangle(barX, barY, barW, barH), new Color(30, 32, 42));
         sb.Draw(SpriteCache.Pixel, new Rectangle(barX, barY, (int)(barW * pct), barH), accent);
-        string progress = $"{Math.Min(q.Current, q.Target)} / {q.Target}";
+        string progress = $"{cur} / {tgt}";
         var pSize = font.MeasureString(progress);
         DrawText(sb, progress, barX + barW - (int)pSize.X, barY - LineHeight - 1, TextProgress);
 

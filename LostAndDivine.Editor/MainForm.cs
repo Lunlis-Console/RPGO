@@ -31,6 +31,7 @@ public partial class MainForm : Form
     private List<(string Id, string Name)> _collectibleRefs = new();
     private List<(string Id, string Name)> _npcRefs = new();
     private List<(string Id, string Name)> _questRefs = new();
+    private static readonly JsonSerializerOptions _questJsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private List<(string Id, string Name)> _rewardItemRefs = new();
     private Dictionary<string, string> _npcLocationByName = new();
     private Dictionary<string, string> _npcNameById = new();
@@ -695,13 +696,14 @@ public partial class MainForm : Form
         dt.Columns.Add("is_story", typeof(bool));
         dt.Columns.Add("repeatable", typeof(bool));
         dt.Columns.Add("location", typeof(string));
+        dt.Columns.Add("objectives", typeof(string));
 
         using var conn = new SqliteConnection($"Data Source={_contentDbFile}");
         conn.Open();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"SELECT id, title, description, type, target_monster_id, target_item_id, target_npc_id, target,
                 xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count,
-                target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable
+                target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable, objectives
             FROM quests_def ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
@@ -729,7 +731,8 @@ public partial class MainForm : Form
                 NameById(_npcRefs, gid),
                 !reader.IsDBNull(21) && reader.GetInt32(21) != 0,
                 !reader.IsDBNull(23) ? reader.GetInt32(23) != 0 : false,
-                derivedLoc);
+                derivedLoc,
+                reader.IsDBNull(24) ? "" : reader.GetString(24));
         }
         _questsGrid.DataSource = dt;
     }
@@ -763,6 +766,8 @@ public partial class MainForm : Form
             DataPropertyName = "type", HeaderText = "Тип", Name = "type",
             Items = { "kill", "collect", "talk", "travel", "use", "explore" }
         });
+        // Мульти-цели: JSON-список целей. Если пусто — цель берётся из legacy-полей (тип/цель/количество).
+        AddText("objectives", "Цели (JSON)");
     }
 
     // === WORLD ===
@@ -1235,9 +1240,34 @@ public partial class MainForm : Form
                     : type == "use" ? IdByName(_rewardItemRefs, row["use_item"]?.ToString() ?? "") : "";
                 string npcId = IdByName(_npcRefs, row["npc"]?.ToString() ?? "");
                 string giverId = IdByName(_npcRefs, row["giver_npc"]?.ToString() ?? "");
+                string objectives = row["objectives"]?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrEmpty(objectives) || objectives == "[]")
+                {
+                    // Мульти-цели не заданы — сохраняем одиночную цель из legacy-полей
+                    string objTarget = type switch
+                    {
+                        "kill" => monsterId,
+                        "collect" or "use" => itemId,
+                        "talk" or "travel" => npcId,
+                        "explore" => row["target_zone"]?.ToString() ?? "",
+                        _ => ""
+                    };
+                    var obj = new Dictionary<string, object>
+                    {
+                        ["type"] = type,
+                        ["target"] = objTarget,
+                        ["count"] = Math.Max(1, ToInt(row["target"]))
+                    };
+                    if (type == "travel" && string.IsNullOrEmpty(npcId))
+                    {
+                        obj["targetX"] = ToInt(row["target_x"]);
+                        obj["targetY"] = ToInt(row["target_y"]);
+                    }
+                    objectives = JsonSerializer.Serialize(new[] { obj }, _questJsonOpts);
+                }
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable)
-                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc,$tz,$tx,$tyy,$ag,$gn,$is,$loc,$rep)";
+                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable, objectives)
+                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc,$tz,$tx,$tyy,$ag,$gn,$is,$loc,$rep,$obj)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$t", row["title"] ?? "");
                 cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
@@ -1263,6 +1293,7 @@ public partial class MainForm : Form
                 cmd.Parameters.AddWithValue("$rep", row["is_story"] is bool iss && iss ? 0
                     : (row["repeatable"] is bool repb && repb ? 1 : 0));
                 cmd.Parameters.AddWithValue("$loc", row["location"] ?? "");
+                cmd.Parameters.AddWithValue("$obj", objectives);
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();

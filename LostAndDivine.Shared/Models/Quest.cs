@@ -5,7 +5,7 @@ public class QuestDefinition
     public string Id { get; set; } = "";
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
-    public string Type { get; set; } = "kill";           // kill / collect / talk / travel / use
+    public string Type { get; set; } = "kill";           // kill / collect / talk / travel / use / explore
     public string TargetMonsterId { get; set; } = "";   // M0001...
     public string TargetItemId { get; set; } = "";       // I0015...
     public string TargetNpcId { get; set; } = "";        // N0001... (для talk/travel-квестов)
@@ -15,6 +15,10 @@ public class QuestDefinition
     public int TargetY { get; set; }
     public bool AutoGrant { get; set; }                   // Выдавать автоматически при входе в зону
     public int Target { get; set; }
+
+    // Мульти-цели: основной источник условий. Если список пуст — используется
+    // legacy-поля (Type/Target*/Target), из которых цели выводятся автоматически.
+    public List<QuestObjective> Objectives { get; set; } = new();
 
     // Сюжетная цепочка
     public string ChainId { get; set; } = "";            // Идентификатор цепочки (напр. "STORY_1")
@@ -32,11 +36,37 @@ public class QuestDefinition
     public string Location { get; set; } = "";            // Локация (из редактора)
 }
 
+public class QuestObjective
+{
+    public string Type { get; set; } = "kill";            // kill / collect / talk / travel / use / explore
+    public string Target { get; set; } = "";              // Монстр / предмет / NPC / зона
+    public int TargetX { get; set; }                      // Точка на карте (travel)
+    public int TargetY { get; set; }
+    public int Count { get; set; } = 1;                   // Сколько нужно выполнить
+
+    /// <summary>Текущий прогресс (не хранится в БД-определении квеста, живёт в прогресс-записи игрока).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int Current { get; set; }
+}
+
 public class QuestProgress
 {
     public string QuestId { get; set; } = "";
-    public int Current { get; set; }
+    /// <summary>Текущий прогресс по каждой цели (индекс совпадает с Objectives).</summary>
+    public List<int> Currents { get; set; } = new();
     public bool Completed { get; set; }
+
+    /// <summary>Удобный доступ к прогрессу первой цели (legacy-квесты с одной целью).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public int Current
+    {
+        get => Currents.Count > 0 ? Currents[0] : 0;
+        set
+        {
+            if (Currents.Count == 0) Currents.Add(0);
+            Currents[0] = value;
+        }
+    }
 }
 
 public class QuestBoardPosition

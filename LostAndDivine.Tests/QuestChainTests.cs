@@ -289,4 +289,103 @@ public class QuestChainTests
         Assert.False(qm.IsQuestItem(new Item { Name = "Ключ от подвала", TemplateId = "I0091" }));
         Assert.False(qm.IsQuestItem(""));
     }
+
+    // ===== Мульти-цели =====
+
+    private static QuestDefinition MultiDef(string id, params (string Type, string Target, int Count)[] objs)
+    {
+        var def = new QuestDefinition { Id = id, Type = objs[0].Type, Target = objs[0].Count };
+        def.Objectives = objs.Select(o => new QuestObjective { Type = o.Type, Target = o.Target, Count = o.Count }).ToList();
+        return def;
+    }
+
+    [Fact]
+    public void GetObjectives_BuildsFromLegacyFields()
+    {
+        var def = new QuestDefinition { Id = "Q", Type = "kill", TargetMonsterId = "M0001", Target = 5 };
+        var objectives = QuestManager.GetObjectives(def);
+        Assert.Single(objectives);
+        Assert.Equal("kill", objectives[0].Type);
+        Assert.Equal("M0001", objectives[0].Target);
+        Assert.Equal(5, objectives[0].Count);
+    }
+
+    [Fact]
+    public void IncrementKillProgress_MultiObjective_CompletesWhenAllDone()
+    {
+        var def = MultiDef("Q0050", ("kill", "M0001", 2), ("kill", "M0006", 3));
+        var qm = CreateManager(def);
+        var p = Player();
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+        Assert.False(prog.Completed);
+
+        qm.IncrementKillProgress(p, "M0001");
+        qm.IncrementKillProgress(p, "M0001");
+        Assert.Equal(2, prog.Currents[0]);
+        Assert.Equal(0, prog.Currents[1]);
+        Assert.False(prog.Completed);
+
+        qm.IncrementKillProgress(p, "M0006");
+        qm.IncrementKillProgress(p, "M0006");
+        Assert.False(prog.Completed);
+        qm.IncrementKillProgress(p, "M0006");
+        Assert.True(prog.Completed);
+        Assert.Equal(3, prog.Currents[1]);
+    }
+
+    [Fact]
+    public void TakeQuest_CollectObjective_InitsFromInventory()
+    {
+        var def = MultiDef("Q0051", ("collect", "T0002", 3), ("kill", "M0006", 2));
+        var qm = CreateManager(def);
+        var p = Player();
+        p.Inventory.Add(new Item { Id = "i1", TemplateId = "T0002", Quantity = 2 });
+
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+        Assert.Equal(2, prog.Currents[0]);
+        Assert.Equal(0, prog.Currents[1]);
+        Assert.False(prog.Completed);
+    }
+
+    [Fact]
+    public void CompleteQuest_RemovesItemsForAllCollectObjectives()
+    {
+        var def = MultiDef("Q0052", ("collect", "T0002", 2), ("collect", "T0003", 1));
+        var qm = CreateManager(def);
+        var p = Player();
+        p.Inventory.Add(new Item { Id = "i1", TemplateId = "T0002", Quantity = 2 });
+        p.Inventory.Add(new Item { Id = "i2", TemplateId = "T0003", Quantity = 3 });
+        qm.TakeQuest(p, def);
+        var prog = p.ActiveQuests.Single();
+        prog.Currents[0] = 2;
+        prog.Currents[1] = 1;
+        prog.Completed = true;
+
+        var result = qm.CompleteQuest(p, "Q0052");
+
+        Assert.True(result.Success);
+        Assert.Empty(p.ActiveQuests);
+        // T0002 (2 из 2) снят полностью (запись удалена), от T0003 осталось 2 из 3
+        Assert.DoesNotContain(p.Inventory, i => i.TemplateId == "T0002");
+        Assert.Equal(2, p.Inventory.Single(i => i.TemplateId == "T0003").Quantity);
+    }
+
+    [Fact]
+    public void CompleteQuest_MultiObjective_RejectsUntilAllDone()
+    {
+        var def = MultiDef("Q0053", ("kill", "M0001", 2), ("collect", "T0002", 1));
+        var qm = CreateManager(def);
+        var p = Player();
+        qm.TakeQuest(p, def);
+        qm.IncrementKillProgress(p, "M0001");
+        qm.IncrementKillProgress(p, "M0001");
+
+        var result = qm.CompleteQuest(p, "Q0053");
+
+        Assert.False(result.Success);
+        Assert.Equal(2, result.ErrorKind);
+        Assert.Single(p.ActiveQuests);
+    }
 }
