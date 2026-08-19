@@ -70,8 +70,8 @@ internal static class CharacterRepository
             Cunning = c,
             Intellect = i,
             Wisdom = w,
-            MaxHealth = 100 + e * 10,
-            Health = 100 + e * 10,
+            MaxHealth = 100 + e * Balance.MaxHealthPerEndurance,
+            Health = 100 + e * Balance.MaxHealthPerEndurance,
             Mana = 100 + w * 10,
             Speed = 1 + a / 3,
             CreatedAt = DateTime.Now

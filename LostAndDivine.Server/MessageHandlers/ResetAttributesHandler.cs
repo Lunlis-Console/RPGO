@@ -35,7 +35,8 @@ public class ResetAttributesHandler : BaseHandler
         player.Intellect = 1;
         player.Wisdom = 1;
 
-        player.MaxHealth = 100 + (player.Level - 1) * BalanceStatic.MaxHealthPerLevel;
+        player.MaxHealth = 100 + (player.Level - 1) * BalanceStatic.MaxHealthPerLevel
+            + player.Endurance * Balance.MaxHealthPerEndurance;
         player.MaxMana = Balance.MaxMana(player.Wisdom);
         if (player.Health > player.MaxHealth) player.Health = player.MaxHealth;
         if (player.Mana > player.MaxMana) player.Mana = player.MaxMana;

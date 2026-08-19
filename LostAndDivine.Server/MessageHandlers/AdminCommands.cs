@@ -275,7 +275,8 @@ public static class AdminCommands
 
         int oldLevel = target.Level;
         target.Level = targetLevel;
-        target.MaxHealth = 100 + (targetLevel - 1) * BalanceStatic.MaxHealthPerLevel;
+        target.MaxHealth = 100 + (targetLevel - 1) * BalanceStatic.MaxHealthPerLevel
+            + target.Endurance * Balance.MaxHealthPerEndurance;
         target.Health = target.MaxHealth;
         target.AttributePoints = (targetLevel - 1) * BalanceStatic.AttributePointsPerLevel;
         target.SkillPoints = targetLevel / 2;
