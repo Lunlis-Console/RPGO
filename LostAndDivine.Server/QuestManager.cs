@@ -336,6 +336,23 @@ public class QuestManager
         return true;
     }
 
+    /// <summary>
+    /// Открыта ли цель с индексом index: все цели предыдущих стадий (с меньшим
+    /// номером Stage) должны быть выполнены. Цели одной стадии не блокируют друг друга.
+    /// </summary>
+    public static bool IsObjectiveUnlocked(List<QuestObjective> objectives, List<int> currents, int index)
+    {
+        if (objectives == null || index < 0 || index >= objectives.Count) return true;
+        int stage = objectives[index].Stage;
+        for (int i = 0; i < objectives.Count; i++)
+        {
+            if (i == index || objectives[i].Stage >= stage) continue;
+            if (i >= currents.Count || currents[i] < objectives[i].Count)
+                return false;
+        }
+        return true;
+    }
+
     /// <summary>Текущий прогресс по каждой цели квеста (нормализованный список с Current).</summary>
     public List<QuestObjective> GetObjectiveStates(Player player, QuestProgress prog)
     {
@@ -443,6 +460,7 @@ public class QuestManager
             {
                 var obj = objectives[i];
                 if (obj.Type != objectiveType || !match(obj)) continue;
+                if (!IsObjectiveUnlocked(objectives, q.Currents, i)) continue;
                 int cur = GetObjectiveCurrent(q, i);
                 if (cur >= obj.Count) continue;
                 while (q.Currents.Count <= i) q.Currents.Add(0);

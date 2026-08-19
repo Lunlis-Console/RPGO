@@ -267,10 +267,12 @@ public class InteractionService
         var startNode = _svc.Dialogue.GetStartNodeId(npc.Id);
         if (startNode == null) return false;
         player.Dialogue.Start(npc.Id, startNode);
+        // Разговор с NPC считается состоявшимся ДО отправки ноды — условия узлов
+        // (например, quest_ready) должны видеть обновлённое состояние квеста.
+        _svc.Quests.IncrementTalkProgress(player, npc.Id);
         var tree = _svc.Dialogue.GetTree(npc.Id);
         if (tree == null) return false;
         await _svc.Dialogue.SendNode(client, player, tree, startNode);
-        _svc.Quests.IncrementTalkProgress(player, npc.Id);
         await _svc.Hub.SendQuestLog(client, player);
         _svc.Hub.MarkZoneDirty(player.CurrentZoneId);
         await _svc.Hub.BroadcastMapAsync();

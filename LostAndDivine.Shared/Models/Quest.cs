@@ -44,6 +44,13 @@ public class QuestObjective
     public int TargetY { get; set; }
     public int Count { get; set; } = 1;                   // Сколько нужно выполнить
 
+    /// <summary>
+    /// Стадия цели: цели одной стадии выполняются параллельно, цель стадии N
+    /// открывается только после выполнения всех целей предыдущих стадий
+    /// (0 = открыта сразу, как и раньше).
+    /// </summary>
+    public int Stage { get; set; }
+
     /// <summary>Текущий прогресс (не хранится в БД-определении квеста, живёт в прогресс-записи игрока).</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public int Current { get; set; }

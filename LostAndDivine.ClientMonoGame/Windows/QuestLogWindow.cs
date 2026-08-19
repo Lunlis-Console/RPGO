@@ -78,7 +78,7 @@ public sealed class QuestLogWindow : GameWindow
 
     private static int ObjectiveCount(QuestInfo q)
     {
-        if (q.Objectives != null && q.Objectives.Count > 0) return q.Objectives.Count;
+        if (q.Objectives is { Count: > 0 }) return q.VisibleObjectives().Count;
         return 1;
     }
 
@@ -497,8 +497,8 @@ public sealed class QuestLogWindow : GameWindow
             _cardButtons.Add((new Rectangle(btnX, btnY, btnW, btnH), q.QuestId ?? ""));
         }
 
-        // Текстовая зона: цели (по одной строке) + награда
-        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
+        // Текстовая зона: цели (открытые на текущем этапе, по одной строке) + награда
+        var objectives = q.VisibleObjectives();
         if (objectives.Count == 0)
         {
             objectives = new List<QuestObjectiveInfo>

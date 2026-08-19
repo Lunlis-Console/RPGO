@@ -416,6 +416,7 @@ public sealed class GameServer : INetworkHub
                     o.TargetX,
                     o.TargetY,
                     o.Count,
+                    o.Stage,
                     Current = QuestManager.GetObjectiveCurrent(q, i),
                     Label = svc.Quests.ObjectiveLabel(o)
                 }).ToList()
@@ -450,6 +451,7 @@ public sealed class GameServer : INetworkHub
                         o.TargetX,
                         o.TargetY,
                         o.Count,
+                        o.Stage,
                         Current = o.Count,
                         Label = svc.Quests.ObjectiveLabel(o)
                     }).ToList()
@@ -471,7 +473,7 @@ public sealed class GameServer : INetworkHub
                         Icon = svc.Quests.QuestIconKey(objectives),
                         Objectives = objectives.Select(o => new
                         {
-                            o.Type, o.Target, o.TargetX, o.TargetY, o.Count,
+                            o.Type, o.Target, o.TargetX, o.TargetY, o.Count, o.Stage,
                             Current = 0,
                             Label = svc.Quests.ObjectiveLabel(o)
                         }).ToList()

@@ -261,8 +261,34 @@ public sealed class QuestObjectiveInfo
     public int TargetX { get; set; }
     public int TargetY { get; set; }
     public int Count { get; set; }
+    public int Stage { get; set; }
     public int Current { get; set; }
     public string? Label { get; set; }
+}
+
+public static class QuestStageHelper
+{
+    /// <summary>
+    /// Открыта ли цель: все цели предыдущих стадий (с меньшим Stage) выполнены.
+    /// Цели одной стадии не блокируют друг друга.
+    /// </summary>
+    public static bool IsUnlocked(this QuestObjectiveInfo obj, List<QuestObjectiveInfo> all)
+    {
+        foreach (var prev in all)
+        {
+            if (ReferenceEquals(prev, obj) || prev.Stage >= obj.Stage) continue;
+            if (prev.Count <= 0 || prev.Current < prev.Count) return false;
+        }
+        return true;
+    }
+
+    /// <summary>Цели квеста, открытые на текущем этапе (выполненные стадии + текущая).</summary>
+    public static List<QuestObjectiveInfo> VisibleObjectives(this QuestInfo q)
+    {
+        var all = q.Objectives ?? new List<QuestObjectiveInfo>();
+        if (all.Count == 0) return all;
+        return all.Where(o => o.IsUnlocked(all)).ToList();
+    }
 }
 
 public sealed class BreakdownData

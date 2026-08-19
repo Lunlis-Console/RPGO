@@ -295,12 +295,13 @@ public sealed class QuestBoardWindow : GameWindow
     }
 
     private static int ObjectiveCount(QuestInfo q)
-        => q.Objectives != null && q.Objectives.Count > 0 ? q.Objectives.Count : 1;
+        => q.Objectives is { Count: > 0 } ? q.VisibleObjectives().Count : 1;
 
     private static (int Cur, int Tgt) OverallProgress(QuestInfo q)
     {
-        if (q.Objectives != null && q.Objectives.Count > 0)
-            return (q.Objectives.Sum(o => Math.Min(o.Current, o.Count)), q.Objectives.Sum(o => o.Count));
+        var visible = q.VisibleObjectives();
+        if (visible.Count > 0)
+            return (visible.Sum(o => Math.Min(o.Current, o.Count)), visible.Sum(o => o.Count));
         return (Math.Min(q.Current, q.Target), q.Target);
     }
 
@@ -435,8 +436,8 @@ public sealed class QuestBoardWindow : GameWindow
             textY += LineHeight;
         }
 
-        // Цели (по одной строке)
-        var objectives = q.Objectives ?? new List<QuestObjectiveInfo>();
+        // Цели (открытые на текущем этапе, по одной строке)
+        var objectives = q.VisibleObjectives();
         if (objectives.Count == 0)
         {
             objectives = new List<QuestObjectiveInfo>

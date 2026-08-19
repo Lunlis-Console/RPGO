@@ -81,8 +81,9 @@ internal class GameHudRenderer
 
     private static (int Cur, int Tgt) Overall(QuestInfo q)
     {
-        if (q.Objectives is { Count: > 0 })
-            return (q.Objectives.Sum(o => Math.Min(o.Current, o.Count)), q.Objectives.Sum(o => o.Count));
+        var visible = q.VisibleObjectives();
+        if (visible.Count > 0)
+            return (visible.Sum(o => Math.Min(o.Current, o.Count)), visible.Sum(o => o.Count));
         return (Math.Min(q.Current, q.Target), q.Target);
     }
 
