@@ -10,9 +10,19 @@ public partial class MainWindow : Window
 {
     public Db Db { get; }
 
-    public MainWindow(string dbFile)
+    public MainWindow()
     {
         InitializeComponent();
+
+        string? dbFile = FindDatabase() ?? PickDatabase();
+        if (dbFile == null)
+        {
+            MessageBox.Show("Не выбран файл базы данных.", "Редактор LostAndDivine",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            Application.Current.Shutdown();
+            return;
+        }
+
         Db = new Db(dbFile);
         Title = "Редактор LostAndDivine — " + Path.GetFileName(dbFile);
         Db.InitAndLoadAll();
