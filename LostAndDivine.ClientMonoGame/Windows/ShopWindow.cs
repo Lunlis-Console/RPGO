@@ -69,15 +69,21 @@ public class ShopWindow : GameWindow
         bool isFull = data.Items is { Count: > 0 };
         if (isFull)
         {
-            _merchantName = data.MerchantName ?? "Торговец";
+            string merchant = data.MerchantName ?? "Торговец";
+            bool newMerchant = !string.Equals(merchant, _merchantName, StringComparison.Ordinal);
+            _merchantName = merchant;
             _items = data.Items ?? new List<Item>();
+            // Прокрутка сбрасывается только при смене торговца/списка товаров,
+            // а не при обновлении золота после покупки.
+            if (newMerchant) _scrollOffset = 0;
         }
         if (data.Buyback is { Count: >= 0 })
             _buybackItems = data.Buyback;
         _playerGold = data.PlayerGold;
         if (_activeTab > 1) _activeTab = 0;
-        _scrollOffset = 0;
+        bool wasHidden = !Visible;
         Visible = true;
+        if (wasHidden) _scrollOffset = 0;
     }
 
     public override bool IsDragging => _dragIndex >= 0;

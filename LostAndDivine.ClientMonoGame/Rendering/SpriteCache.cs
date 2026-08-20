@@ -107,6 +107,10 @@ public static class SpriteCache
         foreach (var sub in iconSubtypes)
             LoadTexture($"icon_{sub.ToLower()}", $"LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 
+        var armorIconSubtypes = new[] { "Helmet", "Cloak", "Chest", "Legs", "Boots", "Gloves", "Belt", "Necklace", "Ring" };
+        foreach (var sub in armorIconSubtypes)
+            LoadTexture($"icon_{sub.ToLower()}", $"LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
+
         var qualityFrames = new[] { ("quality_common", "Ordinary_Frame"), ("quality_uncommon", "Unusual_Frame"), ("quality_rare", "Rare_Frame"), ("quality_epic", "Epic_Frame") };
         foreach (var (key, file) in qualityFrames)
             LoadTexture(key, $"LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.{file}.png");
@@ -132,7 +136,7 @@ public static class SpriteCache
         // Сундук склада/инстанса
         LoadTexture("chest_ss", "LostAndDivine.ClientMonoGame.Content.Sprites.SpriteSheets.Chest_SS.png");
 
-        Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length} textures");
+        Logger.Info($"SpriteCache loaded {_textures.Count}/{spriteNames.Length + iconSubtypes.Length + armorIconSubtypes.Length} textures");
     }
 
     public static void LoadCursors(string contentRoot)
@@ -442,8 +446,16 @@ public static class SpriteCache
     public static Texture2D? ForItemType(string? type) => (type ?? "").ToLower() switch
     {
         "weapon" or "twohand" => Get("weapon"),
-        "helmet" or "chest" or "cloak" or "legs" or "boots" or "glove" or "belt" or "shield" => Get("armor"),
-        "necklace" or "ring" => Get("accessory"),
+        "helmet" => Get("icon_helmet") ?? Get("armor"),
+        "cloak" => Get("icon_cloak") ?? Get("armor"),
+        "chest" => Get("icon_chest") ?? Get("armor"),
+        "legs" => Get("icon_legs") ?? Get("armor"),
+        "boots" => Get("icon_boots") ?? Get("armor"),
+        "glove" or "gloves" => Get("icon_gloves") ?? Get("armor"),
+        "belt" => Get("icon_belt") ?? Get("armor"),
+        "shield" => Get("icon_shield") ?? Get("armor"),
+        "necklace" => Get("icon_necklace") ?? Get("accessory"),
+        "ring" => Get("icon_ring") ?? Get("accessory"),
         "consumable" => Get("consumable"),
         "collectible" => Get("collectible"),
         "trophy" => Get("misc"),
