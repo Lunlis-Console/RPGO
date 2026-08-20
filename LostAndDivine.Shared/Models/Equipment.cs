@@ -40,6 +40,11 @@ public class Equipment
     public int GetBonusDefense() => Sum(_slots.Values, i => i.BonusDefense);
     public int GetBonusResistance() => Sum(_slots.Values, i => i.BonusResistance);
     public int GetBonusMaxHealth() => Sum(_slots.Values, i => i.MaxHealthBonus);
+    public int GetBonusMaxMana() => Sum(_slots.Values, i => i.MaxManaBonus);
+
+    // Базовая защита надетой брони (складывается в защиту/сопротивление персонажа)
+    public int GetDefense() => Sum(_slots.Values, i => i.Defense);
+    public int GetMagicDefense() => Sum(_slots.Values, i => i.MagicDefense);
     public double GetBonusCritChance() => SumD(_slots.Values, i => i.BonusCritChance);
     public double GetBonusCritDamage() => SumD(_slots.Values, i => i.BonusCritDamage);
     public double GetBonusEvadeChance() => SumD(_slots.Values, i => i.BonusEvadeChance);
@@ -61,7 +66,7 @@ public class Equipment
         return null;
     }
 
-    public int GetShieldBonusDefense() => GetEquippedShield()?.BonusDefense ?? 0;
+    public int GetShieldBonusDefense() => GetEquippedShield() is { } s ? s.Defense + s.BonusDefense : 0;
 
     public double GetWeaponSpeedModifier()
     {

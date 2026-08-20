@@ -42,7 +42,7 @@ public class InspectHandler : BaseHandler
                 target.Health,
                 MaxHealth = target.MaxHealth + target.Equipment.GetBonusMaxHealth(),
                 target.Mana,
-                target.MaxMana,
+                MaxMana = target.MaxMana + target.Equipment.GetBonusMaxMana(),
                 PhysAttack = GameServer.GetBuffedPhysAttack(target, Svc.Debuffs),
                 MagAttack = GameServer.GetBuffedMagAttack(target, Svc.Debuffs),
                 Defense = target.GetDefense(),

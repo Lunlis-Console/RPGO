@@ -192,12 +192,12 @@ public class InstanceManager
     {
         int maxLevel = Math.Min(playerLevel, dungeonLevel + 4);
         int minLevel = Math.Max(1, maxLevel - 3);
-        var allWeapons = _svc.Merchant.ShopItems
+        var allWeapons = _svc.Merchant.AllItems
             .Where(i => i.Type is "weapon" or "twohand" && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
             .ToList();
 
         if (allWeapons.Count == 0)
-            allWeapons = _svc.Merchant.ShopItems.Where(i => i.Type is "weapon" or "twohand").ToList();
+            allWeapons = _svc.Merchant.AllItems.Where(i => i.Type is "weapon" or "twohand").ToList();
 
         if (allWeapons.Count == 0) return null;
 
@@ -1062,12 +1062,13 @@ public class InstanceManager
     private static object ItemPayload(Item i) => new
     {
         i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
-        i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        i.MaxHealthBonus, i.MaxManaBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
         BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
         BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
         BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
         BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
         BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+        i.Defense, i.MagicDefense,
         BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
         BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
         BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
@@ -1075,6 +1076,6 @@ public class InstanceManager
         BonusArmorPenetration = i.BonusArmorPenetration, BonusCooldownReduction = i.BonusCooldownReduction,
         BonusHpRegen = i.BonusHpRegen, BonusMpRegen = i.BonusMpRegen,
         i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
-        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
+        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange, i.Icon
     };
 }

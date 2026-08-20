@@ -26,7 +26,9 @@ partial class Program
     private static readonly ConnectionGuard _connectionGuard = new();
 
     public static double GetAttackSpeed(Player player)
-        => Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier());
+        => Math.Min(Balance.MaxAttackSpeed,
+            Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier())
+            * player.GetAttackSpeedGearMultiplier());
 
     static async Task Main(string[] args)
     {

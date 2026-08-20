@@ -94,7 +94,9 @@ public abstract class BaseHandler : IMessageHandler
         => Svc.ReloadContent(connection);
 
     protected double GetAttackSpeed(Player player)
-        => Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier());
+        => Math.Min(Balance.MaxAttackSpeed,
+            Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier())
+            * player.GetAttackSpeedGearMultiplier());
 
     protected StatsBreakdown BuildBreakdown(Player player)
         => Hub.BuildBreakdown(player);
@@ -105,12 +107,13 @@ public abstract class BaseHandler : IMessageHandler
     protected static object MakeItemPayload(Item i) => new
     {
         i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
-        i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        i.MaxHealthBonus, i.MaxManaBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
         BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
         BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
         BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,
         BonusPhysAttack = i.BonusPhysAttack, BonusMagAttack = i.BonusMagAttack,
         BonusDefense = i.BonusDefense, BonusResistance = i.BonusResistance,
+        i.Defense, i.MagicDefense,
         BonusCritChance = i.BonusCritChance, BonusCritDamage = i.BonusCritDamage,
         BonusEvadeChance = i.BonusEvadeChance, BonusAttackSpeed = i.BonusAttackSpeed,
         BonusBlockChance = i.BonusBlockChance, BonusParryChance = i.BonusParryChance,
@@ -118,7 +121,7 @@ public abstract class BaseHandler : IMessageHandler
         BonusArmorPenetration = i.BonusArmorPenetration, BonusCooldownReduction = i.BonusCooldownReduction,
         BonusHpRegen = i.BonusHpRegen, BonusMpRegen = i.BonusMpRegen,
         i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
-        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange
+        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange, i.Icon
     };
 
     protected Task SendQuestLog(ClientConnection connection, Player player)

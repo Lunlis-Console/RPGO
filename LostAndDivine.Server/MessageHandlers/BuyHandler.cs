@@ -31,7 +31,7 @@ public class BuyHandler : BaseHandler
             return;
         }
 
-        int stock = Math.Max(1, template.Stock);
+        int stock = Svc.Merchant.GetStock(buyItemId);
         if (qty > stock) qty = stock;
 
         int price = Balance.BuyPrice(template.Value);

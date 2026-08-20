@@ -19,7 +19,10 @@ internal static class ItemRepository
                 bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
                 damage_min, damage_max, attack_range, required_level,
-                quest_item
+                quest_item,
+                max_mana_bonus,
+                icon,
+                magic_defense
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -68,6 +71,9 @@ internal static class ItemRepository
                     RequiredLevel = reader.IsDBNull(38) ? 0 : reader.GetInt32(38),
                     MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                     QuestItem = !reader.IsDBNull(39) && reader.GetInt32(39) != 0,
+                    MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
+                    Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
+                    MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
                 });
             }
             return result;
@@ -88,7 +94,10 @@ internal static class ItemRepository
                 bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 two_handed, damage_type, attack_speed_modifier, weapon_subtype,
                 damage_min, damage_max, attack_range, required_level,
-                quest_item
+                quest_item,
+                max_mana_bonus,
+                icon,
+                magic_defense
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -137,6 +146,9 @@ internal static class ItemRepository
                 RequiredLevel = reader.IsDBNull(38) ? 0 : reader.GetInt32(38),
                 MaxStack = Balance.MaxStackForType(reader.GetString(2)),
                 QuestItem = !reader.IsDBNull(39) && reader.GetInt32(39) != 0,
+                MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
+                Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
+                MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
             };
         }
     }

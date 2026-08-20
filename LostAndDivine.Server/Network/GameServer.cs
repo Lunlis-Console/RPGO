@@ -578,7 +578,7 @@ public sealed class GameServer : INetworkHub
                 player.Health,
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
-                MaxMana = player.MaxMana,
+                MaxMana = player.MaxMana + player.Equipment.GetBonusMaxMana(),
                 PhysAttack = GetBuffedPhysAttack(player, _svc.Debuffs),
                 MagAttack = GetBuffedMagAttack(player, _svc.Debuffs),
                 Defense = player.GetDefense(),
@@ -660,7 +660,7 @@ public sealed class GameServer : INetworkHub
                 player.Health,
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
-                MaxMana = player.MaxMana,
+                MaxMana = player.MaxMana + player.Equipment.GetBonusMaxMana(),
                 PhysAttack = GetBuffedPhysAttack(player, _svc.Debuffs),
                 MagAttack = GetBuffedMagAttack(player, _svc.Debuffs),
                 Defense = player.GetDefense(),
@@ -813,37 +813,34 @@ public sealed class GameServer : INetworkHub
             Defense = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                EquipBonus = player.Equipment.GetBonusDefense(),
+                EquipBonus = player.Equipment.GetDefense() + player.Equipment.GetBonusDefense(),
                 Total = player.GetDefense()
             },
             Resistance = new BreakdownPart
             {
                 Base = player.GetBaseDefense(),
-                EquipBonus = player.Equipment.GetBonusResistance(),
+                EquipBonus = player.Equipment.GetMagicDefense() + player.Equipment.GetBonusResistance(),
                 Total = player.GetResistance()
             },
             Crit = new BreakdownPart
             {
                 Base = player.BaseCritChance,
                 AttrBonus = CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1)),
-                EquipBonus = CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1) + player.Equipment.GetBonusCritChance())
-                             - CombatMath.ApplyCritDiminishingReturns((player.GetEffCunning() - 1)),
+                EquipBonus = Math.Round(player.Equipment.GetBonusCritChance(), 2),
                 Total = Math.Round(player.GetCritChance(), 2)
             },
             CritDmg = new BreakdownPart
             {
                 Base = player.BaseCritDamage * 100,
                 AttrBonus = Math.Round(CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)) * BalanceStatic.CritDamagePerStrength * 100, 1),
-                EquipBonus = Math.Round((CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength) + player.Equipment.GetBonusCritDamage() / BalanceStatic.CritDamagePerStrength)
-                             - CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength))) * BalanceStatic.CritDamagePerStrength * 100, 1),
+                EquipBonus = Math.Round(player.Equipment.GetBonusCritDamage(), 1),
                 Total = Math.Round(player.GetCritDamage() * 100, 1)
             },
             Evade = new BreakdownPart
             {
                 Base = player.BaseEvadeChance,
                 AttrBonus = Math.Round(CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1) + player.Equipment.GetBonusEvadeChance())
-                             - CombatMath.ApplyEvadeDiminishingReturns((player.GetEffCunning() - 1)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusEvadeChance(), 2),
                 Total = Math.Round(player.GetEvadeChance(), 2)
             },
             Block = new BreakdownPart
@@ -863,8 +860,7 @@ public sealed class GameServer : INetworkHub
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility) + player.Equipment.GetBonusAccuracy())
-                             - CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, player.GetEffAgility() - player.ClassBaseAgility)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusAccuracy(), 2),
                 SkillBonus = player.GetBowAccuracyBonus(),
                 Total = Math.Round(player.GetAccuracy() - BalanceStatic.AccuracyBase, 2)
             },
@@ -872,40 +868,35 @@ public sealed class GameServer : INetworkHub
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance) + player.Equipment.GetBonusTenacity())
-                             - CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusTenacity(), 2),
                 Total = Math.Round(player.GetTenacity(), 2)
             },
             ArmorPen = new BreakdownPart
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength) + player.Equipment.GetBonusArmorPenetration())
-                             - CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusArmorPenetration(), 2),
                 Total = Math.Round(player.GetArmorPenetration(), 2)
             },
             CdReduction = new BreakdownPart
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom) + player.Equipment.GetBonusCooldownReduction())
-                             - CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusCooldownReduction(), 2),
                 Total = Math.Round(player.GetCooldownReduction(), 2)
             },
             HpRegen = new BreakdownPart
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance) + player.Equipment.GetBonusHpRegen())
-                             - CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusHpRegen(), 2),
                 Total = Math.Round(player.GetHealthRegenPercent(), 2)
             },
             MpRegen = new BreakdownPart
             {
                 Base = 0,
                 AttrBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
-                EquipBonus = Math.Round(CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom) + player.Equipment.GetBonusMpRegen())
-                             - CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, player.GetEffWisdom() - player.ClassBaseWisdom)), 2),
+                EquipBonus = Math.Round(player.Equipment.GetBonusMpRegen(), 2),
                 Total = Math.Round(player.GetManaRegenPercent(), 2)
             },
             Effective = new EffectiveAttrs
@@ -922,15 +913,16 @@ public sealed class GameServer : INetworkHub
 
     internal static double GetAttackSpeed(Player player, DebuffManager debuffs)
     {
-        double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier());
+        double baseSpeed = Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier())
+            * player.GetAttackSpeedGearMultiplier();
         double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
         return Math.Min(Balance.MaxAttackSpeed, baseSpeed * speedBuff);
     }
 
     internal static int GetAttackIntervalMs(Player player, DebuffManager debuffs)
     {
-        int baseInterval = Balance.AttackIntervalMs(
-            Balance.GetAttackSpeed(player.GetAttackSpeedPoints()), player.Equipment.GetWeaponSpeedModifier());
+        double speed = Balance.GetAttackSpeed(player.GetAttackSpeedPoints()) * player.Equipment.GetWeaponSpeedModifier() * player.GetAttackSpeedGearMultiplier();
+        int baseInterval = Balance.AttackIntervalMs(speed);
         double speedBuff = 1.0 + debuffs.GetDebuffValue(player, DebuffType.AttackSpeedBonus);
         return (int)(baseInterval / speedBuff);
     }

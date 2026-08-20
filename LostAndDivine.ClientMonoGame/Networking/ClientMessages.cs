@@ -141,12 +141,15 @@ public sealed class TradeItemData
     public string? Type { get; set; }
     public string? TemplateId { get; set; }
     public string? WeaponSubtype { get; set; }
+    public string? Icon { get; set; }
     public int Quantity { get; set; }
     public int Value { get; set; }
     public string? Description { get; set; }
     public int Attack { get; set; }
     public int Defense { get; set; }
+    public int MagicDefense { get; set; }
     public int MaxHealthBonus { get; set; }
+    public int MaxManaBonus { get; set; }
     public int HealAmount { get; set; }
     public int RestoreMana { get; set; }
     public int MaxStack { get; set; }
@@ -184,9 +187,9 @@ public sealed class TradeItemData
     public TradeItemData WithQuantity(int qty) => new()
     {
         Id = Id, Name = Name, Type = Type, TemplateId = TemplateId,
-        WeaponSubtype = WeaponSubtype,
+        WeaponSubtype = WeaponSubtype, Icon = Icon,
         Value = Value, Description = Description, Attack = Attack,
-        Defense = Defense, MaxHealthBonus = MaxHealthBonus, HealAmount = HealAmount,
+        Defense = Defense, MagicDefense = MagicDefense, MaxHealthBonus = MaxHealthBonus, MaxManaBonus = MaxManaBonus, HealAmount = HealAmount,
         MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana,
         BonusStrength = BonusStrength, BonusEndurance = BonusEndurance,
         BonusAgility = BonusAgility, BonusCunning = BonusCunning,
@@ -367,10 +370,12 @@ public sealed class LootItemInfo
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
     public string WeaponSubtype { get; set; } = "";
+    public string Icon { get; set; } = "";
     public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public string Description { get; set; } = "";
     public int MaxHealthBonus { get; set; }
+    public int MaxManaBonus { get; set; }
     public int HealAmount { get; set; }
     public int RestoreMana { get; set; }
     public int MaxStack { get; set; } = 10;
@@ -382,6 +387,8 @@ public sealed class LootItemInfo
     public int BonusWisdom { get; set; }
     public int BonusPhysAttack { get; set; }
     public int BonusMagAttack { get; set; }
+    public int Defense { get; set; }
+    public int MagicDefense { get; set; }
     public int BonusDefense { get; set; }
     public int BonusResistance { get; set; }
     public double BonusCritChance { get; set; }

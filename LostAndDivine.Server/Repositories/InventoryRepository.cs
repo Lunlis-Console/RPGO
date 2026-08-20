@@ -25,7 +25,10 @@ internal static class InventoryRepository
                 bonus_block_chance, bonus_parry_chance,
                 bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 template_id, quantity,
-                damage_min, damage_max, attack_range
+                damage_min, damage_max, attack_range,
+                max_mana_bonus,
+                icon,
+                magic_defense
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -73,7 +76,10 @@ internal static class InventoryRepository
                     Quantity = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                     DamageMin = reader.GetInt32(32),
                     DamageMax = reader.GetInt32(33),
-                    AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34)
+                    AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34),
+                    MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
+                    Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
+                    MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37)
                 });
             }
 
@@ -94,8 +100,12 @@ internal static class InventoryRepository
                             Name = item.Name,
                             Type = item.Type,
                             Value = item.Value,
+                            Defense = item.Defense,
+                            MagicDefense = item.MagicDefense,
                             BonusDefense = item.BonusDefense,
                             MaxHealthBonus = item.MaxHealthBonus,
+                            MaxManaBonus = item.MaxManaBonus,
+                            Icon = item.Icon,
                             HealAmount = item.HealAmount,
                             RestoreMana = item.RestoreMana,
                             Description = item.Description,
@@ -190,14 +200,17 @@ internal static class InventoryRepository
                 bonus_block_chance, bonus_parry_chance,
                 bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                 template_id, quantity,
-                attack_range)
+                attack_range,
+                max_mana_bonus,
+                icon,
+                magic_defense)
             VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $rmana, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
                 $cc, $cd, $ec, $as,
                 $bc, $pc, $bacc, $bten, $bap, $bcdr, $bhpr, $bmpr,
                 $tid, $qty,
-                $ar)";
+                $ar, $mmp, $ic, $md)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
@@ -232,6 +245,9 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$tid", item.TemplateId);
         insertItem.Parameters.AddWithValue("$qty", qty);
         insertItem.Parameters.AddWithValue("$ar", item.AttackRange);
+        insertItem.Parameters.AddWithValue("$mmp", item.MaxManaBonus);
+        insertItem.Parameters.AddWithValue("$ic", (object?)item.Icon ?? DBNull.Value);
+        insertItem.Parameters.AddWithValue("$md", item.MagicDefense);
         insertItem.ExecuteNonQuery();
     }
 
@@ -319,7 +335,10 @@ internal static class InventoryRepository
             bonus_block_chance, bonus_parry_chance,
             bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
             template_id, quantity,
-            damage_min, damage_max, attack_range
+            damage_min, damage_max, attack_range,
+            max_mana_bonus,
+            icon,
+            magic_defense
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -363,7 +382,10 @@ internal static class InventoryRepository
                 Quantity = reader.IsDBNull(31) ? 1 : reader.GetInt32(31),
                 DamageMin = reader.GetInt32(32),
                 DamageMax = reader.GetInt32(33),
-                AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34)
+                AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34),
+                MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
+                Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
+                MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37)
             };
             return SyncItemFromTemplate(item);
         }
@@ -382,13 +404,17 @@ internal static class InventoryRepository
             bonus_block_chance, bonus_parry_chance,
             bonus_accuracy, bonus_tenacity, bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
             two_handed, damage_type, attack_speed_modifier, weapon_subtype,
-            damage_min, damage_max, attack_range, required_level
+            damage_min, damage_max, attack_range, required_level,
+            max_mana_bonus,
+            icon,
+            bonus_defense,
+            magic_defense
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
         if (reader.Read())
         {
-            item.BonusDefense = reader.GetInt32(0);
+            item.Defense = reader.GetInt32(0);
             item.Value = reader.GetInt32(1);
             item.MaxHealthBonus = reader.GetInt32(2);
             item.HealAmount = reader.GetInt32(3);
@@ -423,6 +449,10 @@ internal static class InventoryRepository
             item.DamageMax = reader.GetInt32(32);
             item.AttackRange = reader.IsDBNull(33) ? 1 : reader.GetInt32(33);
             item.RequiredLevel = reader.IsDBNull(34) ? 0 : reader.GetInt32(34);
+            item.MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35);
+            item.Icon = reader.IsDBNull(36) ? "" : reader.GetString(36);
+            item.BonusDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37);
+            item.MagicDefense = reader.IsDBNull(38) ? 0 : reader.GetInt32(38);
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;

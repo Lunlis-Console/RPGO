@@ -10,7 +10,35 @@ namespace LostAndDivine.Editor.Views;
 public static class Ui
 {
     public static readonly string[] ItemTypes =
-        { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "accessory", "consumable", "collectible", "trophy" };
+        { "weapon", "twohand", "shield", "helmet", "cloak", "chest", "legs", "boots", "glove", "belt", "necklace", "ring", "consumable", "collectible", "trophy" };
+
+    /// <summary>Пары «английский тип → русская подпись» для комбобоксов.</summary>
+    public static readonly KeyValuePair<string, string>[] ItemTypesLocalized =
+        ItemTypes.Select(t => new KeyValuePair<string, string>(t, ItemTypeLabel(t))).ToArray();
+
+    public static string ItemTypeLabel(string type) => type switch
+    {
+        "weapon" => "Оружие",
+        "twohand" => "Двуручное оружие",
+        "shield" => "Щит",
+        "helmet" => "Шлем",
+        "cloak" => "Плащ",
+        "chest" => "Нагрудник",
+        "legs" => "Поножи",
+        "boots" => "Сапоги",
+        "glove" => "Перчатки",
+        "belt" => "Пояс",
+        "necklace" => "Ожерелье",
+        "ring" => "Кольцо",
+        "consumable" => "Расходник",
+        "collectible" => "Коллекция",
+        "trophy" => "Трофей",
+        _ => type
+    };
+
+    /// <summary>Обратный маппинг: русская подпись → английский тип.</summary>
+    public static string ItemTypeValue(string label) =>
+        ItemTypesLocalized.FirstOrDefault(p => p.Value == label).Key ?? label;
 
     public static readonly string[] QuestTypes = { "kill", "collect", "talk", "travel", "use", "explore" };
 

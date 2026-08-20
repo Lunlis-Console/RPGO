@@ -739,7 +739,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                     var item = _dragFromPanel == 0
                         ? GetAvailableInventory().First(i => i.Id == grouped[_dragIdx].Key)
                         : _myOfferItems.First(i => i.Id == grouped[_dragIdx].Key);
-                    var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
+                    var spr = SpriteCache.ForItem(item);
                     int sz = 36;
                     var dst = new Rectangle(_dragPos.X - _dragOffset.X, _dragPos.Y - _dragOffset.Y, sz, sz);
                     if (spr != null)
@@ -789,7 +789,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                     {
                         var item = GetAvailableInventory().First(i => i.Id == groupedInv[uniqueIdx].Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
+                        var spr = SpriteCache.ForItem(item);
                         if (spr != null)
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _invCellSize - 8, _invCellSize - 8);
@@ -842,7 +842,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                         var kvp = groupedOffer[uniqueIdx];
                         var item = _myOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
+                        var spr = SpriteCache.ForItem(item);
                         if (spr != null)
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
@@ -925,7 +925,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                         var kvp = groupedTheir[uniqueIdx];
                         var item = _theirOfferItems.First(i => i.Id == kvp.Key);
                         if (hover) _hoverItem = item;
-                        var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
+                        var spr = SpriteCache.ForItem(item);
                         if (spr != null)
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
@@ -969,14 +969,15 @@ namespace LostAndDivine.ClientMonoGame.Windows
         private static Item ToItem(TradeItemData d) => new()
         {
             Id = d.Id ?? "", TemplateId = d.TemplateId ?? "", Name = d.Name ?? "",
-            Type = d.Type ?? "", WeaponSubtype = d.WeaponSubtype ?? "",
+            Type = d.Type ?? "", WeaponSubtype = d.WeaponSubtype ?? "", Icon = d.Icon ?? "",
             Quantity = d.Quantity, Value = d.Value, Description = d.Description ?? "",
-            MaxHealthBonus = d.MaxHealthBonus, HealAmount = d.HealAmount,
+            MaxHealthBonus = d.MaxHealthBonus, MaxManaBonus = d.MaxManaBonus, HealAmount = d.HealAmount,
             RestoreMana = d.RestoreMana, MaxStack = d.MaxStack,
             BonusStrength = d.BonusStrength, BonusEndurance = d.BonusEndurance,
             BonusAgility = d.BonusAgility, BonusCunning = d.BonusCunning,
             BonusIntellect = d.BonusIntellect, BonusWisdom = d.BonusWisdom,
             BonusPhysAttack = d.BonusPhysAttack, BonusMagAttack = d.BonusMagAttack,
+            Defense = d.Defense, MagicDefense = d.MagicDefense,
             BonusDefense = d.BonusDefense, BonusResistance = d.BonusResistance,
             BonusCritChance = d.BonusCritChance, BonusCritDamage = d.BonusCritDamage,
             BonusEvadeChance = d.BonusEvadeChance, BonusAttackSpeed = d.BonusAttackSpeed,

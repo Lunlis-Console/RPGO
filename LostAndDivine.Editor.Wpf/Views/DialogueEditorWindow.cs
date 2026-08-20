@@ -68,9 +68,10 @@ public sealed class DialogueEditorWindow : Window
         _npcCombo = new ComboBox { Width = 340, HorizontalAlignment = HorizontalAlignment.Left };
         _npcCombo.SelectionChanged += OnNpcComboChanged;
         _dirtyLabel = new TextBlock { Text = "", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), Foreground = System.Windows.Media.Brushes.OrangeRed };
-        top.Children.Add(_dirtyLabel);
-        top.Children.Add(_npcCombo);
+        DockPanel.SetDock(_npcCombo, Dock.Left);
         top.Children.Add(npcLabel);
+        top.Children.Add(_npcCombo);
+        top.Children.Add(_dirtyLabel);
         Grid.SetRow(top, 0);
 
         // ── центр: слева узлы, справа редактор ──
@@ -128,6 +129,7 @@ public sealed class DialogueEditorWindow : Window
         editorGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         editorGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         editorGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        editorGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         editorGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
         var speakerLbl = new TextBlock { Text = "Кто говорит:", Margin = new Thickness(0, 0, 0, 2) };
@@ -171,7 +173,7 @@ public sealed class DialogueEditorWindow : Window
         choicesPanel.Children.Add(_choicesGrid);
         choicesPanel.Children.Add(choiceButtons);
         choicesPanel.Children.Add(choicesLbl);
-        Grid.SetRow(choicesPanel, 3);
+        Grid.SetRow(choicesPanel, 4);
 
         editorGrid.Children.Add(speakerLbl);
         editorGrid.Children.Add(_speakerBox);

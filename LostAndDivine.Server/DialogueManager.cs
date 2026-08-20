@@ -422,7 +422,7 @@ public class DialogueManager
                             Value = Balance.BuyPrice(i.Value),
                             OriginalValue = i.Value,
                             i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
-                            i.Stock,
+                            Stock = _merchant.GetStock(i.Id),
                             IsBuyback = false
                         }).ToList(),
                         Buyback = player.BuybackItems.Select(b => new

@@ -128,17 +128,21 @@ public static class TiledMapLoader
                 tiles[i] = (byte)(localId + 1);
         }
 
-        // Лог тайла (49,49) для отладки
-        int checkIdx = 49 + 49 * 100;
-        if (checkIdx < layer.Data.Count)
+        // Лог тайла (49,49) для отладки: включается переменной окружения LD_DEBUG_TILE=1.
+        // Выключен по умолчанию, т.к. пишется при загрузке каждой карты (в т.ч. каждого сектора).
+        if (Environment.GetEnvironmentVariable("LD_DEBUG_TILE") == "1")
         {
-            long raw = layer.Data[checkIdx];
-            uint gid = (uint)(raw & 0xFFFFFFFF);
-            uint rawTile = gid & GidMask;
-            int localId = rawTile >= firstGid ? (int)(rawTile - firstGid) : -1;
-            int col = localId >= 0 ? localId % cols : -1;
-            int row = localId >= 0 ? localId / cols : -1;
-            Log.Debug($"  Тайл[49,49]: rawGID={raw} maskedGID={rawTile} localId={localId} tileId={tiles[checkIdx]} → колона={col} ряд={row}");
+            int checkIdx = 49 + 49 * 100;
+            if (checkIdx < layer.Data.Count)
+            {
+                long raw = layer.Data[checkIdx];
+                uint gid = (uint)(raw & 0xFFFFFFFF);
+                uint rawTile = gid & GidMask;
+                int localId = rawTile >= firstGid ? (int)(rawTile - firstGid) : -1;
+                int col = localId >= 0 ? localId % cols : -1;
+                int row = localId >= 0 ? localId / cols : -1;
+                Log.Debug($"  Тайл[49,49]: rawGID={raw} maskedGID={rawTile} localId={localId} tileId={tiles[checkIdx]} → колона={col} ряд={row}");
+            }
         }
 
         return tiles;

@@ -28,7 +28,7 @@ public class ShopRequestHandler : BaseHandler
                     Value = Balance.BuyPrice(i.Value),
                     OriginalValue = i.Value,
                     i.MaxHealthBonus, i.HealAmount, i.RestoreMana, i.Description,
-                    i.Stock,
+                    Stock = Svc.Merchant.GetStock(i.Id),
                     IsBuyback = false
                 }).ToList(),
                 Buyback = player.BuybackItems.Select(i => new

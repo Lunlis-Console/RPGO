@@ -111,7 +111,7 @@ public class ItemFilterBar
     {
         1 => itemType is "weapon" or "twohand",
         2 => itemType is "shield" or "helmet" or "cloak" or "chest" or "legs" or "boots"
-             or "glove" or "belt" or "necklace" or "ring" or "accessory" or "armor",
+             or "glove" or "belt" or "necklace" or "ring" or "armor",
         3 => itemType == "consumable",
         4 => itemType is "material" or "collectible" or "trophy",
         _ => true

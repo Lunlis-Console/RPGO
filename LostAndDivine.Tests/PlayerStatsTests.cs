@@ -87,6 +87,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
+    public void GetCritChance_WithGearBonus_AddsFlatPercent()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusCritChance = 4 };
+        var p = new Player { Cunning = 1, BaseCritChance = 1.0, Equipment = eq };
+        // Шмот даёт плоский процент: 1.0 + 4.0 = 5.0
+        Assert.Equal(5.0, p.GetCritChance(), 3);
+    }
+
+    [Fact]
     public void GetCritDamage_NoStrength_Returns1_5()
     {
         var p = new Player { Strength = 1, BaseCritDamage = 1.5 };
@@ -133,6 +143,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
+    public void GetCritDamage_WithGearBonus_AddsFlatPercent()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusCritDamage = 4 };
+        var p = new Player { Strength = 3, BaseCritDamage = 1.5, Equipment = eq };
+        // База 150% + шмот 4% = 154% (без вложенной силы)
+        Assert.Equal(1.54, p.GetCritDamage(), 3);
+    }
+
+    [Fact]
     public void GetAttackSpeed_ClassBaseAgility_Returns1()
     {
         var p = new Player { Agility = 1 };
@@ -149,13 +169,13 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetAttackSpeed_WithGearBonus_AddsPoints()
+    public void GetAttackSpeed_WithGearBonus_MultipliesPercent()
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusAttackSpeed = 10 };
         var p = new Player { Agility = 11, Equipment = eq };
-        // 10 ловкости + 10 шмота = 20 очков: 30×20/50/12 = 1.0 → 2.0
-        Assert.Equal(2.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
+        // 10 очков ловкости дают 1.625; шмот +10% → 1.625 × 1.1 = 1.7875
+        Assert.Equal(1.7875, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) * p.GetAttackSpeedGearMultiplier(), 3);
     }
 
     [Fact]
@@ -208,6 +228,16 @@ public class PlayerStatsTests
     {
         var p = new Player { Cunning = 1000, BaseEvadeChance = 1.0 };
         Assert.Equal(50.0, p.GetEvadeChance());
+    }
+
+    [Fact]
+    public void GetEvadeChance_WithGearBonus_AddsFlatPercent()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusEvadeChance = 4 };
+        var p = new Player { Cunning = 1, BaseEvadeChance = 1.0, Equipment = eq };
+        // Шмот даёт плоский процент: 1.0 + 4.0 = 5.0
+        Assert.Equal(5.0, p.GetEvadeChance(), 3);
     }
 
     [Fact]
@@ -454,63 +484,63 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetTenacity_WithGearBonus_AddsToDiminishingCurve()
+    public void GetTenacity_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusTenacity = 20 };
         var p = new Player { Endurance = 51, Equipment = eq };
-        // (51 − 3) + 20 = 68 очков: 68 × 0.3 = 20.4
-        Assert.Equal(20.4, p.GetTenacity(), 3);
+        // Выносливость (51 − 3) = 48 очков × 0.3 = 14.4; шмот +20% плоского процента → 34.4
+        Assert.Equal(34.4, p.GetTenacity(), 3);
     }
 
     [Fact]
-    public void GetArmorPenetration_WithGearBonus_AddsToDiminishingCurve()
+    public void GetArmorPenetration_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusArmorPenetration = 20 };
+        eq[EquipmentSlots.Torso] = new Item { BonusArmorPenetration = 5 };
         var p = new Player { Strength = 51, Equipment = eq };
-        // (51 − 3) + 20 = 68 очков: 68 × 0.15 = 10.2
-        Assert.Equal(10.2, p.GetArmorPenetration(), 3);
+        // Сила (51 − 3) = 48 очков × 0.15 = 7.2; шмот +5% → 12.2
+        Assert.Equal(12.2, p.GetArmorPenetration(), 3);
     }
 
     [Fact]
-    public void GetCooldownReduction_WithGearBonus_AddsToDiminishingCurve()
+    public void GetCooldownReduction_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusCooldownReduction = 20 };
         var p = new Player { Wisdom = 51, Equipment = eq };
-        // (51 − 1) + 20 = 70 очков: 70 × 0.3 = 21
-        Assert.Equal(21.0, p.GetCooldownReduction(), 3);
+        // Мудрость (51 − 1) = 50 очков × 0.3 = 15; шмот +20% → 35
+        Assert.Equal(35.0, p.GetCooldownReduction(), 3);
     }
 
     [Fact]
-    public void GetHealthRegenPercent_WithGearBonus_AddsToDiminishingCurve()
+    public void GetHealthRegenPercent_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 20 };
+        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 5 };
         var p = new Player { Endurance = 51, Equipment = eq };
-        // (51 − 3) + 20 = 68 очков: 68 × 0.15 = 10.2
-        Assert.Equal(10.2, p.GetHealthRegenPercent(), 3);
+        // Выносливость 48 очков × 0.15 = 7.2; шмот +5% → 12.2
+        Assert.Equal(12.2, p.GetHealthRegenPercent(), 3);
     }
 
     [Fact]
-    public void GetManaRegenPercent_WithGearBonus_AddsToDiminishingCurve()
+    public void GetManaRegenPercent_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusMpRegen = 20 };
+        eq[EquipmentSlots.Torso] = new Item { BonusMpRegen = 5 };
         var p = new Player { Wisdom = 51, Equipment = eq };
-        // (51 − 1) + 20 = 70 очков: 70 × 0.15 = 10.5
-        Assert.Equal(10.5, p.GetManaRegenPercent(), 3);
+        // Мудрость 50 очков × 0.15 = 7.5; шмот +5% → 12.5
+        Assert.Equal(12.5, p.GetManaRegenPercent(), 3);
     }
 
     [Fact]
-    public void GetAccuracy_WithGearBonus_AddsToDiminishingCurve()
+    public void GetAccuracy_WithGearBonus_AddsFlatPercent()
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusAccuracy = 20 };
         var p = new Player { Agility = 51, Equipment = eq };
-        // База 100 + (51 − 1) + 20 = 70 очков × 0.3 = 21 → 121
-        Assert.Equal(121.0, p.GetAccuracy(), 3);
+        // База 100 + ловкость 50 очков × 0.3 = 15 → 115; шмот +20% → 135
+        Assert.Equal(135.0, p.GetAccuracy(), 3);
     }
 
     [Fact]

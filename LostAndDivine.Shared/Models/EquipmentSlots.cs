@@ -110,6 +110,5 @@ public static class EquipmentSlots
         ["ring"]     = new() { RingRight, RingLeft },   // кольцо — в любую свободную руку
         // Обратная совместимость со старыми типами
         ["armor"]    = new() { Torso },
-        ["accessory"]= new() { Neck },
     };
 }

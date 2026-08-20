@@ -23,10 +23,11 @@ internal static class StorageRepository
             insert.CommandText = @"INSERT INTO storage_items
                 (player_name, item_id, template_id, name, type, value, quantity, max_stack,
                  description, bonus_defense, bonus_phys_attack, bonus_mag_attack,
-                 bonus_max_health, heal_amount, restore_mana, weapon_subtype,
-                 damage_min, damage_max, attack_range, required_level)
+                 bonus_max_health, bonus_max_mana, heal_amount, restore_mana, weapon_subtype,
+                 damage_min, damage_max, attack_range, required_level, icon,
+                 magic_defense)
                 VALUES ($name, $id, $tid, $iname, $itype, $val, $qty, $ms,
-                        $desc, $bd, $bpa, $bma, $bmh, $ha, $rm, $ws, $dmn, $dmx, $ar, $rl)";
+                        $desc, $bd, $bpa, $bma, $bmh, $bmm, $ha, $rm, $ws, $dmn, $dmx, $ar, $rl, $ic, $md)";
             insert.Parameters.AddWithValue("$name", playerName);
             insert.Parameters.AddWithValue("$id", item.Id);
             insert.Parameters.AddWithValue("$tid", item.TemplateId);
@@ -40,6 +41,8 @@ internal static class StorageRepository
             insert.Parameters.AddWithValue("$bpa", item.BonusPhysAttack);
             insert.Parameters.AddWithValue("$bma", item.BonusMagAttack);
             insert.Parameters.AddWithValue("$bmh", item.MaxHealthBonus);
+            insert.Parameters.AddWithValue("$bmm", item.MaxManaBonus);
+            insert.Parameters.AddWithValue("$ic", (object?)item.Icon ?? DBNull.Value);
             insert.Parameters.AddWithValue("$ha", item.HealAmount);
             insert.Parameters.AddWithValue("$rm", item.RestoreMana);
             insert.Parameters.AddWithValue("$ws", item.WeaponSubtype);
@@ -47,6 +50,7 @@ internal static class StorageRepository
             insert.Parameters.AddWithValue("$dmx", item.DamageMax);
             insert.Parameters.AddWithValue("$ar", item.AttackRange);
             insert.Parameters.AddWithValue("$rl", item.RequiredLevel);
+            insert.Parameters.AddWithValue("$md", item.MagicDefense);
             insert.ExecuteNonQuery();
         }
     }

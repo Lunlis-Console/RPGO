@@ -95,6 +95,7 @@ public class Item
     public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public int MaxHealthBonus { get; set; }
+    public int MaxManaBonus { get; set; }
     public int HealAmount { get; set; }
     public int RestoreMana { get; set; }
     public string Description { get; set; } = "";
@@ -102,6 +103,8 @@ public class Item
     public int MaxStack { get; set; } = 10;
     public bool IsBuyback { get; set; }
     public bool QuestItem { get; set; }
+    public int Defense { get; set; }
+    public int MagicDefense { get; set; }
 
     // Бонусы к первичным атрибутам
     public int BonusStrength { get; set; }
@@ -156,6 +159,9 @@ public class Item
 
     // Дальность атаки (1 = ближний бой, 3 = лук и т.д.)
     public int AttackRange { get; set; } = 1;
+
+    // Своя иконка: ключ PNG из Content/Sprites/CustomIcons (без расширения)
+    public string Icon { get; set; } = "";
 
     // Качество предмета (Common/Uncommon/Rare/Epic) — определяется из описания
     public ItemQuality Quality => ItemQualityExtensions.ParseFromDescription(Description);

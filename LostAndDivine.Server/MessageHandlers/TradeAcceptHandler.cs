@@ -104,7 +104,7 @@ public class TradeAcceptHandler : BaseHandler
         {
             i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description,
             i.MaxHealthBonus, i.HealAmount, i.RestoreMana,
-            i.MaxStack, i.Quantity
+            i.MaxStack, i.Quantity, i.Icon, i.Defense, i.MagicDefense
         }).Cast<object>().ToList();
         return (items, player.Gold);
     }

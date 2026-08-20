@@ -698,13 +698,14 @@ internal static class ClientMessageHandlerRegistry
         return new LootItemInfo
         {
             Id = S("Id"), TemplateId = S("TemplateId"), Name = S("Name"), Type = S("Type"),
-            WeaponSubtype = S("WeaponSubtype"), Quantity = I("Quantity", 1), Value = I("Value"),
-            Description = S("Description"), MaxHealthBonus = I("MaxHealthBonus"),
+            WeaponSubtype = S("WeaponSubtype"), Icon = S("Icon"), Quantity = I("Quantity", 1), Value = I("Value"),
+            Description = S("Description"), MaxHealthBonus = I("MaxHealthBonus"), MaxManaBonus = I("MaxManaBonus"),
             HealAmount = I("HealAmount"), RestoreMana = I("RestoreMana"), MaxStack = I("MaxStack", 10),
             BonusStrength = I("BonusStrength"), BonusEndurance = I("BonusEndurance"),
             BonusAgility = I("BonusAgility"), BonusCunning = I("BonusCunning"),
             BonusIntellect = I("BonusIntellect"), BonusWisdom = I("BonusWisdom"),
             BonusPhysAttack = I("BonusPhysAttack"), BonusMagAttack = I("BonusMagAttack"),
+            Defense = I("Defense"), MagicDefense = I("MagicDefense"),
             BonusDefense = I("BonusDefense"), BonusResistance = I("BonusResistance"),
             BonusCritChance = D("BonusCritChance"), BonusCritDamage = D("BonusCritDamage"),
             BonusEvadeChance = D("BonusEvadeChance"), BonusAttackSpeed = D("BonusAttackSpeed"),

@@ -242,7 +242,7 @@ public class GameServerHost
                     pl.Health = Math.Min(maxHp, pl.Health + heal);
                 }
 
-                int maxMana = pl.MaxMana;
+                int maxMana = pl.MaxMana + pl.Equipment.GetBonusMaxMana();
                 int manaTick = 0;
                 if (pl.Mana < maxMana)
                 {

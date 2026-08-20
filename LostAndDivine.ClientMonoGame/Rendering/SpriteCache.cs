@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using LostAndDivine.Shared.Models;
+using LostAndDivine.ClientMonoGame.Networking;
 using System.Reflection;
 using System.Runtime.Versioning;
 using System.Text.Json;
@@ -442,7 +443,7 @@ public static class SpriteCache
     {
         "weapon" or "twohand" => Get("weapon"),
         "helmet" or "chest" or "cloak" or "legs" or "boots" or "glove" or "belt" or "shield" => Get("armor"),
-        "necklace" or "ring" or "accessory" => Get("accessory"),
+        "necklace" or "ring" => Get("accessory"),
         "consumable" => Get("consumable"),
         "collectible" => Get("collectible"),
         "trophy" => Get("misc"),
@@ -479,14 +480,46 @@ public static class SpriteCache
         var s => s,
     };
 
-    public static Texture2D? ForItem(Item item)
+    public static Texture2D? ForItem(Item item) =>
+        ForItem(item.Icon, item.Type, item.WeaponSubtype, item.HealAmount > 0, item.RestoreMana > 0);
+
+    public static Texture2D? ForItem(TradeItemData d) =>
+        ForItem(d.Icon, d.Type, d.WeaponSubtype, d.HealAmount > 0, d.RestoreMana > 0);
+
+    public static Texture2D? ForItem(LootItemInfo l) =>
+        ForItem(l.Icon, l.Type, l.WeaponSubtype, l.HealAmount > 0, l.RestoreMana > 0);
+
+    private static Texture2D? ForItem(string? icon, string? type, string? weaponSubtype, bool heals, bool restoresMana)
     {
-        if (item.Type == "consumable")
+        if (!string.IsNullOrEmpty(icon))
         {
-            if (item.HealAmount > 0) return Get("icon_healingpotion") ?? Get("consumable");
-            if (item.RestoreMana > 0) return Get("icon_magicpotion") ?? Get("consumable");
+            var custom = GetCustomItemIcon(icon);
+            if (custom != null) return custom;
         }
-        return ForItem(item.Type, item.WeaponSubtype);
+        if (type == "consumable")
+        {
+            if (heals) return Get("icon_healingpotion") ?? Get("consumable");
+            if (restoresMana) return Get("icon_magicpotion") ?? Get("consumable");
+        }
+        return ForItem(type, weaponSubtype);
+    }
+
+    /// <summary>Иконка предмета из Content/Sprites/CustomIcons (загружается с диска на лету).</summary>
+    public static Texture2D? GetCustomItemIcon(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return null;
+        if (_textures.TryGetValue(key, out var cached)) return cached;
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Content", "Sprites", "CustomIcons", key + ".png");
+            if (!File.Exists(path)) return null;
+            using var stream = File.OpenRead(path);
+            var tex = Texture2D.FromStream(_device, stream);
+            _textures[key] = tex;
+            Logger.Debug($"Custom icon '{key}' loaded ({tex.Width}x{tex.Height})");
+            return tex;
+        }
+        catch (Exception ex) { Logger.Error($"Custom icon '{key}' load failed", ex); return null; }
     }
 
     public static Texture2D? ForQualityFrame(ItemQuality quality) => quality switch

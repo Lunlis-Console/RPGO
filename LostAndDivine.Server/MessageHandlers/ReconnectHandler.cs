@@ -111,7 +111,7 @@ public class ReconnectHandler : BaseHandler
             p.Health,
             p.MaxHealth + p.Equipment.GetBonusMaxHealth(),
             p.Mana,
-            p.MaxMana,
+            p.MaxMana + p.Equipment.GetBonusMaxMana(),
             p.Experience,
             p.AttributePoints,
             p.SkillPoints,

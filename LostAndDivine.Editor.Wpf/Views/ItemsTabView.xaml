@@ -16,12 +16,12 @@
             <Button x:Name="EditBtn" Content="Редактировать..." Margin="0,0,6,0" Padding="10,3"/>
             <Button x:Name="SaveBtn" Content="Сохранить предметы" Margin="20,0,0,0" Padding="10,3" FontWeight="Bold"/>
         </StackPanel>
-        <DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="True"
+        <DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="False"
                   CanUserAddRows="False" CanUserDeleteRows="False"
                   SelectionMode="Single" SelectionUnit="FullRow"
                   HeadersVisibility="Column" GridLinesVisibility="All"
                   RowHeaderWidth="0" IsReadOnly="False"/>
         <TextBlock x:Name="Hint" Grid.Row="2" Margin="4,2" Foreground="Gray"
-                   Text="Двойной клик по строке — редактирование. Все поля правятся прямо в таблице."/>
+                   Text="Двойной клик по строке — полное редактирование в окне. Остальные поля редактируются только в редакторе предметов."/>
     </Grid>
 </UserControl>

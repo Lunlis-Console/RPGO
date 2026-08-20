@@ -39,7 +39,7 @@ public class ResetAttributesHandler : BaseHandler
             + player.Endurance * Balance.MaxHealthPerEndurance;
         player.MaxMana = Balance.MaxMana(player.Wisdom);
         if (player.Health > player.MaxHealth) player.Health = player.MaxHealth;
-        if (player.Mana > player.MaxMana) player.Mana = player.MaxMana;
+        if (player.Mana > player.MaxMana + player.Equipment.GetBonusMaxMana()) player.Mana = player.MaxMana + player.Equipment.GetBonusMaxMana();
         player.AttributePoints += totalSpent;
 
         Log.Info($"{player.Name} сбросил атрибуты. Возвращено {totalSpent} очков. MaxHP={player.MaxHealth}, MaxMP={player.MaxMana}");

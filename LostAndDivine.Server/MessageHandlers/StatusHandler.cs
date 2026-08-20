@@ -23,7 +23,7 @@ public class StatusHandler : BaseHandler
                 player.Health,
                 MaxHealth = player.MaxHealth + player.Equipment.GetBonusMaxHealth(),
                 Mana = player.Mana,
-                MaxMana = player.MaxMana,
+                MaxMana = player.MaxMana + player.Equipment.GetBonusMaxMana(),
                 PhysAttack = GameServer.GetBuffedPhysAttack(player, Svc.Debuffs),
                 MagAttack = GameServer.GetBuffedMagAttack(player, Svc.Debuffs),
                 Defense = player.GetDefense(),

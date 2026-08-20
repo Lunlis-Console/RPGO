@@ -60,8 +60,8 @@ public static class DatabaseManager
     public static void SaveNpcs(List<NpcRecord> npcs) => NpcRepository.SaveAll(npcs);
 
     // === Merchants ===
-    public static List<string> LoadMerchantStock(string npcId) => MerchantRepository.LoadStock(npcId);
-    public static void SaveMerchantStock(string npcId, IEnumerable<string> itemIds) => MerchantRepository.SaveStock(npcId, itemIds);
+    public static List<(string ItemId, int Stock)> LoadMerchantStock(string npcId) => MerchantRepository.LoadStock(npcId);
+    public static void SaveMerchantStock(string npcId, IEnumerable<(string ItemId, int Stock)> items) => MerchantRepository.SaveStock(npcId, items);
 
     // === World Config ===
     public static int GetWorldConfigInt(string key, int defaultValue = 0) => WorldConfigRepository.GetInt(key, defaultValue);

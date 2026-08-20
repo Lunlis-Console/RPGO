@@ -215,7 +215,7 @@ public class LootWindow : GameWindow
                 if (filled && idx != _dragIndex)
                 {
                     var item = _items[idx];
-                    var spr = SpriteCache.ForItem(item.Type, item.WeaponSubtype);
+                    var spr = SpriteCache.ForItem(item);
                     if (spr != null)
                     {
                         var iconRect = new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12);
@@ -254,14 +254,15 @@ public class LootWindow : GameWindow
         return new Item
         {
             Id = info.Id, TemplateId = info.TemplateId, Name = info.Name, Type = info.Type,
-            WeaponSubtype = info.WeaponSubtype, Quantity = info.Quantity, Value = info.Value,
+            WeaponSubtype = info.WeaponSubtype, Icon = info.Icon, Quantity = info.Quantity, Value = info.Value,
             Description = info.Description, MaxHealthBonus = info.MaxHealthBonus,
-            HealAmount = info.HealAmount, RestoreMana = info.RestoreMana,
+            MaxManaBonus = info.MaxManaBonus, HealAmount = info.HealAmount, RestoreMana = info.RestoreMana,
             MaxStack = info.MaxStack, BonusStrength = info.BonusStrength,
             BonusEndurance = info.BonusEndurance, BonusAgility = info.BonusAgility,
             BonusCunning = info.BonusCunning, BonusIntellect = info.BonusIntellect,
             BonusWisdom = info.BonusWisdom, BonusPhysAttack = info.BonusPhysAttack,
-            BonusMagAttack = info.BonusMagAttack, BonusDefense = info.BonusDefense,
+            BonusMagAttack = info.BonusMagAttack, Defense = info.Defense, MagicDefense = info.MagicDefense,
+            BonusDefense = info.BonusDefense,
             BonusResistance = info.BonusResistance, BonusCritChance = info.BonusCritChance,
             BonusCritDamage = info.BonusCritDamage, BonusEvadeChance = info.BonusEvadeChance,
             BonusAttackSpeed = info.BonusAttackSpeed, BonusBlockChance = info.BonusBlockChance,

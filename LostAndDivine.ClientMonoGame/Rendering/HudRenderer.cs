@@ -409,10 +409,14 @@ public class HudRenderer
                 lines.Add(($"Мана: {item.RestoreMana}", new Color(100, 140, 240)));
             if (item.MaxHealthBonus > 0)
                 lines.Add(($"+{item.MaxHealthBonus} HP", new Color(120, 220, 120)));
+            if (item.MaxManaBonus > 0)
+                lines.Add(($"+{item.MaxManaBonus} MP", new Color(100, 140, 240)));
             if (item.BonusPhysAttack > 0) lines.Add(($"+{item.BonusPhysAttack} Физ.Атк", new Color(220, 120, 120)));
             if (item.BonusMagAttack > 0) lines.Add(($"+{item.BonusMagAttack} Маг.Атк", new Color(120, 120, 220)));
-            if (item.BonusDefense > 0) lines.Add(($"+{item.BonusDefense} Защита", new Color(120, 160, 220)));
-            if (item.BonusResistance > 0) lines.Add(($"+{item.BonusResistance} Сопротивление", new Color(140, 120, 220)));
+            if (item.Defense > 0) lines.Add(($"{item.Defense} Физ. защита", new Color(120, 160, 220)));
+            if (item.MagicDefense > 0) lines.Add(($"{item.MagicDefense} Маг. защита", new Color(140, 120, 220)));
+            if (item.BonusDefense > 0) lines.Add(($"+{item.BonusDefense} Физ. защита", new Color(120, 160, 220)));
+            if (item.BonusResistance > 0) lines.Add(($"+{item.BonusResistance} Маг. защита", new Color(140, 120, 220)));
             if (item.BonusStrength > 0) lines.Add(($"+{item.BonusStrength} Сила", new Color(200, 100, 100)));
             if (item.BonusEndurance > 0) lines.Add(($"+{item.BonusEndurance} Выносливость", new Color(180, 150, 80)));
             if (item.BonusAgility > 0) lines.Add(($"+{item.BonusAgility} Ловкость", new Color(100, 180, 100)));

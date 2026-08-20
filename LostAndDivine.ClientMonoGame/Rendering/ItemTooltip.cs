@@ -11,6 +11,7 @@ public static class ItemTooltip
     private static readonly Color QualityEpic = new Color(171, 71, 188);
     private static readonly Color RequiredLevelBad = new Color(235, 75, 75);
     private static readonly Color RequiredLevelGood = new Color(110, 200, 90);
+    private static readonly Color SectionColor = new Color(150, 165, 210);
 
     /// <summary>Текущий уровень игрока для подсветки требуемого уровня предметов.</summary>
     public static int PlayerLevel { get; set; } = 1;
@@ -36,7 +37,6 @@ public static class ItemTooltip
         "belt" => "Пояс",
         "necklace" => "Ожерелье",
         "ring" => "Кольцо",
-        "accessory" => "Аксессуар",
         "armor" => "Броня",
         "consumable" => "Расходник",
         "collectible" => "Коллекция",
@@ -96,6 +96,10 @@ public static class ItemTooltip
         lines.Add(item.Name);
         lines.Add(new TooltipLine($"Тип: {TypeLabel(item.Type)}"));
 
+        AddBaseStatLines(lines, item);
+        AddSecondaryStatLines(lines, item);
+        AddAttributeLines(lines, item);
+
         if (hasQuality)
         {
             string qualLabel = ItemQualityExtensions.Label(item.Quality);
@@ -108,37 +112,11 @@ public static class ItemTooltip
             lines.Add(new TooltipLine($"Требуемый уровень: {item.RequiredLevel}", levelColor));
         }
 
-        if (isWeapon || isCasterShield)
-        {
-            if (isWeapon)
-            {
-                string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
-                lines.Add($"Вид: {handLabel}");
-            }
-            else
-            {
-                lines.Add($"Вид: Левая рука");
-            }
-            if (item.Category != WeaponCategory.None)
-                lines.Add($"Тип оружия: {WeaponCategoryLabel(item.Category)}");
-            if (!string.IsNullOrEmpty(item.DamageType) && item.DamageType != "none")
-                lines.Add($"Тип урона: {DamageTypeLabel(item.DamageType)}");
-            if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
-                lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
-            if (item.Category != WeaponCategory.None)
-            {
-                string proc = WeaponProcDescription(item.Category);
-                if (proc.Length > 0) lines.Add(proc);
-            }
-        }
-
-        AddStatLines(lines, item);
+        if (!hasQuality && !string.IsNullOrEmpty(item.Description))
+            lines.Add(item.Description);
 
         if (stockOverride.HasValue && stockOverride.Value > 1)
             lines.Add($"В наличии: {stockOverride.Value}");
-
-        if (!hasQuality && !string.IsNullOrEmpty(item.Description))
-            lines.Add(item.Description);
 
         int price = overrideValue ?? item.Value;
         lines.Add(new TooltipLine($"Цена: {price} золота", PriceColor));
@@ -156,7 +134,7 @@ public static class ItemTooltip
         };
 
         if (attack > 0) lines.Add($"Физ.Атака: +{attack}");
-        if (defense > 0) lines.Add($"Защита: +{defense}");
+        if (defense > 0) lines.Add($"Физ. защита: +{defense}");
         if (maxHealth > 0) lines.Add($"Здоровье: +{maxHealth}");
         if (heal > 0) lines.Add($"Лечение: +{heal}");
         if (restoreMana > 0) lines.Add($"Мана: +{restoreMana}");
@@ -176,58 +154,113 @@ public static class ItemTooltip
         };
     }
 
-    private static void AddStatLines(List<TooltipLine> lines, Item item)
+    private static void AddBaseStatLines(List<TooltipLine> lines, Item item)
     {
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
         bool isShield = item.Type == "shield";
-        if (isWeapon && item.DamageMax > 0)
-        {
-            if (item.DamageMin == item.DamageMax)
-                lines.Add($"Урон: {item.DamageMax}");
-            else
-                lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
-        }
-        if (isShield && item.Category is WeaponCategory.Grimoire or WeaponCategory.Sphere && item.DamageMax > 0)
-        {
-            if (item.DamageMin == item.DamageMax)
-                lines.Add($"Урон: {item.DamageMax}");
-            else
-                lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
-        }
-        if ((isWeapon || isShield) && item.AttackRange > 1) lines.Add($"Дальность: {item.AttackRange}");
-        else if (item.BonusPhysAttack > 0) lines.Add($"Физ.Атака: +{item.BonusPhysAttack}");
-        if (item.BonusMagAttack > 0) lines.Add($"Маг.Атака: +{item.BonusMagAttack}");
-        if (item.BonusDefense > 0) lines.Add($"Защита: +{item.BonusDefense}");
-        if (item.BonusResistance > 0) lines.Add($"Сопротивление: +{item.BonusResistance}");
-        if (item.BonusCritChance > 0) lines.Add($"Крит. шанс: +{item.BonusCritChance}%");
-        if (item.BonusCritDamage > 0) lines.Add($"Крит. урон: +{item.BonusCritDamage}%");
-        if (item.BonusEvadeChance > 0) lines.Add($"Уклонение: +{item.BonusEvadeChance}%");
-        if (item.BonusBlockChance > 0) lines.Add($"Блок: +{item.BonusBlockChance}%");
-        if (item.BonusParryChance > 0) lines.Add($"Парирование: +{item.BonusParryChance}%");
-        if (item.BonusAccuracy > 0) lines.Add($"Точность: +{item.BonusAccuracy}%");
-        if (item.BonusTenacity > 0) lines.Add($"Стойкость: +{item.BonusTenacity}%");
-        if (item.BonusArmorPenetration > 0) lines.Add($"Пробивание брони: +{item.BonusArmorPenetration}%");
-        if (item.BonusCooldownReduction > 0) lines.Add($"Скор. перезарядки: +{item.BonusCooldownReduction}%");
-        if (item.BonusHpRegen > 0) lines.Add($"Регенерация HP: +{item.BonusHpRegen}%");
-        if (item.BonusMpRegen > 0) lines.Add($"Регенерация MP: +{item.BonusMpRegen}%");
-        if (item.BonusAttackSpeed > 0) lines.Add($"Скор. атаки: +{item.BonusAttackSpeed}");
+        bool isCasterShield = isShield && Equipment.IsCasterOffhand(item);
 
+        bool hasBase =
+            (isWeapon || isCasterShield) && item.DamageMax > 0
+            || (isWeapon || isShield) && item.AttackRange > 1
+            || item.Defense > 0 || item.MagicDefense > 0
+            || item.MaxHealthBonus > 0 || item.MaxManaBonus > 0
+            || item.HealAmount > 0 || item.RestoreMana > 0
+            || isWeapon || isCasterShield;
+        if (!hasBase) return;
+
+        lines.Add(new TooltipLine("Базовые характеристики", SectionColor));
+
+        if ((isWeapon || isCasterShield) && item.DamageMax > 0)
+        {
+            if (item.DamageMin == item.DamageMax)
+                lines.Add($"Урон: {item.DamageMax}");
+            else
+                lines.Add($"Урон: {item.DamageMin}-{item.DamageMax}");
+        }
+
+        if (isWeapon || isCasterShield)
+        {
+            if (isWeapon)
+            {
+                string handLabel = item.TwoHanded || item.Type == "twohand" ? "Двуручное" : "Одноручное";
+                lines.Add($"Вид: {handLabel}");
+            }
+            else
+            {
+                lines.Add("Вид: Левая рука");
+            }
+            if (item.Category != WeaponCategory.None)
+                lines.Add($"Тип оружия: {WeaponCategoryLabel(item.Category)}");
+            if (!string.IsNullOrEmpty(item.DamageType) && item.DamageType != "none")
+                lines.Add($"Тип урона: {DamageTypeLabel(item.DamageType)}");
+            if (item.AttackSpeedModifier > 0 && item.AttackSpeedModifier != 1.0)
+                lines.Add($"Скор. атаки: {item.AttackSpeedModifier:F1}x");
+            if (item.Category != WeaponCategory.None)
+            {
+                string proc = WeaponProcDescription(item.Category);
+                if (proc.Length > 0) lines.Add(proc);
+            }
+        }
+
+        if ((isWeapon || isShield) && item.AttackRange > 1)
+            lines.Add($"Дальность: {item.AttackRange}");
+
+        if (item.Defense > 0) lines.Add($"Физ. защита: {item.Defense}");
+        if (item.MagicDefense > 0) lines.Add($"Маг. защита: {item.MagicDefense}");
+        if (item.MaxHealthBonus > 0) lines.Add($"Бонус к HP: +{item.MaxHealthBonus}");
+        if (item.MaxManaBonus > 0) lines.Add($"Бонус к MP: +{item.MaxManaBonus}");
+        if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
+        if (item.RestoreMana > 0) lines.Add($"Восст. маны: +{item.RestoreMana}");
+    }
+
+    private static void AddSecondaryStatLines(List<TooltipLine> lines, Item item)
+    {
+        bool hasSec =
+            item.BonusPhysAttack > 0 || item.BonusMagAttack > 0
+            || item.BonusDefense > 0 || item.BonusResistance > 0
+            || item.BonusAttackSpeed > 0
+            || item.BonusCritChance > 0 || item.BonusCritDamage > 0
+            || item.BonusEvadeChance > 0
+            || item.BonusBlockChance > 0 || item.BonusParryChance > 0
+            || item.BonusAccuracy > 0 || item.BonusTenacity > 0
+            || item.BonusArmorPenetration > 0 || item.BonusCooldownReduction > 0
+            || item.BonusHpRegen > 0 || item.BonusMpRegen > 0;
+        if (!hasSec) return;
+
+        lines.Add(new TooltipLine("Доп. характеристики", SectionColor));
+
+        if (item.BonusPhysAttack > 0) lines.Add($"+Физ. атака: {item.BonusPhysAttack}");
+        if (item.BonusMagAttack > 0) lines.Add($"+Маг. атака: {item.BonusMagAttack}");
+        if (item.BonusDefense > 0) lines.Add($"+Физ. защита: {item.BonusDefense}");
+        if (item.BonusResistance > 0) lines.Add($"+Маг. защита: {item.BonusResistance}");
+        if (item.BonusAttackSpeed > 0) lines.Add($"+Скор. атк %: {item.BonusAttackSpeed}");
+        if (item.BonusCritChance > 0) lines.Add($"+Крит %: {item.BonusCritChance}");
+        if (item.BonusCritDamage > 0) lines.Add($"+Крит урон %: {item.BonusCritDamage}");
+        if (item.BonusEvadeChance > 0) lines.Add($"+Уклон %: {item.BonusEvadeChance}");
+        if (item.BonusBlockChance > 0) lines.Add($"+Блок %: {item.BonusBlockChance}");
+        if (item.BonusParryChance > 0) lines.Add($"+Парир %: {item.BonusParryChance}");
+        if (item.BonusAccuracy > 0) lines.Add($"+Точность %: {item.BonusAccuracy}");
+        if (item.BonusTenacity > 0) lines.Add($"+Стойк %: {item.BonusTenacity}");
+        if (item.BonusArmorPenetration > 0) lines.Add($"+Пробив %: {item.BonusArmorPenetration}");
+        if (item.BonusCooldownReduction > 0) lines.Add($"+Откат %: {item.BonusCooldownReduction}");
+        if (item.BonusHpRegen > 0) lines.Add($"+Реген ХП %: {item.BonusHpRegen}");
+        if (item.BonusMpRegen > 0) lines.Add($"+Реген МП %: {item.BonusMpRegen}");
+    }
+
+    private static void AddAttributeLines(List<TooltipLine> lines, Item item)
+    {
         bool hasAttr = item.BonusStrength > 0 || item.BonusEndurance > 0 || item.BonusAgility > 0
                     || item.BonusCunning > 0 || item.BonusIntellect > 0 || item.BonusWisdom > 0;
-        if (hasAttr)
-        {
-            var attrs = new List<string>();
-            if (item.BonusStrength > 0) attrs.Add($"Сила +{item.BonusStrength}");
-            if (item.BonusEndurance > 0) attrs.Add($"Выносл. +{item.BonusEndurance}");
-            if (item.BonusAgility > 0) attrs.Add($"Ловк. +{item.BonusAgility}");
-            if (item.BonusCunning > 0) attrs.Add($"Хитр. +{item.BonusCunning}");
-            if (item.BonusIntellect > 0) attrs.Add($"Инт. +{item.BonusIntellect}");
-            if (item.BonusWisdom > 0) attrs.Add($"Мудр. +{item.BonusWisdom}");
-            lines.Add(string.Join(", ", attrs));
-        }
+        if (!hasAttr) return;
 
-        if (item.MaxHealthBonus > 0) lines.Add($"Здоровье: +{item.MaxHealthBonus}");
-        if (item.HealAmount > 0) lines.Add($"Лечение: +{item.HealAmount}");
-        if (item.RestoreMana > 0) lines.Add($"Мана: +{item.RestoreMana}");
+        lines.Add(new TooltipLine("Атрибуты", SectionColor));
+
+        if (item.BonusStrength > 0) lines.Add($"Сила +{item.BonusStrength}");
+        if (item.BonusEndurance > 0) lines.Add($"Выносливость +{item.BonusEndurance}");
+        if (item.BonusAgility > 0) lines.Add($"Ловкость +{item.BonusAgility}");
+        if (item.BonusCunning > 0) lines.Add($"Хитрость +{item.BonusCunning}");
+        if (item.BonusIntellect > 0) lines.Add($"Интеллект +{item.BonusIntellect}");
+        if (item.BonusWisdom > 0) lines.Add($"Мудрость +{item.BonusWisdom}");
     }
 }
