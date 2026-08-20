@@ -164,8 +164,8 @@ public class PlayerStatsTests
     public void GetAttackSpeed_WithInvestedAgility_Increases()
     {
         var p = new Player { Agility = 11 };
-        // Воин: 10 вложенных очков: 30×10/40/12 = 0.625 → 1.625
-        Assert.Equal(1.625, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
+        // Воин: 10 вложенных очков: 30×10/40/30 = 0.25 → 1.25
+        Assert.Equal(1.25, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
     }
 
     [Fact]
@@ -174,8 +174,16 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusAttackSpeed = 10 };
         var p = new Player { Agility = 11, Equipment = eq };
-        // 10 очков ловкости дают 1.625; шмот +10% → 1.625 × 1.1 = 1.7875
-        Assert.Equal(1.7875, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) * p.GetAttackSpeedGearMultiplier(), 3);
+        // 10 очков ловкости дают 1.25; шмот +10% → 1.25 × 1.1 = 1.375
+        Assert.Equal(1.375, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) * p.GetAttackSpeedGearMultiplier(), 3);
+    }
+
+    [Fact]
+    public void GetAttackSpeed_HighAgility_NeverReachesCapFromAgilityAlone()
+    {
+        var p = new Player { Agility = 128 };
+        // 127 очков: кривая насыщается на 30 → скорость < 2.0, кап 200% достижим только оружием/шмотом/баффом
+        Assert.True(Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) < Balance.MaxAttackSpeed);
     }
 
     [Fact]
@@ -408,25 +416,26 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetArmorPenetration_WithStrength_Returns7_2()
+    public void GetArmorPenetration_Strength_DoesNotMatter()
     {
+        // Пробив даёт только шмот (как блок/парир) — атрибуты не влияют.
         var p = new Player { Strength = 51 };
-        // Воин (база силы 3): 48 очков × 0.15 = 7.2
-        Assert.Equal(7.2, p.GetArmorPenetration(), 3);
+        Assert.Equal(0.0, p.GetArmorPenetration(), 3);
     }
 
     [Fact]
-    public void GetArmorPenetration_CapReachedAt237Strength()
+    public void GetArmorPenetration_HighStrength_NoGear_Returns0()
     {
-        var p = new Player { Strength = 237 };
-        // Воин: 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
-        Assert.Equal(25.0, p.GetArmorPenetration());
+        var p = new Player { Strength = 1000 };
+        Assert.Equal(0.0, p.GetArmorPenetration());
     }
 
     [Fact]
     public void GetArmorPenetration_CappedAt25()
     {
-        var p = new Player { Strength = 1000 };
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusArmorPenetration = 500 };
+        var p = new Player { Strength = 1, Equipment = eq };
         Assert.Equal(25.0, p.GetArmorPenetration());
     }
 
@@ -499,8 +508,8 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusArmorPenetration = 5 };
         var p = new Player { Strength = 51, Equipment = eq };
-        // Сила (51 − 3) = 48 очков × 0.15 = 7.2; шмот +5% → 12.2
-        Assert.Equal(12.2, p.GetArmorPenetration(), 3);
+        // Сила не влияет, шмот +5% → 5.0
+        Assert.Equal(5.0, p.GetArmorPenetration(), 3);
     }
 
     [Fact]

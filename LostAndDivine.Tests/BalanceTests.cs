@@ -29,8 +29,8 @@ public class BalanceTests
         => Assert.Equal(1.0, Balance.GetAttackSpeed(0));
 
     [Fact]
-    public void GetAttackSpeed_Agi10_Returns1Point625()
-        => Assert.Equal(1.625, Balance.GetAttackSpeed(10));
+    public void GetAttackSpeed_Agi10_Returns1Point25()
+        => Assert.Equal(1.25, Balance.GetAttackSpeed(10));
 
     [Fact]
     public void XpNeededForNextLevel_Level1_Returns50()

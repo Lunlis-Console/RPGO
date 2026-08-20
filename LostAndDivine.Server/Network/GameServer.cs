@@ -874,7 +874,7 @@ public sealed class GameServer : INetworkHub
             ArmorPen = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, player.GetEffStrength() - player.ClassBaseStrength)), 2),
+                AttrBonus = 0,
                 EquipBonus = Math.Round(player.Equipment.GetBonusArmorPenetration(), 2),
                 Total = Math.Round(player.GetArmorPenetration(), 2)
             },

@@ -72,7 +72,9 @@ public static class Balance
     public const int BaseDefensePerLevel = 1;
 
     public const int AttackSpeedBase = 1;
-    public const int AttackSpeedAgilityDivisor = 12;
+    // Делитель скорости атаки: ловкость сама по себе не добирает до капа (асимптота кривой
+    // AgilityDrK/divisor = 30/30 = 1.0 → максимум +100%), 200% достигается оружием/шмотом/баффом.
+    public const int AttackSpeedAgilityDivisor = 30;
     public const double AgilityDrK = 30.0;
     public const int MinAttackIntervalMs = 300;
     // Кап скорости атаки: не быстрее 2.0 (в два раза быстрее базовой) — «+100% скорости атаки».

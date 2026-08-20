@@ -219,11 +219,9 @@ public class Player : ICombatant
             CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, GetEffEndurance() - ClassBaseEndurance))
             + Equipment.GetBonusTenacity());
 
-    /// <summary>Пробивание брони: игнорирует % защиты цели. Кап 25%, от вложенной силы (выше базиса класса) + плоский % шмота.</summary>
+    /// <summary>Пробивание брони: игнорирует % защиты цели. Только плоский бонус шмота (как блок/парир), атрибуты не влияют. Кап 25%.</summary>
     public double GetArmorPenetration()
-        => Math.Min(BalanceStatic.MaxArmorPenetration,
-            CombatMath.ApplyArmorPenDiminishingReturns(Math.Max(0, GetEffStrength() - ClassBaseStrength))
-            + Equipment.GetBonusArmorPenetration());
+        => Math.Min(BalanceStatic.MaxArmorPenetration, Equipment.GetBonusArmorPenetration());
 
     /// <summary>Сокращение перезарядки навыков. Кап 50%, от вложенной мудрости (выше базиса класса) + плоский % шмота.</summary>
     public double GetCooldownReduction()
