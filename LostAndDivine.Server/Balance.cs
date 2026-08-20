@@ -87,7 +87,7 @@ public static class Balance
     public const int MaxLevel = BalanceStatic.MaxLevel;
     public const int XpPerLevel = BalanceStatic.XpPerLevel;
     public const int MaxHealthPerLevel = BalanceStatic.MaxHealthPerLevel;
-    public const int MaxHealthPerEndurance = 10;
+    public const int MaxHealthPerEndurance = BalanceStatic.MaxHealthPerEndurance;
     public const int AttributePointsPerLevel = BalanceStatic.AttributePointsPerLevel;
 
     // ===== СМЕРТЬ =====

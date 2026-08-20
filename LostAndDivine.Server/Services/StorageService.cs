@@ -138,7 +138,7 @@ public sealed class StorageService
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                items.Add(new Item
+                items.Add(InventoryRepository.SyncItemFromTemplate(new Item
                 {
                     Id = reader.GetString(0),
                     TemplateId = reader.IsDBNull(1) ? "" : reader.GetString(1),
@@ -162,7 +162,7 @@ public sealed class StorageService
                     RequiredLevel = reader.IsDBNull(19) ? 0 : reader.GetInt32(19),
                     Icon = reader.IsDBNull(20) ? "" : reader.GetString(20),
                     MagicDefense = reader.IsDBNull(21) ? 0 : reader.GetInt32(21)
-                });
+                }));
             }
             return InventoryHelper.ConsolidateStackables(items);
         }

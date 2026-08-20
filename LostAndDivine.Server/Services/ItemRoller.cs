@@ -13,19 +13,22 @@ namespace LostAndDivine.Server.Services;
 public static class ItemRoller
 {
     /// <summary>
-    /// Полный ролл: качество (по весам конфига) + бонусы. Если у шаблона ролл не включён —
+    /// Полный ролл: качество (по весам конфига) + бонусы. Возвращает null, если по весам
+    /// «ничего не выпадает» (сумма весов меньше 100%). Если у шаблона ролл не включён —
     /// возвращает клон без изменений (со статичными бонусами и качеством шаблона).
     /// </summary>
-    public static Item Roll(Item template, Random rng, int? scaleLevel = null)
+    public static Item? Roll(Item template, Random rng, int? scaleLevel = null)
     {
         var cfg = template.RollConfig;
         if (cfg is not { Enabled: true }) return template.Clone();
-        return ApplyRoll(template, RollQuality(cfg, rng), rng, scaleLevel);
+        var quality = RollQualityOrNothing(cfg, rng);
+        if (quality == null) return null;
+        return ApplyRoll(template, quality.Value, rng, scaleLevel);
     }
 
     /// <summary>
-    /// Применить ролл бонусов для уже выбранного качества (например, сундук данжа
-    /// сам роллит качество). Если у шаблона ролл не включён — возвращает клон без изменений.
+    /// Применить ролл бонусов для уже выбранного качества (шанс «ничего не выпадает» здесь не применяется).
+    /// Если у шаблона ролл не включён — возвращает клон без изменений.
     /// </summary>
     public static Item RollForQuality(Item template, ItemQuality quality, Random rng, int? scaleLevel = null)
     {
@@ -33,22 +36,33 @@ public static class ItemRoller
         return ApplyRoll(template, quality, rng, scaleLevel);
     }
 
-    /// <summary>Роллит качество по весам конфига. При нулевых весах — всегда Обычный.</summary>
-    public static ItemQuality RollQuality(ItemRollConfig cfg, Random rng)
+    /// <summary>
+    /// Роллит, выпадет ли предмет и какого качества. null = ничего не выпало.
+    /// Веса — абсолютные шансы (сумма ≤ 100; остаток — «ничего не выпадает»).
+    /// WeightCommon == null (легаси-конфиги) — обычный = остаток до 100 от Необ/Ред/Эпик,
+    /// т.е. сумма всегда 100 и предмет выпадает всегда.
+    /// </summary>
+    public static ItemQuality? RollQualityOrNothing(ItemRollConfig cfg, Random rng)
     {
         int u = Math.Max(0, cfg.WeightUncommon);
         int r = Math.Max(0, cfg.WeightRare);
         int e = Math.Max(0, cfg.WeightEpic);
-        int total = u + r + e;
-        if (total <= 0) return ItemQuality.Common;
+        int c = cfg.WeightCommon ?? Math.Max(0, 100 - u - r - e);
+        int total = c + u + r + e;
+        if (total <= 0) return null;
 
-        int roll = rng.Next(total);
+        // Ролл в диапазоне 0..99: значения за пределами суммы весов — «ничего не выпадает».
+        // Легаси-конфиги (сумма всегда 100) — null невозможен.
+        int roll = rng.Next(100);
+        if (roll >= total) return null;
+        if (roll < c) return ItemQuality.Common;
+        roll -= c;
         if (roll < u) return ItemQuality.Uncommon;
         roll -= u;
         if (roll < r) return ItemQuality.Rare;
         roll -= r;
         if (roll < e) return ItemQuality.Epic;
-        return ItemQuality.Common;
+        return null;
     }
 
     /// <summary>Возвращает конфиг тира для указанного качества (у Обычного ролла нет).</summary>

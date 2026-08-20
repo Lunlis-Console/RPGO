@@ -188,44 +188,76 @@ public class InstanceManager
         return inst?.Map;
     }
 
-    private Item? RollRewardWeapon(int playerLevel, int dungeonLevel, bool betterDrop = false)
+    /// <summary>
+    /// Каскадный ролл наград сундука из пула уровня игрока.
+    /// Первый предмет — всегда попытка (сам шаблон решает по своим весам, выпадет ли что-то);
+    /// дальше каждый следующий предмет роллится только после удачного предыдущего:
+    /// 5% → 2,5% → 1% (максимум 4 предмета).
+    /// </summary>
+    private List<Item> RollChestRewards(int playerLevel, int dungeonLevel, bool betterDrop = false)
     {
         int maxLevel = Math.Min(playerLevel, dungeonLevel + 4);
         int minLevel = Math.Max(1, maxLevel - 3);
-        var allWeapons = _svc.Merchant.AllItems
-            .Where(i => i.Type is "weapon" or "twohand" && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
+
+        // Пул уровня: все шаблоны с включённым роллом (оружие, броня, аксессуары).
+        // Качество и шанс «ничего» берутся из весов самого шаблона.
+        var pool = _svc.Merchant.AllItems
+            .Where(i => i.RollConfig is { Enabled: true }
+                && i.RequiredLevel <= maxLevel
+                && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
             .ToList();
 
-        if (allWeapons.Count == 0)
-            allWeapons = _svc.Merchant.AllItems.Where(i => i.Type is "weapon" or "twohand").ToList();
+        // Легаси-пул (ролл ни у кого не настроен): оружие по качеству сундука, как раньше
+        if (pool.Count == 0)
+        {
+            var allWeapons = _svc.Merchant.AllItems
+                .Where(i => i.Type is "weapon" or "twohand" && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
+                .ToList();
+            if (allWeapons.Count == 0)
+                allWeapons = _svc.Merchant.AllItems.Where(i => i.Type is "weapon" or "twohand").ToList();
+            if (allWeapons.Count == 0) return new List<Item>();
 
-        if (allWeapons.Count == 0) return null;
-
-        int roll = Random.Shared.Next(100);
-        // Групповой инстанс: выше шанс лучшей экипировки (эпик/редкое)
-        ItemQuality quality = betterDrop
-            ? roll < 25 ? ItemQuality.Epic : roll < 55 ? ItemQuality.Rare : roll < 80 ? ItemQuality.Uncommon : ItemQuality.Common
-            : roll < 15 ? ItemQuality.Epic : roll < 40 ? ItemQuality.Rare : roll < 70 ? ItemQuality.Uncommon : ItemQuality.Common;
-
-        // Приоритет у шаблонов с включённым роллом (обычно Обычного качества — качество
-        // применится из ролла сундука). Легаси-шаблоны с фиксированным качеством подбираются
-        // по роллу качества, как раньше.
-        var configured = allWeapons.Where(w => w.RollConfig is { Enabled: true }).ToList();
-        var qualityWeapons = allWeapons.Where(w => w.Quality == quality).ToList();
-        var picked = configured.Count > 0
-            ? configured[Random.Shared.Next(configured.Count)]
-            : qualityWeapons.Count > 0
+            int roll = Random.Shared.Next(100);
+            // Групповой инстанс: выше шанс лучшей экипировки (эпик/редкое)
+            ItemQuality quality = betterDrop
+                ? roll < 25 ? ItemQuality.Epic : roll < 55 ? ItemQuality.Rare : roll < 80 ? ItemQuality.Uncommon : ItemQuality.Common
+                : roll < 15 ? ItemQuality.Epic : roll < 40 ? ItemQuality.Rare : roll < 70 ? ItemQuality.Uncommon : ItemQuality.Common;
+            var qualityWeapons = allWeapons.Where(w => w.Quality == quality).ToList();
+            var picked = qualityWeapons.Count > 0
                 ? qualityWeapons[Random.Shared.Next(qualityWeapons.Count)]
                 : allWeapons[Random.Shared.Next(allWeapons.Count)];
+            var legacy = ItemRoller.RollForQuality(picked, quality, Random.Shared);
+            legacy.Id = Guid.NewGuid().ToString();
+            legacy.Stock = 1;
+            legacy.Quantity = 1;
+            legacy.IsBuyback = false;
+            return new List<Item> { legacy };
+        }
 
-        // Случайные бонусы к атрибутам по roll_config шаблона (если включён) для качества сундука.
-        // Масштаб — по требуемому уровню предмета (как у дропа с мобов и как в предпросмотре редактора).
-        var clone = ItemRoller.RollForQuality(picked, quality, Random.Shared);
-        clone.Id = Guid.NewGuid().ToString();
-        clone.Stock = 1;
-        clone.Quantity = 1;
-        clone.IsBuyback = false;
-        return clone;
+        var rewards = new List<Item>();
+        double[] cascade = { 100.0, 5.0, 2.5, 1.0 };
+        for (int i = 0; i < cascade.Length; i++)
+        {
+            // Каждый следующий предмет — только если сработал шанс предыдущего (каскад)
+            if (i > 0 && Random.Shared.NextDouble() * 100 >= cascade[i]) break;
+            var item = RollConfiguredItem(pool);
+            if (item == null) break; // по весам шаблона «ничего не выпадает» — цепочка обрывается
+            rewards.Add(item);
+        }
+        return rewards;
+    }
+
+    /// <summary>Случайный предмет из пула: шаблон → ролл его весов (качество / «ничего»).</summary>
+    private Item? RollConfiguredItem(List<Item> pool)
+    {
+        var tpl = pool[Random.Shared.Next(pool.Count)];
+        var item = ItemRoller.Roll(tpl, Random.Shared);
+        if (item == null) return null;
+        item.Id = Guid.NewGuid().ToString();
+        item.Stock = 1;
+        item.Quantity = 1;
+        item.IsBuyback = false;
+        return item;
     }
 
     /// <summary>Попытка входа игрока в инстанс.</summary>
@@ -1035,11 +1067,10 @@ public class InstanceManager
         {
             reward = new InstanceChestReward();
 
-            // Награда — оружие, подобранное под уровень подземелья
+            // Награда — предметы из пула уровня (каскад: 1 всегда, дальше 5% → 2,5% → 1%)
             bool betterDrop = inst.Mode == InstanceMode.Group;
-            var selectedItem = RollRewardWeapon(player.Level, ExtractLevelFromTemplateId(inst.Template.Id), betterDrop);
-            if (selectedItem != null)
-                reward.Items.Add(selectedItem);
+            var items = RollChestRewards(player.Level, ExtractLevelFromTemplateId(inst.Template.Id), betterDrop);
+            reward.Items.AddRange(items);
 
             // Золото (групповой инстанс — в 1.5 раза больше)
             reward.Gold = (int)((50 + player.Level * 10 + Random.Shared.Next(51)) * (betterDrop ? 1.5 : 1));

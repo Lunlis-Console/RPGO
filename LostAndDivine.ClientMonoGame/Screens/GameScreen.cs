@@ -535,12 +535,11 @@ public class GameScreen : IScreen
         {
             var inv = _client.Inventory;
             if (inv?.Items == null) return;
-            int Cat(string t) => t switch
-            {
-                "weapon" => 0, "armor" => 1, "accessory" => 2,
-                "consumable" => 3, "collectible" => 4, "material" => 5, _ => 6
-            };
-            var order = inv.Items.OrderBy(i => Cat(i.Type)).ThenBy(i => i.Name).Select(i => i.Id).ToList();
+            // Сортировка сразу по двум признакам: редкость (эпик первым), затем требуемый уровень
+            var order = inv.Items.OrderByDescending(i => i.Quality)
+                .ThenBy(i => i.RequiredLevel)
+                .ThenBy(i => i.Name)
+                .Select(i => i.Id).ToList();
             _ = _client.SendAsync("inventory_sort", new { Order = order });
         };
         _statusWindow.AllocateAttribute += attr => _ = _client.SendAsync("allocate_attribute", new { Attribute = attr });

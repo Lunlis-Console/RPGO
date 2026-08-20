@@ -24,6 +24,7 @@ internal static class ItemRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
+                bonus_defense,
                 quality,
                 roll_config
                 FROM items";
@@ -37,7 +38,7 @@ internal static class ItemRepository
                     Name = reader.GetString(1),
                     Type = reader.GetString(2),
                     Value = reader.GetInt32(3),
-                    BonusDefense = reader.GetInt32(4),
+                    Defense = reader.GetInt32(4),
                     MaxHealthBonus = reader.GetInt32(5),
                     HealAmount = reader.GetInt32(6),
                     RestoreMana = reader.GetInt32(7),
@@ -77,8 +78,9 @@ internal static class ItemRepository
                     MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
                     Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                     MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
-                    Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
-                    RollConfig = ParseRollConfig(reader.IsDBNull(44) ? null : reader.GetString(44)),
+                    BonusDefense = reader.IsDBNull(43) ? 0 : reader.GetInt32(43),
+                    Quality = reader.IsDBNull(44) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(44),
+                    RollConfig = ParseRollConfig(reader.IsDBNull(45) ? null : reader.GetString(45)),
                 });
             }
             return result;
@@ -103,6 +105,7 @@ internal static class ItemRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
+                bonus_defense,
                 quality,
                 roll_config
                 FROM items WHERE id = $id";
@@ -116,7 +119,7 @@ internal static class ItemRepository
                 Name = reader.GetString(1),
                 Type = reader.GetString(2),
                 Value = reader.GetInt32(3),
-                BonusDefense = reader.GetInt32(4),
+                Defense = reader.GetInt32(4),
                 MaxHealthBonus = reader.GetInt32(5),
                 HealAmount = reader.GetInt32(6),
                 RestoreMana = reader.GetInt32(7),
@@ -156,8 +159,9 @@ internal static class ItemRepository
                 MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
                 Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                 MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
-                Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
-                RollConfig = ParseRollConfig(reader.IsDBNull(44) ? null : reader.GetString(44)),
+                BonusDefense = reader.IsDBNull(43) ? 0 : reader.GetInt32(43),
+                Quality = reader.IsDBNull(44) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(44),
+                RollConfig = ParseRollConfig(reader.IsDBNull(45) ? null : reader.GetString(45)),
             };
         }
     }

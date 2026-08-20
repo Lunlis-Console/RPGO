@@ -888,7 +888,7 @@ public sealed class GameServer : INetworkHub
             HpRegen = new BreakdownPart
             {
                 Base = 0,
-                AttrBonus = Math.Round(CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, player.GetEffEndurance() - player.ClassBaseEndurance)), 2),
+                AttrBonus = 0, // выносливость на реген HP не влияет (даёт +10 HP за очко)
                 EquipBonus = Math.Round(player.Equipment.GetBonusHpRegen(), 2),
                 Total = Math.Round(player.GetHealthRegenPercent(), 2)
             },

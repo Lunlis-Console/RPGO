@@ -35,7 +35,9 @@ public class LootManager
 
             // Копия шаблона целиком (базовые статы, качество, иконка) +
             // случайные бонусы по roll_config, если он включён у шаблона.
+            // null = по весам конфига «ничего не выпадает».
             var item = ItemRoller.Roll(template, Random.Shared);
+            if (item == null) continue;
             item.Id = Guid.NewGuid().ToString();
             item.Quantity = 1;
             item.Stock = 1;

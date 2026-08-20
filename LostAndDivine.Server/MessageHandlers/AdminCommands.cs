@@ -438,7 +438,7 @@ public static class AdminCommands
             target = player;
             targetConn = connection;
         }
-        target.Health = target.MaxHealth;
+        target.Health = target.MaxHealth + target.Equipment.GetBonusMaxHealth();
         target.Mana = target.MaxMana;
         await SystemToSelf(player, svc, $"HP/MP восстановлены{(target != player ? $" для {target.Name}" : "")}.");
         if (targetConn != null)

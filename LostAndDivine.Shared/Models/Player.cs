@@ -232,11 +232,9 @@ public class Player : ICombatant
             CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, GetEffWisdom() - ClassBaseWisdom))
             + Equipment.GetBonusCooldownReduction());
 
-    /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от вложенной выносливости (выше базиса класса) + плоский % шмота.</summary>
+    /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, только плоский % шмота (выносливость на реген не влияет — она даёт +10 HP за очко).</summary>
     public double GetHealthRegenPercent()
-        => Math.Min(BalanceStatic.MaxHealthRegen,
-            CombatMath.ApplyHealthRegenDiminishingReturns(Math.Max(0, GetEffEndurance() - ClassBaseEndurance))
-            + Equipment.GetBonusHpRegen());
+        => Math.Min(BalanceStatic.MaxHealthRegen, Equipment.GetBonusHpRegen());
 
     /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от вложенной мудрости (выше базиса класса) + плоский % шмота.</summary>
     public double GetManaRegenPercent()

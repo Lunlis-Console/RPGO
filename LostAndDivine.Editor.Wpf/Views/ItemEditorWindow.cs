@@ -34,7 +34,7 @@ public sealed class ItemEditorWindow : Window
     private Image _iconPreview = null!;
     private StackPanel _grpStats = null!, _grpAttr = null!, _grpSec = null!, _grpWpn = null!, _grpRoll = null!;
     private CheckBox _rollEnabledBox = null!;
-    private TextBox _uncWeightBox = null!, _rareWeightBox = null!, _epicWeightBox = null!;
+    private TextBox _comWeightBox = null!, _uncWeightBox = null!, _rareWeightBox = null!, _epicWeightBox = null!;
     private TextBox _uncMinBox = null!, _uncMaxBox = null!;
     private TextBox _rareMinBox = null!, _rareMaxBox = null!;
     private TextBox _epicMinBox = null!, _epicMaxBox = null!;
@@ -141,7 +141,7 @@ public sealed class ItemEditorWindow : Window
         var grpRoll = Group("Случайные бонусы (ролл при дропе)");
         _rollEnabledBox = AddCheck(grpRoll, "Включить ролл бонусов:", false);
         _rollEnabledBox.Checked += (s, e) => ApplyDefaultRolls();
-        AddWeightRow(grpRoll, "Веса (Необ/Ред/Эпик):", out _uncWeightBox, out _rareWeightBox, out _epicWeightBox);
+        AddWeightRow(grpRoll, "Веса (Об/Необ/Ред/Эпик):", out _comWeightBox, out _uncWeightBox, out _rareWeightBox, out _epicWeightBox);
         AddCountRow(grpRoll, "Необычный: бонусов", out _uncMinBox, out _uncMaxBox);
         AddCountRow(grpRoll, "Редкий: бонусов", out _rareMinBox, out _rareMaxBox);
         AddCountRow(grpRoll, "Эпический: бонусов", out _epicMinBox, out _epicMaxBox);
@@ -150,15 +150,26 @@ public sealed class ItemEditorWindow : Window
         var rollBtns = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
         var copyBtn = new Button { Content = "Копировать строку", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0) };
         copyBtn.Click += (s, e) => CopyRollRow();
-        var pasteBtn = new Button { Content = "Вставить в строку", Padding = new Thickness(8, 2, 8, 2) };
+        var pasteBtn = new Button { Content = "Вставить в строку", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0) };
         pasteBtn.Click += (s, e) => PasteRollRow();
+        var copyTableBtn = new Button { Content = "Копировать таблицу", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0) };
+        copyTableBtn.Click += (s, e) => CopyRollTable();
+        var pasteTableBtn = new Button { Content = "Вставить таблицу", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0) };
+        pasteTableBtn.Click += (s, e) => PasteRollTable();
+        var clearTableBtn = new Button { Content = "Очистить таблицу", Padding = new Thickness(8, 2, 8, 2) };
+        clearTableBtn.Click += (s, e) => ClearRollTable();
         rollBtns.Children.Add(copyBtn);
         rollBtns.Children.Add(pasteBtn);
+        rollBtns.Children.Add(copyTableBtn);
+        rollBtns.Children.Add(pasteTableBtn);
+        rollBtns.Children.Add(clearTableBtn);
         grpRoll.Children.Add(rollBtns);
         grpRoll.Children.Add(_rollGrid);
         grpRoll.Children.Add(new TextBlock
         {
-            Text = "Веса — относительные шансы качества (остаток до 100% — Обычный). Пример: 30/15/5 → 50% обычный, 30% необычный, 15% редкий, 5% эпический.\n" +
+            Text = "Веса — абсолютные шансы выпадения качества (сумма ≤ 100; остаток до 100% — ничего не выпадает). Пример: 30/10/7/3 → 30% обычный, 10% необычный, 7% редкий, 3% эпический, 50% ничего.\n" +
+                   "Сумма весов = шанс дропа предмета: из сундука подземелья первый предмет роллится всегда, " +
+                   "дальше каскад — 5% на второй, затем 2,5% на третий и 1% на четвёртый.\n" +
                    "Значения в таблице — бонус за уровень предмета (умножаются на требуемый уровень). " +
                    "Минимум и максимум равны 0/пусты — параметр не участвует в ролле.\n" +
                    "Колонки «итог» — итоговые значения при выпадении: мин/макс × требуемый уровень.\n" +
@@ -359,12 +370,69 @@ public sealed class ItemEditorWindow : Window
 
     // === случайные бонусы (roll_config) ===
 
-    private string?[] _copiedRoll = new string?[6];
+    private static string?[] _copiedRoll = new string?[6];
+    private static Dictionary<string, string?[]>? _copiedRollTable;
 
     private DataRow? SelectedRollRow()
     {
         if (_rollGrid.SelectedItem is DataRowView view) return view.Row;
         return null;
+    }
+
+    private void CopyRollTable()
+    {
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        _copiedRollTable = new Dictionary<string, string?[]>();
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            string key = row["key"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(key)) continue;
+            _copiedRollTable[key] = new[]
+            {
+                row["unc_min"]?.ToString(), row["unc_max"]?.ToString(),
+                row["rare_min"]?.ToString(), row["rare_max"]?.ToString(),
+                row["epic_min"]?.ToString(), row["epic_max"]?.ToString()
+            };
+        }
+    }
+
+    private void PasteRollTable()
+    {
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        if (_copiedRollTable == null || _copiedRollTable.Count == 0)
+        {
+            MessageBox.Show("Сначала скопируйте таблицу (кнопка «Копировать таблицу»).", "Вставка", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            string key = row["key"]?.ToString() ?? "";
+            if (!_copiedRollTable.TryGetValue(key, out var vals)) continue;
+            row["unc_min"] = vals[0];
+            row["unc_max"] = vals[1];
+            row["rare_min"] = vals[2];
+            row["rare_max"] = vals[3];
+            row["epic_min"] = vals[4];
+            row["epic_max"] = vals[5];
+        }
+        RecomputeTotals();
+    }
+
+    private void ClearRollTable()
+    {
+        if (MessageBox.Show("Очистить все значения мин/макс в таблице ролла?\n(Веса и количество бонусов не затрагиваются)", "Очистка таблицы",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            row["unc_min"] = "";
+            row["unc_max"] = "";
+            row["rare_min"] = "";
+            row["rare_max"] = "";
+            row["epic_min"] = "";
+            row["epic_max"] = "";
+        }
+        RecomputeTotals();
     }
 
     private void CopyRollRow()
@@ -407,13 +475,14 @@ public sealed class ItemEditorWindow : Window
         RecomputeTotals();
     }
 
-    /// <summary>При включении ролла заполняет пустые поля значениями по умолчанию (30/15/5, 1-2/2-3/3-4).</summary>
+    /// <summary>При включении ролла заполняет пустые поля значениями по умолчанию (30/10/7/3, 1-2/2-3/3-4).</summary>
     private void ApplyDefaultRolls()
     {
         if (_rollEnabledBox.IsChecked != true) return;
-        FillIfEmpty(_uncWeightBox, "30");
-        FillIfEmpty(_rareWeightBox, "15");
-        FillIfEmpty(_epicWeightBox, "5");
+        FillIfEmpty(_comWeightBox, "30");
+        FillIfEmpty(_uncWeightBox, "10");
+        FillIfEmpty(_rareWeightBox, "7");
+        FillIfEmpty(_epicWeightBox, "3");
         FillIfEmpty(_uncMinBox, "1");
         FillIfEmpty(_uncMaxBox, "2");
         FillIfEmpty(_rareMinBox, "2");
@@ -427,9 +496,10 @@ public sealed class ItemEditorWindow : Window
         if (string.IsNullOrWhiteSpace(tb.Text)) tb.Text = value;
     }
 
-    /// <summary>Строка «[метка]: [необ] [ред] [эпик]» — веса качества при дропе.</summary>
-    private static void AddWeightRow(StackPanel g, string label, out TextBox uncBox, out TextBox rareBox, out TextBox epicBox)
+    /// <summary>Строка «[метка]: [обыч] [необ] [ред] [эпик]» — веса качества при дропе (абсолютные шансы, %).</summary>
+    private static void AddWeightRow(StackPanel g, string label, out TextBox comBox, out TextBox uncBox, out TextBox rareBox, out TextBox epicBox)
     {
+        comBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
         uncBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
         rareBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
         epicBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
@@ -438,12 +508,15 @@ public sealed class ItemEditorWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
         var lbl = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
         Grid.SetColumn(lbl, 0);
-        Grid.SetColumn(uncBox, 1);
-        Grid.SetColumn(rareBox, 2);
-        Grid.SetColumn(epicBox, 3);
+        Grid.SetColumn(comBox, 1);
+        Grid.SetColumn(uncBox, 2);
+        Grid.SetColumn(rareBox, 3);
+        Grid.SetColumn(epicBox, 4);
         grid.Children.Add(lbl);
+        grid.Children.Add(comBox);
         grid.Children.Add(uncBox);
         grid.Children.Add(rareBox);
         grid.Children.Add(epicBox);
@@ -584,6 +657,8 @@ private void BuildRollTable()
         _rollEnabledBox.IsChecked = cfg is { Enabled: true };
         if (cfg == null) return;
 
+        // Легаси-конфиг без веса Обычного: показываем остаток до 100 (при загрузке не сохраняем — сохранится явным при следующем сохранении)
+        _comWeightBox.Text = (cfg.WeightCommon ?? Math.Max(0, 100 - cfg.WeightUncommon - cfg.WeightRare - cfg.WeightEpic)).ToString();
         _uncWeightBox.Text = cfg.WeightUncommon.ToString();
         _rareWeightBox.Text = cfg.WeightRare.ToString();
         _epicWeightBox.Text = cfg.WeightEpic.ToString();
@@ -617,6 +692,7 @@ private void BuildRollTable()
         var cfg = new ItemRollConfig
         {
             Enabled = true,
+            WeightCommon = Num(_comWeightBox),
             WeightUncommon = Num(_uncWeightBox),
             WeightRare = Num(_rareWeightBox),
             WeightEpic = Num(_epicWeightBox)

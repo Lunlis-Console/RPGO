@@ -477,19 +477,39 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetHealthRegenPercent_WithEndurance_Returns7_2()
+    public void GetHealthRegenPercent_EnduranceDoesNotAffectRegen()
     {
-        var p = new Player { Endurance = 51 };
-        // Воин: 48 очков × 0.15 = 7.2
-        Assert.Equal(7.2, p.GetHealthRegenPercent(), 3);
+        var p = new Player { Endurance = 1000 };
+        // Выносливость больше не влияет на реген HP — только шмот (плоский %) и кап 25%
+        Assert.Equal(0.0, p.GetHealthRegenPercent());
     }
 
     [Fact]
-    public void GetHealthRegenPercent_CapReachedAt237Endurance()
+    public void GetHealthRegenPercent_WithGearBonus_AddsFlatPercent()
     {
-        var p = new Player { Endurance = 237 };
-        // Воин: 234 очка: 100×0.15 + 134×0.075 = 25.05 → кап 25
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 5 };
+        var p = new Player { Endurance = 51, Equipment = eq };
+        // Шмот +5%; выносливость не прибавляется → ровно 5
+        Assert.Equal(5.0, p.GetHealthRegenPercent(), 3);
+    }
+
+    [Fact]
+    public void GetHealthRegenPercent_WithGearBonus_CappedAt25()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 500 };
+        var p = new Player { Endurance = 1000, Equipment = eq };
         Assert.Equal(25.0, p.GetHealthRegenPercent());
+    }
+
+    [Fact]
+    public void GetBonusMaxHealth_GearEndurance_AddsHpPerPoint()
+    {
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusEndurance = 5, MaxHealthBonus = 100 };
+        // +10 HP за очко выносливости со шмота + явный «+Макс. HP»
+        Assert.Equal(5 * 10 + 100, eq.GetBonusMaxHealth());
     }
 
     [Fact]
@@ -520,16 +540,6 @@ public class PlayerStatsTests
         var p = new Player { Wisdom = 51, Equipment = eq };
         // Мудрость (51 − 1) = 50 очков × 0.3 = 15; шмот +20% → 35
         Assert.Equal(35.0, p.GetCooldownReduction(), 3);
-    }
-
-    [Fact]
-    public void GetHealthRegenPercent_WithGearBonus_AddsFlatPercent()
-    {
-        var eq = new Equipment();
-        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 5 };
-        var p = new Player { Endurance = 51, Equipment = eq };
-        // Выносливость 48 очков × 0.15 = 7.2; шмот +5% → 12.2
-        Assert.Equal(12.2, p.GetHealthRegenPercent(), 3);
     }
 
     [Fact]
@@ -564,7 +574,9 @@ public class PlayerStatsTests
     [Fact]
     public void GetHealthRegenPercent_CappedAt25()
     {
-        var p = new Player { Endurance = 1000 };
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusHpRegen = 500 };
+        var p = new Player { Endurance = 1000, Equipment = eq };
         Assert.Equal(25.0, p.GetHealthRegenPercent());
     }
 

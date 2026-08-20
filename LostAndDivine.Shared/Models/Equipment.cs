@@ -39,7 +39,10 @@ public class Equipment
     public int GetBonusMagAttack() => Sum(_slots.Values, i => i.BonusMagAttack);
     public int GetBonusDefense() => Sum(_slots.Values, i => i.BonusDefense);
     public int GetBonusResistance() => Sum(_slots.Values, i => i.BonusResistance);
-    public int GetBonusMaxHealth() => Sum(_slots.Values, i => i.MaxHealthBonus);
+    // Бонус к макс. HP: явный «+Макс. HP» предметов + выносливость со шмота (+10 HP за очко,
+    // как у вложенных очков — см. BalanceStatic.MaxHealthPerEndurance).
+    public int GetBonusMaxHealth() => Sum(_slots.Values, i => i.MaxHealthBonus)
+        + GetBonusEndurance() * BalanceStatic.MaxHealthPerEndurance;
     public int GetBonusMaxMana() => Sum(_slots.Values, i => i.MaxManaBonus);
 
     // Базовая защита надетой брони (складывается в защиту/сопротивление персонажа)

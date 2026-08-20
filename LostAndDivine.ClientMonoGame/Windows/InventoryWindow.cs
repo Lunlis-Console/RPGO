@@ -356,7 +356,7 @@ public class InventoryWindow : GameWindow
             }
         }
 
-        // Кнопка сортировки
+        // Кнопка сортировки (по редкости и требуемому уровню)
         if (pressed && _sortRect.Contains(mouse.X, mouse.Y))
             SortItems?.Invoke();
 

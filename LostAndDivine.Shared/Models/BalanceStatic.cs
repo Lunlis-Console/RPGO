@@ -137,6 +137,9 @@ public static class BalanceStatic
     // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
     public const int MaxLevel = 50;
     public const int MaxHealthPerLevel = 10;
+    // Выносливость даёт +10 HP за очко: вложенные очки прибавляются к MaxHealth при вложении,
+    // выносливость со шмота — через Equipment.GetBonusMaxHealth().
+    public const int MaxHealthPerEndurance = 10;
     public const int AttributePointsPerLevel = 3;
     public const int XpPerLevel = 50;
 
