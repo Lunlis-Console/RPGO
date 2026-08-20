@@ -1,9 +1,12 @@
 using System.Data;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using LostAndDivine.Shared.Models;
 using Microsoft.Win32;
 
 namespace LostAndDivine.Editor.Views;
@@ -29,7 +32,14 @@ public sealed class ItemEditorWindow : Window
     private TextBox _asmBox = null!, _arBox = null!;
     private TextBox _iconBox = null!;
     private Image _iconPreview = null!;
-    private StackPanel _grpStats = null!, _grpAttr = null!, _grpSec = null!, _grpWpn = null!;
+    private StackPanel _grpStats = null!, _grpAttr = null!, _grpSec = null!, _grpWpn = null!, _grpRoll = null!;
+    private CheckBox _rollEnabledBox = null!;
+    private TextBox _uncWeightBox = null!, _rareWeightBox = null!, _epicWeightBox = null!;
+    private TextBox _uncMinBox = null!, _uncMaxBox = null!;
+    private TextBox _rareMinBox = null!, _rareMaxBox = null!;
+    private TextBox _epicMinBox = null!, _epicMaxBox = null!;
+    private DataGrid _rollGrid = null!;
+    private DataTable _rollDt = new();
 
     public ItemEditorWindow(Db db, DataRow row, DataTable table)
     {
@@ -37,8 +47,8 @@ public sealed class ItemEditorWindow : Window
         _table = table;
         _db = db;
         Title = "Редактирование: " + Cell("name");
-        Width = 560;
-        Height = 760;
+        Width = 940;
+        Height = 820;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
@@ -64,7 +74,7 @@ public sealed class ItemEditorWindow : Window
 
         // Иконка предмета (копируется в Content/Sprites/CustomIcons клиента)
         var iconRow = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-        iconRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        iconRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
         iconRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var iconLbl = new TextBlock { Text = "Иконка:", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
         Grid.SetColumn(iconLbl, 0);
@@ -128,6 +138,39 @@ public sealed class ItemEditorWindow : Window
         _asmBox = AddNum(grpWpn, "Скор. атаки:", Cell("attack_speed_modifier"));
         _arBox = AddNum(grpWpn, "Дальность:", Cell("attack_range"));
 
+        var grpRoll = Group("Случайные бонусы (ролл при дропе)");
+        _rollEnabledBox = AddCheck(grpRoll, "Включить ролл бонусов:", false);
+        _rollEnabledBox.Checked += (s, e) => ApplyDefaultRolls();
+        AddWeightRow(grpRoll, "Веса (Необ/Ред/Эпик):", out _uncWeightBox, out _rareWeightBox, out _epicWeightBox);
+        AddCountRow(grpRoll, "Необычный: бонусов", out _uncMinBox, out _uncMaxBox);
+        AddCountRow(grpRoll, "Редкий: бонусов", out _rareMinBox, out _rareMaxBox);
+        AddCountRow(grpRoll, "Эпический: бонусов", out _epicMinBox, out _epicMaxBox);
+        BuildRollTable();
+        _reqBox.TextChanged += (s, e) => RecomputeTotals();
+        var rollBtns = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 4, 0, 4) };
+        var copyBtn = new Button { Content = "Копировать строку", Padding = new Thickness(8, 2, 8, 2), Margin = new Thickness(0, 0, 8, 0) };
+        copyBtn.Click += (s, e) => CopyRollRow();
+        var pasteBtn = new Button { Content = "Вставить в строку", Padding = new Thickness(8, 2, 8, 2) };
+        pasteBtn.Click += (s, e) => PasteRollRow();
+        rollBtns.Children.Add(copyBtn);
+        rollBtns.Children.Add(pasteBtn);
+        grpRoll.Children.Add(rollBtns);
+        grpRoll.Children.Add(_rollGrid);
+        grpRoll.Children.Add(new TextBlock
+        {
+            Text = "Веса — относительные шансы качества (остаток до 100% — Обычный). Пример: 30/15/5 → 50% обычный, 30% необычный, 15% редкий, 5% эпический.\n" +
+                   "Значения в таблице — бонус за уровень предмета (умножаются на требуемый уровень). " +
+                   "Минимум и максимум равны 0/пусты — параметр не участвует в ролле.\n" +
+                   "Колонки «итог» — итоговые значения при выпадении: мин/макс × требуемый уровень.\n" +
+                   "Статичные бонусы шаблона — база Обычного качества: торговец всегда продаёт именно эту версию, " +
+                   "и при выпадении Обычного дропом предмет остаётся как в шаблоне. " +
+                   "При Необычном и выше статичные бонусы заменяются своролленными.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(new Color { R = 120, G = 125, B = 140, A = 255 }),
+            Margin = new Thickness(0, 4, 0, 0)
+        });
+        _grpRoll = grpRoll;
+
         var grpDesc = Group("Описание");
         _descBox = new TextBox { Text = Cell("description"), Height = 70, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         grpDesc.Children.Add(_descBox);
@@ -136,6 +179,7 @@ public sealed class ItemEditorWindow : Window
         stack.Children.Add(grpStats);
         stack.Children.Add(grpAttr);
         stack.Children.Add(grpSec);
+        stack.Children.Add(grpRoll);
         stack.Children.Add(grpWpn);
         stack.Children.Add(grpDesc);
         scroll.Content = stack;
@@ -161,6 +205,7 @@ public sealed class ItemEditorWindow : Window
         _subtypeBox.SelectionChanged += (s, e) => UpdateFields();
         UpdateFields();
         LoadIconPreview(Cell("icon"));
+        LoadRollConfig();
     }
 
     /// <summary>Выбор PNG-файла иконки: копирует его в Content/Sprites/CustomIcons клиента и запоминает ключ.</summary>
@@ -248,6 +293,7 @@ public sealed class ItemEditorWindow : Window
         bool equippable = isWeapon || isDefGear;
         _grpAttr.Visibility = equippable ? Visibility.Visible : Visibility.Collapsed;
         _grpSec.Visibility = equippable ? Visibility.Visible : Visibility.Collapsed;
+        _grpRoll.Visibility = equippable ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static void SetRowVisible(Control c, bool on)
@@ -307,14 +353,326 @@ public sealed class ItemEditorWindow : Window
             _ => 0
         };
         _row["description"] = _descBox.Text.Trim();
+        _row["roll_config"] = BuildRollConfigJson();
         Close();
+    }
+
+    // === случайные бонусы (roll_config) ===
+
+    private string?[] _copiedRoll = new string?[6];
+
+    private DataRow? SelectedRollRow()
+    {
+        if (_rollGrid.SelectedItem is DataRowView view) return view.Row;
+        return null;
+    }
+
+    private void CopyRollRow()
+    {
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        var row = SelectedRollRow();
+        if (row == null)
+        {
+            MessageBox.Show("Выберите строку с параметром, который нужно скопировать.", "Копирование", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        _copiedRoll = new[]
+        {
+            row["unc_min"]?.ToString(), row["unc_max"]?.ToString(),
+            row["rare_min"]?.ToString(), row["rare_max"]?.ToString(),
+            row["epic_min"]?.ToString(), row["epic_max"]?.ToString()
+        };
+    }
+
+    private void PasteRollRow()
+    {
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        var row = SelectedRollRow();
+        if (row == null)
+        {
+            MessageBox.Show("Выберите строку, в которую нужно вставить значения.", "Вставка", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (_copiedRoll.All(string.IsNullOrEmpty))
+        {
+            MessageBox.Show("Сначала скопируйте строку (кнопка «Копировать строку»).", "Вставка", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        row["unc_min"] = _copiedRoll[0];
+        row["unc_max"] = _copiedRoll[1];
+        row["rare_min"] = _copiedRoll[2];
+        row["rare_max"] = _copiedRoll[3];
+        row["epic_min"] = _copiedRoll[4];
+        row["epic_max"] = _copiedRoll[5];
+        RecomputeTotals();
+    }
+
+    /// <summary>При включении ролла заполняет пустые поля значениями по умолчанию (30/15/5, 1-2/2-3/3-4).</summary>
+    private void ApplyDefaultRolls()
+    {
+        if (_rollEnabledBox.IsChecked != true) return;
+        FillIfEmpty(_uncWeightBox, "30");
+        FillIfEmpty(_rareWeightBox, "15");
+        FillIfEmpty(_epicWeightBox, "5");
+        FillIfEmpty(_uncMinBox, "1");
+        FillIfEmpty(_uncMaxBox, "2");
+        FillIfEmpty(_rareMinBox, "2");
+        FillIfEmpty(_rareMaxBox, "3");
+        FillIfEmpty(_epicMinBox, "3");
+        FillIfEmpty(_epicMaxBox, "4");
+    }
+
+    private static void FillIfEmpty(TextBox tb, string value)
+    {
+        if (string.IsNullOrWhiteSpace(tb.Text)) tb.Text = value;
+    }
+
+    /// <summary>Строка «[метка]: [необ] [ред] [эпик]» — веса качества при дропе.</summary>
+    private static void AddWeightRow(StackPanel g, string label, out TextBox uncBox, out TextBox rareBox, out TextBox epicBox)
+    {
+        uncBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
+        rareBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
+        epicBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
+        var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        var lbl = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        Grid.SetColumn(lbl, 0);
+        Grid.SetColumn(uncBox, 1);
+        Grid.SetColumn(rareBox, 2);
+        Grid.SetColumn(epicBox, 3);
+        grid.Children.Add(lbl);
+        grid.Children.Add(uncBox);
+        grid.Children.Add(rareBox);
+        grid.Children.Add(epicBox);
+        g.Children.Add(grid);
+    }
+
+    /// <summary>Строка «[метка]: от [мин] до [макс]» — число случайных бонусов для качества.</summary>
+    private static void AddCountRow(StackPanel g, string label, out TextBox minBox, out TextBox maxBox)
+    {
+        minBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
+        maxBox = new TextBox { Width = 50, HorizontalAlignment = HorizontalAlignment.Left };
+        var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+        var lbl = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
+        var dash = new TextBlock { Text = "до", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0) };
+        Grid.SetColumn(lbl, 0);
+        Grid.SetColumn(minBox, 1);
+        Grid.SetColumn(dash, 2);
+        Grid.SetColumn(maxBox, 3);
+        grid.Children.Add(lbl);
+        grid.Children.Add(minBox);
+        grid.Children.Add(dash);
+        grid.Children.Add(maxBox);
+        g.Children.Add(grid);
+    }
+
+private void BuildRollTable()
+    {
+        _rollDt = new DataTable();
+        _rollDt.Columns.Add("key", typeof(string));
+        _rollDt.Columns.Add("label", typeof(string));
+        _rollDt.Columns.Add("unc_min", typeof(string));
+        _rollDt.Columns.Add("unc_max", typeof(string));
+        _rollDt.Columns.Add("unc_total", typeof(string));
+        _rollDt.Columns.Add("rare_min", typeof(string));
+        _rollDt.Columns.Add("rare_max", typeof(string));
+        _rollDt.Columns.Add("rare_total", typeof(string));
+        _rollDt.Columns.Add("epic_min", typeof(string));
+        _rollDt.Columns.Add("epic_max", typeof(string));
+        _rollDt.Columns.Add("epic_total", typeof(string));
+        foreach (var (key, label) in RollStatCatalog.All)
+            _rollDt.Rows.Add(key, label, "", "", "", "", "", "", "", "", "");
+
+        _rollGrid = new DataGrid
+        {
+            ItemsSource = _rollDt.DefaultView,
+            AutoGenerateColumns = false,
+            Height = 240,
+            RowHeaderWidth = 0,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        _rollGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Параметр",
+            Binding = new Binding("label"),
+            IsReadOnly = true,
+            Width = new DataGridLength(180)
+        });
+        AddRollColumn("Необ. мин", "unc_min", 70);
+        AddRollColumn("Необ. макс", "unc_max", 70);
+        AddRollColumn("Необ. итог", "unc_total", 85, readOnly: true);
+        AddRollColumn("Ред. мин", "rare_min", 70);
+        AddRollColumn("Ред. макс", "rare_max", 70);
+        AddRollColumn("Ред. итог", "rare_total", 85, readOnly: true);
+        AddRollColumn("Эпик. мин", "epic_min", 70);
+        AddRollColumn("Эпик. макс", "epic_max", 70);
+        AddRollColumn("Эпик. итог", "epic_total", 85, readOnly: true);
+        _rollGrid.CellEditEnding += (s, e) => RecomputeTotals();
+    }
+
+    private void AddRollColumn(string header, string column, double width = 85, bool readOnly = false)
+    {
+        _rollGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = header,
+            Binding = new Binding(column) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+            IsReadOnly = readOnly,
+            Width = new DataGridLength(width)
+        });
+    }
+
+    /// <summary>Итоговые значения при выпадении: мин/макс за уровень × требуемый уровень.</summary>
+    private void RecomputeTotals()
+    {
+        int level = Math.Max(1, Num(_reqBox));
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            SetTotal(row, "unc", level);
+            SetTotal(row, "rare", level);
+            SetTotal(row, "epic", level);
+        }
+    }
+
+    private static void SetTotal(DataRow row, string prefix, int level)
+    {
+        double min = Dbl(row[prefix + "_min"]?.ToString() ?? "");
+        double max = Dbl(row[prefix + "_max"]?.ToString() ?? "");
+        if (min <= 0 && max <= 0)
+        {
+            row[prefix + "_total"] = "";
+            return;
+        }
+        bool pct = RollStatCatalog.IsPercentStat(row["key"]?.ToString() ?? "");
+        string a = pct
+            ? FormatNum(Math.Round(min * level, 1, MidpointRounding.AwayFromZero))
+            : ((int)Math.Round(min * level, MidpointRounding.AwayFromZero)).ToString();
+        string b = pct
+            ? FormatNum(Math.Round(max * level, 1, MidpointRounding.AwayFromZero))
+            : ((int)Math.Round(max * level, MidpointRounding.AwayFromZero)).ToString();
+        row[prefix + "_total"] = a == b ? a : a + "–" + b;
+    }
+
+    private void AddRollColumn(string header, string column)
+    {
+        _rollGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = header,
+            Binding = new Binding(column) { UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged },
+            Width = new DataGridLength(85)
+        });
+    }
+
+    private void LoadRollConfig()
+    {
+        ItemRollConfig? cfg = null;
+        string json = Cell("roll_config");
+        if (!string.IsNullOrWhiteSpace(json))
+        {
+            try { cfg = JsonSerializer.Deserialize<ItemRollConfig>(json, ItemRollConfig.JsonOpts); }
+            catch { cfg = null; }
+        }
+
+        _rollEnabledBox.IsChecked = cfg is { Enabled: true };
+        if (cfg == null) return;
+
+        _uncWeightBox.Text = cfg.WeightUncommon.ToString();
+        _rareWeightBox.Text = cfg.WeightRare.ToString();
+        _epicWeightBox.Text = cfg.WeightEpic.ToString();
+        _uncMinBox.Text = cfg.Uncommon.CountMin.ToString();
+        _uncMaxBox.Text = cfg.Uncommon.CountMax.ToString();
+        ApplyTierToTable(cfg.Uncommon, "unc");
+        _rareMinBox.Text = cfg.Rare.CountMin.ToString();
+        _rareMaxBox.Text = cfg.Rare.CountMax.ToString();
+        ApplyTierToTable(cfg.Rare, "rare");
+        _epicMinBox.Text = cfg.Epic.CountMin.ToString();
+        _epicMaxBox.Text = cfg.Epic.CountMax.ToString();
+        ApplyTierToTable(cfg.Epic, "epic");
+        RecomputeTotals();
+    }
+
+    private void ApplyTierToTable(RollTierConfig tier, string prefix)
+    {
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            var stat = tier.Stats.FirstOrDefault(s => s.Stat == row["key"]?.ToString());
+            if (stat == null) continue;
+            row[prefix + "_min"] = FormatNum(stat.Min);
+            row[prefix + "_max"] = FormatNum(stat.Max);
+        }
+    }
+
+    private string BuildRollConfigJson()
+    {
+        _rollGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+        if (_rollEnabledBox.IsChecked != true) return "";
+        var cfg = new ItemRollConfig
+        {
+            Enabled = true,
+            WeightUncommon = Num(_uncWeightBox),
+            WeightRare = Num(_rareWeightBox),
+            WeightEpic = Num(_epicWeightBox)
+        };
+        cfg.Uncommon = BuildTier(_uncMinBox, _uncMaxBox, "unc");
+        cfg.Rare = BuildTier(_rareMinBox, _rareMaxBox, "rare");
+        cfg.Epic = BuildTier(_epicMinBox, _epicMaxBox, "epic");
+        return JsonSerializer.Serialize(cfg, ItemRollConfig.JsonOpts);
+    }
+
+    private RollTierConfig BuildTier(TextBox minBox, TextBox maxBox, string prefix)
+    {
+        var tier = new RollTierConfig
+        {
+            CountMin = Num(minBox),
+            CountMax = Num(maxBox)
+        };
+        foreach (DataRow row in _rollDt.Rows)
+        {
+            double min = Dbl(row[prefix + "_min"]?.ToString() ?? "");
+            double max = Dbl(row[prefix + "_max"]?.ToString() ?? "");
+            if (min <= 0 && max <= 0) continue;
+            tier.Stats.Add(new RollStatConfig
+            {
+                Stat = row["key"]?.ToString() ?? "",
+                Min = min,
+                Max = Math.Max(max, min)
+            });
+        }
+        return tier;
+    }
+
+    private static string FormatNum(double v)
+    {
+        if (v == Math.Floor(v)) return ((long)v).ToString();
+        return v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private static double Dbl(string v)
+    {
+        if (double.TryParse(v, System.Globalization.CultureInfo.CurrentCulture, out double r)) return r;
+        if (double.TryParse(v, System.Globalization.CultureInfo.InvariantCulture, out r)) return r;
+        return 0;
     }
 
     // === helpers ===
 
     private string Cell(string col) => _row[col]?.ToString() ?? "";
     private static int Num(TextBox tb) => int.TryParse(tb.Text, out int v) ? v : 0;
-    private static double Dbl(TextBox tb) => double.TryParse(tb.Text, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0;
+    private static double Dbl(TextBox tb)
+    {
+        string v = tb.Text;
+        if (double.TryParse(v, System.Globalization.CultureInfo.CurrentCulture, out double r)) return r;
+        if (double.TryParse(v, System.Globalization.CultureInfo.InvariantCulture, out r)) return r;
+        return 0;
+    }
 
     private static StackPanel Group(string title)
     {
@@ -355,7 +713,7 @@ private TextBox AddNum(StackPanel g, string label, string value)
     private static void AddRow(StackPanel g, string label, Control control)
     {
         var grid = new Grid { Margin = new Thickness(0, 2, 0, 2) };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var lbl = new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) };
         Grid.SetColumn(lbl, 0);

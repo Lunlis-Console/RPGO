@@ -700,11 +700,7 @@ public class GameScreen : IScreen
     {
         _client.LootReceived += (corpseId, monsterName, damagePct, items, gold) =>
         {
-            var lootItems = items.Select(item => new LostAndDivine.ClientMonoGame.Networking.LootItemInfo
-            {
-                Id = item.Id, Name = item.Name, Type = item.Type, WeaponSubtype = item.WeaponSubtype, Value = item.Value, Description = item.Description
-            }).ToList();
-            _lootWindow.Setup(corpseId, monsterName, damagePct, lootItems, gold);
+            _lootWindow.Setup(corpseId, monsterName, damagePct, items, gold);
             _lootWindow.X = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferWidth - _lootWindow.Width) / 2);
             _lootWindow.Y = Math.Max(0, (GameMain.Instance!.Graphics.PreferredBackBufferHeight - _lootWindow.Height) / 2);
         };

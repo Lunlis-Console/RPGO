@@ -60,9 +60,24 @@ public static class AdminCommands
                 return await HandleUnban(connection, player, args, svc);
             case "/level":
                 return await HandleLevel(connection, player, args, svc);
+            case "/dmg":
+                return await HandleDmg(player, args, svc);
             default:
                 return false;
         }
+    }
+
+    private static async Task<bool> HandleDmg(Player player, string[] args, GameServices svc)
+    {
+        if (args.Length < 2 || !double.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out double mult) || mult <= 0)
+        {
+            await SystemToSelf(player, svc, $"Множитель урона: {player.AdminDamageMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}x. Использование: /dmg <множитель> (например /dmg 10, /dmg 1 — сброс)");
+            return true;
+        }
+
+        player.AdminDamageMultiplier = mult;
+        await SystemToSelf(player, svc, $"Множитель урона: {mult.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}x (включается при следующем ударе)");
+        return true;
     }
 
     private static async Task<bool> HandleGold(ClientConnection connection, Player player, string[] args, GameServices svc)
@@ -328,6 +343,7 @@ public static class AdminCommands
             "/mute <имя> — заглушить игрока",
             "/unmute <имя> — снять глушение",
             "/level <уровень> [имя] — изменить уровень",
+            "/dmg <множитель> — множитель вашего урона (1 — сброс)",
             "/setadmin <имя> — выдать/снять админку",
             "/spawn <id_монстра> — заспавнить монстра",
             "/reload — перезагрузить секторы и контент",

@@ -16,7 +16,7 @@ public class MonsterCombatCalculator
     {
         double dmgBonus = _svc.Debuffs.GetDebuffValue(attacker, DebuffType.DamageBonus);
         double mult = 1.0 + dmgBonus;
-        if (attacker is Player p) mult *= p.GetBerserkMultiplier();
+        if (attacker is Player p) mult *= p.GetBerserkMultiplier() * p.AdminDamageMultiplier;
         return baseAttack * mult;
     }
 

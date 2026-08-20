@@ -203,15 +203,24 @@ public class InstanceManager
 
         int roll = Random.Shared.Next(100);
         // Групповой инстанс: выше шанс лучшей экипировки (эпик/редкое)
-        string qualityLabel = betterDrop
-            ? (roll < 25 ? "Эпический" : roll < 55 ? "Редкий" : roll < 80 ? "Необычный" : "Обычный")
-            : (roll < 15 ? "Эпический" : roll < 40 ? "Редкий" : roll < 70 ? "Необычный" : "Обычный");
-        var qualityWeapons = allWeapons.Where(w => w.Description.Contains(qualityLabel)).ToList();
-        var picked = qualityWeapons.Count > 0
-            ? qualityWeapons[Random.Shared.Next(qualityWeapons.Count)]
-            : allWeapons[Random.Shared.Next(allWeapons.Count)];
+        ItemQuality quality = betterDrop
+            ? roll < 25 ? ItemQuality.Epic : roll < 55 ? ItemQuality.Rare : roll < 80 ? ItemQuality.Uncommon : ItemQuality.Common
+            : roll < 15 ? ItemQuality.Epic : roll < 40 ? ItemQuality.Rare : roll < 70 ? ItemQuality.Uncommon : ItemQuality.Common;
 
-        var clone = picked.Clone();
+        // Приоритет у шаблонов с включённым роллом (обычно Обычного качества — качество
+        // применится из ролла сундука). Легаси-шаблоны с фиксированным качеством подбираются
+        // по роллу качества, как раньше.
+        var configured = allWeapons.Where(w => w.RollConfig is { Enabled: true }).ToList();
+        var qualityWeapons = allWeapons.Where(w => w.Quality == quality).ToList();
+        var picked = configured.Count > 0
+            ? configured[Random.Shared.Next(configured.Count)]
+            : qualityWeapons.Count > 0
+                ? qualityWeapons[Random.Shared.Next(qualityWeapons.Count)]
+                : allWeapons[Random.Shared.Next(allWeapons.Count)];
+
+        // Случайные бонусы к атрибутам по roll_config шаблона (если включён) для качества сундука.
+        // Масштаб — по требуемому уровню предмета (как у дропа с мобов и как в предпросмотре редактора).
+        var clone = ItemRoller.RollForQuality(picked, quality, Random.Shared);
         clone.Id = Guid.NewGuid().ToString();
         clone.Stock = 1;
         clone.Quantity = 1;
@@ -1063,6 +1072,7 @@ public class InstanceManager
     {
         i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
         i.MaxHealthBonus, i.MaxManaBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        Quality = i.Quality,
         BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
         BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
         BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,

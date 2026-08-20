@@ -1,3 +1,4 @@
+using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server;
@@ -32,17 +33,14 @@ public class LootManager
             var template = DatabaseManager.GetItemTemplate(drop.ItemId);
             if (template == null) continue;
 
-            items.Add(new Item
-            {
-                Id = Guid.NewGuid().ToString(),
-                TemplateId = drop.ItemId,
-                Name = template.Name,
-                Type = template.Type,
-                Value = template.Value,
-                Description = template.Description,
-                QuestItem = template.QuestItem,
-                MaxStack = template.MaxStack,
-            });
+            // Копия шаблона целиком (базовые статы, качество, иконка) +
+            // случайные бонусы по roll_config, если он включён у шаблона.
+            var item = ItemRoller.Roll(template, Random.Shared);
+            item.Id = Guid.NewGuid().ToString();
+            item.Quantity = 1;
+            item.Stock = 1;
+            item.IsBuyback = false;
+            items.Add(item);
         }
 
         return items;

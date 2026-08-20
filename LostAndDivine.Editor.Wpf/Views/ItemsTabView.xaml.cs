@@ -43,7 +43,7 @@ public partial class ItemsTabView : UserControl
             bonus_block_chance, bonus_parry_chance, bonus_accuracy, bonus_tenacity,
             bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
             two_handed, damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level,
-            quest_item, icon, magic_defense, quality
+            quest_item, icon, magic_defense, quality, roll_config
             FROM items ORDER BY id");
 
         // quest_item как чекбокс
@@ -122,8 +122,8 @@ public partial class ItemsTabView : UserControl
                         bonus_block_chance, bonus_parry_chance, bonus_accuracy, bonus_tenacity,
                         bonus_armor_penetration, bonus_cooldown_reduction, bonus_hp_regen, bonus_mp_regen,
                         two_handed,
-                        damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level, quest_item, icon, magic_defense, quality)
-                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$mm,$h,$rm,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$bpa,$bma,$bdef,$bres,$bas,$cc,$cd,$ec,$blk,$prr,$acc,$ten,$arp,$cdr,$hpr,$mpr,$th,$dt,$asm,$ws,$ar,$rl,$qi,$ic,$md,$q)";
+                        damage_type, attack_speed_modifier, weapon_subtype, attack_range, required_level, quest_item, icon, magic_defense, quality, roll_config)
+                    VALUES ($id,$n,$t,$v,$dmn,$dmx,$d,$m,$mm,$h,$rm,$s,$desc,$str,$sta,$agi,$cun,$wis,$wil,$bpa,$bma,$bdef,$bres,$bas,$cc,$cd,$ec,$blk,$prr,$acc,$ten,$arp,$cdr,$hpr,$mpr,$th,$dt,$asm,$ws,$ar,$rl,$qi,$ic,$md,$q,$rc)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
                 cmd.Parameters.AddWithValue("$t", row["type"] ?? "");
@@ -169,6 +169,7 @@ public partial class ItemsTabView : UserControl
                 cmd.Parameters.AddWithValue("$ic", row["icon"]?.ToString() ?? "");
                 cmd.Parameters.AddWithValue("$md", Db.ToInt(row["magic_defense"]));
                 cmd.Parameters.AddWithValue("$q", Db.ToInt(row["quality"]));
+                cmd.Parameters.AddWithValue("$rc", row["roll_config"]?.ToString() ?? "");
                 cmd.ExecuteNonQuery();
             }
             transaction.Commit();

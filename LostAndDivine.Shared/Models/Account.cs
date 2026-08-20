@@ -166,5 +166,8 @@ public class Item
     // Качество предмета (Common/Uncommon/Rare/Epic)
     public ItemQuality Quality { get; set; } = ItemQuality.Common;
 
+    // Конфигурация случайных бонусов (только у шаблонов; в экземплярах бонусы уже свёрнуты)
+    public ItemRollConfig? RollConfig { get; set; }
+
     public Item Clone() => (Item)MemberwiseClone();
 }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server.Repositories;
@@ -23,7 +24,8 @@ internal static class ItemRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
-                quality
+                quality,
+                roll_config
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -76,6 +78,7 @@ internal static class ItemRepository
                     Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                     MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
                     Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
+                    RollConfig = ParseRollConfig(reader.IsDBNull(44) ? null : reader.GetString(44)),
                 });
             }
             return result;
@@ -100,7 +103,8 @@ internal static class ItemRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
-                quality
+                quality,
+                roll_config
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -153,7 +157,22 @@ internal static class ItemRepository
                 Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                 MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
                 Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
+                RollConfig = ParseRollConfig(reader.IsDBNull(44) ? null : reader.GetString(44)),
             };
+        }
+    }
+
+    private static ItemRollConfig? ParseRollConfig(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<ItemRollConfig>(json, ItemRollConfig.JsonOpts);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Не удалось разобрать roll_config: {ex.Message}");
+            return null;
         }
     }
 }

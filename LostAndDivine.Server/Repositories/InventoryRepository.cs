@@ -28,7 +28,8 @@ internal static class InventoryRepository
                 damage_min, damage_max, attack_range,
                 max_mana_bonus,
                 icon,
-                magic_defense
+                magic_defense,
+                quality
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -79,7 +80,8 @@ internal static class InventoryRepository
                     AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34),
                     MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
                     Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
-                    MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37)
+                    MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37),
+                    Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38)
                 });
             }
 
@@ -138,7 +140,8 @@ internal static class InventoryRepository
                             DamageMin = item.DamageMin,
                             DamageMax = item.DamageMax,
                             AttackRange = item.AttackRange,
-                            RequiredLevel = item.RequiredLevel
+                            RequiredLevel = item.RequiredLevel,
+                            Quality = item.Quality
                         });
                     }
                 }
@@ -203,14 +206,15 @@ internal static class InventoryRepository
                 attack_range,
                 max_mana_bonus,
                 icon,
-                magic_defense)
+                magic_defense,
+                quality)
             VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $rmana, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
                 $cc, $cd, $ec, $as,
                 $bc, $pc, $bacc, $bten, $bap, $bcdr, $bhpr, $bmpr,
                 $tid, $qty,
-                $ar, $mmp, $ic, $md)";
+                $ar, $mmp, $ic, $md, $quality)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
@@ -248,6 +252,7 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$mmp", item.MaxManaBonus);
         insertItem.Parameters.AddWithValue("$ic", (object?)item.Icon ?? DBNull.Value);
         insertItem.Parameters.AddWithValue("$md", item.MagicDefense);
+        insertItem.Parameters.AddWithValue("$quality", (int)item.Quality);
         insertItem.ExecuteNonQuery();
     }
 
@@ -338,7 +343,8 @@ internal static class InventoryRepository
             damage_min, damage_max, attack_range,
             max_mana_bonus,
             icon,
-            magic_defense
+            magic_defense,
+            quality
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -385,7 +391,8 @@ internal static class InventoryRepository
                 AttackRange = reader.IsDBNull(34) ? 1 : reader.GetInt32(34),
                 MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
                 Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
-                MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37)
+                MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37),
+                Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38)
             };
             return SyncItemFromTemplate(item);
         }
@@ -409,7 +416,8 @@ internal static class InventoryRepository
             icon,
             bonus_defense,
             magic_defense,
-            quality
+            quality,
+            roll_config
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -417,31 +425,9 @@ internal static class InventoryRepository
         {
             item.Defense = reader.GetInt32(0);
             item.Value = reader.GetInt32(1);
-            item.MaxHealthBonus = reader.GetInt32(2);
             item.HealAmount = reader.GetInt32(3);
             item.RestoreMana = reader.GetInt32(4);
             item.Description = reader.GetString(5);
-            item.BonusStrength = reader.GetInt32(6);
-            item.BonusEndurance = reader.GetInt32(7);
-            item.BonusAgility = reader.GetInt32(8);
-            item.BonusCunning = reader.GetInt32(9);
-            item.BonusIntellect = reader.GetInt32(10);
-            item.BonusWisdom = reader.GetInt32(11);
-            item.BonusPhysAttack = reader.GetInt32(12);
-            item.BonusMagAttack = reader.GetInt32(13);
-            item.BonusResistance = reader.GetInt32(14);
-            item.BonusCritChance = reader.GetDouble(15);
-            item.BonusCritDamage = reader.GetDouble(16);
-            item.BonusEvadeChance = reader.GetDouble(17);
-            item.BonusAttackSpeed = reader.GetDouble(18);
-            item.BonusBlockChance = reader.GetDouble(19);
-            item.BonusParryChance = reader.GetDouble(20);
-            item.BonusAccuracy = reader.IsDBNull(21) ? 0 : reader.GetDouble(21);
-            item.BonusTenacity = reader.IsDBNull(22) ? 0 : reader.GetDouble(22);
-            item.BonusArmorPenetration = reader.IsDBNull(23) ? 0 : reader.GetDouble(23);
-            item.BonusCooldownReduction = reader.IsDBNull(24) ? 0 : reader.GetDouble(24);
-            item.BonusHpRegen = reader.IsDBNull(25) ? 0 : reader.GetDouble(25);
-            item.BonusMpRegen = reader.IsDBNull(26) ? 0 : reader.GetDouble(26);
             item.TwoHanded = !reader.IsDBNull(27) && reader.GetInt32(27) != 0;
             item.DamageType = reader.IsDBNull(28) ? "" : reader.GetString(28);
             item.AttackSpeedModifier = reader.IsDBNull(29) ? 1.0 : reader.GetDouble(29);
@@ -454,9 +440,53 @@ internal static class InventoryRepository
             item.Icon = reader.IsDBNull(36) ? "" : reader.GetString(36);
             item.BonusDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37);
             item.MagicDefense = reader.IsDBNull(38) ? 0 : reader.GetInt32(38);
-            item.Quality = reader.IsDBNull(39) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(39);
+            item.RollConfig = ParseRollConfig(reader.IsDBNull(40) ? null : reader.GetString(40));
+
+            // Статичные бонусы и качество шаблона применяются только когда у шаблона нет ролла:
+            // свёрнутые при дропе случайные бонусы и качество экземпляра затирать нельзя.
+            if (item.RollConfig is not { Enabled: true })
+            {
+                item.Quality = reader.IsDBNull(39) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(39);
+                item.MaxHealthBonus = reader.GetInt32(2);
+                item.BonusStrength = reader.GetInt32(6);
+                item.BonusEndurance = reader.GetInt32(7);
+                item.BonusAgility = reader.GetInt32(8);
+                item.BonusCunning = reader.GetInt32(9);
+                item.BonusIntellect = reader.GetInt32(10);
+                item.BonusWisdom = reader.GetInt32(11);
+                item.BonusPhysAttack = reader.GetInt32(12);
+                item.BonusMagAttack = reader.GetInt32(13);
+                item.BonusResistance = reader.GetInt32(14);
+                item.BonusCritChance = reader.GetDouble(15);
+                item.BonusCritDamage = reader.GetDouble(16);
+                item.BonusEvadeChance = reader.GetDouble(17);
+                item.BonusAttackSpeed = reader.GetDouble(18);
+                item.BonusBlockChance = reader.GetDouble(19);
+                item.BonusParryChance = reader.GetDouble(20);
+                item.BonusAccuracy = reader.IsDBNull(21) ? 0 : reader.GetDouble(21);
+                item.BonusTenacity = reader.IsDBNull(22) ? 0 : reader.GetDouble(22);
+                item.BonusArmorPenetration = reader.IsDBNull(23) ? 0 : reader.GetDouble(23);
+                item.BonusCooldownReduction = reader.IsDBNull(24) ? 0 : reader.GetDouble(24);
+                item.BonusHpRegen = reader.IsDBNull(25) ? 0 : reader.GetDouble(25);
+                item.BonusMpRegen = reader.IsDBNull(26) ? 0 : reader.GetDouble(26);
+            }
+
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;
+    }
+
+    private static ItemRollConfig? ParseRollConfig(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<ItemRollConfig>(json, ItemRollConfig.JsonOpts);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn($"Не удалось разобрать roll_config: {ex.Message}");
+            return null;
+        }
     }
 }

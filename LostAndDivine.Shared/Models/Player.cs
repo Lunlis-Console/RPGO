@@ -32,6 +32,9 @@ public class Player : ICombatant
     public int Experience { get; set; }
     public int Gold { get; set; }
 
+    // Админский множитель урона (команда /dmg): применяется ко всему исходящему урону, 1.0 = обычный.
+    public double AdminDamageMultiplier { get; set; } = 1.0;
+
     // Мана (MP)
     public int Mana { get; set; } = 100;
     public int MaxMana { get; set; } = 100;
