@@ -145,6 +145,7 @@ public sealed class TradeItemData
     public int Quantity { get; set; }
     public int Value { get; set; }
     public string? Description { get; set; }
+    public ItemQuality Quality { get; set; } = ItemQuality.Common;
     public int Attack { get; set; }
     public int Defense { get; set; }
     public int MagicDefense { get; set; }
@@ -188,7 +189,7 @@ public sealed class TradeItemData
     {
         Id = Id, Name = Name, Type = Type, TemplateId = TemplateId,
         WeaponSubtype = WeaponSubtype, Icon = Icon,
-        Value = Value, Description = Description, Attack = Attack,
+        Value = Value, Description = Description, Attack = Attack, Quality = Quality,
         Defense = Defense, MagicDefense = MagicDefense, MaxHealthBonus = MaxHealthBonus, MaxManaBonus = MaxManaBonus, HealAmount = HealAmount,
         MaxStack = MaxStack, Quantity = qty, RestoreMana = RestoreMana,
         BonusStrength = BonusStrength, BonusEndurance = BonusEndurance,
@@ -374,6 +375,7 @@ public sealed class LootItemInfo
     public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public string Description { get; set; } = "";
+    public ItemQuality Quality { get; set; } = ItemQuality.Common;
     public int MaxHealthBonus { get; set; }
     public int MaxManaBonus { get; set; }
     public int HealAmount { get; set; }

@@ -103,6 +103,7 @@ public class TradeAcceptHandler : BaseHandler
         var items = player.Inventory.Select(i => new
         {
             i.Id, i.Name, i.Type, i.WeaponSubtype, i.Value, i.Description,
+            Quality = i.Quality,
             i.MaxHealthBonus, i.HealAmount, i.RestoreMana,
             i.MaxStack, i.Quantity, i.Icon, i.Defense, i.MagicDefense
         }).Cast<object>().ToList();

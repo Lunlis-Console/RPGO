@@ -91,7 +91,8 @@ public static class ItemTooltip
 
         bool isWeapon = item.Type == "weapon" || item.Type == "twohand";
         bool isCasterShield = item.Type == "shield" && Equipment.IsCasterOffhand(item);
-        bool hasQuality = isWeapon || isCasterShield || item.Type == "shield";
+        bool isGear = isWeapon || item.Type == "shield" || item.Type is "helmet" or "cloak" or "chest" or "legs"
+            or "boots" or "glove" or "belt" or "necklace" or "ring" or "armor";
 
         lines.Add(item.Name);
         lines.Add(new TooltipLine($"Тип: {TypeLabel(item.Type)}"));
@@ -100,7 +101,7 @@ public static class ItemTooltip
         AddSecondaryStatLines(lines, item);
         AddAttributeLines(lines, item);
 
-        if (hasQuality)
+        if (isGear || item.Quality != ItemQuality.Common)
         {
             string qualLabel = ItemQualityExtensions.Label(item.Quality);
             lines.Add(new TooltipLine($"Качество: {qualLabel}", QualityColor(item.Quality)));
@@ -112,8 +113,9 @@ public static class ItemTooltip
             lines.Add(new TooltipLine($"Требуемый уровень: {item.RequiredLevel}", levelColor));
         }
 
-        if (!hasQuality && !string.IsNullOrEmpty(item.Description))
-            lines.Add(item.Description);
+        string cleanDesc = ItemQualityExtensions.StripQualityPrefix(item.Description);
+        if (!string.IsNullOrEmpty(cleanDesc))
+            lines.Add(cleanDesc);
 
         if (stockOverride.HasValue && stockOverride.Value > 1)
             lines.Add($"В наличии: {stockOverride.Value}");

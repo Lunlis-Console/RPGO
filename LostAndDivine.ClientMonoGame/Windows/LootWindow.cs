@@ -220,7 +220,7 @@ public class LootWindow : GameWindow
                     {
                         var iconRect = new Rectangle(rect.X + 6, rect.Y + 6, rect.Width - 12, rect.Height - 12);
                         sb.Draw(spr, iconRect, Color.White);
-                        var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                        var qFrame = SpriteCache.ForQualityFrame(item.Quality);
                         if (qFrame != null)
                             sb.Draw(qFrame, iconRect, Color.White);
                     }

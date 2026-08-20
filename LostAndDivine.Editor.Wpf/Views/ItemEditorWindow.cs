@@ -9,7 +9,7 @@ using Microsoft.Win32;
 namespace LostAndDivine.Editor.Views;
 
 /// <summary>
-/// Полноценный редактор предмета: все поля в группах, качество из описания.
+/// Полноценный редактор предмета: все поля в группах, качество в отдельной колонке.
 /// Порт ItemEditForm (WinForms).
 /// </summary>
 public sealed class ItemEditorWindow : Window
@@ -58,7 +58,7 @@ public sealed class ItemEditorWindow : Window
         string currentType = Cell("type");
         if (Ui.ItemTypesLocalized.Any(p => p.Key == currentType)) _typeCombo.SelectedValue = currentType;
         AddRow(grpMain, "Тип:", _typeCombo);
-        _qualityCombo = AddCombo(grpMain, "Качество:", new[] { "Обычный", "Необычный", "Редкий", "Эпический" }, QualityFromDesc(Cell("description")));
+        _qualityCombo = AddCombo(grpMain, "Качество:", new[] { "Обычный", "Необычный", "Редкий", "Эпический" }, QualityFromInt(Cell("quality")));
         _reqBox = AddNum(grpMain, "Треб. уровень:", Cell("required_level"));
         _valueBox = AddNum(grpMain, "Цена:", Cell("value"));
 
@@ -212,13 +212,13 @@ public sealed class ItemEditorWindow : Window
         catch { _iconPreview.Visibility = Visibility.Collapsed; }
     }
 
-    private static string QualityFromDesc(string desc)
+    private static string QualityFromInt(string v) => Db.ToInt(v) switch
     {
-        if (desc.Contains("Эпический")) return "Эпический";
-        if (desc.Contains("Редкий")) return "Редкий";
-        if (desc.Contains("Необычный")) return "Необычный";
-        return "Обычный";
-    }
+        1 => "Необычный",
+        2 => "Редкий",
+        3 => "Эпический",
+        _ => "Обычный"
+    };
 
     private void UpdateFields()
     {
@@ -299,19 +299,15 @@ public sealed class ItemEditorWindow : Window
         _row["attack_speed_modifier"] = Dbl(_asmBox);
         _row["attack_range"] = Num(_arBox);
         _row["icon"] = _iconBox.Text.Trim();
-        string qLabel = _qualityCombo.SelectedItem?.ToString() ?? "Обычный";
-        string cleanDesc = RemoveQualityFromDesc(_descBox.Text);
-        _row["description"] = $"Качество: {qLabel}. {cleanDesc}".TrimEnd('.', ' ');
+        _row["quality"] = (_qualityCombo.SelectedItem?.ToString()) switch
+        {
+            "Необычный" => 1,
+            "Редкий" => 2,
+            "Эпический" => 3,
+            _ => 0
+        };
+        _row["description"] = _descBox.Text.Trim();
         Close();
-    }
-
-    private static string RemoveQualityFromDesc(string desc)
-    {
-        var idx = desc.IndexOf("Качество:");
-        if (idx < 0) return desc;
-        int dotIdx = desc.IndexOf(". ", idx);
-        if (dotIdx < 0) return desc[..idx].Trim();
-        return (desc[..idx] + desc[(dotIdx + 2)..]).Trim();
     }
 
     // === helpers ===

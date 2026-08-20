@@ -408,7 +408,8 @@ internal static class InventoryRepository
             max_mana_bonus,
             icon,
             bonus_defense,
-            magic_defense
+            magic_defense,
+            quality
             FROM items WHERE id = $tid";
         cmd.Parameters.AddWithValue("$tid", item.TemplateId);
         using var reader = cmd.ExecuteReader();
@@ -453,6 +454,7 @@ internal static class InventoryRepository
             item.Icon = reader.IsDBNull(36) ? "" : reader.GetString(36);
             item.BonusDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37);
             item.MagicDefense = reader.IsDBNull(38) ? 0 : reader.GetInt32(38);
+            item.Quality = reader.IsDBNull(39) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(39);
             Log.Debug($"[Sync] item='{item.Name}' TemplateId='{item.TemplateId}' AttackRange={item.AttackRange} WeaponSubtype='{item.WeaponSubtype}'");
         }
         return item;

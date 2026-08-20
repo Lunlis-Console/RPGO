@@ -108,6 +108,7 @@ public abstract class BaseHandler : IMessageHandler
     {
         i.Id, i.TemplateId, i.Name, i.Type, i.WeaponSubtype, i.Quantity, i.Value,
         i.MaxHealthBonus, i.MaxManaBonus, i.HealAmount, i.RestoreMana, i.Description, i.MaxStack,
+        Quality = i.Quality,
         BonusStrength = i.BonusStrength, BonusEndurance = i.BonusEndurance,
         BonusAgility = i.BonusAgility, BonusCunning = i.BonusCunning,
         BonusIntellect = i.BonusIntellect, BonusWisdom = i.BonusWisdom,

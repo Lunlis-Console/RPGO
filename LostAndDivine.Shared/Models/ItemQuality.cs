@@ -26,4 +26,15 @@ public static class ItemQualityExtensions
         ItemQuality.Epic => "Эпический",
         _ => "Обычный"
     };
+
+    /// <summary>Убирает префикс «Качество: X.» из описания предмета.</summary>
+    public static string StripQualityPrefix(string? description)
+    {
+        if (string.IsNullOrEmpty(description)) return "";
+        var idx = description.IndexOf("Качество:");
+        if (idx < 0) return description;
+        int dotIdx = description.IndexOf(". ", idx);
+        if (dotIdx < 0) return description[..idx].Trim();
+        return (description[..idx] + description[(dotIdx + 2)..]).Trim();
+    }
 }

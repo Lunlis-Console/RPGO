@@ -745,7 +745,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                     if (spr != null)
                     {
                         sb.Draw(spr, dst, Color.White);
-                        var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                        var qFrame = SpriteCache.ForQualityFrame(item.Quality);
                         if (qFrame != null)
                             sb.Draw(qFrame, dst, Color.White);
                     }
@@ -794,7 +794,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _invCellSize - 8, _invCellSize - 8);
                             sb.Draw(spr, iconRect, Color.White);
-                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            var qFrame = SpriteCache.ForQualityFrame(item.Quality);
                             if (qFrame != null)
                                 sb.Draw(qFrame, iconRect, Color.White);
                         }
@@ -847,7 +847,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
                             sb.Draw(spr, iconRect, Color.White);
-                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            var qFrame = SpriteCache.ForQualityFrame(item.Quality);
                             if (qFrame != null)
                                 sb.Draw(qFrame, iconRect, Color.White);
                         }
@@ -930,7 +930,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                         {
                             var iconRect = new Rectangle(rect.X + 4, rect.Y + 4, _offerCellSize - 8, _offerCellSize - 8);
                             sb.Draw(spr, iconRect, Color.White);
-                            var qFrame = SpriteCache.ForQualityFrame(ItemQualityExtensions.ParseFromDescription(item.Description));
+                            var qFrame = SpriteCache.ForQualityFrame(item.Quality);
                             if (qFrame != null)
                                 sb.Draw(qFrame, iconRect, Color.White);
                         }
@@ -971,6 +971,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
             Id = d.Id ?? "", TemplateId = d.TemplateId ?? "", Name = d.Name ?? "",
             Type = d.Type ?? "", WeaponSubtype = d.WeaponSubtype ?? "", Icon = d.Icon ?? "",
             Quantity = d.Quantity, Value = d.Value, Description = d.Description ?? "",
+            Quality = d.Quality,
             MaxHealthBonus = d.MaxHealthBonus, MaxManaBonus = d.MaxManaBonus, HealAmount = d.HealAmount,
             RestoreMana = d.RestoreMana, MaxStack = d.MaxStack,
             BonusStrength = d.BonusStrength, BonusEndurance = d.BonusEndurance,

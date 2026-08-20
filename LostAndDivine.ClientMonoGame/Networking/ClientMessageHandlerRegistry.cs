@@ -700,6 +700,7 @@ internal static class ClientMessageHandlerRegistry
             Id = S("Id"), TemplateId = S("TemplateId"), Name = S("Name"), Type = S("Type"),
             WeaponSubtype = S("WeaponSubtype"), Icon = S("Icon"), Quantity = I("Quantity", 1), Value = I("Value"),
             Description = S("Description"), MaxHealthBonus = I("MaxHealthBonus"), MaxManaBonus = I("MaxManaBonus"),
+            Quality = (ItemQuality)I("Quality"),
             HealAmount = I("HealAmount"), RestoreMana = I("RestoreMana"), MaxStack = I("MaxStack", 10),
             BonusStrength = I("BonusStrength"), BonusEndurance = I("BonusEndurance"),
             BonusAgility = I("BonusAgility"), BonusCunning = I("BonusCunning"),

@@ -165,7 +165,7 @@ internal static class AccountRepository
             Speed = 5,
             Inventory = new List<Item>
             {
-                new Item { Name = "Меч новобранца", TemplateId = "W0002", Type = "weapon", Value = 30, DamageMin = 15, DamageMax = 15, Description = "Качество: Обычный", MaxStack = Balance.UniqueItemMaxStack },
+                new Item { Name = "Меч новобранца", TemplateId = "W0002", Type = "weapon", Value = 30, DamageMin = 15, DamageMax = 15, Description = "", Quality = ItemQuality.Common, MaxStack = Balance.UniqueItemMaxStack },
                 new Item { Name = "Зелье здоровья", Type = "consumable", Value = 20, HealAmount = 50, Description = "Восстанавливает 50 HP", MaxStack = Balance.DefaultMaxStack }
             },
             CreatedAt = DateTime.Now

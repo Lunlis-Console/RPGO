@@ -22,7 +22,8 @@ internal static class ItemRepository
                 quest_item,
                 max_mana_bonus,
                 icon,
-                magic_defense
+                magic_defense,
+                quality
                 FROM items";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -74,6 +75,7 @@ internal static class ItemRepository
                     MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
                     Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                     MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
+                    Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
                 });
             }
             return result;
@@ -97,7 +99,8 @@ internal static class ItemRepository
                 quest_item,
                 max_mana_bonus,
                 icon,
-                magic_defense
+                magic_defense,
+                quality
                 FROM items WHERE id = $id";
             cmd.Parameters.AddWithValue("$id", templateId);
             using var reader = cmd.ExecuteReader();
@@ -149,6 +152,7 @@ internal static class ItemRepository
                 MaxManaBonus = reader.IsDBNull(40) ? 0 : reader.GetInt32(40),
                 Icon = reader.IsDBNull(41) ? "" : reader.GetString(41),
                 MagicDefense = reader.IsDBNull(42) ? 0 : reader.GetInt32(42),
+                Quality = reader.IsDBNull(43) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(43),
             };
         }
     }
