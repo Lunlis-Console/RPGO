@@ -32,7 +32,8 @@ if (-not $iscc) {
     $pf86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
     $candidates = @(
         (Join-Path $pf86 "Inno Setup 6\ISCC.exe"),
-        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+        (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Inno Setup 6\ISCC.exe")
     )
     foreach ($c in $candidates) { if (Test-Path $c) { $iscc = $c; break } }
 }
@@ -44,6 +45,7 @@ if (-not $iscc) {
 
 Write-Host "== Compiling installer =="
 $iss = Join-Path $root "installer.iss"
-& $iscc.FullName "/DMyAppVersion=$Version" "$iss"
+$isccPath = if ($iscc -is [System.Management.Automation.CommandInfo]) { $iscc.Source } else { $iscc }
+& $isccPath "/DMyAppVersion=$Version" "$iss"
 if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
 Write-Host "Done: dist\LostAndDivine-Setup.exe"
