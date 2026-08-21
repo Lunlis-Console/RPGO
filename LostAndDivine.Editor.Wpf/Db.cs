@@ -12,10 +12,13 @@ namespace LostAndDivine.Editor;
 /// Доступ к базе (game.db и content.db), миграции, справочники и пути контента клиента.
 /// Все SQL-запросы — порт из WinForms-версии редактора.
 /// </summary>
-public sealed class Db
-{
-    public string DbFile { get; }
-    public string ContentDbFile { get; }
+    public sealed class Db
+    {
+        public string DbFile { get; }
+        /// <summary>Живой content.db, который читает работающий сервер (P0-3: НЕ трогаем напрямую).</summary>
+        public string LiveContentDbFile { get; }
+        /// <summary>Staging-копия content.editor.db, с которой работает редактор (Вариант А).</summary>
+        public string ContentDbFile { get; }
 
     public List<(string Id, string Name)> MonsterRefs { get; private set; } = new();
     public List<(string Id, string Name)> CollectibleRefs { get; private set; } = new();
@@ -34,17 +37,22 @@ public sealed class Db
     public Db(string dbFile)
     {
         DbFile = dbFile;
-        ContentDbFile = Path.Combine(Path.GetDirectoryName(dbFile) ?? ".", "content.db");
+        string dir = Path.GetDirectoryName(dbFile) ?? ".";
+        LiveContentDbFile = Path.Combine(dir, "content.db");
+        // Редактор работает с отдельной staging-копией, чтобы случайный/битый
+        // save не бил по живому content.db сервера (P0-3, Вариант А).
+        ContentDbFile = Path.Combine(dir, "content.editor.db");
     }
 
     public void InitAndLoadAll()
     {
         DbMigrationRunner.RunMigrations($"Data Source={DbFile}");
-        bool contentExisted = File.Exists(ContentDbFile);
+
+        // Staging-копия создаётся из живого content.db при первом запуске редактора.
+        EnsureStagingExists();
+
         string contentConn = $"Data Source={ContentDbFile}";
         DbMigrationRunner.RunMigrations(contentConn);
-        if (!contentExisted)
-            ContentDbSeeder.CopyContentFromRuntimeIfNew(contentConn, DbFile);
 
         LoadMonsterRefs();
         LoadCollectibleRefs();
@@ -53,6 +61,81 @@ public sealed class Db
         BuildNpcZoneMapFromTiled();
         LoadQuestRefs();
         LoadRewardItemRefs();
+    }
+
+    /// <summary>
+    /// Гарантирует наличие staging-копии content.editor.db. Если её нет, копирует
+    /// текущий живой content.db (если он есть) — редактор начинает с актуального контента.
+    /// </summary>
+    private void EnsureStagingExists()
+    {
+        if (File.Exists(ContentDbFile)) return;
+        if (File.Exists(LiveContentDbFile))
+            File.Copy(LiveContentDbFile, ContentDbFile);
+    }
+
+    /// <summary>
+    /// Публикация: атомарно переносит staging-контент (content.editor.db) в живой
+    /// content.db. Делается через SQL (ATTACH + копия таблиц в транзакции), что
+    /// устойчиво к удерживаемым сервером файловым блокировкам. Перед переносом
+    /// живой content.db бэкапится (VACUUM INTO). Редактор не пишет в live напрямую.
+    /// </summary>
+    public void PublishToLive()
+    {
+        if (!File.Exists(ContentDbFile))
+            throw new InvalidOperationException("Staging content.editor.db не найден — нечего публиковать.");
+
+        string stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        string backupPath = LiveContentDbFile + ".publishbak_" + stamp;
+
+        using var live = new SqliteConnection($"Data Source={LiveContentDbFile}");
+        live.Open();
+        using var staging = new SqliteConnection($"Data Source={ContentDbFile}");
+        staging.Open();
+
+        // Бэкап живого content.db перед перезаписью
+        using (var bk = live.CreateCommand())
+        {
+            bk.CommandText = $"VACUUM INTO '{backupPath.Replace("'", "''")}'";
+            bkSafe(bk);
+        }
+
+        // Подключаем staging как вторую БД и копируем таблицы в транзакции
+        using (var attach = live.CreateCommand())
+        {
+            attach.CommandText = $"ATTACH DATABASE '{ContentDbFile.Replace("\\", "/").Replace("'", "''")}' AS staging";
+            attach.ExecuteNonQuery();
+        }
+
+        using var tx = live.BeginTransaction();
+        foreach (var table in ContentDbSeeder.Tables)
+        {
+            // Пропускаем таблицы, которых нет в staging
+            bool inStaging;
+            using (var c = staging.CreateCommand())
+            {
+                c.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name=$t";
+                c.Parameters.AddWithValue("$t", table);
+                inStaging = c.ExecuteScalar() != null;
+            }
+            if (!inStaging) continue;
+
+            using var del = live.CreateCommand();
+            del.CommandText = $"DELETE FROM main.{table}";
+            del.ExecuteNonQuery();
+            using var ins = live.CreateCommand();
+            ins.CommandText = $"INSERT INTO main.{table} SELECT * FROM staging.{table}";
+            ins.ExecuteNonQuery();
+        }
+        tx.Commit();
+
+        Console.WriteLine($"[Editor] Контент опубликован в {LiveContentDbFile} (бэкап: {backupPath})");
+    }
+
+    private static void bkSafe(SqliteCommand bk)
+    {
+        try { bk.ExecuteNonQuery(); }
+        catch (Exception ex) { Console.WriteLine($"[Editor] WARNING: бэкап live content.db не удался: {ex.Message}"); }
     }
 
     // === справочники ===

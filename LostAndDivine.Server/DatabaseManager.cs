@@ -23,6 +23,14 @@ public static class DatabaseManager
         DbMigrationRunner.RunMigrations(Db.ConnectionString, allowDestructiveReset);
 
         bool contentExisted = File.Exists(Db.ContentPath);
+        // Если живого content.db нет, берём его из staging-копии редактора
+        // (content.editor.db), чтобы клон/другой ПК сразу получал актуальный контент.
+        if (!contentExisted)
+        {
+            string editorContent = Path.Combine(Path.GetDirectoryName(Db.ContentPath) ?? ".", "content.editor.db");
+            if (File.Exists(editorContent))
+                File.Copy(editorContent, Db.ContentPath);
+        }
         DbMigrationRunner.RunMigrations(Db.ContentConnectionString, allowDestructiveReset);
         if (!contentExisted)
             ContentDbSeeder.CopyContentFromRuntimeIfNew(Db.ContentConnectionString, Db.RuntimePath);

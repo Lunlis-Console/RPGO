@@ -41,6 +41,31 @@ public partial class MainWindow : Window
     public void Status(string text)
         => StatusText.Text = $"[{DateTime.Now:HH:mm:ss}] {text}";
 
+    private void PublishButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            PublishButton.IsEnabled = false;
+            Db.PublishToLive();
+            Status("Контент опубликован в живой content.db (старый бэкапирован).");
+            MessageBox.Show(
+                "Контент из content.editor.db опубликован в живой content.db сервера.\n" +
+                "Старый content.db предварительно сохранён в бэкап (content.db.publishbak_*).\n" +
+                "Чтобы сервер увидел изменения, перезапустите его или выполните перезагрузку контента.",
+                "Публикация контента", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            Status("Ошибка публикации: " + ex.Message);
+            MessageBox.Show("Не удалось опубликовать контент:\n" + ex.Message,
+                "Ошибка публикации", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            PublishButton.IsEnabled = true;
+        }
+    }
+
     public static string? PickDatabase()
     {
         var dlg = new OpenFileDialog

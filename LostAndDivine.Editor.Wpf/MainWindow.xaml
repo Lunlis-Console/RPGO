@@ -8,10 +8,15 @@
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <TabControl x:Name="Tabs" Grid.Row="0" Margin="4">
+        <ToolBar Grid.Row="0">
+            <Button x:Name="PublishButton" Content="Опубликовать контент" Click="PublishButton_Click"
+                    ToolTip="Скопировать контент из staging (content.editor.db) в живой content.db сервера"/>
+        </ToolBar>
+        <TabControl x:Name="Tabs" Grid.Row="1" Margin="4">
             <TabItem Header="Предметы">
                 <views:ItemsTabView x:Name="ItemsTab"/>
             </TabItem>
@@ -34,7 +39,7 @@
                 <views:AccountsTabView x:Name="AccountsTab"/>
             </TabItem>
         </TabControl>
-        <StatusBar Grid.Row="1">
+        <StatusBar Grid.Row="2">
             <StatusBarItem>
                 <TextBlock x:Name="StatusText" Text="Готово"/>
             </StatusBarItem>

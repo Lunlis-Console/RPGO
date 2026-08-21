@@ -36,7 +36,11 @@ CopilotIndices/
 ## Local database
 *.db
 *.db-journal
-!content.db
+# Живой content.db не коммитим — он производный от staging-копии редактора.
+# content.editor.db — источник правды контента, синхронизируется между ПК через git.
+!content.editor.db
 
 ## Migration backups (auto-generated before each migration run)
 DbBackups/
+## Editor publish backups of live content.db
+*.publishbak_*
