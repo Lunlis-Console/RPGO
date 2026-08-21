@@ -1,37 +1,5 @@
 ﻿namespace LostAndDivine.Shared.Models;
 
-public class PlayerData
-{
-    public int X { get; set; } = -1;
-    public int Y { get; set; } = -1;
-    public int Health { get; set; } = 100;
-    public int MaxHealth { get; set; } = 100;
-    public int Mana { get; set; } = 100;
-    public int Level { get; set; } = 1;
-    public int Experience { get; set; }
-    public int Gold { get; set; }
-    public int Strength { get; set; } = 1;
-    public int Endurance { get; set; } = 1;
-    public int Agility { get; set; } = 1;
-    public int Cunning { get; set; } = 1;
-    public int Intellect { get; set; } = 1;
-    public int Wisdom { get; set; } = 1;
-    public int AttributePoints { get; set; }
-    public int SkillPoints { get; set; }
-    public List<string> LearnedSkills { get; set; } = new();
-    public Dictionary<string, int> SkillRanks { get; set; } = new(); // SkillId > ранг (1=изучен)
-    public int Speed { get; set; } = 1;
-    public List<Item> Inventory { get; set; } = new();
-    public Equipment Equipment { get; set; } = new();
-    public List<QuestProgress> ActiveQuests { get; set; } = new();
-    public List<string> CompletedQuestIds { get; set; } = new();
-    // Время первого выполнения квеста (UTC ISO) по id — для истории в журнале
-    public Dictionary<string, string> CompletedQuestTimes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    public List<string?> HotbarSlots { get; set; } = new(10) { null, null, null, null, null, null, null, null, null, null };
-    public Guid? PartyId { get; set; }
-    public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
-}
-
 public class CharacterModel
 {
     public string Name { get; set; } = "";
