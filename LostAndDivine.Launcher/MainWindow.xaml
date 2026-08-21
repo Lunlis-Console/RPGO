@@ -35,16 +35,16 @@
 
         <!-- История изменений -->
         <GroupBox Grid.Row="2" Header="Что нового" Foreground="#c9a76b" BorderBrush="#3a3f5c">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl x:Name="ChangelogList">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,0,0,12">
-                                <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e8f0"/>
+                                <TextBlock Text="{Binding Title}" FontWeight="Bold" Foreground="#e8e8f0" TextWrapping="Wrap"/>
                                 <ItemsControl ItemsSource="{Binding Lines}" Margin="12,4,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <TextBlock Text="{Binding}" Foreground="#b9bcd6" Margin="0,2,0,0"/>
+                                            <TextBlock Text="{Binding}" Foreground="#b9bcd6" Margin="0,2,0,0" TextWrapping="Wrap"/>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

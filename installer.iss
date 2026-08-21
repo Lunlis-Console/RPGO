@@ -22,7 +22,7 @@ Compression=lzma2
 SolidCompression=yes
 ; Обновляемая игра не должна требовать прав админа:
 PrivilegesRequired=lowest
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
 DisableProgramGroupPage=no
 SetupIconFile=LostAndDivine.ClientMonoGame\Icon_Game.ico

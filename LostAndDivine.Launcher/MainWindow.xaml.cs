@@ -14,6 +14,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ChangelogItem> _changelog = new();
     private string _serverIp = "127.0.0.1";
     private bool _busy;
+    private bool _restarting;
 
     public MainWindow()
     {
@@ -24,9 +25,20 @@ public partial class MainWindow : Window
         ServerIpBox.Text = _serverIp;
         VersionLabel.Text = $"локальная v{GameUpdater.LocalVersion}";
 
-        CheckButton.Click += async (_, _) => await CheckUpdatesAsync();
+        CheckButton.Click += async (_, _) =>
+        {
+            await CheckUpdatesAsync();
+            // После проверки обновлений перезагружаем историю (она грузится с
+            // актуальным IP и отражает реальное состояние сервера, даже если
+            // IP был задан уже после старта лаунчера).
+            if (!_restarting) await LoadChangelogAsync();
+        };
         PlayButton.Click += (_, _) => Play();
-        SaveIpButton.Click += (_, _) => SaveServerIp(ServerIpBox.Text.Trim());
+        SaveIpButton.Click += async (_, _) =>
+        {
+            SaveServerIp(ServerIpBox.Text.Trim());
+            await LoadChangelogAsync();
+        };
 
         Loaded += async (_, _) => await StartupAsync();
     }
@@ -78,6 +90,7 @@ public partial class MainWindow : Window
             if (result.RestartRequired)
             {
                 // Обновление записано в staging — применяем и перезапускаем лаунчер.
+                _restarting = true;
                 GameUpdater.RestartToApply();
                 Application.Current.Shutdown();
                 return;
