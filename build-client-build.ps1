@@ -97,9 +97,10 @@ function Find-SigningKey {
     $localKey = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.key"
     if (Test-Path $localKey) { return $localKey }
 
-    # 3. Съёмные диски (флешки): ключ рядом с маркером LAD_KEYDRIVE.txt
-    $removable = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.DriveType -eq 'Removable' }
-    foreach ($d in $removable) {
+    # 3. Любые файловые диски (флешки могут определяться и как Fixed
+    #    после создания MBR-раздела): ключ рядом с маркером LAD_KEYDRIVE.txt
+    $drives = Get-PSDrive -PSProvider FileSystem
+    foreach ($d in $drives) {
         $root = $d.Root
         $marker = @(
             (Join-Path $root "LAD_KEYDRIVE.txt"),
@@ -116,8 +117,8 @@ function Find-SigningKey {
         if ($found) { return $found }
     }
 
-    # 4. Запасной поиск: ключ прямо на съёмном диске без маркера
-    foreach ($d in $removable) {
+    # 4. Запасной поиск: ключ прямо на диске без маркера
+    foreach ($d in $drives) {
         $root = $d.Root
         $found = @(
             (Join-Path $root "LostAndDivine\sign_private.xml"),
