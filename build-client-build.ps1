@@ -1,7 +1,8 @@
 param(
     [string]$Version,
     [string]$Config = "Release",
-    [switch]$NoZip
+    [switch]$NoZip,
+    [switch]$RequireKey
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,6 +37,92 @@ if (-not $Version) {
     }
 }
 Write-Host "Client version: $Version"
+
+# --- signing-key gate (fail-fast, до тяжёлой публикации) ---
+function Find-SigningKey {
+    # 1. Явный путь через переменную окружения
+    if ($env:LAD_SIGN_KEY_PATH -and (Test-Path $env:LAD_SIGN_KEY_PATH)) {
+        return $env:LAD_SIGN_KEY_PATH
+    }
+    # 2. Локальный профиль (по умолчанию)
+    $localXml = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.xml"
+    if (Test-Path $localXml) { return $localXml }
+    $localKey = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.key"
+    if (Test-Path $localKey) { return $localKey }
+
+    # 3. Любые файловые диски (флешки могут определяться и как Fixed
+    #    после создания MBR-раздела): ключ рядом с маркером LAD_KEYDRIVE.txt
+    $drives = Get-PSDrive -PSProvider FileSystem
+    foreach ($d in $drives) {
+        $root = $d.Root
+        $marker = @(
+            (Join-Path $root "LAD_KEYDRIVE.txt"),
+            (Join-Path $root "LostAndDivine\LAD_KEYDRIVE.txt")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $marker) { continue }
+        $markerDir = Split-Path $marker
+        $found = @(
+            (Join-Path $markerDir "sign_private.xml"),
+            (Join-Path $markerDir "sign_private.key"),
+            (Join-Path $root "LostAndDivine\sign_private.xml"),
+            (Join-Path $root "LostAndDivine\sign_private.key")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($found) { return $found }
+    }
+
+    # 4. Запасной поиск: ключ прямо на диске без маркера
+    foreach ($d in $drives) {
+        $root = $d.Root
+        $found = @(
+            (Join-Path $root "LostAndDivine\sign_private.xml"),
+            (Join-Path $root "LostAndDivine\sign_private.key"),
+            (Join-Path $root "sign_private.xml"),
+            (Join-Path $root "sign_private.key")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($found) { return $found }
+    }
+
+    return $null
+}
+
+function Find-UsbSigningKey {
+    # Ищем ТОЛЬКО на флешках: маркер LAD_KEYDRIVE.txt + рядом ключ.
+    # Локальный профиль (%LOCALAPPDATA%) НАМЕРЕННО игнорируем — для деплоя
+    # требуется физическая флешка.
+    $drives = Get-PSDrive -PSProvider FileSystem
+    foreach ($d in $drives) {
+        $root = $d.Root
+        $marker = @(
+            (Join-Path $root "LAD_KEYDRIVE.txt"),
+            (Join-Path $root "LostAndDivine\LAD_KEYDRIVE.txt")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $marker) { continue }
+        $markerDir = Split-Path $marker
+        $key = @(
+            (Join-Path $markerDir "sign_private.xml"),
+            (Join-Path $markerDir "sign_private.key"),
+            (Join-Path $root "LostAndDivine\sign_private.xml"),
+            (Join-Path $root "LostAndDivine\sign_private.key")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $key) { continue }
+        # Ключ должен читаться — значит, флешка разблокирована (BitLocker открыт)
+        try {
+            $null = Get-Content $key -TotalCount 1 -ErrorAction Stop
+            return $key
+        } catch {
+            return $null
+        }
+    }
+    return $null
+}
+
+if ($RequireKey) {
+    if (-not (Find-UsbSigningKey)) {
+        Write-Error "SIGNING KEY ON FLASH DRIVE NOT FOUND OR LOCKED.`n  Insert the USB drive that contains LAD_KEYDRIVE.txt and unlock BitLocker, then retry.`n  Deploy aborted: an UNSIGNED build must not be pushed to the server."
+        exit 1
+    }
+    Write-Host "Signing key found on flash drive."
+}
 
 # --- publish client (self-contained win-x64) ---
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
@@ -86,53 +173,21 @@ function Sign-Data($Bytes, $XmlKey) {
     $rsa.FromXmlString($XmlKey)
     [Convert]::ToBase64String($rsa.SignData($Bytes, "SHA256"))
 }
-function Find-SigningKey {
-    # 1. Явный путь через переменную окружения
-    if ($env:LAD_SIGN_KEY_PATH -and (Test-Path $env:LAD_SIGN_KEY_PATH)) {
-        return $env:LAD_SIGN_KEY_PATH
+# По умолчанию ключ ищется где угодно (локально, флешка, LAD_SIGN_KEY_PATH).
+# С -RequireKey требуем ИМЕННО флешку с маркером LAD_KEYDRIVE.txt, причём
+# разблокированную. Иначе — жёсткая ошибка: неподписанный билд не должен
+# уходить на сервер.
+if ($RequireKey) {
+    $keyPath = Find-UsbSigningKey
+    if (-not $keyPath) {
+        Write-Error "SIGNING KEY ON FLASH DRIVE NOT FOUND OR LOCKED.`n  Insert the USB drive that contains LAD_KEYDRIVE.txt and unlock BitLocker, then retry.`n  Deploy aborted: an UNSIGNED build must not be pushed to the server."
+        exit 1
     }
-    # 2. Локальный профиль (по умолчанию)
-    $localXml = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.xml"
-    if (Test-Path $localXml) { return $localXml }
-    $localKey = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.key"
-    if (Test-Path $localKey) { return $localKey }
-
-    # 3. Любые файловые диски (флешки могут определяться и как Fixed
-    #    после создания MBR-раздела): ключ рядом с маркером LAD_KEYDRIVE.txt
-    $drives = Get-PSDrive -PSProvider FileSystem
-    foreach ($d in $drives) {
-        $root = $d.Root
-        $marker = @(
-            (Join-Path $root "LAD_KEYDRIVE.txt"),
-            (Join-Path $root "LostAndDivine\LAD_KEYDRIVE.txt")
-        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if (-not $marker) { continue }
-        $markerDir = Split-Path $marker
-        $found = @(
-            (Join-Path $markerDir "sign_private.xml"),
-            (Join-Path $markerDir "sign_private.key"),
-            (Join-Path $root "LostAndDivine\sign_private.xml"),
-            (Join-Path $root "LostAndDivine\sign_private.key")
-        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($found) { return $found }
-    }
-
-    # 4. Запасной поиск: ключ прямо на диске без маркера
-    foreach ($d in $drives) {
-        $root = $d.Root
-        $found = @(
-            (Join-Path $root "LostAndDivine\sign_private.xml"),
-            (Join-Path $root "LostAndDivine\sign_private.key"),
-            (Join-Path $root "sign_private.xml"),
-            (Join-Path $root "sign_private.key")
-        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
-        if ($found) { return $found }
-    }
-
-    return $null
+    Write-Host "Signing key found on flash drive: $keyPath"
+} else {
+    $keyPath = Find-SigningKey
 }
 
-$keyPath = Find-SigningKey
 if (Test-Path $keyPath) {
     $xml = Get-Content $keyPath -Raw
     $inputBytes = Build-SignInput -Version $Version -Entries $entries

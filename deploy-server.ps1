@@ -10,8 +10,8 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
 Write-Host "=== 0. Building client ==="
-& "$root\build-client-build.ps1"
-if ($LASTEXITCODE -ne 0) { throw "Client build failed" }
+& "$root\build-client-build.ps1" -RequireKey
+if ($LASTEXITCODE -ne 0) { throw "Client build failed (signing key on flash drive required)" }
 Write-Host "  Client zip: dist\LostAndDivine-client-win-x64.zip (для раздачи друзьям)"
 
 Write-Host "`n=== 0.1. Building installer (Setup.exe) ==="
