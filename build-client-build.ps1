@@ -86,8 +86,52 @@ function Sign-Data($Bytes, $XmlKey) {
     $rsa.FromXmlString($XmlKey)
     [Convert]::ToBase64String($rsa.SignData($Bytes, "SHA256"))
 }
-$keyPath = $env:LAD_SIGN_KEY_PATH
-if (-not $keyPath) { $keyPath = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.xml" }
+function Find-SigningKey {
+    # 1. Явный путь через переменную окружения
+    if ($env:LAD_SIGN_KEY_PATH -and (Test-Path $env:LAD_SIGN_KEY_PATH)) {
+        return $env:LAD_SIGN_KEY_PATH
+    }
+    # 2. Локальный профиль (по умолчанию)
+    $localXml = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.xml"
+    if (Test-Path $localXml) { return $localXml }
+    $localKey = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.key"
+    if (Test-Path $localKey) { return $localKey }
+
+    # 3. Съёмные диски (флешки): ключ рядом с маркером LAD_KEYDRIVE.txt
+    $removable = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.DriveType -eq 'Removable' }
+    foreach ($d in $removable) {
+        $root = $d.Root
+        $marker = @(
+            (Join-Path $root "LAD_KEYDRIVE.txt"),
+            (Join-Path $root "LostAndDivine\LAD_KEYDRIVE.txt")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $marker) { continue }
+        $markerDir = Split-Path $marker
+        $found = @(
+            (Join-Path $markerDir "sign_private.xml"),
+            (Join-Path $markerDir "sign_private.key"),
+            (Join-Path $root "LostAndDivine\sign_private.xml"),
+            (Join-Path $root "LostAndDivine\sign_private.key")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($found) { return $found }
+    }
+
+    # 4. Запасной поиск: ключ прямо на съёмном диске без маркера
+    foreach ($d in $removable) {
+        $root = $d.Root
+        $found = @(
+            (Join-Path $root "LostAndDivine\sign_private.xml"),
+            (Join-Path $root "LostAndDivine\sign_private.key"),
+            (Join-Path $root "sign_private.xml"),
+            (Join-Path $root "sign_private.key")
+        ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($found) { return $found }
+    }
+
+    return $null
+}
+
+$keyPath = Find-SigningKey
 if (Test-Path $keyPath) {
     $xml = Get-Content $keyPath -Raw
     $inputBytes = Build-SignInput -Version $Version -Entries $entries
@@ -95,7 +139,7 @@ if (Test-Path $keyPath) {
     Set-Content (Join-Path $clientBuildDir "manifest.sig") $sig -Encoding ASCII
     Write-Host "Manifest SIGNED -> manifest.sig"
 } else {
-    Write-Warning "PRIVATE KEY NOT FOUND at '$keyPath'. Build is UNSIGNED; published clients will REJECT the update. Place the key at the default path or set LAD_SIGN_KEY_PATH."
+    Write-Warning "PRIVATE KEY NOT FOUND. Build is UNSIGNED; published clients will REJECT the update. Put the key at %LOCALAPPDATA%\LostAndDivine\sign_private.xml, on a USB drive (with LAD_KEYDRIVE.txt marker), or set LAD_SIGN_KEY_PATH."
 }
 
 # --- copy combined (без version.json) в client_build/files (сервер раздаёт) ---

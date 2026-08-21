@@ -3,7 +3,8 @@ namespace LostAndDivine.Shared;
 /// <summary>
 /// Публичный ключ для проверки подписи манифеста обновлений клиента.
 /// Приватный ключ НАМЕРЕННО НЕ лежит в репозитории — он только на машине сборки
-/// (по умолчанию %LOCALAPPDATA%\LostAndDivine\sign_private.xml или путь в LAD_SIGN_KEY_PATH).
+/// (по умолчанию %LOCALAPPDATA%\LostAndDivine\sign_private.xml, на съёмном диске
+/// с маркером LAD_KEYDRIVE.txt, или путь в LAD_SIGN_KEY_PATH).
 /// </summary>
 public static class SigningKeys
 {
