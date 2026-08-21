@@ -8,6 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>LostAndDivine.Launcher</RootNamespace>
     <AssemblyName>LostAndDivine.Launcher</AssemblyName>
+    <ApplicationIcon>..\LostAndDivine.ClientMonoGame\Icon_Game.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>LostAndDivine.ClientMonoGame</RootNamespace>
+    <ApplicationIcon>Icon_Game.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <MonoGamePlatform>DesktopGL</MonoGamePlatform>
     <MGCBTool>$(USERPROFILE)\.dotnet\tools\mgcb.exe</MGCBTool>

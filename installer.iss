@@ -25,6 +25,7 @@ PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
 DisableProgramGroupPage=no
+SetupIconFile=LostAndDivine.ClientMonoGame\Icon_Game.ico
 
 [Languages]
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
