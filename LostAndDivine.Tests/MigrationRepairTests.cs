@@ -11,6 +11,21 @@ public class MigrationRepairTests
     {
         SqliteConnection.ClearAllPools();
         File.Delete(db);
+        try
+        {
+            string backupDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(db))!, "DbBackups");
+            if (Directory.Exists(backupDir))
+                Directory.Delete(backupDir, recursive: true);
+        }
+        catch { }
+    }
+
+    private static bool BackupExists(string db)
+    {
+        string backupDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(db))!, "DbBackups");
+        if (!Directory.Exists(backupDir)) return false;
+        string baseName = Path.GetFileNameWithoutExtension(db);
+        return new DirectoryInfo(backupDir).GetFiles($"{baseName}_*.bak").Length > 0;
     }
 
     [Fact]
@@ -93,14 +108,14 @@ public class MigrationRepairTests
             Assert.Throws<MigrationException>(() => DbMigrationRunner.RunMigrations($"Data Source={db}"));
 
             // Данные должны уцелеть: бэкап и таблицы на месте
-            Assert.True(File.Exists(db + ".bak"));
+            Assert.True(BackupExists(db));
             using var conn2 = new SqliteConnection($"Data Source={db}");
             conn2.Open();
             using var cmd2 = conn2.CreateCommand();
             cmd2.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'";
             Assert.NotNull(cmd2.ExecuteScalar());
         }
-        finally { Cleanup(db); Cleanup(db + ".bak"); }
+        finally { Cleanup(db); }
     }
 
     [Fact]
@@ -127,7 +142,7 @@ public class MigrationRepairTests
             cmd2.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'";
             Assert.NotNull(cmd2.ExecuteScalar());
         }
-        finally { Cleanup(db); Cleanup(db + ".bak"); }
+        finally { Cleanup(db); }
     }
 
     [Fact]

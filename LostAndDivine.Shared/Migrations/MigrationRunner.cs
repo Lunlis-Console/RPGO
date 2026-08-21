@@ -134,9 +134,13 @@ public static class DbMigrationRunner
 
         try
         {
-            string backupPath = dbPath + ".bak";
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
+            string dbDir = Path.GetDirectoryName(Path.GetFullPath(dbPath))!;
+            string backupDir = Path.Combine(dbDir, "DbBackups");
+            Directory.CreateDirectory(backupDir);
+
+            string stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            string baseName = Path.GetFileNameWithoutExtension(dbPath);
+            string backupPath = Path.Combine(backupDir, $"{baseName}_{stamp}.bak");
 
             // VACUUM INTO даёт консистентную онлайн-копию БД без необходимости
             // ручного копирования sidecar-файлов (-wal/-shm).
@@ -146,6 +150,8 @@ public static class DbMigrationRunner
             cmd.CommandText = $"VACUUM INTO '{backupPath.Replace("'", "''")}'";
             cmd.ExecuteNonQuery();
 
+            RotateBackups(backupDir, baseName);
+
             Console.WriteLine($"[Migrations] Pre-migration backup saved: {backupPath}");
         }
         catch (Exception ex)
@@ -153,6 +159,20 @@ public static class DbMigrationRunner
             // Бэкап — мера безопасности; если он не удался, продолжаем миграцию,
             // но предупреждаем (в отличие от дропа — здесь данные ещё целы).
             Console.WriteLine($"[Migrations] WARNING: pre-migration backup failed: {ex.Message}");
+        }
+    }
+
+    private static void RotateBackups(string backupDir, string baseName)
+    {
+        const int keep = 5;
+        var old = new DirectoryInfo(backupDir)
+            .GetFiles($"{baseName}_*.bak")
+            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .Skip(keep)
+            .ToArray();
+        foreach (var f in old)
+        {
+            try { f.Delete(); } catch { }
         }
     }
 

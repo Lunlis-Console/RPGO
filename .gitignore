@@ -37,3 +37,6 @@ CopilotIndices/
 *.db
 *.db-journal
 !content.db
+
+## Migration backups (auto-generated before each migration run)
+DbBackups/
