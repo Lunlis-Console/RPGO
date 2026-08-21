@@ -44,3 +44,6 @@ CopilotIndices/
 DbBackups/
 ## Editor publish backups of live content.db
 *.publishbak_*
+## Signing keys (PRIVATE — никогда не коммитим; лежат вне репозитория)
+sign_private*
+LostAndDivine.Secrets/

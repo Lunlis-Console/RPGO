@@ -37,7 +37,17 @@ public class ClientBuildService
         {
             string json = File.ReadAllText(Path.Combine(dir, "manifest.json"));
             Info = JsonSerializer.Deserialize<UpdateInfo>(json, JsonOpts);
-            Log.Info($"Манифест клиента загружен: v{Info?.Version} ({Info?.Files.Count ?? 0} файлов)");
+
+            // Подпись манифеста (генерируется при сборке приватным ключом). Без неё
+            // опубликованные клиенты откажутся обновляться (защита от подмены).
+            string sigPath = Path.Combine(dir, "manifest.sig");
+            if (File.Exists(sigPath) && Info != null)
+            {
+                try { Info.Signature = File.ReadAllText(sigPath).Trim(); }
+                catch (Exception ex) { Log.Warn($"Не удалось прочитать manifest.sig: {ex.Message}"); }
+            }
+
+            Log.Info($"Манифест клиента загружен: v{Info?.Version} ({Info?.Files.Count ?? 0} файлов){(string.IsNullOrEmpty(Info?.Signature) ? ", БЕЗ ПОДПИСИ" : ", подписан")}");
         }
         catch (Exception ex)
         {

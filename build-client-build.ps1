@@ -61,6 +61,45 @@ $entries = foreach ($f in $files) {
 @{ Version = $Version; Files = @($entries) } | ConvertTo-Json -Depth 4 | Set-Content $manifestFile -Encoding UTF8
 Write-Host "Manifest: $($entries.Count) files -> $manifestFile"
 
+# --- sign manifest (private key, optional) ---
+# Подпись ставится на детерминированный отпечаток манифеста (версия + список файлов).
+# Приватный ключ НЕ в репозитории: по умолчанию %LOCALAPPDATA%\LostAndDivine\sign_private.xml
+# либо путь в переменной LAD_SIGN_KEY_PATH. Без ключа билд остаётся неподписанным
+# (это нормально для локальной разработки, но опубликованные клиенты его отвергнут).
+function Build-SignInput($Version, $Entries) {
+    $sb = New-Object System.Text.StringBuilder
+    $null = $sb.Append($Version)
+    $null = $sb.Append([char]10)
+    foreach ($e in ($Entries | Sort-Object { ($_.Path).ToLowerInvariant() })) {
+        $null = $sb.Append($e.Path)
+        $null = $sb.Append('|')
+        $null = $sb.Append($e.Sha256)
+        $null = $sb.Append('|')
+        $null = $sb.Append([string]$e.Size)
+        $null = $sb.Append([char]10)
+    }
+    [System.Text.Encoding]::UTF8.GetBytes($sb.ToString())
+}
+
+function Sign-Data($Bytes, $XmlKey) {
+    $rsa = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+    $rsa.FromXmlString($XmlKey)
+    $sig = $rsa.SignData($Bytes, "SHA256")
+    [Convert]::ToBase64String($sig)
+}
+
+$keyPath = $env:LAD_SIGN_KEY_PATH
+if (-not $keyPath) { $keyPath = Join-Path $env:LOCALAPPDATA "LostAndDivine\sign_private.xml" }
+if (Test-Path $keyPath) {
+    $xml = Get-Content $keyPath -Raw
+    $inputBytes = Build-SignInput -Version $Version -Entries $entries
+    $sig = Sign-Data -Bytes $inputBytes -XmlKey $xml
+    Set-Content (Join-Path $clientBuildDir "manifest.sig") $sig -Encoding ASCII
+    Write-Host "Manifest SIGNED -> manifest.sig"
+} else {
+    Write-Warning "PRIVATE KEY NOT FOUND at '$keyPath'. Build is UNSIGNED; published clients will REJECT the update. Place the key at the default path or set LAD_SIGN_KEY_PATH."
+}
+
 # --- copy files into client_build (server serves them) ---
 if (Test-Path $filesDir) { Remove-Item -Recurse -Force $filesDir }
 Copy-Item -Recurse -Path $publishDir -Destination $filesDir

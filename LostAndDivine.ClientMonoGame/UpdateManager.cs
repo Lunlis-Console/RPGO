@@ -1,4 +1,5 @@
-﻿using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using System.Diagnostics;
 using System.Net.Sockets;
@@ -83,6 +84,15 @@ public static class UpdateManager
                 {
                     Message = $"Dev-сборка: version.json отсутствует, авто-обновление отключено (сервер раздаёт v{info.Version})"
                 };
+
+            // Опубликованный клиент: манифест обязан быть подписан и валиден.
+            // Без валидной подписи обновление отклоняется (защита от подмены/ MITM).
+            if (string.IsNullOrWhiteSpace(info.Signature) || !UpdateSigner.Verify(info, SigningKeys.PublicKeyPem))
+                return new UpdateCheckResult { Message = "Обновление отклонено: подпись манифеста недействительна (возможно, подмена)." };
+
+            // Защита от отката версии (downgrade-атаки).
+            if (CompareVersions(info.Version, localVersion) < 0)
+                return new UpdateCheckResult { Message = $"Обновление отклонено: сервер предлагает более старую версию ({info.Version} < {localVersion})." };
 
             if (string.Equals(info.Version, localVersion, StringComparison.OrdinalIgnoreCase))
                 return new UpdateCheckResult { Message = $"Обновление не требуется — версия актуальна (v{localVersion})" };
@@ -240,6 +250,21 @@ public static class UpdateManager
 
     private static void WriteVersionFile(string path, string version)
         => File.WriteAllText(path, JsonSerializer.Serialize(new { version }));
+
+    /// <summary>Сравнивает версии вида a.b.c.d. Возвращает &lt;0, 0 или &gt;0.</summary>
+    private static int CompareVersions(string a, string b)
+    {
+        var pa = (a ?? "").Split('.');
+        var pb = (b ?? "").Split('.');
+        int n = Math.Max(pa.Length, pb.Length);
+        for (int i = 0; i < n; i++)
+        {
+            int xa = i < pa.Length && int.TryParse(pa[i], out var va) ? va : 0;
+            int xb = i < pb.Length && int.TryParse(pb[i], out var vb) ? vb : 0;
+            if (xa != xb) return xa.CompareTo(xb);
+        }
+        return 0;
+    }
 
     private static bool HashMatches(string path, string expectedSha)
     {
