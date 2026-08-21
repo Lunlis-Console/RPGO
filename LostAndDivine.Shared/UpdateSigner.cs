@@ -24,7 +24,10 @@ public static class UpdateSigner
             sb.Append('|');
             sb.Append(f.Sha256 ?? "");
             sb.Append('|');
-            sb.Append(f.Size);
+            // Инвариантное форматирование размера: иначе под ru-RU получаем
+            // "1 234 567" (с разделителем), а на машине сборки — "1234567",
+            // байты подписи расходятся и подпись манифеста не проходит.
+            sb.Append(f.Size.ToString(System.Globalization.CultureInfo.InvariantCulture));
             sb.Append('\n');
         }
         return Encoding.UTF8.GetBytes(sb.ToString());

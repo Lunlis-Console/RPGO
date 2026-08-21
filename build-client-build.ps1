@@ -153,6 +153,12 @@ $entries = foreach ($f in $files) {
     $hash = (Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLowerInvariant()
     [pscustomobject]@{ Path = $rel; Size = $f.Length; Sha256 = $hash }
 }
+# Сортируем ординально (IgnoreCase) — как делает клиент (StringComparer.OrdinalIgnoreCase).
+# Культурная сортировка PowerShell иначе ставит, напр., "dragon_baby.png" раньше
+# "dragon.png" (из-за '_' vs '.'), что расходится с клиентом и ломает проверку подписи.
+$entriesArr = [object[]]$entries
+[System.Array]::Sort($entriesArr, [System.Comparison[object]] { param($a,$b) [string]::Compare($a.Path, $b.Path, [System.StringComparison]::OrdinalIgnoreCase) })
+$entries = $entriesArr
 @{ Version = $Version; Files = @($entries) } | ConvertTo-Json -Depth 4 | Set-Content $manifestFile -Encoding UTF8
 Write-Host "Manifest: $($entries.Count) files -> $manifestFile"
 
@@ -161,10 +167,18 @@ function Build-SignInput($Version, $Entries) {
     $sb = New-Object System.Text.StringBuilder
     $null = $sb.Append($Version)
     $null = $sb.Append([char]10)
-    foreach ($e in ($Entries | Sort-Object { ($_.Path).ToLowerInvariant() })) {
+    # Сортируем строго ординально (IgnoreCase), как клиент (StringComparer.OrdinalIgnoreCase).
+    $arr = [object[]]$Entries
+    [System.Array]::Sort($arr, [System.Comparison[object]] {
+        param($a, $b)
+        [string]::Compare($a.Path, $b.Path, [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    foreach ($e in $arr) {
         $null = $sb.Append($e.Path); $null = $sb.Append('|')
         $null = $sb.Append($e.Sha256); $null = $sb.Append('|')
-        $null = $sb.Append([string]$e.Size); $null = $sb.Append([char]10)
+        # Инвариантное форматирование размера: иначе под ru-RU [string]$size даёт
+        # "1 234 567" (с разделителем), а клиент (C#) пишет "1234567" -> подпись не проходит.
+        $null = $sb.Append($e.Size.ToString([System.Globalization.CultureInfo]::InvariantCulture)); $null = $sb.Append([char]10)
     }
     [System.Text.Encoding]::UTF8.GetBytes($sb.ToString())
 }
