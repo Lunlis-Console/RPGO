@@ -168,6 +168,32 @@ public class ClientBuildService
                 return true;
             }
 
+            case "changelog":
+            {
+                // История изменений доступна без входа в игру (её показывает лаунчер).
+                if (Changelog != null)
+                {
+                    await hub.SendToClient(connection, new GameMessage
+                    {
+                        Type = "changelog",
+                        Data = new ChangelogData
+                        {
+                            Version = Info?.Version ?? Changelog.Version,
+                            Entries = Changelog.Entries
+                        }
+                    });
+                }
+                else
+                {
+                    await hub.SendToClient(connection, new GameMessage
+                    {
+                        Type = "changelog",
+                        Data = new ChangelogData { Version = Info?.Version ?? "", Entries = new() }
+                    });
+                }
+                return true;
+            }
+
             case "ping":
             {
                 var ping = Deserialize<PingMessage>(message.Data);
