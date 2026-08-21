@@ -161,15 +161,26 @@ public sealed class GameServer : INetworkHub
 
         var sendTasks = new List<Task>(clientsCopy.Count);
         var dirtySnapshot = _dirtyZones.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        bool hasDirtyZones = dirtySnapshot.Count > 0;
+
+        // Быстрый выход: если нет грязных зон и все клиенты уже получили тайлы
+        // своей зоны — пересборка карты не нужна (P2-7, 500+ CCU). Избегаем
+        // сбора всех монстров/NPC/порталов и рассылки по всем подключениям.
+        if (dirtySnapshot.Count == 0 &&
+            clientsCopy.All(c => c.HasTilesSent(c.Player!.CurrentZoneId)))
+            return;
 
         foreach (var client in clientsCopy)
         {
             var player = client.Player!;
             string zoneId = player.CurrentZoneId;
 
-            // Skip clients in zones with no changes (unless first send)
-            if (hasDirtyZones && !dirtySnapshot.Contains(zoneId) && client.HasTilesSent(zoneId))
+            // Skip clients in zones with no changes (unless first send).
+            // Корректное поведение: клиент пропускается, если его зона не помечена
+            // грязной (MarkZoneDirty) и тайлы уже получены — повторная полная
+            // пересборка карты не нужна. Ранее пропуск срабатывал только при
+            // наличии грязных зон, из-за чего при отсутствии изменений (logout и т.п.)
+            // всё равно пересобиралась карта для каждого клиента (P2-7, 500+ CCU).
+            if (!dirtySnapshot.Contains(zoneId) && client.HasTilesSent(zoneId))
                 continue;
 
             var zone = svc.Zones.GetZone(zoneId);
