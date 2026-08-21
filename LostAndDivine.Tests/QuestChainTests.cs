@@ -13,7 +13,7 @@ public class QuestChainTests
     }
 
     private static QuestDefinition Def(string id, string prereq = "", int minLevel = 1)
-        => new QuestDefinition { Id = id, PrerequisiteQuestId = prereq, MinLevel = minLevel, Type = "kill", Target = 1 };
+        => new QuestDefinition { Id = id, PrerequisiteQuestId = prereq, MinLevel = minLevel, TypeEnum = QuestType.Kill, Target = 1 };
 
     private static Player Player(int level = 1)
         => new Player { Name = "Tester", Level = level };
@@ -148,7 +148,7 @@ public class QuestChainTests
     [Fact]
     public void IncrementTalkProgress_MarksCompleteAtTarget()
     {
-        var def = new QuestDefinition { Id = "Q0020", Type = "talk", TargetNpcId = "N0003", Target = 2 };
+        var def = new QuestDefinition { Id = "Q0020", TypeEnum = QuestType.Talk, TargetNpcId = "N0003", Target = 2 };
         var qm = CreateManager(def);
 
         var p = Player();
@@ -164,7 +164,7 @@ public class QuestChainTests
     [Fact]
     public void IncrementTravelProgress_ReachesCoordinates()
     {
-        var def = new QuestDefinition { Id = "Q0030", Type = "travel", TargetX = 10, TargetY = 12, Target = 1 };
+        var def = new QuestDefinition { Id = "Q0030", TypeEnum = QuestType.Travel, TargetX = 10, TargetY = 12, Target = 1 };
         var qm = CreateManager(def);
 
         var p = Player();
@@ -183,7 +183,7 @@ public class QuestChainTests
     [Fact]
     public void IncrementTravelProgress_ReachesNpc()
     {
-        var def = new QuestDefinition { Id = "Q0031", Type = "travel", TargetNpcId = "N0005", Target = 1 };
+        var def = new QuestDefinition { Id = "Q0031", TypeEnum = QuestType.Travel, TargetNpcId = "N0005", Target = 1 };
         var qm = CreateManager(def);
         qm.NpcLookup = (zoneId, npcId) => npcId == "N0005" && zoneId == "zone_main"
             ? new NpcPosition { Id = "N0005", ZoneId = "zone_main", X = 20, Y = 25 }
@@ -204,7 +204,7 @@ public class QuestChainTests
     [Fact]
     public void IncrementUseProgress_CountsConsumedItems()
     {
-        var def = new QuestDefinition { Id = "Q0032", Type = "use", TargetItemId = "I0020", Target = 3 };
+        var def = new QuestDefinition { Id = "Q0032", TypeEnum = QuestType.Use, TargetItemId = "I0020", Target = 3 };
         var qm = CreateManager(def);
 
         var p = Player();
@@ -225,7 +225,7 @@ public class QuestChainTests
     [Fact]
     public void IncrementExploreProgress_CompletesOnZoneEnter()
     {
-        var def = new QuestDefinition { Id = "Q0033", Type = "explore", TargetZoneId = "zone_forest", Target = 1 };
+        var def = new QuestDefinition { Id = "Q0033", TypeEnum = QuestType.Explore, TargetZoneId = "zone_forest", Target = 1 };
         var qm = CreateManager(def);
 
         var p = Player();
@@ -242,7 +242,7 @@ public class QuestChainTests
     [Fact]
     public void TryAutoGrant_GrantsMatchingQuestOnce()
     {
-        var def = new QuestDefinition { Id = "Q0040", Type = "kill", Target = 1, AutoGrant = true, TargetZoneId = "zone_main" };
+        var def = new QuestDefinition { Id = "Q0040", TypeEnum = QuestType.Kill, Target = 1, AutoGrant = true, TargetZoneId = "zone_main" };
         var qm = CreateManager(def);
 
         var p = Player();
@@ -259,7 +259,7 @@ public class QuestChainTests
     [Fact]
     public void TryAutoGrant_RespectsPrerequisite()
     {
-        var second = new QuestDefinition { Id = "Q0042", Type = "kill", Target = 1, AutoGrant = true, PrerequisiteQuestId = "Q0041" };
+        var second = new QuestDefinition { Id = "Q0042", TypeEnum = QuestType.Kill, Target = 1, AutoGrant = true, PrerequisiteQuestId = "Q0041" };
         var qm = CreateManager(second);
 
         var p = Player();
@@ -303,7 +303,7 @@ public class QuestChainTests
     [Fact]
     public void GetObjectives_BuildsFromLegacyFields()
     {
-        var def = new QuestDefinition { Id = "Q", Type = "kill", TargetMonsterId = "M0001", Target = 5 };
+        var def = new QuestDefinition { Id = "Q", TypeEnum = QuestType.Kill, TargetMonsterId = "M0001", Target = 5 };
         var objectives = QuestManager.GetObjectives(def);
         Assert.Single(objectives);
         Assert.Equal("kill", objectives[0].Type);
@@ -390,5 +390,6 @@ public class QuestChainTests
         Assert.Single(p.ActiveQuests);
     }
 }
+
 
 

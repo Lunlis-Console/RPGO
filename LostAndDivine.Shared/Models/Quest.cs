@@ -6,6 +6,8 @@ public class QuestDefinition
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public string Type { get; set; } = "kill";           // kill / collect / talk / travel / use / explore
+    [System.Text.Json.Serialization.JsonIgnore]
+    public QuestType TypeEnum { get => QuestTypeExtensions.Parse(Type); set => Type = value.ToDisplayString(); }
     public string TargetMonsterId { get; set; } = "";   // M0001...
     public string TargetItemId { get; set; } = "";       // I0015...
     public string TargetNpcId { get; set; } = "";        // N0001... (для talk/travel-квестов)
@@ -39,6 +41,8 @@ public class QuestDefinition
 public class QuestObjective
 {
     public string Type { get; set; } = "kill";            // kill / collect / talk / travel / use / explore
+    [System.Text.Json.Serialization.JsonIgnore]
+    public QuestType TypeEnum { get => QuestTypeExtensions.Parse(Type); set => Type = value.ToDisplayString(); }
     public string Target { get; set; } = "";              // Монстр / предмет / NPC / зона
     public int TargetX { get; set; }                      // Точка на карте (travel)
     public int TargetY { get; set; }

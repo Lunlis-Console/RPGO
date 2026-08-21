@@ -1,4 +1,4 @@
-using LostAndDivine.Server;
+﻿using LostAndDivine.Server;
 using LostAndDivine.Shared.Migrations;
 using LostAndDivine.Shared.Models;
 using Microsoft.Data.Sqlite;
@@ -29,8 +29,8 @@ public class QuestStageTests
     {
         var objectives = new List<QuestObjective>
         {
-            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
-            new() { Type = "talk", Target = "N0003", Count = 1, Stage = 1 }
+            new() { TypeEnum = QuestType.Kill, Target = "M0006", Count = 5, Stage = 0 },
+            new() { TypeEnum = QuestType.Talk, Target = "N0003", Count = 1, Stage = 1 }
         };
         var currents = new List<int> { 0, 0 };
 
@@ -46,9 +46,9 @@ public class QuestStageTests
     {
         var objectives = new List<QuestObjective>
         {
-            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
-            new() { Type = "kill", Target = "M0013", Count = 3, Stage = 0 },
-            new() { Type = "talk", Target = "N0003", Count = 1, Stage = 1 }
+            new() { TypeEnum = QuestType.Kill, Target = "M0006", Count = 5, Stage = 0 },
+            new() { TypeEnum = QuestType.Kill, Target = "M0013", Count = 3, Stage = 0 },
+            new() { TypeEnum = QuestType.Talk, Target = "N0003", Count = 1, Stage = 1 }
         };
         var currents = new List<int> { 0, 0, 0 };
 
@@ -112,8 +112,8 @@ public class QuestStageTests
     {
         var objectives = new List<QuestObjective>
         {
-            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
-            new() { Type = "talk", Target = "N0003", Count = 1, Stage = 1 }
+            new() { TypeEnum = QuestType.Kill, Target = "M0006", Count = 5, Stage = 0 },
+            new() { TypeEnum = QuestType.Talk, Target = "N0003", Count = 1, Stage = 1 }
         };
 
         Assert.False(QuestManager.IsReadyToComplete(objectives, new List<int> { 4, 0 }));
@@ -128,8 +128,8 @@ public class QuestStageTests
     {
         var objectives = new List<QuestObjective>
         {
-            new() { Type = "kill", Target = "M0006", Count = 5, Stage = 0 },
-            new() { Type = "kill", Target = "M0013", Count = 3, Stage = 0 }
+            new() { TypeEnum = QuestType.Kill, Target = "M0006", Count = 5, Stage = 0 },
+            new() { TypeEnum = QuestType.Kill, Target = "M0013", Count = 3, Stage = 0 }
         };
 
         Assert.False(QuestManager.IsReadyToComplete(objectives, new List<int> { 5, 2 }));

@@ -1,4 +1,4 @@
-using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Tests;
 
@@ -29,7 +29,7 @@ public class QuestProgressTests
         {
             Id = "Q0001",
             Title = "Test",
-            Type = "kill",
+            TypeEnum = QuestType.Kill,
             Target = 5,
             XpReward = 100,
             GoldReward = 50
@@ -50,3 +50,4 @@ public class QuestProgressTests
         Assert.Equal(7, q2.Current);
     }
 }
+
