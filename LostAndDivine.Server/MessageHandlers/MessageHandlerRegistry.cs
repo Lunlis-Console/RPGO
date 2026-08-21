@@ -91,5 +91,6 @@ public class MessageHandlerRegistry
         Register("tile_request", new TileRequestHandler(svc));
         Register("sector_request", new SectorRequestHandler(svc));
         Register("leave_instance", new LeaveInstanceHandler(svc));
+        Register("upgrade_item", new UpgradeItemHandler(svc));
     }
 }

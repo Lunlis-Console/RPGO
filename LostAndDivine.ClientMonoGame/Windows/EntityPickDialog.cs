@@ -100,6 +100,7 @@ namespace LostAndDivine.ClientMonoGame.Windows
                     "player" => $"👤 {e.Name} [Ур.{e.Level}] HP {e.Hp}/{e.MaxHp}",
                     "merchant" => $"Магазин: {e.Name}",
                     "board" => "Доска заданий",
+                    "blacksmith" => $"Кузнец: {e.Name}",
                     "collectible" => $"Сбор: {e.Name}",
                     "corpse" => $"Труп: {e.Name} [Ур.{e.Level}]",
                     _ => e.Name

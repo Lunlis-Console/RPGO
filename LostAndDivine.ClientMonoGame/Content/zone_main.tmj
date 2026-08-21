@@ -11606,20 +11606,33 @@
                                            "x":  2880,
                                            "y":  2944
                                        },
-                                       {
-                                           "height":  0,
-                                           "id":  46,
-                                           "name":  "",
-                                           "opacity":  1,
-                                           "point":  true,
-                                           "rotation":  0,
-                                           "type":  "storage",
-                                           "visible":  true,
-                                           "width":  0,
-                                           "x":  3264,
-                                           "y":  3200
-                                       }
-                                   ],
+                                        {
+                                            "height":  0,
+                                            "id":  46,
+                                            "name":  "",
+                                            "opacity":  1,
+                                            "point":  true,
+                                            "rotation":  0,
+                                            "type":  "storage",
+                                            "visible":  true,
+                                            "width":  0,
+                                            "x":  3264,
+                                            "y":  3200
+                                        },
+                                        {
+                                            "height":  0,
+                                            "id":  47,
+                                            "name":  "N0004",
+                                            "opacity":  1,
+                                            "point":  true,
+                                            "rotation":  0,
+                                            "type":  "blacksmith",
+                                            "visible":  true,
+                                            "width":  0,
+                                            "x":  3328,
+                                            "y":  3200
+                                        }
+                                    ],
                        "opacity":  1,
                        "type":  "objectgroup",
                        "visible":  true,

@@ -8,18 +8,12 @@ public class Player : ICombatant
     public string Name { get; set; } = "Безымянный";
     public CharacterClass Class { get; set; }
 
-    // Базовые атрибуты класса: производные характеристики считаются от вложенных очков (выше базиса),
-    // поэтому у свежего персонажа без вложений бонусы к стойкости/пробиву/точности и т.п. равны нулю.
-    public int ClassBaseStrength => Class.BaseStats().Str;
-    public int ClassBaseEndurance => Class.BaseStats().End;
-    public int ClassBaseAgility => Class.BaseStats().Agi;
-    public int ClassBaseCunning => Class.BaseStats().Cun;
-    public int ClassBaseIntellect => Class.BaseStats().Int;
-    public int ClassBaseWisdom => Class.BaseStats().Wis;
+    // Все классы стартуют с одинаковыми атрибутами 1/1/1/1/1/1 — производные
+    // характеристики считаются от очков выше 1 (вложенных или с шмота).
 
-    /// <summary>Вложенная ловкость (выше базиса класса) — «очки» скорости атаки (шмот даёт плоский % через GetAttackSpeedGearMultiplier).</summary>
+    /// <summary>Очки скорости атаки: больше не зависят от атрибутов — скорость задаётся только оружием и шмотом.</summary>
     public double GetAttackSpeedPoints()
-        => Math.Max(0, Agility - ClassBaseAgility);
+        => 0;
 
     /// <summary>Множитель скорости атаки от шмота: бонус «+Скор. атк %» прибавляется плоским процентом.</summary>
     public double GetAttackSpeedGearMultiplier()
@@ -59,9 +53,9 @@ public class Player : ICombatant
     // Первичные атрибуты (качаются с уровнем)
     public int Strength { get; set; } = 1;   // +физ.атака, +крит урон
     public int Endurance { get; set; } = 1;  // +MaxHP, +сопротивление физ.эффектам
-    public int Agility { get; set; } = 1;    // +физ.атака, +скорость атаки
-    public int Cunning { get; set; } = 1;    // +шанс крита, +уклонение
-    public int Intellect { get; set; } = 1;  // +маг.атака, +шанс маг.эффекта
+    public int Agility { get; set; } = 1;    // +физ.атака, +уклонение
+    public int Cunning { get; set; } = 1;    // +шанс крита, +точность
+    public int Intellect { get; set; } = 1;  // +маг.атака, +скорость каста
     public int Wisdom { get; set; } = 1;     // +MaxMP, +сопротивление маг.эффектам
     public int AttributePoints { get; set; }
     public int SkillPoints { get; set; }
@@ -109,13 +103,13 @@ public class Player : ICombatant
 
     public double GetCritDamage()
         => Math.Min(BalanceStatic.MaxCritDamage, BaseCritDamage
-            + CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, GetEffStrength() - ClassBaseStrength))
+            + CombatMath.ApplyCritDamageDiminishingReturns(Math.Max(0, GetEffStrength() - 1))
             * BalanceStatic.CritDamagePerStrength
             + Equipment.GetBonusCritDamage() / 100.0);
 
     public double GetEvadeChance()
         => Math.Min(BalanceStatic.MaxEvadeChance, BaseEvadeChance
-            + CombatMath.ApplyEvadeDiminishingReturns(GetEffCunning() - 1)
+            + CombatMath.ApplyEvadeDiminishingReturns(GetEffAgility() - 1)
             + Equipment.GetBonusEvadeChance());
 
     /// <summary>Блок: базовый + щит (+2%) + бонус шмота (прямой процент, не более 5%), кап 25%. Атрибуты не влияют.</summary>
@@ -216,31 +210,38 @@ public class Player : ICombatant
     public double GetSkillRankCdMult(string skillId)
         => Math.Max(0.5, (1.0 - (GetSkillRank(skillId) - 1) * 0.08) * (1.0 - GetCooldownReduction() / 100.0));
 
-    /// <summary>Стойкость: снижает шанс крита противника по вам. Кап 50%, от вложенной выносливости (выше базиса класса) + шмот.</summary>
+    /// <summary>Стойкость: снижает шанс крита противника по вам. Кап 50%, от вложенной выносливости (выше 1) + шмот.</summary>
     public double GetTenacity()
         => Math.Min(BalanceStatic.MaxTenacity,
-            CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, GetEffEndurance() - ClassBaseEndurance))
+            CombatMath.ApplyTenacityDiminishingReturns(Math.Max(0, GetEffEndurance() - 1))
             + Equipment.GetBonusTenacity());
 
     /// <summary>Пробивание брони: игнорирует % защиты цели. Только плоский бонус шмота (как блок/парир), атрибуты не влияют. Кап 25%.</summary>
     public double GetArmorPenetration()
         => Math.Min(BalanceStatic.MaxArmorPenetration, Equipment.GetBonusArmorPenetration());
 
-    /// <summary>Сокращение перезарядки навыков. Кап 50%, от вложенной мудрости (выше базиса класса) + плоский % шмота.</summary>
+    /// <summary>Сокращение перезарядки навыков. Кап 50%, от вложенной мудрости (выше 1) + плоский % шмота.</summary>
     public double GetCooldownReduction()
         => Math.Min(BalanceStatic.MaxCooldownReduction,
-            CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, GetEffWisdom() - ClassBaseWisdom))
+            CombatMath.ApplyCdrDiminishingReturns(Math.Max(0, GetEffWisdom() - 1))
             + Equipment.GetBonusCooldownReduction());
 
     /// <summary>Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, только плоский % шмота (выносливость на реген не влияет — она даёт +10 HP за очко).</summary>
     public double GetHealthRegenPercent()
         => Math.Min(BalanceStatic.MaxHealthRegen, Equipment.GetBonusHpRegen());
 
-    /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от вложенной мудрости (выше базиса класса) + плоский % шмота.</summary>
+    /// <summary>Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, только от плоского % шмота (мудрость не влияет).</summary>
     public double GetManaRegenPercent()
-        => Math.Min(BalanceStatic.MaxManaRegen,
-            CombatMath.ApplyManaRegenDiminishingReturns(Math.Max(0, GetEffWisdom() - ClassBaseWisdom))
-            + Equipment.GetBonusMpRegen());
+        => Math.Min(BalanceStatic.MaxManaRegen, Equipment.GetBonusMpRegen());
+
+    /// <summary>Скорость каста: сокращение времени каста навыков от вложенного интеллекта (выше 1). Кап 50%.</summary>
+    public double GetCastSpeedReduction()
+        => Math.Min(BalanceStatic.MaxCastSpeedReduction,
+            CombatMath.ApplyCastSpeedDiminishingReturns(Math.Max(0, GetEffIntellect() - 1)));
+
+    /// <summary>Множитель времени каста навыков (1.0 = полная длительность, 0.5 = вдвое быстрее).</summary>
+    public double GetCastTimeMultiplier()
+        => Math.Max(0.0, 1.0 - GetCastSpeedReduction() / 100.0);
 
     /// <summary>Множитель пассивного навыка от ранга (+33% за ранг).</summary>
     public double GetPassiveRankMult(string skillId) => 1.0 + (GetSkillRank(skillId) - 1) * 0.33;
@@ -258,10 +259,10 @@ public class Player : ICombatant
         return BalanceStatic.ExtraArrowChance * GetPassiveRankMult(SkillIds.ExtraArrow);
     }
 
-    /// <summary>Точность: база 100% + убывающая отдача от вложенной ловкости (выше базиса класса) + шмот + бонус «Белке в глаз» (лук), кап 150%.</summary>
+    /// <summary>Точность: база 100% + убывающая отдача от вложенной хитрости (выше 1) + шмот + бонус «Белке в глаз» (лук), кап 150%.</summary>
     public double GetAccuracy()
         => Math.Min(BalanceStatic.AccuracyMax, BalanceStatic.AccuracyBase
-            + CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, GetEffAgility() - ClassBaseAgility))
+            + CombatMath.ApplyAccuracyDiminishingReturns(Math.Max(0, GetEffCunning() - 1))
             + Equipment.GetBonusAccuracy()
             + GetBowAccuracyBonus());
 

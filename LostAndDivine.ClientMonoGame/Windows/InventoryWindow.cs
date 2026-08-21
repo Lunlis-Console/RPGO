@@ -24,6 +24,10 @@ public class InventoryWindow : GameWindow
 
     public override bool IsDragging => _dragIndex >= 0;
 
+    // Текущий перетаскиваемый предмет (null, когда перетаскивание не активно).
+    // Используется другими окнами (например, окном заточки) для подсветки слотов.
+    public Item? DraggedItem { get; private set; }
+
     // Возвращает true, если перетаскивание завершилось успешным надеванием
     // (вызывается при отпускании перетаскиваемого предмета вне сетки/корзины)
     public Func<Point, Item, bool>? DropOnEquip;
@@ -33,6 +37,9 @@ public class InventoryWindow : GameWindow
 
     // Возвращает true, если предмет брошен в окно склада (положить на склад)
     public Func<Point, Item, bool>? DropOnStorage;
+
+    // Возвращает true, если предмет брошен в окно заточки (усиление у Кузнеца)
+    public Func<Point, Item, bool>? DropOnEnhance;
 
     // Пока открыт склад: ПКМ/двойной клик переносят предмет на склад, использование запрещено
     public Func<bool>? IsStorageOpen;
@@ -251,6 +258,7 @@ public class InventoryWindow : GameWindow
                     _dragOffset = new Point(mouse.X - rect.X, mouse.Y - rect.Y);
                     _dragPos = new Point(mouse.X, mouse.Y);
                     DragStateChanged?.Invoke(_stacks[idx].item);
+                    DraggedItem = _stacks[idx].item;
                 }
             }
         }
@@ -287,6 +295,8 @@ public class InventoryWindow : GameWindow
                     if (!handled)
                         handled = DropOnStorage?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
                     if (!handled)
+                        handled = DropOnEnhance?.Invoke(new Point(mouse.X, mouse.Y), item) ?? false;
+                    if (!handled)
                         DropOnEquip?.Invoke(new Point(mouse.X, mouse.Y), item);
                 }
                 // иначе — возврат в инвентарь (ничего не делаем)
@@ -312,6 +322,7 @@ public class InventoryWindow : GameWindow
                 // Сброс состояния перетаскивания — ПОСЛЕ всех действий дропа,
                 // иначе DraggingType обнуляется раньше времени и TryGetSlotAt не сработает.
                 DragStateChanged?.Invoke(null);
+                DraggedItem = null;
         }
 
         // Правая кнопка мыши — мгновенное надевание/использование
@@ -482,6 +493,12 @@ public class InventoryWindow : GameWindow
                         var lvlText = stack.item.RequiredLevel.ToString();
                         var lvlSize = font.MeasureString(lvlText);
                         DrawText(sb, lvlText, rect.X + (rect.Width - (int)lvlSize.X) / 2, rect.Y + (rect.Height - (int)lvlSize.Y) / 2, new Color(255, 100, 80));
+                    }
+                    if (stack.item.EnhancementLevel > 0)
+                    {
+                        var enText = "+" + stack.item.EnhancementLevel;
+                        var enSize = font.MeasureString(enText);
+                        DrawText(sb, enText, rect.X + rect.Width - (int)enSize.X - 4, rect.Y + 2, new Color(255, 170, 60));
                     }
                     if (stack.count > 1)
                         DrawText(sb, stack.count.ToString(), rect.X + rect.Width - 16, rect.Y + rect.Height - 16, new Color(230, 230, 120));

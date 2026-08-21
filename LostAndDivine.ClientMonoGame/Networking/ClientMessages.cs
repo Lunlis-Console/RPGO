@@ -91,6 +91,11 @@ public sealed class InventoryData
     public bool FromUnequip { get; set; }
 }
 
+/// <summary>Открытие окна заточки/усиления у Кузнеца.</summary>
+public sealed class EnhancementOpenData
+{
+}
+
 public sealed class EquipmentData
 {
     // slot id (см. EquipmentSlots) -> предмет

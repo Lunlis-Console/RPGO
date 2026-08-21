@@ -12,6 +12,11 @@ public static class BalanceStatic
     public const int DefensePerEndurance = 1;
     public const int ResistancePerWisdom = 1;
 
+    // Заточка/усиление предметов (см. EnhancementHelper).
+    // Скорость роста базовой статы за уровень заточки (0.10 = +10% к текущей).
+    public const double EnhancementBonusPerLevel = EnhancementHelper.PerLevelRate;
+    public const int EnhancementMaxLevel = EnhancementHelper.MaxLevel;
+
     // Процентная защита: DR% = Defense / (Defense + DefenseReductionK), кап MaxDefenseReduction.
     // Целочисленная защита — только «валюта» для набора процента; урон режет сам процент.
     public const int DefenseReductionK = 500;
@@ -27,7 +32,7 @@ public static class BalanceStatic
     public const double CritChanceDrRate = 0.25;
     public const double CritChancePerCunning = 1.0;
 
-    // Кап уклонения: база 1 + очки (хитрость + шмот, очко = 1% хитча).
+    // Кап уклонения: база 1 + очки (ловкость + шмот, очко = 1% ловкости).
     // До EvadeLinearPoints очков — EvadeLinearRate за очко (до 30%), дальше — EvadeDrRate за очко,
     // итог капится на MaxEvadeChance (50%; ~227 очков хитча).
     public const double MaxEvadeChance = 50.0;
@@ -45,15 +50,23 @@ public static class BalanceStatic
     public const double MaxBlockChance = 25.0;
     public const double MaxBlockGearBonus = 5.0;
 
-    // Точность: база 100% + очки (ловкость + бонус лука). До AccuracyLinearPoints очков —
+    // Точность: база 100% + очки (хитрость + бонус лука). До AccuracyLinearPoints очков —
     // AccuracyLinearRate за очко (до 130%), дальше — AccuracyDrRate за очко,
     // итог капится на AccuracyMax (150%, чтобы нельзя было обнулить уклонение цели).
-    // 50 ловкости → ~115%, с луком 4 ранга → ~145%.
+    // 50 хитрости → ~115%, с луком 4 ранга → ~145%.
     public const double AccuracyBase = 100.0;
     public const double AccuracyMax = 150.0;
     public const double AccuracyLinearPoints = 100;
     public const double AccuracyLinearRate = 0.3;
     public const double AccuracyDrRate = 0.15;
+
+    // Скорость каста: время каста навыков сокращается на X% от интеллекта (выше 1).
+    // До CastSpeedLinearPoints очков — CastSpeedLinearRate за очко (до 30%), дальше — CastSpeedDrRate,
+    // итог капится на MaxCastSpeedReduction (50% — каст вдвое быстрее).
+    public const double MaxCastSpeedReduction = 50.0;
+    public const double CastSpeedLinearPoints = 100;
+    public const double CastSpeedLinearRate = 0.3;
+    public const double CastSpeedDrRate = 0.15;
 
     // Стойкость: снижает шанс крита противника по вам. Кап 50%, от выносливости.
     public const double MaxTenacity = 50.0;
@@ -79,11 +92,8 @@ public static class BalanceStatic
     public const double HealthRegenLinearRate = 0.15;
     public const double HealthRegenDrRate = 0.075;
 
-    // Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, от мудрости.
+    // Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, только от плоского % шмота.
     public const double MaxManaRegen = 20.0;
-    public const double ManaRegenLinearPoints = 100;
-    public const double ManaRegenLinearRate = 0.15;
-    public const double ManaRegenDrRate = 0.075;
 
     // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
     // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),

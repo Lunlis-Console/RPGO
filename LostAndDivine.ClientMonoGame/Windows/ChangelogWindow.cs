@@ -14,6 +14,7 @@ public sealed class ChangelogWindow : GameWindow
 {
     private ChangelogData _data = new();
     private int _scrollOffset;
+    private bool _scrollDragging;
     private new MouseState _prevMouse;
 
     private const int LineHeight = 14;
@@ -41,6 +42,7 @@ public sealed class ChangelogWindow : GameWindow
     {
         _data = data ?? new ChangelogData();
         _scrollOffset = 0;
+        _scrollDragging = false;
     }
 
     public override void Update(GameTime gameTime, KeyboardState keyboard, MouseState mouse)
@@ -71,7 +73,53 @@ public sealed class ChangelogWindow : GameWindow
                 Visible = false;
         }
 
+        var (track, thumb, maxScroll) = GetScrollMetrics();
+        if (maxScroll > 0)
+        {
+            bool trackPressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released && track.Contains(mouse.X, mouse.Y);
+            if (trackPressed)
+            {
+                if (thumb.Contains(mouse.X, mouse.Y))
+                    _scrollDragging = true;
+                else
+                    _scrollOffset = ScrollBar.ScrollFromMouse(track.Y, track.Height, thumb.Height, track.Height, maxScroll + track.Height, mouse.Y);
+            }
+            if (_scrollDragging && mouse.LeftButton == ButtonState.Released)
+                _scrollDragging = false;
+            if (_scrollDragging)
+                _scrollOffset = ScrollBar.ScrollFromMouse(track.Y, track.Height, thumb.Height, track.Height, maxScroll + track.Height, mouse.Y);
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+        }
+        else
+        {
+            _scrollDragging = false;
+        }
+
         _prevMouse = mouse;
+    }
+
+    private (Rectangle track, Rectangle thumb, int maxScroll) GetScrollMetrics()
+    {
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        int cx = ContentX, cy = ContentY + HeaderHeight, cw = ContentW, ch = ContentH;
+        int listH = ch - HeaderHeight - 32;
+        int listW = cw - ScrollBar.DefaultWidth - 4;
+
+        int totalContentHeight = 0;
+        if (_data.Entries.Count > 0 && font != null)
+        {
+            foreach (var e in _data.Entries)
+                totalContentHeight += GetEntryHeight(e, listW, font) + EntrySpacing;
+            totalContentHeight = Math.Max(0, totalContentHeight - EntrySpacing);
+        }
+
+        int maxScroll = Math.Max(0, totalContentHeight - listH);
+        int trackX = cx + listW + 2;
+        int thumbH = ScrollBar.ComputeThumbHeight(listH, listH, totalContentHeight);
+        int thumbY = ScrollBar.ComputeThumbY(cy, listH, thumbH, _scrollOffset, listH, totalContentHeight);
+        return (new Rectangle(trackX, cy, ScrollBar.DefaultWidth, listH),
+                new Rectangle(trackX, thumbY, ScrollBar.DefaultWidth, thumbH),
+                maxScroll);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -94,8 +142,9 @@ public sealed class ChangelogWindow : GameWindow
         cy += HeaderHeight;
 
         int listH = ch - HeaderHeight - 32;
+        int listW = cw - ScrollBar.DefaultWidth - 4;
 
-        sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, listH), new Color(20, 22, 28));
+        sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, listW, listH), new Color(20, 22, 28));
 
         if (_data.Entries.Count == 0)
         {
@@ -107,14 +156,14 @@ public sealed class ChangelogWindow : GameWindow
         {
             int totalContentHeight = 0;
             foreach (var e in _data.Entries)
-                totalContentHeight += GetEntryHeight(e, cw, font) + EntrySpacing;
+                totalContentHeight += GetEntryHeight(e, listW, font) + EntrySpacing;
             totalContentHeight = Math.Max(0, totalContentHeight - EntrySpacing);
 
             int maxScroll = Math.Max(0, totalContentHeight - listH);
             _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
 
             int drawY = cy - _scrollOffset;
-            var clipRect = new Rectangle(cx, cy, cw, listH);
+            var clipRect = new Rectangle(cx, cy, listW, listH);
 
             sb.End();
             var oldScissor = sb.GraphicsDevice.ScissorRectangle;
@@ -124,9 +173,9 @@ public sealed class ChangelogWindow : GameWindow
 
             foreach (var e in _data.Entries)
             {
-                int entryH = GetEntryHeight(e, cw, font);
+                int entryH = GetEntryHeight(e, listW, font);
                 if (drawY < cy + listH && drawY + entryH > cy)
-                    DrawEntry(sb, e, cx, drawY, cw, font);
+                    DrawEntry(sb, e, cx, drawY, listW, font);
                 drawY += entryH + EntrySpacing;
             }
 
@@ -134,12 +183,8 @@ public sealed class ChangelogWindow : GameWindow
             sb.GraphicsDevice.ScissorRectangle = oldScissor;
             sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
 
-            if (totalContentHeight > listH && maxScroll > 0)
-            {
-                int barH = Math.Max(30, (int)((float)listH / totalContentHeight * listH));
-                int barY = cy + (int)((float)_scrollOffset / maxScroll * (listH - barH));
-                sb.Draw(SpriteCache.Pixel, new Rectangle(cx + cw - 5, barY, 4, barH), new Color(100, 110, 130));
-            }
+            if (maxScroll > 0)
+                ScrollBar.Draw(sb, cx + listW + 2, cy, listH, _scrollOffset, listH, totalContentHeight, ScrollBar.DefaultWidth);
         }
 
         int btnY = cy + listH + 6;

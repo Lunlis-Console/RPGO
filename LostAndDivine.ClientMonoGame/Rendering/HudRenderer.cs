@@ -171,7 +171,7 @@ public class HudRenderer
         string typeStr = _selectedEntity.Type switch
         {
             "monster" => "Монстр", "merchant" => "Торговец", "npc" => "NPC",
-            "collectible" => "Собираемый", "board" => "Доска заданий",
+            "collectible" => "Собираемый", "board" => "Доска заданий", "blacksmith" => "Кузнец",
             "player" => "Игрок", "portal" => "Портал", "door" => "Дверь", _ => _selectedEntity.Type
         };
         string lvl = _selectedEntity.Level > 0 ? $" (Ур. {_selectedEntity.Level})" : "";
@@ -210,6 +210,7 @@ public class HudRenderer
             "monster" => $"Атаковать {_selectedEntity.Name}",
             "merchant" => "Открыть магазин",
             "board" => "Квесты",
+            "blacksmith" => "Заточить снаряжение",
             "collectible" => "Собрать",
             "portal" => "Наступите на портал",
             _ => "Взаимодействовать"

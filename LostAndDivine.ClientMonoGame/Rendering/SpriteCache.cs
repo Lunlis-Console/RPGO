@@ -111,6 +111,10 @@ public static class SpriteCache
         foreach (var sub in armorIconSubtypes)
             LoadTexture($"icon_{sub.ToLower()}", $"LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_{sub}.png");
 
+        // Камни усиления (заточка у Кузнеца)
+        LoadTexture("cristal_weapon", "LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_Cristal_Weapon.png");
+        LoadTexture("cristal_armor", "LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.Icon_Cristal_Armor.png");
+
         var qualityFrames = new[] { ("quality_common", "Ordinary_Frame"), ("quality_uncommon", "Unusual_Frame"), ("quality_rare", "Rare_Frame"), ("quality_epic", "Epic_Frame") };
         foreach (var (key, file) in qualityFrames)
             LoadTexture(key, $"LostAndDivine.ClientMonoGame.Content.Sprites.Inventory_Icon.{file}.png");
@@ -505,6 +509,8 @@ public static class SpriteCache
     {
         if (!string.IsNullOrEmpty(icon))
         {
+            var embedded = Get(icon);
+            if (embedded != null) return embedded;
             var custom = GetCustomItemIcon(icon);
             if (custom != null) return custom;
         }

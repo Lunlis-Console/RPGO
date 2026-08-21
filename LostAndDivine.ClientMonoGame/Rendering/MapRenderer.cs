@@ -692,7 +692,9 @@ private sealed class RemotePlayerState
                 list = new List<EntityInfo>();
                 _spatialHash[key] = list;
             }
-            list.Add(new EntityInfo { Type = "npc", Name = n.Name, X = n.X, Y = n.Y, Id = n.Id });
+            // Тип берём из самого NPC: Кузнец должен уходить как "blacksmith",
+            // остальные — как "npc" (сохраняем текущий fallback для instance_portal и т.п. на сервере).
+            list.Add(new EntityInfo { Type = n.Type == "blacksmith" ? "blacksmith" : "npc", Name = n.Name, X = n.X, Y = n.Y, Id = n.Id });
         }
         foreach (var d in map.Doors ?? Enumerable.Empty<DoorPosition>())
         {
@@ -940,7 +942,7 @@ private sealed class RemotePlayerState
                 "monster" => "attack",
                 "corpse" => "loot",
                 "collectible" => "harvest",
-                "npc" or "merchant" or "board" or "storage_chest" => "talk",
+                "npc" or "merchant" or "board" or "blacksmith" or "storage_chest" => "talk",
                 "chest" => "loot",
                 "door" => "portal",
                 "player" when _currentMap?.PvPEnabled == true => "attack",

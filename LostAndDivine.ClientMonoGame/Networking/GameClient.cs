@@ -116,6 +116,9 @@ public sealed class GameClient
     public event Action<string, string, int, List<LootItemInfo>, int>? LootReceived;
     public event Action? BoardOpened;
 
+    // Заточка/усиление у Кузнеца
+    public event Action? EnhancementOpened;
+
     // Склад
     public event Action<StorageData>? StorageOpened;
     public event Action<StorageData>? StorageUpdated;
@@ -195,6 +198,7 @@ public sealed class GameClient
     internal void RaiseHotbarUpdated(string?[] slots) => Ui(() => HotbarUpdated?.Invoke(slots));
     internal void RaiseLootReceived(string corpseId, string monsterName, int dmgPct, List<LootItemInfo> items, int gold) => Ui(() => LootReceived?.Invoke(corpseId, monsterName, dmgPct, items, gold));
     internal void RaiseBoardOpened() => Ui(() => BoardOpened?.Invoke());
+    internal void RaiseEnhancementOpened() => Ui(() => EnhancementOpened?.Invoke());
     internal void RaiseStorageOpened(StorageData data) => Ui(() => StorageOpened?.Invoke(data));
     internal void RaiseStorageUpdated(StorageData data) => Ui(() => StorageUpdated?.Invoke(data));
 

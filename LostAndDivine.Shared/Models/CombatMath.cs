@@ -26,7 +26,7 @@ public static class CombatMath
 
     /// <summary>
     /// Убывающая отдача уклонения: до порога очко даёт EvadeLinearRate, дальше — EvadeDrRate.
-    /// Применяется к «очкам» хитча (хитрость + бонусы шмота).
+    /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
     /// </summary>
     public static double ApplyEvadeDiminishingReturns(double points)
         => ApplyDiminishingReturns(points, BalanceStatic.EvadeLinearPoints,
@@ -34,11 +34,16 @@ public static class CombatMath
 
     /// <summary>
     /// Убывающая отдача точности: до порога очко даёт AccuracyLinearRate, дальше — AccuracyDrRate.
-    /// Применяется к «очкам» ловкости (ловкость + бонусы шмота).
+    /// Применяется к «очкам» хитрости (хитрость + бонусы шмота).
     /// </summary>
     public static double ApplyAccuracyDiminishingReturns(double points)
         => ApplyDiminishingReturns(points, BalanceStatic.AccuracyLinearPoints,
             BalanceStatic.AccuracyLinearRate, BalanceStatic.AccuracyDrRate);
+
+    /// <summary>Убывающая отдача скорости каста (интеллект).</summary>
+    public static double ApplyCastSpeedDiminishingReturns(double points)
+        => ApplyDiminishingReturns(points, BalanceStatic.CastSpeedLinearPoints,
+            BalanceStatic.CastSpeedLinearRate, BalanceStatic.CastSpeedDrRate);
 
     /// <summary>Убывающая отдача стойкости (выносливость).</summary>
     public static double ApplyTenacityDiminishingReturns(double points)
@@ -59,11 +64,6 @@ public static class CombatMath
     public static double ApplyHealthRegenDiminishingReturns(double points)
         => ApplyDiminishingReturns(points, BalanceStatic.HealthRegenLinearPoints,
             BalanceStatic.HealthRegenLinearRate, BalanceStatic.HealthRegenDrRate);
-
-    /// <summary>Убывающая отдача регенерации маны (мудрость).</summary>
-    public static double ApplyManaRegenDiminishingReturns(double points)
-        => ApplyDiminishingReturns(points, BalanceStatic.ManaRegenLinearPoints,
-            BalanceStatic.ManaRegenLinearRate, BalanceStatic.ManaRegenDrRate);
 
     /// <summary>Общая убывающая отдача: linearPoints очков по linearRate за очко, дальше по drRate за очко.</summary>
     public static double ApplyDiminishingReturns(double points, double linearPoints, double linearRate, double drRate)

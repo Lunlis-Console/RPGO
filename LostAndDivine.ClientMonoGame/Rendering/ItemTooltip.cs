@@ -107,6 +107,22 @@ public static class ItemTooltip
             lines.Add(new TooltipLine($"Качество: {qualLabel}", QualityColor(item.Quality)));
         }
 
+        if (item.EnhancementLevel > 0)
+        {
+            lines.Add(new TooltipLine($"Заточка: +{item.EnhancementLevel}", new Color(255, 170, 60)));
+            var enh = new List<string>();
+            if (item.BonusPhysAttack != 0) enh.Add($"Физ. атака +{item.Enhanced(item.BonusPhysAttack) - item.BonusPhysAttack}");
+            if (item.BonusMagAttack != 0) enh.Add($"Маг. атака +{item.Enhanced(item.BonusMagAttack) - item.BonusMagAttack}");
+            if (item.BonusDefense != 0) enh.Add($"Защита +{item.Enhanced(item.BonusDefense) - item.BonusDefense}");
+            if (item.BonusResistance != 0) enh.Add($"Сопротивление +{item.Enhanced(item.BonusResistance) - item.BonusResistance}");
+            if (item.Defense != 0) enh.Add($"Броня +{item.Enhanced(item.Defense) - item.Defense}");
+            if (item.MagicDefense != 0) enh.Add($"Маг. защита +{item.Enhanced(item.MagicDefense) - item.MagicDefense}");
+            if (item.MaxHealthBonus != 0) enh.Add($"Макс. HP +{item.Enhanced(item.MaxHealthBonus) - item.MaxHealthBonus}");
+            if (item.MaxManaBonus != 0) enh.Add($"Макс. мана +{item.Enhanced(item.MaxManaBonus) - item.MaxManaBonus}");
+            if (item.DamageMax > 0) enh.Add($"Урон +{item.Enhanced(item.DamageMax) - item.DamageMax}");
+            if (enh.Count > 0) lines.Add(new TooltipLine(string.Join(", ", enh), new Color(255, 200, 120)));
+        }
+
         if (item.RequiredLevel > 0)
         {
             var levelColor = item.RequiredLevel <= PlayerLevel ? RequiredLevelGood : RequiredLevelBad;

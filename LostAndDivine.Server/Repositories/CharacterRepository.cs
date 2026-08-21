@@ -57,23 +57,23 @@ internal static class CharacterRepository
 
     public static CharacterModel Create(string login, string playerName, CharacterClass cls)
     {
-        var (s, e, a, c, i, w) = cls.BaseStats();
+        // Все классы стартуют с одинаковыми атрибутами 1/1/1/1/1/1
         var character = new CharacterModel
         {
             Name = playerName,
             AccountLogin = login,
             Class = cls,
             CurrentZoneId = Balance.StartZoneId,
-            Strength = s,
-            Endurance = e,
-            Agility = a,
-            Cunning = c,
-            Intellect = i,
-            Wisdom = w,
-            MaxHealth = 100 + e * Balance.MaxHealthPerEndurance,
-            Health = 100 + e * Balance.MaxHealthPerEndurance,
-            Mana = 100 + w * 10,
-            Speed = 1 + a / 3,
+            Strength = 1,
+            Endurance = 1,
+            Agility = 1,
+            Cunning = 1,
+            Intellect = 1,
+            Wisdom = 1,
+            MaxHealth = 100 + Balance.MaxHealthPerEndurance,
+            Health = 100 + Balance.MaxHealthPerEndurance,
+            Mana = 110,
+            Speed = 1,
             CreatedAt = DateTime.Now
         };
 

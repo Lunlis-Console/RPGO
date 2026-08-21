@@ -152,7 +152,7 @@ public class InteractTargetHandler : BaseHandler
             if (nx < 0 || nx >= zoneMap.Width || ny < 0 || ny >= zoneMap.Height) continue;
             if (zoneMap.IsObstacle(nx, ny)) continue;
             var zoneNpcs = Svc.Zones.GetTiledNpcs(player.CurrentZoneId);
-            if (zoneNpcs.Any(n => n.X == nx && n.Y == ny && (n.Type == "merchant" || n.Type == "board"))) continue;
+            if (zoneNpcs.Any(n => n.X == nx && n.Y == ny && (n.Type == "merchant" || n.Type == "board" || n.Type == "blacksmith"))) continue;
             if (Svc.Monsters.FindMonsterAt(nx, ny) != null) continue;
 
             int dist = Math.Abs(nx - player.X) + Math.Abs(ny - player.Y);

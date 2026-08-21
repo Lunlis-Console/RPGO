@@ -32,6 +32,7 @@ public class GameScreen : IScreen
     private readonly QuestLogWindow _questLogWindow = new();
     private List<QuestInfo> _activeQuests = new();
     private readonly ShopWindow _shopWindow = new();
+    private readonly EnhancementWindow _enhancementWindow = new();
     private readonly LootWindow _lootWindow = new();
     private readonly QuestBoardWindow _questBoardWindow = new();
     private readonly TradeWindow _tradeWindow = new();
@@ -485,6 +486,8 @@ public class GameScreen : IScreen
             }
             _mapRenderer.SetShieldSubtype(shieldSub);
             _mapRenderer.SetOffHandWeaponSubtype(offWeaponSub);
+            if (_enhancementWindow.Visible)
+                _enhancementWindow.Refresh(inv.Items ?? new List<Item>());
         };
         _inventoryWindow.NewItemCountChanged += count => _hudDraw.SetNewInventoryCount(count);
         _equipmentWindow.UnequipItem += slot => _ = _client.SendAsync("unequip", new { Slot = slot });
@@ -495,6 +498,7 @@ public class GameScreen : IScreen
         {
             _equipmentWindow.DraggingType = item?.Type;
             _input.DragOverlayItem = item;
+            _enhancementWindow.DraggedItem = item;
         };
         _equipmentWindow.DragStateChanged += item =>
         {
@@ -502,6 +506,8 @@ public class GameScreen : IScreen
             _input.DragOverlayItem = item;
         };
         _equipmentWindow.IsOverInventory = pt => _inventoryWindow.Contains(pt);
+        _enhancementWindow.IsOverInventory = pt => _inventoryWindow.Contains(pt);
+        _enhancementWindow.DragStateChanged += item => _input.DragOverlayItem = item;
         _lootWindow.DragStateChanged += item => _input.DragOverlayItem = item;
         _lootWindow.DropOnInventory += (pt, item) =>
         {
@@ -602,6 +608,19 @@ public class GameScreen : IScreen
             if (!_shopWindow.Visible || !_shopWindow.Contains(pt)) return false;
             _ = _client.SendAsync("sell", new { ItemId = item.Id, Quantity = 1 });
             return true;
+        };
+        _client.EnhancementOpened += () =>
+        {
+            _enhancementWindow.Reset();
+            _enhancementWindow.Visible = true;
+            _input.PushWindow(_enhancementWindow);
+        };
+        _enhancementWindow.UpgradeRequested += (itemId, stoneId) =>
+            _ = _client.SendAsync("upgrade_item", new { ItemId = itemId, StoneId = stoneId });
+        _inventoryWindow.DropOnEnhance += (pt, item) =>
+        {
+            if (!_enhancementWindow.Visible || !_enhancementWindow.Contains(pt)) return false;
+            return _enhancementWindow.AddItem(item);
         };
         _inventoryWindow.SellItem += (id, qty) => _ = _client.SendAsync("sell", new { ItemId = id, Quantity = qty });
         _inventoryWindow.PendingSell += (item, max) =>
@@ -1038,6 +1057,7 @@ public class GameScreen : IScreen
         _windows.Add(_equipmentWindow);
         _windows.Add(_questLogWindow);
         _windows.Add(_shopWindow);
+        _windows.Add(_enhancementWindow);
         _windows.Add(_lootWindow);
         _windows.Add(_questBoardWindow);
         _windows.Add(_tradeWindow);
@@ -1197,8 +1217,7 @@ public class GameScreen : IScreen
         _input.HandlePendingTrade(game);
         _input.HandleHotbarClick(mouse, mouseOverAnyWindow, game);
 
-        // Chat clicks
-        if (!mouseOverAnyWindow)
+        // Chat
         {
             int hotbarW2 = (int)(game.Graphics.PreferredBackBufferWidth * 0.35f);
             int hotbarLeft2 = (game.Graphics.PreferredBackBufferWidth - hotbarW2) / 2;
@@ -1206,16 +1225,24 @@ public class GameScreen : IScreen
             int chatW2 = hotbarLeft2 - chatX2 - 8;
             int chatH2 = 180;
             int chatY2 = game.Graphics.PreferredBackBufferHeight - chatH2 - 8;
-            var chatRect = new Rectangle(chatX2, chatY2, chatW2, chatH2);
             bool chatPressed = mouse.LeftButton == ButtonState.Pressed && _input.PrevMouse.LeftButton == ButtonState.Released;
-            bool chatHandled = _chatRenderer.HandleClick(mouse.X, mouse.Y, chatX2, chatY2, chatW2, chatH2, chatPressed);
-            if (chatHandled) mouseOverAnyWindow = true;
+            bool chatReleased = mouse.LeftButton == ButtonState.Released && _input.PrevMouse.LeftButton == ButtonState.Pressed;
 
-            if (chatRect.Contains(mouse.X, mouse.Y))
-            {
+            if (_chatRenderer.HandleScrollbar(mouse.X, mouse.Y, chatPressed, chatReleased))
                 mouseOverAnyWindow = true;
-                int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
-                if (scroll != 0) _chatRenderer.HandleScroll(scroll > 0 ? -3 : 3, chatH2 - 54);
+
+            if (!mouseOverAnyWindow)
+            {
+                var chatRect = new Rectangle(chatX2, chatY2, chatW2, chatH2);
+                bool chatHandled = _chatRenderer.HandleClick(mouse.X, mouse.Y, chatX2, chatY2, chatW2, chatH2, chatPressed);
+                if (chatHandled) mouseOverAnyWindow = true;
+
+                if (chatRect.Contains(mouse.X, mouse.Y))
+                {
+                    mouseOverAnyWindow = true;
+                    int scroll = mouse.ScrollWheelValue - _input.PrevMouse.ScrollWheelValue;
+                    if (scroll != 0) _chatRenderer.HandleScroll(scroll > 0 ? -3 : 3, chatH2 - 54);
+                }
             }
         }
 

@@ -308,7 +308,7 @@ public class CombatService
             else
             {
                 if (queuedSkill.CastTimeMs > 0)
-                    await Task.Delay(queuedSkill.CastTimeMs);
+                    await Task.Delay((int)(queuedSkill.CastTimeMs * pl.GetCastTimeMultiplier()));
 
                 var executor = Skills.SkillRegistry.Get(queuedSkill.Id);
                 if (executor != null)

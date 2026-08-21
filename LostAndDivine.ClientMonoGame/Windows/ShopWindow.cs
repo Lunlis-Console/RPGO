@@ -149,8 +149,8 @@ public class ShopWindow : GameWindow
         if (maxScroll > 0)
         {
             int sbX = ContentX + ContentW - ScrollbarWidth - 4;
-            int thumbH = Math.Max(20, listH - maxScroll * 8);
-            int thumbY = gridY + (int)((float)_scrollOffset / maxScroll * (listH - thumbH));
+            int thumbH = ScrollBar.ComputeThumbHeight(listH, listH, listH + maxScroll);
+            int thumbY = ScrollBar.ComputeThumbY(gridY, listH, thumbH, _scrollOffset, listH, listH + maxScroll);
             var thumbRect = new Rectangle(sbX, thumbY, ScrollbarWidth, thumbH);
             var trackRect = new Rectangle(sbX, gridY, ScrollbarWidth, listH);
 
@@ -160,17 +160,14 @@ public class ShopWindow : GameWindow
                 if (thumbRect.Contains(mouse.X, mouse.Y))
                     _scrollDragging = true;
                 else
-                    _scrollOffset = (int)((float)(mouse.Y - gridY - thumbH / 2) / (listH - thumbH) * maxScroll);
+                    _scrollOffset = ScrollBar.ScrollFromMouse(gridY, listH, thumbH, listH, listH + maxScroll, mouse.Y);
             }
 
             if (_scrollDragging && mouse.LeftButton == ButtonState.Released)
                 _scrollDragging = false;
 
             if (_scrollDragging)
-            {
-                float frac = (float)(mouse.Y - gridY - thumbH / 2) / (listH - thumbH);
-                _scrollOffset = (int)Math.Round(frac * maxScroll);
-            }
+                _scrollOffset = ScrollBar.ScrollFromMouse(gridY, listH, thumbH, listH, listH + maxScroll, mouse.Y);
 
             _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
         }
@@ -369,15 +366,9 @@ public class ShopWindow : GameWindow
         if (FilteredItems.Count == 0)
             DrawText(sb, _activeTab == 1 ? "Нет предметов для выкупа" : "Ничего не найдено", gridX + gridW / 2 - 80, gridY + listH / 2 - 10, new Color(150, 140, 130));
 
-        // Скроллбар
-        sb.Draw(SpriteCache.Pixel, new Rectangle(ContentX + ContentW - ScrollbarWidth - 4, gridY, ScrollbarWidth, listH), new Color(50, 45, 60));
+        // Скроллбар (единый стиль)
         if (maxScroll > 0)
-        {
-            float ratio = (float)GridRows / ((FilteredItems.Count + GridCols - 1) / GridCols);
-            int thumbH = Math.Max(20, (int)(listH * ratio));
-            int thumbY = gridY + (int)((float)_scrollOffset / maxScroll * (listH - thumbH));
-            sb.Draw(SpriteCache.Pixel, new Rectangle(ContentX + ContentW - ScrollbarWidth - 4, thumbY, ScrollbarWidth, thumbH), new Color(130, 110, 80));
-        }
+            ScrollBar.Draw(sb, ContentX + ContentW - ScrollbarWidth - 4, gridY, listH, _scrollOffset, listH, listH + maxScroll, ScrollbarWidth);
 
         string hint = "Перетащите товар в инвентарь, чтобы купить";
         var hf = SpriteCache.FontSmall ?? SpriteCache.Font;

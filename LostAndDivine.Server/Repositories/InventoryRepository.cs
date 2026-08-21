@@ -29,7 +29,8 @@ internal static class InventoryRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
-                quality
+                quality,
+                enhancement_level
                 FROM inventory WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
 
@@ -81,7 +82,8 @@ internal static class InventoryRepository
                     MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
                     Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
                     MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37),
-                    Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38)
+                    Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38),
+                    EnhancementLevel = reader.IsDBNull(39) ? 0 : reader.GetInt32(39)
                 });
             }
 
@@ -141,7 +143,8 @@ internal static class InventoryRepository
                             DamageMax = item.DamageMax,
                             AttackRange = item.AttackRange,
                             RequiredLevel = item.RequiredLevel,
-                            Quality = item.Quality
+                            Quality = item.Quality,
+                            EnhancementLevel = item.EnhancementLevel
                         });
                     }
                 }
@@ -207,14 +210,15 @@ internal static class InventoryRepository
                 max_mana_bonus,
                 icon,
                 magic_defense,
-                quality)
+                quality,
+                enhancement_level)
             VALUES ($name, $itemid, $iname, $itype, $val, $def, $mhp, $heal, $rmana, $desc,
                 $str, $end, $agi, $cun, $intel, $wis,
                 $pa, $ma, $res,
                 $cc, $cd, $ec, $as,
                 $bc, $pc, $bacc, $bten, $bap, $bcdr, $bhpr, $bmpr,
                 $tid, $qty,
-                $ar, $mmp, $ic, $md, $quality)";
+                $ar, $mmp, $ic, $md, $quality, $enh)";
         insertItem.Parameters.AddWithValue("$name", playerName);
         insertItem.Parameters.AddWithValue("$itemid", item.Id);
         insertItem.Parameters.AddWithValue("$iname", item.Name);
@@ -253,6 +257,7 @@ internal static class InventoryRepository
         insertItem.Parameters.AddWithValue("$ic", (object?)item.Icon ?? DBNull.Value);
         insertItem.Parameters.AddWithValue("$md", item.MagicDefense);
         insertItem.Parameters.AddWithValue("$quality", (int)item.Quality);
+        insertItem.Parameters.AddWithValue("$enh", item.EnhancementLevel);
         insertItem.ExecuteNonQuery();
     }
 
@@ -344,7 +349,8 @@ internal static class InventoryRepository
             max_mana_bonus,
             icon,
             magic_defense,
-            quality
+            quality,
+            enhancement_level
             FROM inventory WHERE player_name = $name AND item_id = $id";
         cmd.Parameters.AddWithValue("$name", playerName);
         cmd.Parameters.AddWithValue("$id", itemId);
@@ -392,7 +398,8 @@ internal static class InventoryRepository
                 MaxManaBonus = reader.IsDBNull(35) ? 0 : reader.GetInt32(35),
                 Icon = reader.IsDBNull(36) ? "" : reader.GetString(36),
                 MagicDefense = reader.IsDBNull(37) ? 0 : reader.GetInt32(37),
-                Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38)
+                Quality = reader.IsDBNull(38) ? ItemQuality.Common : (ItemQuality)reader.GetInt32(38),
+                EnhancementLevel = reader.IsDBNull(39) ? 0 : reader.GetInt32(39)
             };
             return SyncItemFromTemplate(item);
         }

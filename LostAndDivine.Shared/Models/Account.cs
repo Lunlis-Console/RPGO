@@ -163,6 +163,10 @@ public class Item
     // Своя иконка: ключ PNG из Content/Sprites/CustomIcons (без расширения)
     public string Icon { get; set; } = "";
 
+    // Уровень заточки/усиления (0 = без усиления). Бонусы считаются на лету
+    // поверх базовых характеристик через EnhancementHelper.
+    public int EnhancementLevel { get; set; }
+
     // Качество предмета (Common/Uncommon/Rare/Epic)
     public ItemQuality Quality { get; set; } = ItemQuality.Common;
 

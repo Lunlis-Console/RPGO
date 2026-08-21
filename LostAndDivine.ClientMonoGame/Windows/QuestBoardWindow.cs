@@ -11,6 +11,7 @@ public sealed class QuestBoardWindow : GameWindow
     private List<QuestInfo> _available = new();
     private List<QuestInfo> _active = new();
     private int _scrollOffset;
+    private bool _scrollDragging;
     private new MouseState _prevMouse;
     private int _tab; // 0 = Доступные, 1 = Активные, 2 = Сдать
 
@@ -144,8 +145,67 @@ public sealed class QuestBoardWindow : GameWindow
             }
         }
 
+        // Перетаскивание скроллбара левой кнопкой мыши
+        var (track, thumb, maxScroll) = GetScrollMetrics();
+        if (maxScroll > 0)
+        {
+            bool trackPressed = mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released && track.Contains(mouse.X, mouse.Y);
+            if (trackPressed)
+            {
+                if (thumb.Contains(mouse.X, mouse.Y))
+                    _scrollDragging = true;
+                else
+                    _scrollOffset = ScrollBar.ScrollFromMouse(track.Y, track.Height, thumb.Height, track.Height, maxScroll + track.Height, mouse.Y);
+            }
+            if (_scrollDragging && mouse.LeftButton == ButtonState.Released)
+                _scrollDragging = false;
+            if (_scrollDragging)
+                _scrollOffset = ScrollBar.ScrollFromMouse(track.Y, track.Height, thumb.Height, track.Height, maxScroll + track.Height, mouse.Y);
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
+        }
+        else
+        {
+            _scrollDragging = false;
+        }
+
         _cardButtons.Clear();
         _prevMouse = mouse;
+    }
+
+    private (Rectangle track, Rectangle thumb, int maxScroll) GetScrollMetrics()
+    {
+        var font = SpriteCache.FontSmall ?? SpriteCache.Font;
+        if (font == null) return (Rectangle.Empty, Rectangle.Empty, 0);
+
+        int cx = ContentX, cy = ContentY, cw = ContentW, ch = ContentH;
+        int tabH = 22;
+        cy += tabH + 6;
+        int listH = ch - (cy - ContentY) - 32;
+        int listW = cw - ScrollBar.DefaultWidth - 4;
+
+        var activeIds = _active.Select(a => a.QuestId).ToHashSet();
+        var filteredAvailable = _available.Where(q => !activeIds.Contains(q.QuestId)).ToList();
+        var readyToSubmit = _active.Where(a => a.Completed).ToList();
+        List<QuestInfo> listForTab = _tab switch
+        {
+            0 => filteredAvailable,
+            1 => _active.Where(a => !a.Completed).ToList(),
+            _ => readyToSubmit
+        };
+
+        int totalH = 0;
+        if (listForTab.Count > 0)
+            foreach (var q in listForTab) totalH += GetCardHeight(q, listW, font) + CardSpacing;
+        else
+            totalH += LineHeight + CardSpacing;
+
+        int maxScroll = Math.Max(0, totalH - listH);
+        int trackX = cx + listW + 2;
+        int thumbH = ScrollBar.ComputeThumbHeight(listH, listH, totalH);
+        int thumbY = ScrollBar.ComputeThumbY(cy, listH, thumbH, _scrollOffset, listH, totalH);
+        return (new Rectangle(trackX, cy, ScrollBar.DefaultWidth, listH),
+                new Rectangle(trackX, thumbY, ScrollBar.DefaultWidth, thumbH),
+                maxScroll);
     }
 
     public override void Draw(SpriteBatch sb)
@@ -184,7 +244,8 @@ public sealed class QuestBoardWindow : GameWindow
         cy += tabH + 6;
 
         int listH = ch - (cy - ContentY) - 32;
-        sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, cw, listH), new Color(20, 22, 28));
+        int listW = cw - ScrollBar.DefaultWidth - 4;
+        sb.Draw(SpriteCache.Pixel, new Rectangle(cx, cy, listW, listH), new Color(20, 22, 28));
 
         var activeIds = _active.Select(a => a.QuestId).ToHashSet();
         var filteredAvailable = _available.Where(q => !activeIds.Contains(q.QuestId)).ToList();
@@ -199,7 +260,7 @@ public sealed class QuestBoardWindow : GameWindow
 
         int totalH = 0;
         if (listForTab.Count > 0)
-            foreach (var q in listForTab) totalH += GetCardHeight(q, cw, font) + CardSpacing;
+            foreach (var q in listForTab) totalH += GetCardHeight(q, listW, font) + CardSpacing;
         else
             totalH += LineHeight + CardSpacing;
 
@@ -207,7 +268,7 @@ public sealed class QuestBoardWindow : GameWindow
         _scrollOffset = Math.Clamp(_scrollOffset, 0, maxScroll);
 
         int drawY = cy - _scrollOffset;
-        var clipRect = new Rectangle(cx, cy, cw, listH);
+        var clipRect = new Rectangle(cx, cy, listW, listH);
 
         sb.End();
         var oldScissor = sb.GraphicsDevice.ScissorRectangle;
@@ -234,9 +295,9 @@ public sealed class QuestBoardWindow : GameWindow
                 if (drawY + cardH > cy && drawY < cy + listH)
                 {
                     if (_tab == 0)
-                        DrawAvailableCard(sb, q, cx, drawY, cw, cardH, font, mouse);
+                        DrawAvailableCard(sb, q, cx, drawY, listW, cardH, font, mouse);
                     else
-                        DrawActiveCard(sb, q, cx, drawY, cw, cardH, font, mouse, _tab == 2);
+                        DrawActiveCard(sb, q, cx, drawY, listW, cardH, font, mouse, _tab == 2);
                 }
                 drawY += cardH + CardSpacing;
             }
@@ -246,12 +307,8 @@ public sealed class QuestBoardWindow : GameWindow
         sb.GraphicsDevice.ScissorRectangle = oldScissor;
         sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
 
-        if (totalH > listH && maxScroll > 0)
-        {
-            int barH = Math.Max(30, (int)((float)listH / totalH * listH));
-            int barY = cy + (int)((float)_scrollOffset / maxScroll * (listH - barH));
-            sb.Draw(SpriteCache.Pixel, new Rectangle(cx + cw - 5, barY, 4, barH), new Color(100, 110, 130));
-        }
+        if (maxScroll > 0)
+            ScrollBar.Draw(sb, cx + listW + 2, cy, listH, _scrollOffset, listH, totalH, ScrollBar.DefaultWidth);
 
         int btnY = cy + listH + 6;
         int btnW = 100;

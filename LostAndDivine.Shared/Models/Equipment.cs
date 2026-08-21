@@ -34,20 +34,20 @@ public class Equipment
     public int GetBonusIntellect() => Sum(_slots.Values, i => i.BonusIntellect);
     public int GetBonusWisdom() => Sum(_slots.Values, i => i.BonusWisdom);
 
-    // Бонусы к вторичным характеристикам
-    public int GetBonusPhysAttack() => Sum(_slots.Values, i => i.BonusPhysAttack);
-    public int GetBonusMagAttack() => Sum(_slots.Values, i => i.BonusMagAttack);
-    public int GetBonusDefense() => Sum(_slots.Values, i => i.BonusDefense);
-    public int GetBonusResistance() => Sum(_slots.Values, i => i.BonusResistance);
-    // Бонус к макс. HP: явный «+Макс. HP» предметов + выносливость со шмота (+10 HP за очко,
+    // Бонусы к вторичным характеристикам (с учётом заточки/усиления предметов)
+    public int GetBonusPhysAttack() => Sum(_slots.Values, i => i.Enhanced(i.BonusPhysAttack));
+    public int GetBonusMagAttack() => Sum(_slots.Values, i => i.Enhanced(i.BonusMagAttack));
+    public int GetBonusDefense() => Sum(_slots.Values, i => i.Enhanced(i.BonusDefense));
+    public int GetBonusResistance() => Sum(_slots.Values, i => i.Enhanced(i.BonusResistance));
+    // Бонус к макс. HP: явный «+Макс. HP» предметов (с заточкой) + выносливость со шмота (+10 HP за очко,
     // как у вложенных очков — см. BalanceStatic.MaxHealthPerEndurance).
-    public int GetBonusMaxHealth() => Sum(_slots.Values, i => i.MaxHealthBonus)
+    public int GetBonusMaxHealth() => Sum(_slots.Values, i => i.Enhanced(i.MaxHealthBonus))
         + GetBonusEndurance() * BalanceStatic.MaxHealthPerEndurance;
-    public int GetBonusMaxMana() => Sum(_slots.Values, i => i.MaxManaBonus);
+    public int GetBonusMaxMana() => Sum(_slots.Values, i => i.Enhanced(i.MaxManaBonus));
 
-    // Базовая защита надетой брони (складывается в защиту/сопротивление персонажа)
-    public int GetDefense() => Sum(_slots.Values, i => i.Defense);
-    public int GetMagicDefense() => Sum(_slots.Values, i => i.MagicDefense);
+    // Базовая защита надетой брони (с заточкой; складывается в защиту/сопротивление персонажа)
+    public int GetDefense() => Sum(_slots.Values, i => i.Enhanced(i.Defense));
+    public int GetMagicDefense() => Sum(_slots.Values, i => i.Enhanced(i.MagicDefense));
     public double GetBonusCritChance() => SumD(_slots.Values, i => i.BonusCritChance);
     public double GetBonusCritDamage() => SumD(_slots.Values, i => i.BonusCritDamage);
     public double GetBonusEvadeChance() => SumD(_slots.Values, i => i.BonusEvadeChance);
@@ -172,7 +172,7 @@ public class Equipment
     {
         var weapon = GetEffectiveMainHandWeapon();
         if (weapon == null || weapon.DamageMax <= 0) return (0, 0);
-        return (weapon.DamageMin, weapon.DamageMax);
+        return (weapon.Enhanced(weapon.DamageMin), weapon.Enhanced(weapon.DamageMax));
     }
 
     public int RollWeaponDamage()

@@ -13,6 +13,10 @@ public class ChatRenderer
     private readonly List<(ChatChannel channel, string name, string text, DateTime time, bool isAdmin)> _messages = new();
     private const int MaxMessages = 400;
     private int _scrollOffset;
+    private bool _scrollDragging;
+
+    // Геометрия скроллбара, сохранённая при отрисовке, для обработки мыши
+    private int _sbVisible, _sbMaxScroll, _sbTrackY, _sbTrackH, _sbBarX, _sbCount;
 
     public bool IsTyping { get; set; }
     public string TypedText { get; set; } = "";
@@ -247,6 +251,40 @@ public class ChatRenderer
     }
 
 
+    // Обработка перетаскивания скроллбара чата левой кнопкой мыши.
+    // Возвращает true, если клик/перетаскивание захвачено баром.
+    public bool HandleScrollbar(int mx, int my, bool pressed, bool released)
+    {
+        if (_sbMaxScroll <= 0)
+        {
+            _scrollDragging = false;
+            return false;
+        }
+
+        int thumbH = ScrollBar.ComputeThumbHeight(_sbTrackH, _sbVisible, _sbCount);
+        int thumbY = ScrollBar.ComputeThumbY(_sbTrackY, _sbTrackH, thumbH, _sbMaxScroll - _scrollOffset, _sbVisible, _sbCount);
+        var trackRect = new Rectangle(_sbBarX, _sbTrackY, ScrollBar.DefaultWidth, _sbTrackH);
+        var thumbRect = new Rectangle(_sbBarX, thumbY, ScrollBar.DefaultWidth, thumbH);
+
+        bool consumed = false;
+        if (pressed && trackRect.Contains(mx, my))
+        {
+            consumed = true;
+            if (thumbRect.Contains(mx, my))
+                _scrollDragging = true;
+            else
+                _scrollOffset = _sbMaxScroll - ScrollBar.ScrollFromMouse(_sbTrackY, _sbTrackH, thumbH, _sbVisible, _sbCount, my);
+        }
+
+        if (_scrollDragging && released)
+            _scrollDragging = false;
+        if (_scrollDragging)
+            _scrollOffset = _sbMaxScroll - ScrollBar.ScrollFromMouse(_sbTrackY, _sbTrackH, thumbH, _sbVisible, _sbCount, my);
+
+        _scrollOffset = Math.Clamp(_scrollOffset, 0, _sbMaxScroll);
+        return consumed || _scrollDragging;
+    }
+
     // Возвращает true, если клик обработан чатом
     public bool HandleClick(int mx, int my, float x, float y, float w, float h, bool pressed)
     {
@@ -365,14 +403,17 @@ public class ChatRenderer
         }
 
         int maxScroll = Math.Max(0, wrapped.Count - visibleLines);
-        if (_scrollOffset > 0 && maxScroll > 0)
+        _sbVisible = visibleLines;
+        _sbMaxScroll = maxScroll;
+        _sbTrackY = (int)msgTop;
+        _sbTrackH = (int)msgH;
+        _sbCount = wrapped.Count;
+        int barX = (int)(x + w - 5) - (ScrollBar.DefaultWidth - 3);
+        _sbBarX = barX;
+        if (maxScroll > 0)
         {
-            float ratio = (float)_scrollOffset / maxScroll;
-            int trackH = (int)msgH;
-            int thumbH = Math.Max(12, (int)(trackH * ((float)visibleLines / Math.Max(1, wrapped.Count))));
-            int thumbY = (int)(msgTop + (1f - ratio) * (trackH - thumbH));
-            sb.Draw(SpriteCache.Pixel, new Rectangle((int)(x + w - 5), (int)msgTop, 3, trackH), new Color(40, 40, 50, 100));
-            sb.Draw(SpriteCache.Pixel, new Rectangle((int)(x + w - 5), thumbY, 3, thumbH), new Color(140, 140, 160, 180));
+            // В чате прокрутка инвертирована (0 = самые новые снизу), поэтому передаём maxScroll - offset
+            ScrollBar.Draw(sb, barX, (int)msgTop, (int)msgH, maxScroll - _scrollOffset, visibleLines, wrapped.Count, ScrollBar.DefaultWidth);
         }
 
         // Поле ввода

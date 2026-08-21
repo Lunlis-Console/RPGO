@@ -104,34 +104,34 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetCritDamage_ClassBaseStrength_NoBonus()
+    public void GetCritDamage_WithStrength_Returns1_54()
     {
         var p = new Player { Strength = 3, BaseCritDamage = 1.5 };
-        // Воин: сила 3 — это базис класса, «бесплатного» крит-урона нет
-        Assert.Equal(1.5, p.GetCritDamage());
+        // 2 очка силы выше 1 × 0.02 = 0.04 → 1.54
+        Assert.Equal(1.54, p.GetCritDamage(), 3);
     }
 
     [Fact]
-    public void GetCritDamage_WithStrength_Returns1_96()
+    public void GetCritDamage_WithStrength_Returns2()
     {
         var p = new Player { Strength = 26, BaseCritDamage = 1.5 };
-        // Воин: 23 вложенных очка × 0.02 = 0.46 → 1.96
-        Assert.Equal(1.96, p.GetCritDamage(), 3);
+        // 25 очков × 0.02 = 0.5 → 2.0
+        Assert.Equal(2.0, p.GetCritDamage(), 3);
     }
 
     [Fact]
     public void GetCritDamage_AfterDiminishingThreshold_SlowsDown()
     {
         var p = new Player { Strength = 31, BaseCritDamage = 1.5 };
-        // Воин: 28 очков: 25 полных + 3 с половинным темпом = 25.75 × 0.02 = 0.515 → 2.015
-        Assert.Equal(2.015, p.GetCritDamage(), 3);
+        // 30 очков: 25 полных + 5 с половинным темпом = 26.25 × 0.02 = 0.525 → 2.025
+        Assert.Equal(2.025, p.GetCritDamage(), 3);
     }
 
     [Fact]
-    public void GetCritDamage_CapReachedAt229Strength()
+    public void GetCritDamage_CapReachedAt226Strength()
     {
-        var p = new Player { Strength = 229, BaseCritDamage = 1.5 };
-        // Воин: 226 вложенных очков: 25 + 201×0.25 = 75.25 × 0.02 = 1.505 → кап 3.0
+        var p = new Player { Strength = 226, BaseCritDamage = 1.5 };
+        // 225 очков: 25 + 200×0.25 = 75 × 0.02 = 1.5 → кап 3.0
         Assert.Equal(3.0, p.GetCritDamage());
     }
 
@@ -148,24 +148,24 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusCritDamage = 4 };
         var p = new Player { Strength = 3, BaseCritDamage = 1.5, Equipment = eq };
-        // База 150% + шмот 4% = 154% (без вложенной силы)
-        Assert.Equal(1.54, p.GetCritDamage(), 3);
+        // База 150% + сила 2 очка × 0.02 = 154% + шмот 4% = 158%
+        Assert.Equal(1.58, p.GetCritDamage(), 3);
     }
 
     [Fact]
-    public void GetAttackSpeed_ClassBaseAgility_Returns1()
+    public void GetAttackSpeed_BaseAgility_Returns1()
     {
         var p = new Player { Agility = 1 };
-        // Воин: ловкость 1 — базис класса, скорость атаки ровно 1.0
+        // Ловкость 1 — стартовое значение, очков нет, скорость атаки ровно 1.0
         Assert.Equal(1.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()));
     }
 
     [Fact]
-    public void GetAttackSpeed_WithInvestedAgility_Increases()
+    public void GetAttackSpeed_AgilityDoesNotAffect()
     {
         var p = new Player { Agility = 11 };
-        // Воин: 10 вложенных очков: 30×10/40/30 = 0.25 → 1.25
-        Assert.Equal(1.25, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
+        // Скорость атаки больше не зависит от ловкости — базовая 1.0
+        Assert.Equal(1.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
     }
 
     [Fact]
@@ -174,16 +174,16 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusAttackSpeed = 10 };
         var p = new Player { Agility = 11, Equipment = eq };
-        // 10 очков ловкости дают 1.25; шмот +10% → 1.25 × 1.1 = 1.375
-        Assert.Equal(1.375, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) * p.GetAttackSpeedGearMultiplier(), 3);
+        // Ловкость не влияет (база 1.0); шмот +10% → 1.0 × 1.1 = 1.1
+        Assert.Equal(1.1, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) * p.GetAttackSpeedGearMultiplier(), 3);
     }
 
     [Fact]
-    public void GetAttackSpeed_HighAgility_NeverReachesCapFromAgilityAlone()
+    public void GetAttackSpeed_WeaponAndGearOnly_ReturnsBase()
     {
         var p = new Player { Agility = 128 };
-        // 127 очков: кривая насыщается на 30 → скорость < 2.0, кап 200% достижим только оружием/шмотом/баффом
-        Assert.True(Balance.GetAttackSpeed(p.GetAttackSpeedPoints()) < Balance.MaxAttackSpeed);
+        // Кап 200% достижим только оружием/шмотом — без них база 1.0
+        Assert.Equal(1.0, Balance.GetAttackSpeed(p.GetAttackSpeedPoints()), 3);
     }
 
     [Fact]
@@ -201,16 +201,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetEvadeChance_NoCunning_Returns1()
+    public void GetEvadeChance_NoAgility_Returns1()
     {
-        var p = new Player { Cunning = 1, BaseEvadeChance = 1.0 };
+        var p = new Player { Agility = 1, BaseEvadeChance = 1.0 };
         Assert.Equal(1.0, p.GetEvadeChance());
     }
 
     [Fact]
-    public void GetEvadeChance_WithCunning_Returns4()
+    public void GetEvadeChance_WithAgility_Returns4()
     {
-        var p = new Player { Cunning = 11, BaseEvadeChance = 1.0 };
+        var p = new Player { Agility = 11, BaseEvadeChance = 1.0 };
         // 1.0 + (11-1)*0.3 = 4.0 (убывающая отдача: 1 очко = 0.3%)
         Assert.Equal(4.0, p.GetEvadeChance());
     }
@@ -218,15 +218,15 @@ public class PlayerStatsTests
     [Fact]
     public void GetEvadeChance_AfterDiminishingThreshold_SlowsDown()
     {
-        var p = new Player { Cunning = 111, BaseEvadeChance = 1.0 };
+        var p = new Player { Agility = 111, BaseEvadeChance = 1.0 };
         // 110 очков: 100 по 0.3 (30) + 10 по 0.15 (1.5) → 1 + 31.5 = 32.5
         Assert.Equal(32.5, p.GetEvadeChance());
     }
 
     [Fact]
-    public void GetEvadeChance_CapReachedAt228Cunning()
+    public void GetEvadeChance_CapReachedAt228Agility()
     {
-        var p = new Player { Cunning = 228, BaseEvadeChance = 1.0 };
+        var p = new Player { Agility = 228, BaseEvadeChance = 1.0 };
         // 227 очков: 100×0.3 + 127×0.15 = 49.05 → 1 + 49.05 = 50.05 → кап 50
         Assert.Equal(50.0, p.GetEvadeChance());
     }
@@ -234,7 +234,7 @@ public class PlayerStatsTests
     [Fact]
     public void GetEvadeChance_CappedAt50()
     {
-        var p = new Player { Cunning = 1000, BaseEvadeChance = 1.0 };
+        var p = new Player { Agility = 1000, BaseEvadeChance = 1.0 };
         Assert.Equal(50.0, p.GetEvadeChance());
     }
 
@@ -243,7 +243,7 @@ public class PlayerStatsTests
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusEvadeChance = 4 };
-        var p = new Player { Cunning = 1, BaseEvadeChance = 1.0, Equipment = eq };
+        var p = new Player { Agility = 1, BaseEvadeChance = 1.0, Equipment = eq };
         // Шмот даёт плоский процент: 1.0 + 4.0 = 5.0
         Assert.Equal(5.0, p.GetEvadeChance(), 3);
     }
@@ -333,16 +333,16 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetAccuracy_NoAgility_Returns100()
+    public void GetAccuracy_NoCunning_Returns100()
     {
-        var p = new Player { Agility = 1 };
+        var p = new Player { Cunning = 1 };
         Assert.Equal(100.0, p.GetAccuracy());
     }
 
     [Fact]
-    public void GetAccuracy_WithAgility_Returns115()
+    public void GetAccuracy_WithCunning_Returns115()
     {
-        var p = new Player { Agility = 51 };
+        var p = new Player { Cunning = 51 };
         // 100 + (51-1)*0.3 = 115 (убывающая отдача: 1 очко = 0.3%)
         Assert.Equal(115.0, p.GetAccuracy());
     }
@@ -350,15 +350,15 @@ public class PlayerStatsTests
     [Fact]
     public void GetAccuracy_AfterDiminishingThreshold_SlowsDown()
     {
-        var p = new Player { Agility = 111 };
+        var p = new Player { Cunning = 111 };
         // 110 очков: 100 по 0.3 (30) + 10 по 0.15 (1.5) → 100 + 31.5 = 131.5
         Assert.Equal(131.5, p.GetAccuracy());
     }
 
     [Fact]
-    public void GetAccuracy_CapReachedAt235Agility()
+    public void GetAccuracy_CapReachedAt235Cunning()
     {
-        var p = new Player { Agility = 235 };
+        var p = new Player { Cunning = 235 };
         // 234 очка: 100×0.3 + 134×0.15 = 50.1 → 100 + 50.1 = 150.1 → кап 150
         Assert.Equal(150.0, p.GetAccuracy());
     }
@@ -366,7 +366,7 @@ public class PlayerStatsTests
     [Fact]
     public void GetAccuracy_CappedAt150()
     {
-        var p = new Player { Agility = 1000 };
+        var p = new Player { Cunning = 1000 };
         Assert.Equal(150.0, p.GetAccuracy());
     }
 
@@ -378,26 +378,26 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetTenacity_WithEndurance_Returns14_4()
+    public void GetTenacity_WithEndurance_Returns15()
     {
         var p = new Player { Endurance = 51 };
-        // Воин (база выносливости 3): 48 вложенных очков × 0.3 = 14.4
-        Assert.Equal(14.4, p.GetTenacity(), 3);
+        // 50 вложенных очков × 0.3 = 15.0
+        Assert.Equal(15.0, p.GetTenacity(), 3);
     }
 
     [Fact]
     public void GetTenacity_AfterDiminishingThreshold_SlowsDown()
     {
         var p = new Player { Endurance = 111 };
-        // Воин: 108 очков: 100×0.3 + 8×0.15 = 31.2
-        Assert.Equal(31.2, p.GetTenacity());
+        // 110 очков: 100×0.3 + 10×0.15 = 31.5
+        Assert.Equal(31.5, p.GetTenacity());
     }
 
     [Fact]
-    public void GetTenacity_CapReachedAt237Endurance()
+    public void GetTenacity_CapReachedAt235Endurance()
     {
-        var p = new Player { Endurance = 237 };
-        // Воин: 234 очка: 100×0.3 + 134×0.15 = 50.1 → кап 50
+        var p = new Player { Endurance = 235 };
+        // 234 очка: 100×0.3 + 134×0.15 = 50.1 → кап 50
         Assert.Equal(50.0, p.GetTenacity());
     }
 
@@ -450,7 +450,7 @@ public class PlayerStatsTests
     public void GetCooldownReduction_WithWisdom_Returns15()
     {
         var p = new Player { Wisdom = 51 };
-        // Воин (база мудрости 1): 50 очков × 0.3 = 15
+        // 50 очков выше 1 × 0.3 = 15
         Assert.Equal(15.0, p.GetCooldownReduction());
     }
 
@@ -518,8 +518,8 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusTenacity = 20 };
         var p = new Player { Endurance = 51, Equipment = eq };
-        // Выносливость (51 − 3) = 48 очков × 0.3 = 14.4; шмот +20% плоского процента → 34.4
-        Assert.Equal(34.4, p.GetTenacity(), 3);
+        // Выносливость (51 − 1) = 50 очков × 0.3 = 15; шмот +20% плоского процента → 35
+        Assert.Equal(35.0, p.GetTenacity(), 3);
     }
 
     [Fact]
@@ -548,8 +548,8 @@ public class PlayerStatsTests
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusMpRegen = 5 };
         var p = new Player { Wisdom = 51, Equipment = eq };
-        // Мудрость 50 очков × 0.15 = 7.5; шмот +5% → 12.5
-        Assert.Equal(12.5, p.GetManaRegenPercent(), 3);
+        // Мудрость не влияет; шмот +5% → 5
+        Assert.Equal(5.0, p.GetManaRegenPercent(), 3);
     }
 
     [Fact]
@@ -557,8 +557,8 @@ public class PlayerStatsTests
     {
         var eq = new Equipment();
         eq[EquipmentSlots.Torso] = new Item { BonusAccuracy = 20 };
-        var p = new Player { Agility = 51, Equipment = eq };
-        // База 100 + ловкость 50 очков × 0.3 = 15 → 115; шмот +20% → 135
+        var p = new Player { Cunning = 51, Equipment = eq };
+        // База 100 + хитрость 50 очков × 0.3 = 15 → 115; шмот +20% → 135
         Assert.Equal(135.0, p.GetAccuracy(), 3);
     }
 
@@ -588,18 +588,20 @@ public class PlayerStatsTests
     }
 
     [Fact]
-    public void GetManaRegenPercent_WithWisdom_Returns7_5()
+    public void GetManaRegenPercent_WisdomDoesNotAffect()
     {
         var p = new Player { Wisdom = 51 };
-        // 50 очков × 0.15 = 7.5
-        Assert.Equal(7.5, p.GetManaRegenPercent());
+        // Мудрость больше не влияет на реген маны — только шмот
+        Assert.Equal(0.0, p.GetManaRegenPercent());
     }
 
     [Fact]
-    public void GetManaRegenPercent_CapReachedAt168Wisdom()
+    public void GetManaRegenPercent_CapStillEnforced()
     {
-        var p = new Player { Wisdom = 168 };
-        // 167 очков: 100×0.15 + 67×0.075 = 20.025 → кап 20
+        var eq = new Equipment();
+        eq[EquipmentSlots.Torso] = new Item { BonusMpRegen = 500 };
+        var p = new Player { Wisdom = 168, Equipment = eq };
+        // Шмот под кап 20%
         Assert.Equal(20.0, p.GetManaRegenPercent());
     }
 
@@ -646,5 +648,44 @@ public class PlayerStatsTests
         };
         // BaseDef=1 + (1-1)*1=0 + armorDef=8 = 9
         Assert.Equal(9, p.GetTotalDefense());
+    }
+
+    [Fact]
+    public void GetCastSpeedReduction_NoIntellect_Returns0()
+    {
+        var p = new Player { Intellect = 1 };
+        Assert.Equal(0.0, p.GetCastSpeedReduction());
+    }
+
+    [Fact]
+    public void GetCastSpeedReduction_WithIntellect_Returns15()
+    {
+        var p = new Player { Intellect = 51 };
+        // 50 очков × 0.3 = 15
+        Assert.Equal(15.0, p.GetCastSpeedReduction(), 3);
+    }
+
+    [Fact]
+    public void GetCastSpeedReduction_AfterDiminishingThreshold_SlowsDown()
+    {
+        var p = new Player { Intellect = 111 };
+        // 110 очков: 100×0.3 + 10×0.15 = 31.5
+        Assert.Equal(31.5, p.GetCastSpeedReduction(), 3);
+    }
+
+    [Fact]
+    public void GetCastSpeedReduction_CappedAt50()
+    {
+        var p = new Player { Intellect = 235 };
+        // 234 очка → 50.1 → кап 50
+        Assert.Equal(50.0, p.GetCastSpeedReduction(), 3);
+    }
+
+    [Fact]
+    public void GetCastTimeMultiplier_HalvedAtCap()
+    {
+        var p = new Player { Intellect = 235 };
+        // Кап сокращения 50% → множитель 0.5
+        Assert.Equal(0.5, p.GetCastTimeMultiplier(), 3);
     }
 }

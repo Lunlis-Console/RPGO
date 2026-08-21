@@ -145,7 +145,6 @@ internal static class AccountRepository
 
     private static void CreateTestCharacter(SqliteConnection connection, CharacterClass cls)
     {
-        var (s, e, a, c, i, w) = cls.BaseStats();
         var ch = new CharacterModel
         {
             Name = "Тест",
@@ -156,12 +155,12 @@ internal static class AccountRepository
             Health = 150,
             MaxHealth = 150,
             Gold = 500,
-            Strength = s,
-            Endurance = e,
-            Agility = a,
-            Cunning = c,
-            Intellect = i,
-            Wisdom = w,
+            Strength = 1,
+            Endurance = 1,
+            Agility = 1,
+            Cunning = 1,
+            Intellect = 1,
+            Wisdom = 1,
             Speed = 5,
             Inventory = new List<Item>
             {

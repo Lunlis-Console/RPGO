@@ -63,6 +63,7 @@ internal static class ClientMessageHandlerRegistry
         ["loot_corpse"] = HandleLootCorpse,
         ["board_open"] = HandleBoardOpen,
         ["open_board"] = HandleBoardOpen,
+        ["enhancement_open"] = HandleEnhancementOpen,
         ["friend_list"] = HandleFriendList,
         ["friend_result"] = HandleFriendResult,
         ["attack_cooldown"] = HandleAttackCooldown,
@@ -724,6 +725,11 @@ internal static class ClientMessageHandlerRegistry
     private static void HandleBoardOpen(GameClient c, GameMessage m)
     {
         c.RaiseBoardOpened();
+    }
+
+    private static void HandleEnhancementOpen(GameClient c, GameMessage m)
+    {
+        c.RaiseEnhancementOpened();
     }
 
     private static void HandleFriendList(GameClient c, GameMessage m)

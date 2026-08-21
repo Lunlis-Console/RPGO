@@ -12,6 +12,7 @@ public class StatusWindow : GameWindow
     private StatusData? _data;
     private new MouseState _prevMouse;
     private Rectangle[] _attrBtnRects = Array.Empty<Rectangle>();
+    private Rectangle[] _attrRowRects = Array.Empty<Rectangle>();
 
     private int _scrollY;
     private int _contentHeight;
@@ -69,15 +70,10 @@ public class StatusWindow : GameWindow
         int trackX = X + Width - ScrollW - 3;
         int trackY = Y + TitleH + 2;
         int trackH = Height - TitleH - 6;
-        var track = new Rectangle(trackX, trackY, ScrollW, trackH);
-
-        int max = MaxScroll();
-        int thumbH = max <= 0 ? trackH : Math.Max(28, trackH * Viewport / Math.Max(1, _contentHeight));
-        int thumbY = trackY;
-        if (max > 0)
-            thumbY = trackY + (int)((float)_scrollY / max * (trackH - thumbH));
-        var thumb = new Rectangle(trackX, thumbY, ScrollW, thumbH);
-        return (track, thumb);
+        int thumbH = ScrollBar.ComputeThumbHeight(trackH, Viewport, _contentHeight);
+        int thumbY = ScrollBar.ComputeThumbY(trackY, trackH, thumbH, _scrollY, Viewport, _contentHeight);
+        return (new Rectangle(trackX, trackY, ScrollW, trackH),
+                new Rectangle(trackX, thumbY, ScrollW, thumbH));
     }
 
     private (string Key, string Label, int Value, string Desc)[] GetAttrDefs()
@@ -87,9 +83,9 @@ public class StatusWindow : GameWindow
         {
             ("strength",  "Сила",      _data.Strength,  "+физ.атака, +крит.урон"),
             ("endurance", "Выносл.",   _data.Endurance,  "+HP, +физ.сопр."),
-            ("agility",   "Ловкость",  _data.Agility,   "+физ.атака, +скор.атк"),
-            ("cunning",   "Хитрость",  _data.Cunning,   "+крит%, +уклон."),
-            ("intellect", "Интеллект", _data.Intellect, "+маг.атака, +маг.эффект"),
+            ("agility",   "Ловкость",  _data.Agility,   "+физ.атака, +уклон."),
+            ("cunning",   "Хитрость",  _data.Cunning,   "+крит%, +точность"),
+            ("intellect", "Интеллект", _data.Intellect, "+маг.атака, +скор.каста"),
             ("wisdom",    "Мудрость",  _data.Wisdom,    "+MP, +маг.сопр."),
         };
     }
@@ -187,7 +183,9 @@ public class StatusWindow : GameWindow
         var clip = new Rectangle(X, Y + TitleH, Width, Height - TitleH - 2);
         sb.GraphicsDevice.ScissorRectangle = clip;
 
-        int cx = ContentX, cw = ContentW;
+        int cx = ContentX;
+        // Резервируем справа место под полосу прокрутки, чтобы контент не заезжал под неё
+        int cw = ContentW - ScrollW - 4;
         int startCy = ContentY - _scrollY;
         int cy = startCy;
 
@@ -279,10 +277,12 @@ public class StatusWindow : GameWindow
 
         var attrs = GetAttrDefs();
         _attrBtnRects = new Rectangle[attrs.Length];
+        _attrRowRects = new Rectangle[attrs.Length];
         for (int i = 0; i < attrs.Length; i++)
         {
             var attr = attrs[i];
             int ry = cy;
+            _attrRowRects[i] = new Rectangle(cx, ry, cw, RowH);
             sb.Draw(SpriteCache.Pixel, new Rectangle(cx, ry, cw, RowH), RowBg);
             DrawText(sb, attr.Label, cx + 6, ry + 3, DimColor);
             DrawText(sb, attr.Value.ToString(), cx + 130, ry + 3, StatColor);
@@ -321,14 +321,71 @@ public class StatusWindow : GameWindow
         _contentHeight = cy - startCy;
 
         // Полоса прокрутки
-        var (track, thumb) = GetScrollBarRects();
-        sb.Draw(SpriteCache.Pixel, track, new Color(50, 52, 62));
-        sb.Draw(SpriteCache.Pixel, thumb, new Color(120, 130, 150));
+        var (track, _) = GetScrollBarRects();
+        ScrollBar.Draw(sb, track.X, track.Y, track.Height, _scrollY, Viewport, _contentHeight, ScrollW);
 
         sb.End();
         sb.GraphicsDevice.ScissorRectangle = oldScissor;
         sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp);
+
+        DrawAttrTooltip(sb, mouse);
     }
+
+    private void DrawAttrTooltip(SpriteBatch sb, MouseState mouse)
+    {
+        if (_data == null) return;
+        var attrs = GetAttrDefs();
+        for (int i = 0; i < _attrRowRects.Length && i < attrs.Length; i++)
+        {
+            if (_attrRowRects[i].Contains(mouse.X, mouse.Y))
+            {
+                TooltipRenderer.Draw(sb, BuildAttrTooltipLines(attrs[i]), mouse);
+                return;
+            }
+        }
+    }
+
+    private static List<string> BuildAttrTooltipLines((string Key, string Label, int Value, string Desc) attr)
+        => attr.Key switch
+        {
+            "strength" => new List<string>
+            {
+                attr.Label,
+                "+2 физ. атаки за очко",
+                "+0.02x крит. урона за очко (кап 3.0x)"
+            },
+            "endurance" => new List<string>
+            {
+                attr.Label,
+                "+10 макс. HP за вложенное очко",
+                "Стойкость: враги реже критуют вас (кап 50%)"
+            },
+            "agility" => new List<string>
+            {
+                attr.Label,
+                "+1 физ. атаки за очко",
+                "Уклонение: реже получаете удар (кап 50%)"
+            },
+            "cunning" => new List<string>
+            {
+                attr.Label,
+                "Шанс крита (кап 75%)",
+                "Точность: снижает уклонение цели (кап 150%)"
+            },
+            "intellect" => new List<string>
+            {
+                attr.Label,
+                "+2 маг. атаки за очко",
+                "Скорость каста навыков (до 50% быстрее)"
+            },
+            "wisdom" => new List<string>
+            {
+                attr.Label,
+                "+5 макс. MP за вложенное очко",
+                "Сокращение отката навыков (кап 50%)"
+            },
+            _ => new List<string> { attr.Label }
+        };
 
     private void DrawEquipRow(SpriteBatch sb, string slot, string? name, string type, int x, int y, int w)
     {

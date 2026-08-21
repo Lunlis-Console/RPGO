@@ -122,7 +122,8 @@ public abstract class BaseHandler : IMessageHandler
         BonusArmorPenetration = i.BonusArmorPenetration, BonusCooldownReduction = i.BonusCooldownReduction,
         BonusHpRegen = i.BonusHpRegen, BonusMpRegen = i.BonusMpRegen,
         i.DamageType, i.RequiredLevel, i.DamageMin, i.DamageMax,
-        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange, i.Icon
+        i.AttackSpeedModifier, i.TwoHanded, i.AttackRange, i.Icon,
+        EnhancementLevel = i.EnhancementLevel
     };
 
     protected Task SendQuestLog(ClientConnection connection, Player player)

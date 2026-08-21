@@ -1709,9 +1709,22 @@
                  "type":"storage",
                  "visible":true,
                  "width":0,
-                 "x":3264,
-                 "y":3200
-                }],
+                  "x":3264,
+                  "y":3200
+                 }, 
+                 {
+                  "height":0,
+                  "id":47,
+                  "name":"N0004",
+                  "opacity":1,
+                  "point":true,
+                  "rotation":0,
+                  "type":"blacksmith",
+                  "visible":true,
+                  "width":0,
+                  "x":3392,
+                  "y":3200
+                 }],
          "opacity":1,
          "type":"objectgroup",
          "visible":true,

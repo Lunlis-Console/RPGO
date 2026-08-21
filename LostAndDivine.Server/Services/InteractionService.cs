@@ -69,6 +69,15 @@ public class InteractionService
                 await OpenShop(player, client);
                 break;
 
+            case "blacksmith":
+                await _svc.Hub.SendToClient(client, new GameMessage
+                {
+                    Type = "enhancement_open",
+                    Data = null
+                });
+                await ChatTo(client, ChatChannel.System, "Система", "Кузнец: принеси камень усиления, чтобы заточить снаряжение.");
+                break;
+
             case "board":
                 Log.Debug($"{player.Name} открыл доску заданий");
                 await _svc.Hub.SendQuestLog(client, player);
