@@ -140,7 +140,7 @@ if (Test-Path $keyPath) {
     Set-Content (Join-Path $clientBuildDir "manifest.sig") $sig -Encoding ASCII
     Write-Host "Manifest SIGNED -> manifest.sig"
 } else {
-    Write-Warning "PRIVATE KEY NOT FOUND. Build is UNSIGNED; published clients will REJECT the update. Put the key at %LOCALAPPDATA%\LostAndDivine\sign_private.xml, on a USB drive (with LAD_KEYDRIVE.txt marker), or set LAD_SIGN_KEY_PATH."
+    Write-Warning "PRIVATE KEY NOT FOUND. Build is UNSIGNED; published clients will REJECT the update. Put the key at %LOCALAPPDATA%\LostAndDivine\sign_private.xml, on a USB drive (with LAD_KEYDRIVE.txt marker), or set LAD_SIGN_KEY_PATH. If the key is on a BitLocker drive, unlock it first."
 }
 
 # --- copy combined (без version.json) в client_build/files (сервер раздаёт) ---
