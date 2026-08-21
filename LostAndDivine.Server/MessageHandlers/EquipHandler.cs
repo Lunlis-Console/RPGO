@@ -84,7 +84,7 @@ public class EquipHandler : BaseHandler
         else
         {
             // Для оружия/колец — первая свободная; иначе первая подходящая
-            if (item.Type == "weapon" || item.Type == "ring")
+            if (item.TypeEnum == ItemType.Weapon || item.TypeEnum == ItemType.Ring)
                 slotsToFill = validSlots.Where(s => player.Equipment[s] == null).Take(1).ToList();
             else
                 slotsToFill = validSlots.Take(1).ToList();
@@ -99,7 +99,7 @@ public class EquipHandler : BaseHandler
         {
             if (EquipmentSlots.IsBlockedByTwoHanded(slotsToFill[i], player.Equipment))
             {
-                if (!twoHanded && item.Type == "weapon")
+                if (!twoHanded && item.TypeEnum == ItemType.Weapon)
                     slotsToFill[i] = EquipmentSlots.RightHand;
                 else
                 {
@@ -158,3 +158,5 @@ public class EquipHandler : BaseHandler
         await SendInventoryAndStatus(connection, player);
     }
 }
+
+

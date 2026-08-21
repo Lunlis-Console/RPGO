@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Network;
+﻿using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -38,15 +38,15 @@ public class UpgradeItemHandler : BaseHandler
             return;
         }
 
-        if (stone.Type != "material")
+        if (stone.TypeEnum != ItemType.Material)
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Это не камень усиления!");
             return;
         }
 
-        bool isWeapon = !string.IsNullOrEmpty(item.WeaponSubtype) || item.Type == "weapon";
-        bool isGear = item.Type != "material" && item.Type != "consumable"
-            && item.Type != "collectible" && item.Type != "trophy";
+        bool isWeapon = !string.IsNullOrEmpty(item.WeaponSubtype) || item.TypeEnum == ItemType.Weapon;
+        bool isGear = item.TypeEnum != ItemType.Material && item.TypeEnum != ItemType.Consumable
+            && item.TypeEnum != ItemType.Collectible && item.TypeEnum != ItemType.Trophy;
         if (!isGear)
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "Можно усиливать только снаряжение!");
@@ -89,3 +89,5 @@ public class UpgradeItemHandler : BaseHandler
         await SendInventoryAndStatus(connection, player);
     }
 }
+
+

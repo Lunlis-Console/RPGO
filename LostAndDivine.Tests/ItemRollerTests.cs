@@ -1,4 +1,4 @@
-using LostAndDivine.Server.Services;
+﻿using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Tests;
@@ -9,7 +9,7 @@ public class ItemRollerTests
     {
         TemplateId = "sword_t1",
         Name = "Меч",
-        Type = "weapon",
+        TypeEnum = ItemType.Weapon,
         RequiredLevel = requiredLevel,
         DamageMin = 10,
         DamageMax = 15,
@@ -287,3 +287,4 @@ public class ItemRollerTests
         Assert.Null(back!.WeightCommon); // легаси: Обычный = остаток до 100
     }
 }
+

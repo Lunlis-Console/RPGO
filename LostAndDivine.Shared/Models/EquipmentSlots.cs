@@ -85,14 +85,17 @@ public static class EquipmentSlots
         var t = (type ?? "").ToLowerInvariant();
         return _typeToSlots.TryGetValue(t, out var list) ? list : Array.Empty<string>();
     }
-
+    public static IReadOnlyList<string> SlotsForItemType(ItemType type) => SlotsForItemType(type.ToDisplayString());
     /// <summary>Можно ли вообще надеть предмет этого типа.</summary>
     public static bool IsEquippableType(string? type) =>
         !string.IsNullOrEmpty(type) && _typeToSlots.ContainsKey((type!).ToLowerInvariant());
+    public static bool IsEquippableType(ItemType type) => IsEquippableType(type.ToDisplayString());
 
     /// <summary>Двуручное ли это оружие (по типу или флагу предмета).</summary>
     public static bool IsTwoHanded(string? type, bool itemTwoHanded) =>
-        itemTwoHanded || (type ?? "").ToLowerInvariant() == "twohand";
+        itemTwoHanded || ItemTypeExtensions.Parse(type) == ItemType.TwoHand;
+    public static bool IsTwoHanded(ItemType type, bool itemTwoHanded) =>
+        itemTwoHanded || type == ItemType.TwoHand;
 
     private static readonly Dictionary<string, List<string>> _typeToSlots = new()
     {

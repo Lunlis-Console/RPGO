@@ -1,4 +1,4 @@
-using LostAndDivine.Server;
+﻿using LostAndDivine.Server;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Tests;
@@ -282,11 +282,11 @@ public class QuestChainTests
         Assert.True(qm.IsQuestItem("I0090"));
 
         // Квестовый лут без шаблона — по названию
-        Assert.True(qm.IsQuestItem(new Item { Name = "Ключ от подвала", Type = "trophy" }));
+        Assert.True(qm.IsQuestItem(new Item { Name = "Ключ от подвала", TypeEnum = ItemType.Trophy }));
 
         // Обычные предметы и собираемые (ягоды) — продаются всегда
         Assert.False(qm.IsQuestItem(new Item { TemplateId = "I0100" }));
-        Assert.False(qm.IsQuestItem(new Item { Name = "Ягоды", Type = "collectible" }));
+        Assert.False(qm.IsQuestItem(new Item { Name = "Ягоды", TypeEnum = ItemType.Collectible }));
         Assert.False(qm.IsQuestItem(new Item { Name = "Ключ от подвала", TemplateId = "I0091" }));
         Assert.False(qm.IsQuestItem(""));
     }
@@ -390,3 +390,5 @@ public class QuestChainTests
         Assert.Single(p.ActiveQuests);
     }
 }
+
+

@@ -214,7 +214,7 @@ public class CollectibleManager
         {
             Id = itemId,
             Name = itemName,
-            Type = "collectible",
+            TypeEnum = ItemType.Collectible,
             Value = Balance.CollectibleValue,
             Description = collectibleName,
             MaxStack = Balance.MaxStackForType("collectible")
@@ -246,3 +246,5 @@ public class CollectibleManager
             SpawnNearOrigin(d.Name, d.ItemName, d.Symbol, d.ZoneId, d.OriginX, d.OriginY);
     }
 }
+
+

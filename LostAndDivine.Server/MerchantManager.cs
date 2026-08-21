@@ -67,7 +67,7 @@ public class MerchantManager
             MerchantY = DatabaseManager.GetWorldConfigInt("merchant_y", 50);
         }
         var allItems = DatabaseManager.LoadItems();
-        var shopItems = allItems.Where(i => i.Type != "collectible");
+        var shopItems = allItems.Where(i => i.TypeEnum != ItemType.Collectible);
         AllItems = shopItems.ToList();
         // Ассортимент торговца = только товары, добавленные в merchant_stock (запас торговца).
         // Если в БД нет NPC-торговца вообще — показываем все предметы (защитный fallback).
@@ -100,3 +100,5 @@ public class MerchantManager
         return copy;
     }
 }
+
+

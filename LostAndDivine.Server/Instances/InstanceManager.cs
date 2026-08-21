@@ -211,10 +211,10 @@ public class InstanceManager
         if (pool.Count == 0)
         {
             var allWeapons = _svc.Merchant.AllItems
-                .Where(i => i.Type is "weapon" or "twohand" && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
+                .Where(i => i.TypeEnum is ItemType.Weapon or ItemType.TwoHand && i.RequiredLevel <= maxLevel && (i.RequiredLevel >= minLevel || i.RequiredLevel == 0))
                 .ToList();
             if (allWeapons.Count == 0)
-                allWeapons = _svc.Merchant.AllItems.Where(i => i.Type is "weapon" or "twohand").ToList();
+                allWeapons = _svc.Merchant.AllItems.Where(i => i.TypeEnum is ItemType.Weapon or ItemType.TwoHand).ToList();
             if (allWeapons.Count == 0) return new List<Item>();
 
             int roll = Random.Shared.Next(100);
@@ -1120,3 +1120,5 @@ public class InstanceManager
         i.AttackSpeedModifier, i.TwoHanded, i.AttackRange, i.Icon
     };
 }
+
+

@@ -1,4 +1,4 @@
-using Microsoft.Data.Sqlite;
+﻿using Microsoft.Data.Sqlite;
 
 namespace LostAndDivine.Server.Repositories;
 
@@ -259,3 +259,4 @@ public class MailData
     public string ReadAt { get; set; } = "";
     public string TakenAt { get; set; } = "";
 }
+

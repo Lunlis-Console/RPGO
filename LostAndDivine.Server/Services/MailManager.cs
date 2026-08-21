@@ -108,3 +108,4 @@ public static class MailManager
         return true;
     }
 }
+

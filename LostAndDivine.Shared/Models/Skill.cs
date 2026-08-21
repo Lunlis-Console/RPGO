@@ -9,6 +9,8 @@ public class Skill
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string Type { get; set; } = "active";     // active — активный навык боя
+    [System.Text.Json.Serialization.JsonIgnore]
+    public SkillType TypeEnum { get => SkillTypeExtensions.Parse(Type); set => Type = value.ToDisplayString(); }
     public int MpCost { get; set; }                   // стоимость маны (в игре пока нет маны)
     public int CooldownMs { get; set; }               // откат
     public double DamageMultiplier { get; set; } = 1.0; // множитель урона

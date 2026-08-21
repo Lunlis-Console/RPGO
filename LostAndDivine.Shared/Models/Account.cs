@@ -92,6 +92,8 @@ public class Item
     public string TemplateId { get; set; } = "";
     public string Name { get; set; } = "";
     public string Type { get; set; } = "";
+    [System.Text.Json.Serialization.JsonIgnore]
+    public ItemType TypeEnum { get => ItemTypeExtensions.Parse(Type); set => Type = value.ToDisplayString(); }
     public int Quantity { get; set; } = 1;
     public int Value { get; set; }
     public int MaxHealthBonus { get; set; }

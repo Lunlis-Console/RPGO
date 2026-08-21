@@ -64,7 +64,7 @@ public class Equipment
     public Item? GetEquippedShield()
     {
         var lh = _slots.TryGetValue(EquipmentSlots.LeftHand, out var l) ? l : null;
-        if (lh != null && (lh.Type ?? "").ToLowerInvariant() == "shield" && !IsCasterOffhand(lh))
+        if (lh != null && lh.TypeEnum == ItemType.Shield && !IsCasterOffhand(lh))
             return lh;
         return null;
     }
@@ -158,9 +158,7 @@ public class Equipment
         var leftHand = _slots.TryGetValue(EquipmentSlots.LeftHand, out var lh) ? lh : null;
         var rightHand = _slots.TryGetValue(EquipmentSlots.RightHand, out var rh) ? rh : null;
         if (leftHand == null || rightHand == null) return false;
-        string leftType = (leftHand.Type ?? "").ToLowerInvariant();
-        string rightType = (rightHand.Type ?? "").ToLowerInvariant();
-        return leftType == "weapon" && !leftHand.TwoHanded && rightType == "weapon" && !rightHand.TwoHanded;
+        return leftHand.TypeEnum == ItemType.Weapon && !leftHand.TwoHanded && rightHand.TypeEnum == ItemType.Weapon && !rightHand.TwoHanded;
     }
 
     public Item? GetOffHandWeapon()
@@ -208,3 +206,4 @@ public class Equipment
 
     private static Item CloneItem(Item src) => src.Clone();
 }
+

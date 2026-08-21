@@ -214,7 +214,7 @@ public sealed class GameServer : INetworkHub
                     Facing = p.Facing,
                     WeaponSubtype = p.Equipment.Slots.TryGetValue("rhand", out var rh) ? (rh?.WeaponSubtype ?? "") : "",
                     OffWeaponSubtype = p.Equipment.Slots.TryGetValue("lhand", out var lh) ? (lh?.WeaponSubtype ?? "") : "",
-                    ShieldSubtype = (p.Equipment.Slots.TryGetValue("lhand", out var lsh) && lsh != null && lsh.Type == "shield" && !Equipment.IsCasterOffhand(lsh)) ? "shield" : "",
+                    ShieldSubtype = (p.Equipment.Slots.TryGetValue("lhand", out var lsh) && lsh != null && lsh.TypeEnum == ItemType.Shield && !Equipment.IsCasterOffhand(lsh)) ? "shield" : "",
                     IsTwoHanded = p.Equipment.Slots.TryGetValue("rhand", out var rh2) && rh2 != null && rh2.TwoHanded,
                     IsDead = p.IsDead,
                     IsAdmin = p.IsAdmin
@@ -1084,3 +1084,5 @@ public sealed class GameServer : INetworkHub
         return null;
     }
 }
+
+

@@ -29,7 +29,7 @@ public class UseItemHandler : BaseHandler
             return;
         }
 
-        if (item.Type == "consumable" && item.HealAmount > 0)
+        if (item.TypeEnum == ItemType.Consumable && item.HealAmount > 0)
         {
             int effectiveMax = player.MaxHealth + player.Equipment.GetBonusMaxHealth();
             int healed = Math.Min(item.HealAmount, effectiveMax - player.Health);
@@ -51,7 +51,7 @@ public class UseItemHandler : BaseHandler
             await SendInventoryAndStatus(connection, player);
             await ReportUseQuest(connection, player, item);
         }
-        else if (item.Type == "consumable" && item.RestoreMana > 0)
+        else if (item.TypeEnum == ItemType.Consumable && item.RestoreMana > 0)
         {
             int effectiveMaxMana = player.MaxMana + player.Equipment.GetBonusMaxMana();
             if (player.Mana >= effectiveMaxMana)
@@ -97,3 +97,5 @@ public class UseItemHandler : BaseHandler
         await SendQuestLog(connection, player);
     }
 }
+
+

@@ -169,7 +169,9 @@ public static class Balance
     public const int StorageSlots = 100;
 
     public static int MaxStackForType(string? type)
-        => type == "consumable" || type == "collectible" || type == "trophy" || type == "material"
+        => MaxStackForType(ItemTypeExtensions.Parse(type));
+    public static int MaxStackForType(ItemType type)
+        => type is ItemType.Consumable or ItemType.Collectible or ItemType.Trophy or ItemType.Material
             ? DefaultMaxStack : UniqueItemMaxStack;
 
     // ===== ТОРГОВЛЯ =====

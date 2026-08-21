@@ -1,4 +1,4 @@
-using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared.Models;
 using LostAndDivine.Server;
 
 namespace LostAndDivine.Tests;
@@ -326,7 +326,7 @@ public class PlayerStatsTests
     public void GetBlockChance_WithShield_AddsBaseBonus()
     {
         var eq = new Equipment();
-        eq[EquipmentSlots.LeftHand] = new Item { Type = "shield" };
+        eq[EquipmentSlots.LeftHand] = new Item { TypeEnum = ItemType.Shield };
         var p = new Player { BaseBlockChance = 1.0, Equipment = eq };
         // Щит даёт базовые +2% к блоку (атрибуты не влияют)
         Assert.Equal(3.0, p.GetBlockChance());
@@ -689,3 +689,5 @@ public class PlayerStatsTests
         Assert.Equal(0.5, p.GetCastTimeMultiplier(), 3);
     }
 }
+
+

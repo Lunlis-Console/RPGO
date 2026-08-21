@@ -14,7 +14,7 @@ public class SellAllTrophiesHandler : BaseHandler
         if (player == null) return;
         if (player.IsTrading) { await SendError(connection, ErrorCodes.InvalidRequest, "Нельзя продавать во время обмена!"); return; }
 
-        var trophies = player.Inventory.Where(i => i.Type == "trophy").ToList();
+        var trophies = player.Inventory.Where(i => i.TypeEnum == ItemType.Trophy).ToList();
         if (trophies.Count == 0)
         {
             await SendError(connection, ErrorCodes.InvalidRequest, "У вас нет трофеев для продажи!");
@@ -75,3 +75,5 @@ public class SellAllTrophiesHandler : BaseHandler
         await SendInventoryAndStatus(connection, player);
     }
 }
+
+
