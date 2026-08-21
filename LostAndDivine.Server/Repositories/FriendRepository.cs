@@ -6,7 +6,7 @@ internal static class FriendRepository
 
     internal static void Add(string ownerName, string friendName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();
@@ -22,7 +22,7 @@ internal static class FriendRepository
 
     internal static void Remove(string ownerName, string friendName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();

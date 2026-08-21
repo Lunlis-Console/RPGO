@@ -550,10 +550,23 @@ public static class SpriteCache
 
     public static void Unload()
     {
-        foreach (var tex in _textures.Values)
-            tex.Dispose();
+        // Собираем все GPU-текстуры без дубликатов (лист анимаций и _pixel
+        // могут ссылаться на те же экземпляры Texture2D, что и _textures).
+        var toDispose = new HashSet<Texture2D>(_textures.Values);
+        foreach (var anim in _animations.Values)
+            if (anim.Sheet != null) toDispose.Add(anim.Sheet);
+        if (_pixel != null) toDispose.Add(_pixel);
+
+        foreach (var tex in toDispose)
+        {
+            try { tex.Dispose(); } catch { }
+        }
+
         _textures.Clear();
-        _pixel?.Dispose();
+        _animations.Clear();
+        _cursorHotspots.Clear();
+        _cursorHotspotMap.Clear();
+        _pixel = null!;
     }
 }
 

@@ -6,19 +6,48 @@ namespace LostAndDivine.Shared.Migrations;
 
 public static class DbMigrationRunner
 {
-    public static void RunMigrations(string connectionString)
+    /// <summary>
+    /// Применяет миграции к БД.
+    /// </summary>
+    /// <param name="connectionString">Строка подключения SQLite.</param>
+    /// <param name="allowDestructiveReset">
+    /// Если <c>true</c> — при обнаружении БД с таблицами, но без истории миграций
+    /// (VersionInfo), таблицы будут удалены и пересозданы. По умолчанию <c>false</c>:
+    /// в этом случае старт завершается исключением <see cref="MigrationException"/>,
+    /// чтобы избежать непреднамеренного уничтожения данных (P0-1).
+    /// </param>
+    public static void RunMigrations(string connectionString, bool allowDestructiveReset = false)
     {
+        string? dbPath = ExtractDataSource(connectionString);
+
         bool hasExistingTables = HasExistingTables(connectionString);
         bool hasVersionInfo = hasExistingTables && HasVersionInfo(connectionString);
 
         if (hasExistingTables && !hasVersionInfo)
         {
-            Console.WriteLine("[Migrations] Existing DB without migration history — dropping all tables...");
-            DropAllTables(connectionString);
-            Console.WriteLine("[Migrations] All tables dropped. Applying all migrations...");
+            // P0-1: ранее здесь молча вызывался DropAllTables — катастрофический вайп
+            // при любой порче tracking-таблицы. Теперь сброс возможен только явно.
+            // Бэкап сохраняем в любом случае — оператору нужен восстановимый снимок.
+            BackupBeforeMigration(dbPath);
+            if (allowDestructiveReset)
+            {
+                Console.WriteLine("[Migrations] WARNING: явный сброс БД (allowDestructiveReset). Бэкап сохранён перед удалением таблиц.");
+                DropAllTables(connectionString);
+                Console.WriteLine("[Migrations] All tables dropped. Applying all migrations...");
+            }
+            else
+            {
+                throw new MigrationException(
+                    "База данных содержит таблицы, но отсутствует история миграций (VersionInfo). " +
+                    "Автоматический сброс таблиц отключён во избежание потери данных. " +
+                    "Восстановите БД из резервной копии (.bak) или запустите с явным флагом сброса " +
+                    "(переменная окружения LAD_ALLOW_DB_RESET=1), предварительно убедившись, что сброс безопасен.");
+            }
         }
         else if (hasExistingTables)
         {
+            // Бэкап перед применением миграций на существующей БД (защита данных).
+            BackupBeforeMigration(dbPath);
             Console.WriteLine("[Migrations] Checking for pending migrations...");
             RepairVersionInfo(connectionString);
         }
@@ -96,6 +125,50 @@ public static class DbMigrationRunner
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM VersionInfo";
         cmd.ExecuteNonQuery();
+    }
+
+    private static void BackupBeforeMigration(string? dbPath)
+    {
+        if (string.IsNullOrEmpty(dbPath) || !File.Exists(dbPath))
+            return;
+
+        try
+        {
+            string backupPath = dbPath + ".bak";
+            if (File.Exists(backupPath))
+                File.Delete(backupPath);
+
+            // VACUUM INTO даёт консистентную онлайн-копию БД без необходимости
+            // ручного копирования sidecar-файлов (-wal/-shm).
+            using var conn = new SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"VACUUM INTO '{backupPath.Replace("'", "''")}'";
+            cmd.ExecuteNonQuery();
+
+            Console.WriteLine($"[Migrations] Pre-migration backup saved: {backupPath}");
+        }
+        catch (Exception ex)
+        {
+            // Бэкап — мера безопасности; если он не удался, продолжаем миграцию,
+            // но предупреждаем (в отличие от дропа — здесь данные ещё целы).
+            Console.WriteLine($"[Migrations] WARNING: pre-migration backup failed: {ex.Message}");
+        }
+    }
+
+    private static string? ExtractDataSource(string connectionString)
+    {
+        foreach (var part in connectionString.Split(';'))
+        {
+            var trimmed = part.Trim();
+            if (!trimmed.StartsWith("Data Source", StringComparison.OrdinalIgnoreCase))
+                continue;
+            int eq = trimmed.IndexOf('=');
+            if (eq < 0) continue;
+            var value = trimmed.Substring(eq + 1).Trim().Trim('\'', '"');
+            return value.Length == 0 ? null : value;
+        }
+        return null;
     }
 
     private static bool HasExistingTables(string connectionString)

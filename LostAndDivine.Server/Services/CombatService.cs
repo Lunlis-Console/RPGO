@@ -92,24 +92,7 @@ public class CombatService
         return Task.CompletedTask;
     }
 
-    // ──────────────── Боевой цикл (PvE) ────────────────
-
-    public async Task RunCombatLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(200, ct);
-                await CombatTick();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                Log.Error("Ошибка боевого цикла", ex);
-            }
-        }
-    }
+    // ──────────────── Боевой тик (PvE), вызывается из единого игрового цикла ────────────────
 
     public async Task CombatTick()
     {

@@ -48,23 +48,6 @@ public class ProjectileManager
         return proj;
     }
 
-    public async Task RunTick(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(Balance.ProjectileTickMs, ct);
-                await Tick();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                Log.Error("Ошибка цикла снарядов", ex);
-            }
-        }
-    }
-
     public async Task Tick()
     {
         if (_hub == null) return;

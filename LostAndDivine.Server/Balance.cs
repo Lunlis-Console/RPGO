@@ -34,6 +34,11 @@ public static class Balance
     public const int ViewRadius = 30;
     public const int ServerPort = 7777;
 
+    /// <summary>Глобальный предел одновременных соединений (P2-7). При пике CCU 500+
+    /// устанавливаем запас прочности: новые подключения сверх лимита отклоняются
+    /// с логом, вместо того чтобы исчерпать память/дескрипторы.</summary>
+    public const int MaxConnections = 2000;
+
     public const int InteractRange = 1;
     public const int AttackRange = 1;
 

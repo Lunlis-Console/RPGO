@@ -8,7 +8,7 @@ internal static class QuestRepository
 {
     internal static List<QuestDefinition> LoadDefinitions()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             var result = new List<QuestDefinition>();
             using var connection = Db.OpenContent();

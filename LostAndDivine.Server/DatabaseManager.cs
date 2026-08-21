@@ -15,10 +15,15 @@ public static class DatabaseManager
     // === Lifecycle ===
     public static void Initialize()
     {
-        DbMigrationRunner.RunMigrations(Db.ConnectionString);
+        // P0-1: явный сброс БД (DropAllTables при отсутствии VersionInfo) возможен
+        // только при установленной переменной окружения — по умолчанию запрещён.
+        bool allowDestructiveReset =
+            string.Equals(Environment.GetEnvironmentVariable("LAD_ALLOW_DB_RESET"), "1", StringComparison.Ordinal);
+
+        DbMigrationRunner.RunMigrations(Db.ConnectionString, allowDestructiveReset);
 
         bool contentExisted = File.Exists(Db.ContentPath);
-        DbMigrationRunner.RunMigrations(Db.ContentConnectionString);
+        DbMigrationRunner.RunMigrations(Db.ContentConnectionString, allowDestructiveReset);
         if (!contentExisted)
             ContentDbSeeder.CopyContentFromRuntimeIfNew(Db.ContentConnectionString, Db.RuntimePath);
 

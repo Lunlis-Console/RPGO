@@ -319,7 +319,7 @@ public class PvPService
         return true;
     }
 
-    // ──────── PvP tick (called from CombatService.RunCombatLoop) ────────
+    // ──────── PvP tick (вызывается из единого игрового цикла через CombatService.CombatTick) ────────
 
     internal async Task<bool> RunPvPTick(Player pl)
     {

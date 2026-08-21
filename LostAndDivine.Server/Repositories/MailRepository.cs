@@ -10,7 +10,7 @@ public static class MailRepository
     public static int Send(string sender, string recipient, string subject, string body,
         int goldAmount, List<MailAttachment> attachments)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var txn = conn.BeginTransaction();
@@ -118,7 +118,7 @@ public static class MailRepository
 
     public static void MarkRead(int id)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -131,7 +131,7 @@ public static class MailRepository
 
     public static void TakeAttachment(int id)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -144,7 +144,7 @@ public static class MailRepository
 
     public static void DeleteMail(int id, string playerName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();

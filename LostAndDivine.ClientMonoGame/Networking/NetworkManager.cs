@@ -24,6 +24,7 @@ public class NetworkManager
     public int PingMs { get; private set; }
 
     private string _serverIp = "127.0.0.1";
+    private int _serverPort = 7777;
     private string? _sessionToken;
     private Guid _playerId;
 
@@ -49,6 +50,7 @@ public class NetworkManager
     public async Task<bool> ConnectAsync(string ip, int port)
     {
         _serverIp = ip;
+        _serverPort = port;
         return await ConnectInternalAsync(ip, port);
     }
 
@@ -287,7 +289,7 @@ public class NetworkManager
                 attempt++;
                 SystemMessage?.Invoke($"Попытка переподключения {attempt}...");
 
-                if (await ConnectInternalAsync(_serverIp, 7777))
+                if (await ConnectInternalAsync(_serverIp, _serverPort))
                 {
                     try
                     {

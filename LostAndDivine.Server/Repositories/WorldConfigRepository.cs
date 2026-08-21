@@ -4,7 +4,7 @@ internal static class WorldConfigRepository
 {
     internal static int GetInt(string key, int defaultValue = 0)
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             try
             {

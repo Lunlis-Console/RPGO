@@ -23,23 +23,6 @@ public class HazardService
         _svc = svc;
     }
 
-    public async Task RunHazardTickLoop(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(Balance.DebuffTickMs, ct);
-                await Tick();
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                Log.Error("Ошибка цикла ловушек", ex);
-            }
-        }
-    }
-
     public async Task Tick()
     {
         _svc.World.RemoveExpiredHazards();

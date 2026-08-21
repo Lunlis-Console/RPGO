@@ -61,7 +61,7 @@ internal static class AccountRepository
 
     internal static int GetCount()
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
             var cmd = connection.CreateCommand();
@@ -83,7 +83,7 @@ internal static class AccountRepository
         if (!password.Any(c => !char.IsLetterOrDigit(c)))
             return (false, null);
 
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
 
@@ -111,7 +111,7 @@ internal static class AccountRepository
         if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
             return (false, null);
 
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
 
@@ -157,7 +157,7 @@ internal static class AccountRepository
 
     internal static void CreateTestAccountIfNeeded()
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
 
@@ -264,7 +264,7 @@ internal static class AccountRepository
 
     internal static void SetAdmin(string login, bool isAdmin)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();
@@ -277,7 +277,7 @@ internal static class AccountRepository
 
     internal static void SetBanned(string login, bool isBanned, string reason)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();

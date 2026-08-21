@@ -123,7 +123,7 @@ public sealed class StorageService
     public List<Item> LoadFromDb(string playerName)
     {
         List<Item> raw;
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
             var cmd = connection.CreateCommand();

@@ -7,7 +7,7 @@ internal static class MonsterRepository
 {
     internal static List<MonsterTemplate> LoadAll()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             var result = new List<MonsterTemplate>();
             using var connection = Db.OpenContent();

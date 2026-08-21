@@ -7,7 +7,7 @@ internal static class ItemRepository
 {
     internal static List<Item> LoadAll()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             var result = new List<Item>();
             using var connection = Db.OpenContent();
@@ -89,7 +89,7 @@ internal static class ItemRepository
 
     internal static Item? GetTemplate(string templateId)
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             using var connection = Db.OpenContent();
             var cmd = connection.CreateCommand();

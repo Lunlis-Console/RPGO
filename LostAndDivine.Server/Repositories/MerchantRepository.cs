@@ -4,7 +4,7 @@ internal static class MerchantRepository
 {
     internal static List<(string ItemId, int Stock)> LoadStock(string npcId)
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             var result = new List<(string, int)>();
             using var connection = Db.OpenContent();
@@ -20,7 +20,7 @@ internal static class MerchantRepository
 
     internal static void SaveStock(string npcId, IEnumerable<(string ItemId, int Stock)> items)
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             using var connection = Db.OpenContent();
             using var transaction = connection.BeginTransaction();

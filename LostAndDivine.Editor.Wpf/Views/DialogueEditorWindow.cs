@@ -481,6 +481,7 @@ public sealed class DialogueEditorWindow : Window
             }
             string json = JsonSerializer.Serialize(_tree.Nodes, new JsonSerializerOptions { WriteIndented = true });
             using var conn = _db.OpenContent();
+            using var tx = conn.BeginTransaction();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = "UPDATE npcs SET data = $d WHERE id = $id";
             cmd.Parameters.AddWithValue("$d", json);
@@ -488,11 +489,16 @@ public sealed class DialogueEditorWindow : Window
             int affected = cmd.ExecuteNonQuery();
             if (affected > 0)
             {
+                tx.Commit();
                 _dirty = false;
                 UpdateDirty();
                 _status.Text = $"Диалог '{_currentNpcId}' сохранён ({_tree.Nodes.Count} узлов)";
             }
-            else _status.Text = $"NPC '{_currentNpcId}' не найден";
+            else
+            {
+                tx.Rollback();
+                _status.Text = $"NPC '{_currentNpcId}' не найден";
+            }
         }
         catch (Exception ex) { _status.Text = "Ошибка: " + ex.Message; }
     }

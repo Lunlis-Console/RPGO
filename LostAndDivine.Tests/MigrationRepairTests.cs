@@ -73,6 +73,64 @@ public class MigrationRepairTests
     }
 
     [Fact]
+    public void Migrations_TablesWithoutVersionInfo_ThrowsFailSafe_ByDefault()
+    {
+        string db = TempDb();
+        try
+        {
+            DbMigrationRunner.RunMigrations($"Data Source={db}");
+
+            // Имитация порчи tracking-таблицы: таблицы есть, VersionInfo удалена целиком
+            using (var conn = new SqliteConnection($"Data Source={db}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DROP TABLE VersionInfo";
+                cmd.ExecuteNonQuery();
+            }
+
+            // По умолчанию (без явного флага сброса) старт НЕ должен уничтожать данные
+            Assert.Throws<MigrationException>(() => DbMigrationRunner.RunMigrations($"Data Source={db}"));
+
+            // Данные должны уцелеть: бэкап и таблицы на месте
+            Assert.True(File.Exists(db + ".bak"));
+            using var conn2 = new SqliteConnection($"Data Source={db}");
+            conn2.Open();
+            using var cmd2 = conn2.CreateCommand();
+            cmd2.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'";
+            Assert.NotNull(cmd2.ExecuteScalar());
+        }
+        finally { Cleanup(db); Cleanup(db + ".bak"); }
+    }
+
+    [Fact]
+    public void Migrations_TablesWithoutVersionInfo_ResetAllowed_DropsAndRecreates()
+    {
+        string db = TempDb();
+        try
+        {
+            DbMigrationRunner.RunMigrations($"Data Source={db}");
+            using (var conn = new SqliteConnection($"Data Source={db}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = "DROP TABLE VersionInfo";
+                cmd.ExecuteNonQuery();
+            }
+
+            // С явным флагом сброса — таблицы пересоздаются без исключения
+            DbMigrationRunner.RunMigrations($"Data Source={db}", allowDestructiveReset: true);
+
+            using var conn2 = new SqliteConnection($"Data Source={db}");
+            conn2.Open();
+            using var cmd2 = conn2.CreateCommand();
+            cmd2.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'";
+            Assert.NotNull(cmd2.ExecuteScalar());
+        }
+        finally { Cleanup(db); Cleanup(db + ".bak"); }
+    }
+
+    [Fact]
     public void Migrations_Repair_WhenTableExistsButVersionInfoRowLost()
     {
         string db = TempDb();

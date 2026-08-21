@@ -9,7 +9,7 @@ internal static class SessionTokenRepository
 {
     internal static void Save(string token, string playerName, long expiry)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -25,7 +25,7 @@ internal static class SessionTokenRepository
 
     internal static (string PlayerName, long Expiry)? Find(string token)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -39,7 +39,7 @@ internal static class SessionTokenRepository
 
     internal static void Delete(string token)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -51,7 +51,7 @@ internal static class SessionTokenRepository
 
     internal static void DeleteExpired(long now)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();
@@ -64,7 +64,7 @@ internal static class SessionTokenRepository
     /// <summary>Удаляет все токены игрока (используется при выдаче нового токена).</summary>
     internal static void DeleteForPlayer(string playerName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var cmd = conn.CreateCommand();

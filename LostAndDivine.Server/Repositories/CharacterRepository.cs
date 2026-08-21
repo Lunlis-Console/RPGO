@@ -7,7 +7,7 @@ internal static class CharacterRepository
 {
     public static List<CharacterInfo> ListForAccount(string login)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();
@@ -33,7 +33,7 @@ internal static class CharacterRepository
 
     public static int CountForAccount(string login)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();
@@ -45,7 +45,7 @@ internal static class CharacterRepository
 
     public static bool NameTaken(string playerName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             var cmd = conn.CreateCommand();
@@ -77,7 +77,7 @@ internal static class CharacterRepository
             CreatedAt = DateTime.Now
         };
 
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var txn = conn.BeginTransaction();
@@ -90,7 +90,7 @@ internal static class CharacterRepository
 
     public static CharacterModel? LoadByName(string playerName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             return LoadByName(conn, playerName);
@@ -152,7 +152,7 @@ internal static class CharacterRepository
 
     public static void SavePlayerProgress(Player player, List<Item>? storageItems = null)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var txn = conn.BeginTransaction();
@@ -231,7 +231,7 @@ internal static class CharacterRepository
 
     public static bool DeleteCharacter(string playerName)
     {
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var conn = Db.Open();
             using var txn = conn.BeginTransaction();

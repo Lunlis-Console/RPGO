@@ -9,7 +9,8 @@ internal static class Db
     internal static readonly string ContentConnectionString;
     internal static readonly string RuntimePath;
     internal static readonly string ContentPath;
-    internal static readonly object Lock = new();
+    internal static readonly object GameLock = new();
+    internal static readonly object ContentLock = new();
 
     static Db()
     {

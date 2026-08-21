@@ -7,7 +7,7 @@ internal static class ZoneRepository
 {
     internal static List<Zone> LoadAll()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             using var conn = Db.OpenContent();
             var cmd = conn.CreateCommand();
@@ -33,7 +33,7 @@ internal static class ZoneRepository
 
     internal static List<WorldPortal> LoadPortals()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             using var conn = Db.OpenContent();
             var cmd = conn.CreateCommand();

@@ -6,7 +6,7 @@ internal static class LootRepository
 {
     internal static List<MonsterDrop> LoadAll()
     {
-        lock (Db.Lock)
+        lock (Db.ContentLock)
         {
             var result = new List<MonsterDrop>();
             using var connection = Db.OpenContent();

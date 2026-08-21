@@ -250,6 +250,12 @@ public sealed class GameWorld
         lock (_lock) return new List<ClientConnection>(_clients);
     }
 
+    /// <summary>Текущее число активных соединений (P2-7, дешёвый счётчик).</summary>
+    public int GetConnectionCount()
+    {
+        lock (_lock) return _clients.Count;
+    }
+
     public ClientConnection? GetConnectionByPlayerName(string playerName)
     {
         lock (_lock) return _clients.FirstOrDefault(c => c.Player?.Name.Equals(playerName, StringComparison.OrdinalIgnoreCase) == true);

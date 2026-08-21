@@ -302,6 +302,14 @@ partial class Program
                 continue;
             }
 
+            // P2-7: глобальный предел одновременных соединений
+            if (world.GetConnectionCount() >= Balance.MaxConnections)
+            {
+                Log.Warn($"Отклонено подключение (достигнут лимит соединений {Balance.MaxConnections}): {ip}");
+                try { client.Close(); } catch { }
+                continue;
+            }
+
             Log.Debug($"TCP-подключение: {client.Client.RemoteEndPoint}");
 
             ClientConnection connection = new ClientConnection(client);

@@ -189,7 +189,7 @@ internal static class InventoryRepository
     internal static List<Item> GetForPlayer(string playerName, HashSet<string>? excludeItemIds)
     {
         List<Item> items;
-        lock (Db.Lock)
+        lock (Db.GameLock)
         {
             using var connection = Db.Open();
             var cmd = connection.CreateCommand();
