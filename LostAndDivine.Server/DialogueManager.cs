@@ -130,190 +130,150 @@ public class DialogueManager
 
     private bool EvaluateCondition(string condition, Player player)
     {
-        if (condition.StartsWith("quest_active:"))
+        var type = DialogueConditionTypeExtensions.Parse(condition);
+        string param = DialogueConditionTypeExtensions.GetParam(condition);
+        return type switch
         {
-            string qid = condition["quest_active:".Length..];
-            return player.ActiveQuests.Any(q => q.QuestId == qid && !q.Completed);
-        }
-        if (condition.StartsWith("quest_complete:"))
+            DialogueConditionType.QuestActive => player.ActiveQuests.Any(q => q.QuestId == param && !q.Completed),
+            DialogueConditionType.QuestComplete => player.CompletedQuestIds.Contains(param) || player.ActiveQuests.Any(q => q.QuestId == param && q.Completed),
+            DialogueConditionType.QuestNotActive => !player.ActiveQuests.Any(q => q.QuestId == param),
+            DialogueConditionType.QuestNotStarted => EvaluateQuestNotStarted(param, player),
+            DialogueConditionType.QuestReady => player.ActiveQuests.Any(q => q.QuestId == param && q.Completed),
+            DialogueConditionType.HasItem => EvaluateHasItem(param, player),
+            DialogueConditionType.Level => int.TryParse(param, out int minLevel) && player.Level >= minLevel,
+            DialogueConditionType.Gold => int.TryParse(param, out int minGold) && player.Gold >= minGold,
+            _ => true
+        };
+    }
+
+    private bool EvaluateQuestNotStarted(string qid, Player player)
+    {
+        if (player.ActiveQuests.Any(q => q.QuestId == qid)) return false;
+        if (player.CompletedQuestIds.Contains(qid))
         {
-            string qid = condition["quest_complete:".Length..];
-            // Выполнен: либо в истории (сдан), либо в активных с флагом Completed (готов к сдаче)
-            if (player.CompletedQuestIds.Contains(qid)) return true;
-            return player.ActiveQuests.Any(q => q.QuestId == qid && q.Completed);
-        }
-        if (condition.StartsWith("quest_not_active:"))
-        {
-            string qid = condition["quest_not_active:".Length..];
-            return !player.ActiveQuests.Any(q => q.QuestId == qid);
-        }
-        if (condition.StartsWith("quest_not_started:"))
-        {
-            // Квест ещё не брался: не активен И не выполнен ранее.
-            // В отличие от quest_not_active не показывает «тупиковые» ветки
-            // для уже сданных квестов. Для повторяемых квестов история
-            // выполнения не мешает взять квест снова.
-            string qid = condition["quest_not_started:".Length..];
-            if (player.ActiveQuests.Any(q => q.QuestId == qid)) return false;
-            if (player.CompletedQuestIds.Contains(qid))
-            {
-                var def = _quests.FindQuest(qid);
-                return def != null && def.Repeatable;
-            }
-            return true;
-        }
-        if (condition.StartsWith("quest_ready:"))
-        {
-            string qid = condition["quest_ready:".Length..];
-            return player.ActiveQuests.Any(q => q.QuestId == qid && q.Completed);
-        }
-        if (condition.StartsWith("has_item:"))
-        {
-            // has_item:I0015 или has_item:I0015:3 — нужное количество в инвентаре
-            var parts = condition["has_item:".Length..].Split(':');
-            string itemId = parts[0];
-            int required = parts.Length > 1 && int.TryParse(parts[1], out var req) ? Math.Max(1, req) : 1;
-            int available = player.Inventory
-                .Where(i => i.TemplateId == itemId || i.Id == itemId)
-                .Sum(i => i.Quantity);
-            return available >= required;
-        }
-        if (condition.StartsWith("level:"))
-        {
-            int minLevel = 0;
-            if (int.TryParse(condition["level:".Length..], out minLevel))
-                return player.Level >= minLevel;
-            return false;
-        }
-        if (condition.StartsWith("gold:"))
-        {
-            int minGold = 0;
-            if (int.TryParse(condition["gold:".Length..], out minGold))
-                return player.Gold >= minGold;
-            return false;
+            var def = _quests.FindQuest(qid);
+            return def != null && def.Repeatable;
         }
         return true;
+    }
+
+    private bool EvaluateHasItem(string param, Player player)
+    {
+        var parts = param.Split(':');
+        string itemId = parts[0];
+        int required = parts.Length > 1 && int.TryParse(parts[1], out var req) ? Math.Max(1, req) : 1;
+        int available = player.Inventory.Where(i => i.TemplateId == itemId || i.Id == itemId).Sum(i => i.Quantity);
+        return available >= required;
     }
 
     private async Task<bool> ApplyAction(ClientConnection client, Player player, string action)
     {
         if (_hub == null) return false;
         var svc = _svc;
-        if (action.StartsWith("accept_quest:"))
+        var type = DialogueActionTypeExtensions.Parse(action);
+        string param = DialogueActionTypeExtensions.GetParam(action);
+        switch (type)
         {
-            string qid = action["accept_quest:".Length..];
-            var def = _quests.FindQuest(qid);
-            if (def != null && _quests.CanTakeQuest(player, def))
+            case DialogueActionType.AcceptQuest:
             {
-                _quests.TakeQuest(player, def);
-                await _hub.SendQuestLog(client, player);
-                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
-                _hub.MarkZoneDirty(player.CurrentZoneId);
-                await _hub.BroadcastMapAsync();
-            }
-        }
-        else if (action.StartsWith("complete_quest:"))
-        {
-            string qid = action["complete_quest:".Length..];
-            var result = _quests.CompleteQuest(player, qid);
-            if (result.Success)
-            {
-                await _hub.SendQuestLog(client, player);
-                await _svc.ChatTo(client, ChatChannel.System, "Система", result.Message);
-                await _hub.SendStatusAsync(client, player);
-                _hub.MarkZoneDirty(player.CurrentZoneId);
-                await _hub.BroadcastMapAsync();
-                await CloseDialogue(client, player);
-                return true;
-            }
-        }
-                else if (action == "open_shop")
+                var def = _quests.FindQuest(param);
+                if (def != null && _quests.CanTakeQuest(player, def))
                 {
+                    _quests.TakeQuest(player, def);
+                    await _hub.SendQuestLog(client, player);
+                    await _svc.ChatTo(client, ChatChannel.System, "Система", $"Задание принято: {def.Title}");
+                    _hub.MarkZoneDirty(player.CurrentZoneId);
+                    await _hub.BroadcastMapAsync();
+                }
+                break;
+            }
+            case DialogueActionType.CompleteQuest:
+            {
+                var result = _quests.CompleteQuest(player, param);
+                if (result.Success)
+                {
+                    await _hub.SendQuestLog(client, player);
+                    await _svc.ChatTo(client, ChatChannel.System, "Система", result.Message);
+                    await _hub.SendStatusAsync(client, player);
+                    _hub.MarkZoneDirty(player.CurrentZoneId);
+                    await _hub.BroadcastMapAsync();
                     await CloseDialogue(client, player);
-                    await _svc.Interactions.OpenShop(player, client);
                     return true;
                 }
-        else if (action == "close")
-        {
-            await CloseDialogue(client, player);
-            return true;
-        }
-        else if (action.StartsWith("enter_instance:"))
-        {
-            string templateId = action["enter_instance:".Length..];
-            await CloseDialogue(client, player);
-            await _svc.Instances.TryEnter(player, templateId, client);
-            return true;
-        }
-        else if (action == "open_instances")
-        {
-            // Открыть окно выбора инстансов (соло/группа)
-            await CloseDialogue(client, player);
-            await _hub.SendToClient(client, new GameMessage
-            {
-                Type = "instance_window_open",
-                Data = new { }
-            });
-            return true;
-        }
-        else if (action.StartsWith("give_item:"))
-        {
-            // give_item:I0015[:кол-во] — выдать предмет из таблицы items
-            var parts = action["give_item:".Length..].Split(':');
-            string itemId = parts[0];
-            int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
-            var template = DatabaseManager.LoadItems().FirstOrDefault(i => i.Id == itemId);
-            if (template != null)
-            {
-                var gift = template.Clone();
-                gift.Quantity = count;
-                InventoryHelper.AddItem(player, gift);
-                await _hub.SendInventoryAndStatus(client, player);
-                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили: {count}× {template.Name}");
+                break;
             }
-        }
-        else if (action.StartsWith("give_gold:"))
-        {
-            if (int.TryParse(action["give_gold:".Length..], out int amount) && amount > 0)
-            {
-                player.Gold += amount;
-                await _hub.SendStatusAsync(client, player);
-                await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили {amount} золота.");
-            }
-        }
-        else if (action.StartsWith("take_item:"))
-        {
-            // take_item:I0015[:кол-во] — забрать предмет у игрока (квестовая сдача)
-            var parts = action["take_item:".Length..].Split(':');
-            string itemId = parts[0];
-            int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
-            var records = player.Inventory.Where(i => i.TemplateId == itemId || i.Id == itemId).ToList();
-            int available = records.Sum(i => i.Quantity);
-            int toRemove = Math.Min(count, available);
-            foreach (var rec in records)
-            {
-                if (toRemove <= 0) break;
-                int take = Math.Min(toRemove, rec.Quantity);
-                InventoryHelper.RemoveFromRecord(player, rec.Id, take);
-                toRemove -= take;
-            }
-            if (toRemove < count)
-            {
-                await _hub.SendInventoryAndStatus(client, player);
-                string itemName = records.FirstOrDefault()?.Name ?? itemId;
-                await _svc.ChatTo(client, ChatChannel.System, "Система", $"У вас забрали: {Math.Min(count, available)}× {itemName}");
-            }
-        }
-        else if (action.StartsWith("teleport:"))
-        {
-            // teleport:зона:x:y — переместить игрока в точку другой (или той же) зоны
-            var parts = action["teleport:".Length..].Split(':');
-            if (parts.Length >= 3 &&
-                int.TryParse(parts[1], out int tx) && int.TryParse(parts[2], out int ty))
-            {
+            case DialogueActionType.OpenShop:
                 await CloseDialogue(client, player);
-                await TeleportPlayer(client, player, parts[0], tx, ty);
+                await _svc.Interactions.OpenShop(player, client);
                 return true;
+            case DialogueActionType.Close:
+                await CloseDialogue(client, player);
+                return true;
+            case DialogueActionType.EnterInstance:
+                await CloseDialogue(client, player);
+                await _svc.Instances.TryEnter(player, param, client);
+                return true;
+            case DialogueActionType.OpenInstances:
+                await CloseDialogue(client, player);
+                await _hub.SendToClient(client, new GameMessage { Type = "instance_window_open", Data = new { } });
+                return true;
+            case DialogueActionType.GiveItem:
+            {
+                var parts = param.Split(':');
+                string itemId = parts[0];
+                int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
+                var template = DatabaseManager.LoadItems().FirstOrDefault(i => i.Id == itemId);
+                if (template != null)
+                {
+                    var gift = template.Clone();
+                    gift.Quantity = count;
+                    InventoryHelper.AddItem(player, gift);
+                    await _hub.SendInventoryAndStatus(client, player);
+                    await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили: {count}× {template.Name}");
+                }
+                break;
+            }
+            case DialogueActionType.GiveGold:
+                if (int.TryParse(param, out int amount) && amount > 0)
+                {
+                    player.Gold += amount;
+                    await _hub.SendStatusAsync(client, player);
+                    await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы получили {amount} золота.");
+                }
+                break;
+            case DialogueActionType.TakeItem:
+            {
+                var parts = param.Split(':');
+                string itemId = parts[0];
+                int count = parts.Length > 1 && int.TryParse(parts[1], out var c) ? Math.Max(1, c) : 1;
+                var records = player.Inventory.Where(i => i.TemplateId == itemId || i.Id == itemId).ToList();
+                int available = records.Sum(i => i.Quantity);
+                int toRemove = Math.Min(count, available);
+                foreach (var rec in records)
+                {
+                    if (toRemove <= 0) break;
+                    int take = Math.Min(toRemove, rec.Quantity);
+                    InventoryHelper.RemoveFromRecord(player, rec.Id, take);
+                    toRemove -= take;
+                }
+                if (toRemove < count)
+                {
+                    await _hub.SendInventoryAndStatus(client, player);
+                    string itemName = records.FirstOrDefault()?.Name ?? itemId;
+                    await _svc.ChatTo(client, ChatChannel.System, "Система", $"У вас забрали: {Math.Min(count, available)}× {itemName}");
+                }
+                break;
+            }
+            case DialogueActionType.Teleport:
+            {
+                var parts = param.Split(':');
+                if (parts.Length >= 3 && int.TryParse(parts[1], out int tx) && int.TryParse(parts[2], out int ty))
+                {
+                    await CloseDialogue(client, player);
+                    await TeleportPlayer(client, player, parts[0], tx, ty);
+                    return true;
+                }
+                break;
             }
         }
         return false;

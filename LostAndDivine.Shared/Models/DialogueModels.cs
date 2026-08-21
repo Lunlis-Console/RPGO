@@ -34,6 +34,15 @@ public class DialogueChoice
 
     [JsonPropertyName("condition")]
     public string? Condition { get; set; }
+
+    [JsonIgnore]
+    public DialogueActionType ActionEnum => DialogueActionTypeExtensions.Parse(Action);
+    [JsonIgnore]
+    public DialogueConditionType ConditionEnum => DialogueConditionTypeExtensions.Parse(Condition);
+    [JsonIgnore]
+    public string ActionParam => DialogueActionTypeExtensions.GetParam(Action);
+    [JsonIgnore]
+    public string ConditionParam => DialogueConditionTypeExtensions.GetParam(Condition);
 }
 
 public static class DialogueParser
