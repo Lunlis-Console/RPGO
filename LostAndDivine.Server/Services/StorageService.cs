@@ -122,6 +122,7 @@ public sealed class StorageService
 
     public List<Item> LoadFromDb(string playerName)
     {
+        List<Item> raw;
         lock (Db.Lock)
         {
             using var connection = Db.Open();
@@ -133,12 +134,11 @@ public sealed class StorageService
                 magic_defense
                 FROM storage_items WHERE player_name = $name";
             cmd.Parameters.AddWithValue("$name", playerName);
-
-            var items = new List<Item>();
+            raw = new List<Item>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                items.Add(InventoryRepository.SyncItemFromTemplate(new Item
+                raw.Add(new Item
                 {
                     Id = reader.GetString(0),
                     TemplateId = reader.IsDBNull(1) ? "" : reader.GetString(1),
@@ -162,9 +162,11 @@ public sealed class StorageService
                     RequiredLevel = reader.IsDBNull(19) ? 0 : reader.GetInt32(19),
                     Icon = reader.IsDBNull(20) ? "" : reader.GetString(20),
                     MagicDefense = reader.IsDBNull(21) ? 0 : reader.GetInt32(21)
-                }));
+                });
             }
-            return InventoryHelper.ConsolidateStackables(items);
         }
+        if (raw.Count > 0)
+            InventoryRepository.SyncItemsFromTemplates(raw);
+        return InventoryHelper.ConsolidateStackables(raw);
     }
 }

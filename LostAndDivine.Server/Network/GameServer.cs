@@ -160,7 +160,8 @@ public sealed class GameServer : INetworkHub
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var sendTasks = new List<Task>(clientsCopy.Count);
-        bool hasDirtyZones = !_dirtyZones.IsEmpty;
+        var dirtySnapshot = _dirtyZones.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        bool hasDirtyZones = dirtySnapshot.Count > 0;
 
         foreach (var client in clientsCopy)
         {
@@ -168,7 +169,7 @@ public sealed class GameServer : INetworkHub
             string zoneId = player.CurrentZoneId;
 
             // Skip clients in zones with no changes (unless first send)
-            if (hasDirtyZones && !_dirtyZones.ContainsKey(zoneId) && client.HasTilesSent(zoneId))
+            if (hasDirtyZones && !dirtySnapshot.Contains(zoneId) && client.HasTilesSent(zoneId))
                 continue;
 
             var zone = svc.Zones.GetZone(zoneId);
@@ -320,7 +321,8 @@ public sealed class GameServer : INetworkHub
         }
 
         await Task.WhenAll(sendTasks);
-        _dirtyZones.Clear();
+        foreach (var z in dirtySnapshot)
+            _dirtyZones.TryRemove(z, out _);
     }
 
     private async Task SendToClientSafe(ClientConnection client, GameMessage msg)

@@ -13,54 +13,69 @@ public static class MailRepository
         lock (Db.Lock)
         {
             using var conn = Db.Open();
-            using var countCmd = conn.CreateCommand();
-            countCmd.CommandText = "SELECT COUNT(*) FROM mail WHERE recipient_name = $r AND is_deleted_recipient = 0";
-            countCmd.Parameters.AddWithValue("$r", recipient);
-            int recipientCount = Convert.ToInt32(countCmd.ExecuteScalar());
-
-            using var outCmd = conn.CreateCommand();
-            outCmd.CommandText = "SELECT COUNT(*) FROM mail WHERE sender_name = $s AND is_deleted_sender = 0";
-            outCmd.Parameters.AddWithValue("$s", sender);
-            int senderCount = Convert.ToInt32(outCmd.ExecuteScalar());
-
-            if (recipientCount >= MaxInbox)
-                return -1; // recipient inbox full
-            if (senderCount >= MaxOutbox)
-                return -2; // sender outbox full
-
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO mail (sender_name, recipient_name, subject, body, gold_amount, sent_at)
-                VALUES ($sender, $recipient, $subject, $body, $gold, $sentAt)";
-            cmd.Parameters.AddWithValue("$sender", sender);
-            cmd.Parameters.AddWithValue("$recipient", recipient);
-            cmd.Parameters.AddWithValue("$subject", subject);
-            cmd.Parameters.AddWithValue("$body", body);
-            cmd.Parameters.AddWithValue("$gold", goldAmount);
-            cmd.Parameters.AddWithValue("$sentAt", DateTime.UtcNow.ToString("o"));
-            cmd.ExecuteNonQuery();
-
-            using var idCmd = conn.CreateCommand();
-            idCmd.CommandText = "SELECT last_insert_rowid()";
-            int mailId = Convert.ToInt32(idCmd.ExecuteScalar());
-
-            foreach (var att in attachments)
+            using var txn = conn.BeginTransaction();
+            try
             {
-                if (att == null || string.IsNullOrEmpty(att.TemplateId) || att.Quantity <= 0) continue;
-                using var aCmd = conn.CreateCommand();
-                aCmd.CommandText = @"INSERT INTO mail_attachments (mail_id, template_id, name, type, quantity, weapon_subtype, heal_amount, restore_mana)
-                    VALUES ($mailId, $tid, $name, $type, $qty, $weaponSubtype, $healAmount, $restoreMana)";
-                aCmd.Parameters.AddWithValue("$mailId", mailId);
-                aCmd.Parameters.AddWithValue("$tid", att.TemplateId);
-                aCmd.Parameters.AddWithValue("$name", att.Name);
-                aCmd.Parameters.AddWithValue("$type", att.Type);
-                aCmd.Parameters.AddWithValue("$qty", att.Quantity);
-                aCmd.Parameters.AddWithValue("$weaponSubtype", att.WeaponSubtype);
-                aCmd.Parameters.AddWithValue("$healAmount", att.HealAmount);
-                aCmd.Parameters.AddWithValue("$restoreMana", att.RestoreMana);
-                aCmd.ExecuteNonQuery();
-            }
+                using var countCmd = conn.CreateCommand();
+                countCmd.Transaction = txn;
+                countCmd.CommandText = "SELECT COUNT(*) FROM mail WHERE recipient_name = $r AND is_deleted_recipient = 0";
+                countCmd.Parameters.AddWithValue("$r", recipient);
+                int recipientCount = Convert.ToInt32(countCmd.ExecuteScalar());
 
-            return mailId;
+                using var outCmd = conn.CreateCommand();
+                outCmd.Transaction = txn;
+                outCmd.CommandText = "SELECT COUNT(*) FROM mail WHERE sender_name = $s AND is_deleted_sender = 0";
+                outCmd.Parameters.AddWithValue("$s", sender);
+                int senderCount = Convert.ToInt32(outCmd.ExecuteScalar());
+
+                if (recipientCount >= MaxInbox)
+                    return -1; // recipient inbox full
+                if (senderCount >= MaxOutbox)
+                    return -2; // sender outbox full
+
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = txn;
+                cmd.CommandText = @"INSERT INTO mail (sender_name, recipient_name, subject, body, gold_amount, sent_at)
+                VALUES ($sender, $recipient, $subject, $body, $gold, $sentAt)";
+                cmd.Parameters.AddWithValue("$sender", sender);
+                cmd.Parameters.AddWithValue("$recipient", recipient);
+                cmd.Parameters.AddWithValue("$subject", subject);
+                cmd.Parameters.AddWithValue("$body", body);
+                cmd.Parameters.AddWithValue("$gold", goldAmount);
+                cmd.Parameters.AddWithValue("$sentAt", DateTime.UtcNow.ToString("o"));
+                cmd.ExecuteNonQuery();
+
+                using var idCmd = conn.CreateCommand();
+                idCmd.Transaction = txn;
+                idCmd.CommandText = "SELECT last_insert_rowid()";
+                int mailId = Convert.ToInt32(idCmd.ExecuteScalar());
+
+                foreach (var att in attachments)
+                {
+                    if (att == null || string.IsNullOrEmpty(att.TemplateId) || att.Quantity <= 0) continue;
+                    using var aCmd = conn.CreateCommand();
+                    aCmd.Transaction = txn;
+                    aCmd.CommandText = @"INSERT INTO mail_attachments (mail_id, template_id, name, type, quantity, weapon_subtype, heal_amount, restore_mana)
+                    VALUES ($mailId, $tid, $name, $type, $qty, $weaponSubtype, $healAmount, $restoreMana)";
+                    aCmd.Parameters.AddWithValue("$mailId", mailId);
+                    aCmd.Parameters.AddWithValue("$tid", att.TemplateId);
+                    aCmd.Parameters.AddWithValue("$name", att.Name);
+                    aCmd.Parameters.AddWithValue("$type", att.Type);
+                    aCmd.Parameters.AddWithValue("$qty", att.Quantity);
+                    aCmd.Parameters.AddWithValue("$weaponSubtype", att.WeaponSubtype);
+                    aCmd.Parameters.AddWithValue("$healAmount", att.HealAmount);
+                    aCmd.Parameters.AddWithValue("$restoreMana", att.RestoreMana);
+                    aCmd.ExecuteNonQuery();
+                }
+
+                txn.Commit();
+                return mailId;
+            }
+            catch
+            {
+                try { txn.Rollback(); } catch { }
+                throw;
+            }
         }
     }
 

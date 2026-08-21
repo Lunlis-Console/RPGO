@@ -129,9 +129,67 @@ public class CombatService
             var monster = _svc.Monsters.FindMonsterById(pl.Combat.TargetMonsterId!.Value);
             if (monster == null || monster.Health <= 0 || monster.ZoneId != pl.CurrentZoneId)
             {
+                // Прерываем каст если цель потеряна
+                if (pl.Combat.CastingSkillId != null)
+                {
+                    pl.Combat.CastingSkillId = null;
+                    pl.Combat.CastTargetId = null;
+                }
                 await HandleInvalidTarget(pl, monster);
                 changed = true;
                 continue;
+            }
+
+            // Неблокирующий каст: если идёт каст — ждём или завершаем
+            if (pl.Combat.CastingSkillId != null)
+            {
+                var cClient = _svc.World.FindClientByPlayer(pl);
+                if (cClient == null)
+                {
+                    pl.Combat.CastingSkillId = null;
+                    pl.Combat.CastTargetId = null;
+                }
+                else if (DateTime.UtcNow < pl.Combat.CastEndTime)
+                {
+                    if (_svc.Debuffs.HasDebuff(pl, DebuffType.Stun))
+                    {
+                        pl.Combat.CastingSkillId = null;
+                        pl.Combat.CastTargetId = null;
+                        await ChatTo(cClient, ChatChannel.Combat, "Бой", "Каст прерван — оглушение.");
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    string castId = pl.Combat.CastingSkillId;
+                    Guid? castTarget = pl.Combat.CastTargetId;
+                    pl.Combat.CastingSkillId = null;
+                    pl.Combat.CastTargetId = null;
+                    var castSkill = DatabaseManager.GetSkill(castId);
+                    if (castSkill != null && monster.Id == castTarget && monster.Health > 0 && monster.ZoneId == pl.CurrentZoneId)
+                    {
+                        int curDist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
+                        int curRange = pl.GetEffectiveAttackRange();
+                        if (curDist <= curRange)
+                        {
+                            await ExecuteMainHandAttack(pl, monster, cClient, castSkill, curRange, isCastCompletion: true);
+                            await _svc.Hub.SendStatusAsync(cClient, pl);
+                            changed = true;
+                        }
+                        else
+                        {
+                            await ChatTo(cClient, ChatChannel.Combat, "Бой", "Каст завершён, но цель вне досягаемости.");
+                        }
+                    }
+                    else
+                    {
+                        await ChatTo(cClient, ChatChannel.Combat, "Бой", "Каст прерван — цель потеряна.");
+                    }
+                    continue;
+                }
             }
 
             int dist = Math.Abs(pl.X - monster.X) + Math.Abs(pl.Y - monster.Y);
@@ -237,9 +295,10 @@ public class CombatService
 
     // ──────────────── Атаки ────────────────
 
-    public async Task ExecuteMainHandAttack(Player pl, Monster monster, ClientConnection client, Skill? queuedSkill, int weaponRange)
+    public async Task ExecuteMainHandAttack(Player pl, Monster monster, ClientConnection client, Skill? queuedSkill, int weaponRange, bool isCastCompletion = false)
     {
-        pl.Combat.LastAttackTime = DateTime.UtcNow;
+        if (!isCastCompletion)
+            pl.Combat.LastAttackTime = DateTime.UtcNow;
 
         int dx = monster.X - pl.X;
         int dy = monster.Y - pl.Y;
@@ -262,8 +321,10 @@ public class CombatService
             var lh = pl.Equipment.Slots.TryGetValue("lhand", out var l) ? l : null;
             attackHand = (lh != null && !Equipment.IsCasterOffhand(lh) && !lh.TwoHanded) ? "off" : "main";
         }
+        bool isCastStart = queuedSkill != null && !isCastCompletion && queuedSkill.CastTimeMs > 0 && (int)(queuedSkill.CastTimeMs * pl.GetCastTimeMultiplier()) > 0;
+        bool doWeaponProc = !isCastStart;
         bool forceProc = queuedSkill?.Id == SkillIds.StrongArm && weaponRange <= 1;
-        if (!string.IsNullOrEmpty(subtype))
+        if (doWeaponProc && !string.IsNullOrEmpty(subtype))
         {
             var (debuff, isNew) = forceProc
                 ? _svc.Debuffs.ForceWeaponProc(pl, monster, subtype)
@@ -307,8 +368,25 @@ public class CombatService
             }
             else
             {
-                if (queuedSkill.CastTimeMs > 0)
-                    await Task.Delay((int)(queuedSkill.CastTimeMs * pl.GetCastTimeMultiplier()));
+                // Неблокирующий каст: вместо Task.Delay ставим состояние каста и выходим
+                if (!isCastCompletion && queuedSkill.CastTimeMs > 0)
+                {
+                    int castMs = (int)(queuedSkill.CastTimeMs * pl.GetCastTimeMultiplier());
+                    if (castMs > 0)
+                    {
+                        pl.Combat.CastingSkillId = queuedSkill.Id;
+                        pl.Combat.CastEndTime = DateTime.UtcNow.AddMilliseconds(castMs);
+                        pl.Combat.CastTargetId = monster.Id;
+                        if (pl.QueuedSkillIds.Count > 0 && pl.QueuedSkillIds[0] == queuedSkill.Id)
+                        {
+                            pl.QueuedSkillIds.RemoveAt(0);
+                            await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl, _svc.Hub);
+                        }
+                        await ChatTo(client, ChatChannel.Combat, "Бой", $"Каст «{queuedSkill.Name}» {castMs}мс...");
+                        // Отправляем кулдаун сразу? Нет, после завершения
+                        return;
+                    }
+                }
 
                 var executor = Skills.SkillRegistry.Get(queuedSkill.Id);
                 if (executor != null)

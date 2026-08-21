@@ -31,6 +31,8 @@ internal static class SkillRepository
         [SkillIds.HuntingInstinct] = "icon_skill_huntinginstinct",
     };
 
+    internal static void InvalidateCache() => _cache = null;
+
     internal static List<Skill> LoadAll()
     {
         if (_cache != null)

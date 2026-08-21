@@ -40,6 +40,11 @@ public class CombatState
     public Guid? PendingSkillTargetId { get; set; }
     public string? PendingSkillId { get; set; }
 
+    // Каст навыка с временем применения (не блокирует глобальный тик)
+    public string? CastingSkillId { get; set; }
+    public DateTime CastEndTime { get; set; } = DateTime.MinValue;
+    public Guid? CastTargetId { get; set; }
+
     // «ЭТО ДУЭЛЬ!»: наказание за смену таргета целью «армировано»,
     // только если цель сама атаковала игрока на момент первого удара.
     public bool DuelPunishArmed { get; set; }
@@ -56,6 +61,8 @@ public class CombatState
         OffHandLastAttackTime = DateTime.MinValue;
         PendingSkillHitsRemaining = 0;
         PendingSkillId = null;
+        CastingSkillId = null;
+        CastTargetId = null;
     }
 
     public void EnterPlayer(Guid playerId, MovementState movement)
@@ -65,6 +72,8 @@ public class CombatState
         InCombat = true;
         movement.Stop();
         OffHandLastAttackTime = DateTime.MinValue;
+        CastingSkillId = null;
+        CastTargetId = null;
     }
 
     // Совместимость
@@ -77,6 +86,8 @@ public class CombatState
         InCombat = false;
         PendingSkillHitsRemaining = 0;
         PendingSkillId = null;
+        CastingSkillId = null;
+        CastTargetId = null;
         DuelPunishArmed = false;
     }
 }

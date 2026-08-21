@@ -8,12 +8,56 @@ namespace LostAndDivine.Server.Repositories;
 
 internal static class AccountRepository
 {
+    private const int Pbkdf2Iterations = 100_000;
+    private const int SaltSize = 16;
+    private const int HashSize = 32;
+    private const string Pbkdf2Prefix = "v1";
+
     internal static string HashPassword(string password)
+    {
+        byte[] salt = RandomNumberGenerator.GetBytes(SaltSize);
+        byte[] hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password), salt, Pbkdf2Iterations, HashAlgorithmName.SHA256, HashSize);
+        return $"{Pbkdf2Prefix}${Pbkdf2Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
+    }
+
+    private static string HashLegacy(string password)
     {
         using var sha256 = SHA256.Create();
         byte[] bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
         return Convert.ToBase64String(bytes);
     }
+
+    private static bool VerifyPassword(string password, string storedHash)
+    {
+        if (storedHash.StartsWith(Pbkdf2Prefix + "$", StringComparison.Ordinal))
+        {
+            var parts = storedHash.Split('$');
+            if (parts.Length != 4) return false;
+            if (!int.TryParse(parts[1], out int iterations)) return false;
+            try
+            {
+                byte[] salt = Convert.FromBase64String(parts[2]);
+                byte[] expected = Convert.FromBase64String(parts[3]);
+                byte[] actual = Rfc2898DeriveBytes.Pbkdf2(
+                    Encoding.UTF8.GetBytes(password), salt, iterations, HashAlgorithmName.SHA256, expected.Length);
+                return CryptographicOperations.FixedTimeEquals(actual, expected);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        // Легаси SHA256 без соли
+        string legacy = HashLegacy(password);
+        byte[] a = Encoding.UTF8.GetBytes(legacy);
+        byte[] b = Encoding.UTF8.GetBytes(storedHash);
+        if (a.Length != b.Length) return false;
+        return CryptographicOperations.FixedTimeEquals(a, b);
+    }
+
+    private static bool IsLegacyHash(string storedHash)
+        => !storedHash.StartsWith(Pbkdf2Prefix + "$", StringComparison.Ordinal);
 
     internal static int GetCount()
     {
@@ -82,8 +126,19 @@ internal static class AccountRepository
             string storedHash = reader.GetString(0);
             reader.Close();
 
-            if (storedHash != HashPassword(password))
+            if (!VerifyPassword(password, storedHash))
                 return (false, null);
+
+            // Прозрачная миграция легаси-хеша на PBKDF2
+            if (IsLegacyHash(storedHash))
+            {
+                string newHash = HashPassword(password);
+                using var migr = connection.CreateCommand();
+                migr.CommandText = "UPDATE accounts SET password_hash = $hash WHERE login = $login";
+                migr.Parameters.AddWithValue("$hash", newHash);
+                migr.Parameters.AddWithValue("$login", login);
+                migr.ExecuteNonQuery();
+            }
 
             var updateLogin = connection.CreateCommand();
             updateLogin.CommandText = "UPDATE accounts SET last_login = $now WHERE login = $login";

@@ -120,6 +120,8 @@ public sealed class GameServices : IGameServices
         try
         {
             Log.Info("Перезагрузка данных на сервере...");
+            LostAndDivine.Server.Repositories.SkillRepository.InvalidateCache();
+            LostAndDivine.Server.Repositories.InventoryRepository.InvalidateTemplateCache();
             Merchant.Initialize();
             Quests.Initialize();
             Quests.ReloadQuestItems();
@@ -166,6 +168,8 @@ public sealed class GameServices : IGameServices
         try
         {
             Log.Info("Перезагрузка секторов открытого мира...");
+            LostAndDivine.Server.Repositories.SkillRepository.InvalidateCache();
+            LostAndDivine.Server.Repositories.InventoryRepository.InvalidateTemplateCache();
             var sectorsDir = ContentPaths.SectorsDir;
             if (!Directory.Exists(sectorsDir))
                 throw new InvalidOperationException($"Папка секторов не найдена: {sectorsDir}");
