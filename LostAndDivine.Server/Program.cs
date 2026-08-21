@@ -30,6 +30,14 @@ partial class Program
             Balance.GetAttackSpeedWithWeapon(player.GetAttackSpeedPoints(), player.Equipment.GetWeaponSpeedModifier())
             * player.GetAttackSpeedGearMultiplier());
 
+    /// <summary>Максимум одновременных соединений (P2-7), тюнится через
+    /// переменную окружения LAD_MAX_CONNECTIONS, иначе Balance.MaxConnections.</summary>
+    private static int GetMaxConnections()
+    {
+        string? raw = Environment.GetEnvironmentVariable("LAD_MAX_CONNECTIONS");
+        return int.TryParse(raw, out int v) && v > 0 ? v : Balance.MaxConnections;
+    }
+
     static async Task Main(string[] args)
     {
         if (OperatingSystem.IsWindows())
@@ -302,8 +310,9 @@ partial class Program
                 continue;
             }
 
-            // P2-7: глобальный предел одновременных соединений
-            if (world.GetConnectionCount() >= Balance.MaxConnections)
+            // P2-7: глобальный предел одновременных соединений (тюнится через
+            // LAD_MAX_CONNECTIONS, по умолчанию Balance.MaxConnections).
+            if (world.GetConnectionCount() >= GetMaxConnections())
             {
                 Log.Warn($"Отклонено подключение (достигнут лимит соединений {Balance.MaxConnections}): {ip}");
                 try { client.Close(); } catch { }
