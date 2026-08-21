@@ -1044,7 +1044,7 @@ public sealed class GameServer : INetworkHub
 
     private MerchantPosition? BuildMerchantForZone(string zoneId, MerchantPosition defaultMerchant, Player player)
     {
-        var svc = Program.Services;
+        var svc = _svc;
         if (svc == null) return defaultMerchant;
         var tiled = svc.Zones.GetTiledNpcs(zoneId);
         var mt = tiled.FirstOrDefault(n =>
@@ -1058,9 +1058,9 @@ public sealed class GameServer : INetworkHub
         return defaultMerchant;
     }
 
-    private static QuestBoardPosition? BuildBoardForZone(string zoneId, QuestBoardPosition? defaultBoard)
+    private QuestBoardPosition? BuildBoardForZone(string zoneId, QuestBoardPosition? defaultBoard)
     {
-        var svc = Program.Services;
+        var svc = _svc;
         if (svc == null || defaultBoard == null) return defaultBoard;
         var tiled = svc.Zones.GetTiledNpcs(zoneId);
         var bt = tiled.FirstOrDefault(n =>
@@ -1070,9 +1070,9 @@ public sealed class GameServer : INetworkHub
             : defaultBoard;
     }
 
-    private static ChestPosition? BuildStorageForZone(string zoneId)
+    private ChestPosition? BuildStorageForZone(string zoneId)
     {
-        var svc = Program.Services;
+        var svc = _svc;
         if (svc == null) return null;
         var tiled = svc.Zones.GetTiledNpcs(zoneId);
         var st = tiled.FirstOrDefault(n =>
