@@ -135,7 +135,13 @@ public class Item
 
     // Уровень заточки/усиления (0 = без усиления). Бонусы считаются на лету
     // поверх базовых характеристик через EnhancementHelper.
-    public int EnhancementLevel { get; set; }
+    // Инвариант (P2-2): 0 <= EnhancementLevel <= EnhancementHelper.MaxLevel.
+    private int _enhancementLevel;
+    public int EnhancementLevel
+    {
+        get => _enhancementLevel;
+        set => _enhancementLevel = Math.Clamp(value, 0, EnhancementHelper.MaxLevel);
+    }
 
     // Качество предмета (Common/Uncommon/Rare/Epic)
     public ItemQuality Quality { get; set; } = ItemQuality.Common;
