@@ -14,6 +14,13 @@ Write-Host "=== 0. Building client ==="
 if ($LASTEXITCODE -ne 0) { throw "Client build failed" }
 Write-Host "  Client zip: dist\LostAndDivine-client-win-x64.zip (для раздачи друзьям)"
 
+Write-Host "`n=== 0.1. Building installer (Setup.exe) ==="
+# install_source уже собран выше (build-client-build.ps1) — не пересобираем клиент.
+& "$root\build-installer.ps1" -SkipClientBuild
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "Установщик не собран (нужен Inno Setup или ключ -SkipClientBuild). Сервер всё равно задеплоен."
+}
+
 Write-Host "`n=== 1. Building server for $Runtime ==="
 & "$root\build-server.ps1" -Runtime $Runtime -NoZip
 if ($LASTEXITCODE -ne 0) { throw "Build failed" }
