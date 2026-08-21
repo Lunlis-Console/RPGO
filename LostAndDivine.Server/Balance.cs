@@ -14,15 +14,15 @@ public static class Balance
     // ===== СЕКТОРНЫЙ МИР (main) =====
     // Открытый мир: сетка SectorCols x SectorRows секторов по SectorSize клеток.
     // Глобальные координаты main: col = X / SectorSize, row = Y / SectorSize.
-    public const int SectorSize = BalanceStatic.SectorSize;
-    public const int SectorCols = BalanceStatic.SectorCols;
-    public const int SectorRows = BalanceStatic.SectorRows;
+    public const int SectorSize = WorldBalance.SectorSize;
+    public const int SectorCols = WorldBalance.SectorCols;
+    public const int SectorRows = WorldBalance.SectorRows;
     public const int MainWorldWidth = SectorSize * SectorCols;   // 3000
     public const int MainWorldHeight = SectorSize * SectorRows;  // 1700
 
     // Сектор входа (3_7): контент старой zone_main, глобальное смещение (300, 700).
-    public const int EntrySectorOffsetX = BalanceStatic.EntrySectorOffsetX;
-    public const int EntrySectorOffsetY = BalanceStatic.EntrySectorOffsetY;
+    public const int EntrySectorOffsetX = WorldBalance.EntrySectorOffsetX;
+    public const int EntrySectorOffsetY = WorldBalance.EntrySectorOffsetY;
     public const int EntrySpawnX = EntrySectorOffsetX + 50; // точка входа из zone_airship
     public const int EntrySpawnY = EntrySectorOffsetY + 45;
 
@@ -50,18 +50,18 @@ public static class Balance
     public const double BaseMoveMs = 500.0;
     public const double AttackBaseMs = 2000.0;
 
-    // ===== БОЙ: АТРИБУТЫ (shared c BalanceStatic) =====
-    public const int AttackPerStrength = BalanceStatic.AttackPerStrength;
-    public const int AttackPerAgility = BalanceStatic.AttackPerAgility;
-    public const int AttackPerIntellect = BalanceStatic.AttackPerIntellect;
-    public const int DefensePerEndurance = BalanceStatic.DefensePerEndurance;
-    public const int ResistancePerWisdom = BalanceStatic.ResistancePerWisdom;
-    public const double CritChancePerCunning = BalanceStatic.CritChancePerCunning;
-    public const double CritDamagePerStrength = BalanceStatic.CritDamagePerStrength;
-    public const double EvadeChancePerCunning = BalanceStatic.EvadeChancePerCunning;
-    public const double BlockChancePerEndurance = BalanceStatic.BlockChancePerEndurance;
-    public const double ParryChancePerAgility = BalanceStatic.ParryChancePerAgility;
-    public const double ShieldBlockValueMultiplier = BalanceStatic.ShieldBlockValueMultiplier;
+    // ===== БОЙ: АТРИБУТЫ (shared c CombatBalance) =====
+    public const int AttackPerStrength = CombatBalance.AttackPerStrength;
+    public const int AttackPerAgility = CombatBalance.AttackPerAgility;
+    public const int AttackPerIntellect = CombatBalance.AttackPerIntellect;
+    public const int DefensePerEndurance = CombatBalance.DefensePerEndurance;
+    public const int ResistancePerWisdom = CombatBalance.ResistancePerWisdom;
+    public const double CritChancePerCunning = CombatBalance.CritChancePerCunning;
+    public const double CritDamagePerStrength = CombatBalance.CritDamagePerStrength;
+    public const double EvadeChancePerCunning = CombatBalance.EvadeChancePerCunning;
+    public const double BlockChancePerEndurance = CombatBalance.BlockChancePerEndurance;
+    public const double ParryChancePerAgility = CombatBalance.ParryChancePerAgility;
+    public const double ShieldBlockValueMultiplier = CombatBalance.ShieldBlockValueMultiplier;
 
     // Базовые боевые множители
     public const double BaseCritChance = 1.0;
@@ -80,15 +80,15 @@ public static class Balance
     // Кап скорости атаки: не быстрее 2.0 (в два раза быстрее базовой) — «+100% скорости атаки».
     public const double MaxAttackSpeed = 2.0;
 
-    public const int MinDamage = BalanceStatic.MinDamage;
-    public const int ChanceRollMax = BalanceStatic.ChanceRollMax;
+    public const int MinDamage = WorldBalance.MinDamage;
+    public const int ChanceRollMax = WorldBalance.ChanceRollMax;
 
-    // ===== ОПЫТ / УРОВНИ (определены в BalanceStatic, дублируются для удобства серверного кода) =====
-    public const int MaxLevel = BalanceStatic.MaxLevel;
-    public const int XpPerLevel = BalanceStatic.XpPerLevel;
-    public const int MaxHealthPerLevel = BalanceStatic.MaxHealthPerLevel;
-    public const int MaxHealthPerEndurance = BalanceStatic.MaxHealthPerEndurance;
-    public const int AttributePointsPerLevel = BalanceStatic.AttributePointsPerLevel;
+    // ===== ОПЫТ / УРОВНИ (единственный источник — ProgressionBalance) =====
+    public const int MaxLevel = ProgressionBalance.MaxLevel;
+    public const int XpPerLevel = ProgressionBalance.XpPerLevel;
+    public const int MaxHealthPerLevel = ProgressionBalance.MaxHealthPerLevel;
+    public const int MaxHealthPerEndurance = ProgressionBalance.MaxHealthPerEndurance;
+    public const int AttributePointsPerLevel = ProgressionBalance.AttributePointsPerLevel;
 
     // ===== СМЕРТЬ =====
     public const double DeathHealthFraction = 0.5;
@@ -177,8 +177,8 @@ public static class Balance
     public const double SellFraction = 0.5;
 
     // ===== ЗОНЫ =====
-    public const string MainZoneId = BalanceStatic.MainZoneId;
-    public const string StartZoneId = BalanceStatic.StartZoneId;
+    public const string MainZoneId = WorldBalance.MainZoneId;
+    public const string StartZoneId = WorldBalance.StartZoneId;
 
     // ===== ЦИКЛЫ СЕРВЕРА =====
     public const int LoopMonsterWanderMs = 50;
@@ -223,7 +223,7 @@ public static class Balance
     }
 
     public static int XpNeededForNextLevel(int level)
-        => level * XpPerLevel;
+        => ProgressionBalance.XpNeededForNextLevel(level);
 
     public static int BuyPrice(int baseValue)
         => Math.Max(1, baseValue);
@@ -294,8 +294,8 @@ public static class Balance
     // ===== ПАССИВНЫЕ НАВЫКИ ПУТИ МЕЧА =====
     // Кровопускание (SK0010): вампиризм от урона мечом
     public const double LifestealFraction = 0.10;
-    // Берсерк (SK0011): +2% урона за каждые 5% потерянного HP
-    public const double BerserkDamagePer5Percent = 0.02;
+    // Берсерк (SK0011): +2% урона за каждые 5% потерянного HP (единственный источник — CombatBalance)
+    public const double BerserkDamagePer5Percent = CombatBalance.BerserkDamagePer5Percent;
 
     // ===== ПУТЬ ЛУКА =====
     public const int AchillesRootMs = 3000;
@@ -307,14 +307,14 @@ public static class Balance
     public const int SuppressingFireDurationMs = 10000;
     public const double SuppressingFireDmgMult = 0.60;
     public const double SuppressingFireSpeedPenalty = 0.12;
-    public const double VulnerableArmorIgnore = BalanceStatic.VulnerableArmorIgnore;
-    public const double ExtraArrowChance = BalanceStatic.ExtraArrowChance;
-    public const double BowAccuracyBonus = BalanceStatic.BowAccuracyBonus;
-    public const double MeleeEvadeBonus = BalanceStatic.MeleeEvadeBonus;
-    public const int BowRangeBonus = BalanceStatic.BowRangeBonus;
-    public const double CloseRangeArmorPenMax = BalanceStatic.CloseRangeArmorPenMax;
-    public const int CloseRangeArmorPenDist = BalanceStatic.CloseRangeArmorPenDist;
-    public const double HunterInstinctCritBonus = BalanceStatic.HunterInstinctCritBonus;
+    public const double VulnerableArmorIgnore = CombatBalance.VulnerableArmorIgnore;
+    public const double ExtraArrowChance = CombatBalance.ExtraArrowChance;
+    public const double BowAccuracyBonus = CombatBalance.BowAccuracyBonus;
+    public const double MeleeEvadeBonus = CombatBalance.MeleeEvadeBonus;
+    public const int BowRangeBonus = CombatBalance.BowRangeBonus;
+    public const double CloseRangeArmorPenMax = CombatBalance.CloseRangeArmorPenMax;
+    public const int CloseRangeArmorPenDist = CombatBalance.CloseRangeArmorPenDist;
+    public const double HunterInstinctCritBonus = CombatBalance.HunterInstinctCritBonus;
 
     // ===== ДАЛЬНЕЕ ОРУЖИЕ =====
     public const int DefaultAttackRange = 1;

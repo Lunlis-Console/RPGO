@@ -1,160 +1,117 @@
-﻿namespace LostAndDivine.Shared.Models;
+namespace LostAndDivine.Shared.Models;
 
 /// <summary>
-/// Статические константы для формул атрибутов/характеристик.
-/// Дублирует часть Balance.cs, но доступен из Shared (нужен Player/Monster).
+/// Фасад для обратной совместимости. Константы переехали в CombatBalance/WorldBalance/ProgressionBalance/EnhancementBalance.
+/// Новый код должен использовать специализированные классы напрямую.
 /// </summary>
 public static class BalanceStatic
 {
-    public const int AttackPerStrength = 2;
-    public const int AttackPerAgility = 1;
-    public const int AttackPerIntellect = 2;
-    public const int DefensePerEndurance = 1;
-    public const int ResistancePerWisdom = 1;
+    // Combat
+    public const int AttackPerStrength = CombatBalance.AttackPerStrength;
+    public const int AttackPerAgility = CombatBalance.AttackPerAgility;
+    public const int AttackPerIntellect = CombatBalance.AttackPerIntellect;
+    public const int DefensePerEndurance = CombatBalance.DefensePerEndurance;
+    public const int ResistancePerWisdom = CombatBalance.ResistancePerWisdom;
 
-    // Заточка/усиление предметов (см. EnhancementHelper).
-    // Скорость роста базовой статы за уровень заточки (0.10 = +10% к текущей).
-    public const double EnhancementBonusPerLevel = EnhancementHelper.PerLevelRate;
-    public const int EnhancementMaxLevel = EnhancementHelper.MaxLevel;
+    public const double EnhancementBonusPerLevel = EnhancementBalance.PerLevelRate;
+    public const int EnhancementMaxLevel = EnhancementBalance.MaxLevel;
 
-    // Процентная защита: DR% = Defense / (Defense + DefenseReductionK), кап MaxDefenseReduction.
-    // Целочисленная защита — только «валюта» для набора процента; урон режет сам процент.
-    public const int DefenseReductionK = 500;
-    public const double MaxDefenseReduction = 0.90;
+    public const int DefenseReductionK = CombatBalance.DefenseReductionK;
+    public const double MaxDefenseReduction = CombatBalance.MaxDefenseReduction;
 
-    // Капы боевых шансов (итоговый шанс с бонусами не выше капа)
-    public const double MaxCritChance = 75.0;
-    // Убывающая отдача крита: первые CritChanceLinearPoints очков хитча дают
-    // CritChanceLinearRate за очко (до 25%), дальше — CritChanceDrRate за очко,
-    // итог капится на MaxCritChance (75%). До 75% нужно ~250 очков.
-    public const double CritChanceLinearPoints = 50;
-    public const double CritChanceLinearRate = 0.5;
-    public const double CritChanceDrRate = 0.25;
-    public const double CritChancePerCunning = 1.0;
+    public const double MaxCritChance = CombatBalance.MaxCritChance;
+    public const double CritChanceLinearPoints = CombatBalance.CritChanceLinearPoints;
+    public const double CritChanceLinearRate = CombatBalance.CritChanceLinearRate;
+    public const double CritChanceDrRate = CombatBalance.CritChanceDrRate;
+    public const double CritChancePerCunning = CombatBalance.CritChancePerCunning;
 
-    // Кап уклонения: база 1 + очки (ловкость + шмот, очко = 1% ловкости).
-    // До EvadeLinearPoints очков — EvadeLinearRate за очко (до 30%), дальше — EvadeDrRate за очко,
-    // итог капится на MaxEvadeChance (50%; ~227 очков хитча).
-    public const double MaxEvadeChance = 50.0;
-    public const double EvadeLinearPoints = 100;
-    public const double EvadeLinearRate = 0.3;
-    public const double EvadeDrRate = 0.15;
+    public const double MaxEvadeChance = CombatBalance.MaxEvadeChance;
+    public const double EvadeLinearPoints = CombatBalance.EvadeLinearPoints;
+    public const double EvadeLinearRate = CombatBalance.EvadeLinearRate;
+    public const double EvadeDrRate = CombatBalance.EvadeDrRate;
 
-    // Кап парирования: база 1 + шмот (прямой процент, не более MaxParryGearBonus) + навык «Рефлексы»,
-    // итог капится на MaxParryChance (25%). Атрибуты не влияют.
-    public const double MaxParryChance = 25.0;
-    public const double MaxParryGearBonus = 5.0;
+    public const double MaxParryChance = CombatBalance.MaxParryChance;
+    public const double MaxParryGearBonus = CombatBalance.MaxParryGearBonus;
 
-    // Кап блока: база 1 (+2 с щитом) + шмот (прямой процент, не более MaxBlockGearBonus),
-    // итог капится на MaxBlockChance (25%). Атрибуты не влияют.
-    public const double MaxBlockChance = 25.0;
-    public const double MaxBlockGearBonus = 5.0;
+    public const double MaxBlockChance = CombatBalance.MaxBlockChance;
+    public const double MaxBlockGearBonus = CombatBalance.MaxBlockGearBonus;
 
-    // Точность: база 100% + очки (хитрость + бонус лука). До AccuracyLinearPoints очков —
-    // AccuracyLinearRate за очко (до 130%), дальше — AccuracyDrRate за очко,
-    // итог капится на AccuracyMax (150%, чтобы нельзя было обнулить уклонение цели).
-    // 50 хитрости → ~115%, с луком 4 ранга → ~145%.
-    public const double AccuracyBase = 100.0;
-    public const double AccuracyMax = 150.0;
-    public const double AccuracyLinearPoints = 100;
-    public const double AccuracyLinearRate = 0.3;
-    public const double AccuracyDrRate = 0.15;
+    public const double AccuracyBase = CombatBalance.AccuracyBase;
+    public const double AccuracyMax = CombatBalance.AccuracyMax;
+    public const double AccuracyLinearPoints = CombatBalance.AccuracyLinearPoints;
+    public const double AccuracyLinearRate = CombatBalance.AccuracyLinearRate;
+    public const double AccuracyDrRate = CombatBalance.AccuracyDrRate;
 
-    // Скорость каста: время каста навыков сокращается на X% от интеллекта (выше 1).
-    // До CastSpeedLinearPoints очков — CastSpeedLinearRate за очко (до 30%), дальше — CastSpeedDrRate,
-    // итог капится на MaxCastSpeedReduction (50% — каст вдвое быстрее).
-    public const double MaxCastSpeedReduction = 50.0;
-    public const double CastSpeedLinearPoints = 100;
-    public const double CastSpeedLinearRate = 0.3;
-    public const double CastSpeedDrRate = 0.15;
+    public const double MaxCastSpeedReduction = CombatBalance.MaxCastSpeedReduction;
+    public const double CastSpeedLinearPoints = CombatBalance.CastSpeedLinearPoints;
+    public const double CastSpeedLinearRate = CombatBalance.CastSpeedLinearRate;
+    public const double CastSpeedDrRate = CombatBalance.CastSpeedDrRate;
 
-    // Стойкость: снижает шанс крита противника по вам. Кап 50%, от выносливости.
-    public const double MaxTenacity = 50.0;
-    public const double TenacityLinearPoints = 100;
-    public const double TenacityLinearRate = 0.3;
-    public const double TenacityDrRate = 0.15;
+    public const double MaxTenacity = CombatBalance.MaxTenacity;
+    public const double TenacityLinearPoints = CombatBalance.TenacityLinearPoints;
+    public const double TenacityLinearRate = CombatBalance.TenacityLinearRate;
+    public const double TenacityDrRate = CombatBalance.TenacityDrRate;
 
-    // Пробивание брони: игнорирует % защиты цели. Кап 25%, от силы.
-    public const double MaxArmorPenetration = 25.0;
-    public const double ArmorPenLinearPoints = 100;
-    public const double ArmorPenLinearRate = 0.15;
-    public const double ArmorPenDrRate = 0.075;
+    public const double MaxArmorPenetration = CombatBalance.MaxArmorPenetration;
+    public const double ArmorPenLinearPoints = CombatBalance.ArmorPenLinearPoints;
+    public const double ArmorPenLinearRate = CombatBalance.ArmorPenLinearRate;
+    public const double ArmorPenDrRate = CombatBalance.ArmorPenDrRate;
 
-    // Сокращение перезарядки навыков (кулдауны быстрее на X%). Кап 50%, от мудрости.
-    public const double MaxCooldownReduction = 50.0;
-    public const double CdrLinearPoints = 100;
-    public const double CdrLinearRate = 0.3;
-    public const double CdrDrRate = 0.15;
+    public const double MaxCooldownReduction = CombatBalance.MaxCooldownReduction;
+    public const double CdrLinearPoints = CombatBalance.CdrLinearPoints;
+    public const double CdrLinearRate = CombatBalance.CdrLinearRate;
+    public const double CdrDrRate = CombatBalance.CdrDrRate;
 
-    // Регенерация здоровья: +X% к количеству восстанавливаемого HP. Кап 25%, от выносливости.
-    public const double MaxHealthRegen = 25.0;
-    public const double HealthRegenLinearPoints = 100;
-    public const double HealthRegenLinearRate = 0.15;
-    public const double HealthRegenDrRate = 0.075;
+    public const double MaxHealthRegen = CombatBalance.MaxHealthRegen;
+    public const double HealthRegenLinearPoints = CombatBalance.HealthRegenLinearPoints;
+    public const double HealthRegenLinearRate = CombatBalance.HealthRegenLinearRate;
+    public const double HealthRegenDrRate = CombatBalance.HealthRegenDrRate;
 
-    // Регенерация маны: +X% к количеству восстанавливаемой MP. Кап 20%, только от плоского % шмота.
-    public const double MaxManaRegen = 20.0;
+    public const double MaxManaRegen = CombatBalance.MaxManaRegen;
 
-    // Кап крит-урона: база 1.5 + очки (сила + шмот, очко = CritDamagePerStrength = 0.02x).
-    // До CritDmgLinearPoints очков — полная отдача (до 2.0x), дальше — CritDmgDrRate темпа (0.005x),
-    // итог капится на MaxCritDamage (3.0x). Кап требует ~226 очков (сила + шмот): 25 линейных + 200 с половинным темпом.
-    public const double MaxCritDamage = 3.0;
-    public const double CritDmgLinearPoints = 25;
-    public const double CritDmgDrRate = 0.25;
-    public const double CritDamagePerStrength = 0.02;
-    public const double EvadeChancePerCunning = 1.0;
-    public const double BlockChancePerEndurance = 0.5;
-    public const double ParryChancePerAgility = 0.5;
-    public const double ShieldBlockValueMultiplier = 1.5;
+    public const double MaxCritDamage = CombatBalance.MaxCritDamage;
+    public const double CritDmgLinearPoints = CombatBalance.CritDmgLinearPoints;
+    public const double CritDmgDrRate = CombatBalance.CritDmgDrRate;
+    public const double CritDamagePerStrength = CombatBalance.CritDamagePerStrength;
+    public const double EvadeChancePerCunning = CombatBalance.EvadeChancePerCunning;
+    public const double BlockChancePerEndurance = CombatBalance.BlockChancePerEndurance;
+    public const double ParryChancePerAgility = CombatBalance.ParryChancePerAgility;
+    public const double ShieldBlockValueMultiplier = CombatBalance.ShieldBlockValueMultiplier;
 
-    // «Берсерк» (SK0011): +2% урона за каждые 5% потерянного здоровья
-    public const double BerserkDamagePer5Percent = 0.02;
+    public const double BerserkDamagePer5Percent = CombatBalance.BerserkDamagePer5Percent;
 
-    // Путь лука (пассивы, доступны из Shared)
-    public const double ExtraArrowChance = 7.0;
-    public const double BowAccuracyBonus = 15.0;
-    public const double MeleeEvadeBonus = 15.0;
-    public const int BowRangeBonus = 1;
-    public const double CloseRangeArmorPenMax = 0.25;
-    public const int CloseRangeArmorPenDist = 2;
-    public const double HunterInstinctCritBonus = 20.0;
-    public const double VulnerableArmorIgnore = 0.30;
+    public const double ExtraArrowChance = CombatBalance.ExtraArrowChance;
+    public const double BowAccuracyBonus = CombatBalance.BowAccuracyBonus;
+    public const double MeleeEvadeBonus = CombatBalance.MeleeEvadeBonus;
+    public const int BowRangeBonus = CombatBalance.BowRangeBonus;
+    public const double CloseRangeArmorPenMax = CombatBalance.CloseRangeArmorPenMax;
+    public const int CloseRangeArmorPenDist = CombatBalance.CloseRangeArmorPenDist;
+    public const double HunterInstinctCritBonus = CombatBalance.HunterInstinctCritBonus;
+    public const double VulnerableArmorIgnore = CombatBalance.VulnerableArmorIgnore;
 
-    public const string MainZoneId = "main";
-    public const string StartZoneId = "airship_basement";
+    public const string MainZoneId = WorldBalance.MainZoneId;
+    public const string StartZoneId = WorldBalance.StartZoneId;
 
-    // ===== СЕКТОРНЫЙ МИР (main) =====
-    // Открытый мир разбит на сетку секторов: SectorCols x SectorRows, каждый размером
-    // SectorSize x SectorSize клеток. Сектор именуется "{col}_{row}" (например "3_7"),
-    // глобальные координаты: col = X / SectorSize, row = Y / SectorSize.
-    public const int SectorSize = 100;
-    public const int SectorCols = 30;
-    public const int SectorRows = 17;
-    public const int WorldWidth = SectorSize * SectorCols;   // 3000
-    public const int WorldHeight = SectorSize * SectorRows;  // 1700
+    public const int SectorSize = WorldBalance.SectorSize;
+    public const int SectorCols = WorldBalance.SectorCols;
+    public const int SectorRows = WorldBalance.SectorRows;
+    public const int WorldWidth = WorldBalance.WorldWidth;
+    public const int WorldHeight = WorldBalance.WorldHeight;
 
-    /// <summary>Сектор входа из zone_airship (содержит контент старой zone_main).</summary>
-    public const int EntrySectorCol = 3;
-    public const int EntrySectorRow = 7;
+    public const int EntrySectorCol = WorldBalance.EntrySectorCol;
+    public const int EntrySectorRow = WorldBalance.EntrySectorRow;
+    public const int EntrySectorOffsetX = WorldBalance.EntrySectorOffsetX;
+    public const int EntrySectorOffsetY = WorldBalance.EntrySectorOffsetY;
 
-    /// <summary>Глобальное смещение сектора входа: EntrySectorCol * SectorSize, EntrySectorRow * SectorSize.</summary>
-    public const int EntrySectorOffsetX = EntrySectorCol * SectorSize; // 300
-    public const int EntrySectorOffsetY = EntrySectorRow * SectorSize; // 700
+    public const int MinDamage = WorldBalance.MinDamage;
+    public const int ChanceRollMax = WorldBalance.ChanceRollMax;
 
-    public const int MinDamage = 1;
-    public const int ChanceRollMax = 100;
+    public const int MaxLevel = ProgressionBalance.MaxLevel;
+    public const int MaxHealthPerLevel = ProgressionBalance.MaxHealthPerLevel;
+    public const int MaxHealthPerEndurance = ProgressionBalance.MaxHealthPerEndurance;
+    public const int AttributePointsPerLevel = ProgressionBalance.AttributePointsPerLevel;
+    public const int XpPerLevel = ProgressionBalance.XpPerLevel;
 
-    // Level-up constants (duplicated from server Balance.cs, needed by Player.TryLevelUp)
-    public const int MaxLevel = 50;
-    public const int MaxHealthPerLevel = 10;
-    // Выносливость даёт +10 HP за очко: вложенные очки прибавляются к MaxHealth при вложении,
-    // выносливость со шмота — через Equipment.GetBonusMaxHealth().
-    public const int MaxHealthPerEndurance = 10;
-    public const int AttributePointsPerLevel = 3;
-    public const int XpPerLevel = 50;
-
-    public static int XpNeededForNextLevel(int level) => level * XpPerLevel;
-
-    public static bool RollPercent(double percent)
-        => System.Random.Shared.NextDouble() * 100 < percent;
+    public static int XpNeededForNextLevel(int level) => ProgressionBalance.XpNeededForNextLevel(level);
+    public static bool RollPercent(double percent) => ProgressionBalance.RollPercent(percent);
 }
