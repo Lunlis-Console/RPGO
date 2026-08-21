@@ -25,10 +25,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Иконка окна/таскбара для DesktopGL: SDL грузит только BMP из встроенного
+         ресурса с именем Icon.bmp (см. MonoGame SDLGameWindow). Без него окно и
+         таскбар показывают дефолтный логотип MonoGame. -->
+    <EmbeddedResource Include="$(MSBuildProjectDirectory)\Icon.bmp">
+      <LogicalName>Icon.bmp</LogicalName>
+    </EmbeddedResource>
     <!-- Спрайты и тайлсеты грузятся из ресурсов (SpriteCache.GetManifestResourceStream).
-         Карты и секторы клиент НЕ читает локально — они приходят от сервера по сети
-         (map/zone/sector_data), поэтому *.tmj и Sectors не встраиваются: иначе DLL
-         раздувается до сотен МБ и ломает обновление клиента на маленьких серверах. -->
+          Карты и секторы клиент НЕ читает локально — они приходят от сервера по сети
+          (map/zone/sector_data), поэтому *.tmj и Sectors не встраиваются: иначе DLL
+          раздувается до сотен МБ и ломает обновление клиента на маленьких серверах. -->
     <EmbeddedResource Include="Content\Sprites\**\*.*" />
     <EmbeddedResource Include="Content\Tilesets\**\*.*" />
   </ItemGroup>
