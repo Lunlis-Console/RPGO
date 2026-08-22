@@ -62,7 +62,7 @@ public class LoginScreen : IScreen
         int centerX = w / 2;
         int startY = h / 2 - 120;
 
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
             _fieldRects[i] = new Rectangle(centerX - 60, startY + i * 45, 200, 30);
 
         _buttonRects[0] = new Rectangle(centerX + 160, startY, 130, 30);
@@ -284,7 +284,7 @@ public class LoginScreen : IScreen
         spriteBatch.DrawString(font, subtitle, new Vector2(centerX - subSize.X / 2, startY - 30), Color.White);
 
         // Поля ввода
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 2; i++)
         {
             // Label
             spriteBatch.DrawString(font, _labels[i], new Vector2(_fieldRects[i].X - 70, _fieldRects[i].Y + 5), Color.LightGray);
@@ -302,7 +302,7 @@ public class LoginScreen : IScreen
         // Кнопки
         var btnBgColors = new[] { new Color(0, 180, 100), new Color(255, 170, 0), new Color(150, 80, 200) };
 
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < 3; i++)
         {
             var r = _buttonRects[i];
             bool hover = r.Contains(_prevMouse.X, _prevMouse.Y);
