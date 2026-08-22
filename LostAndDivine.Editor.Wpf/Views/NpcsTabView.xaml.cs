@@ -130,8 +130,7 @@ public partial class NpcsTabView : UserControl
         foreach (var n in npcs)
         {
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT INTO npcs (id, name, type, location, data) VALUES ($id,$n,$t,$l,$d)
-                ON CONFLICT(id) DO UPDATE SET name = excluded.name, type = excluded.type, location = excluded.location";
+            cmd.CommandText = @"INSERT OR REPLACE INTO npcs (id, name, type, location, data) VALUES ($id,$n,$t,$l,$d)";
             cmd.Parameters.AddWithValue("$id", n.Id);
             cmd.Parameters.AddWithValue("$n", n.Name);
             cmd.Parameters.AddWithValue("$t", n.Type);

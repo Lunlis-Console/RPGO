@@ -89,7 +89,14 @@ public partial class MonstersTabView : UserControl
             Db.EnsureId(_dt, "M");
             using var conn = _db.OpenContent();
             using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM monsters"; del.ExecuteNonQuery(); }
+            var monsterIds = new List<string>();
+            foreach (DataRow row in _dt.Rows)
+            {
+                if (row.RowState == DataRowState.Deleted) continue;
+                var id = row["id"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(id)) monsterIds.Add(id!);
+            }
+            Db.DeleteMissingRows(conn, transaction, "monsters", "id", monsterIds);
             using (var delDrops = conn.CreateCommand()) { delDrops.CommandText = "DELETE FROM monster_drops"; delDrops.ExecuteNonQuery(); }
             foreach (DataRow row in _dt.Rows)
             {
@@ -97,7 +104,7 @@ public partial class MonstersTabView : UserControl
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 string monsterId = row["id"].ToString()!;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, gold_max, symbol,
+                cmd.CommandText = @"INSERT OR REPLACE INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, gold_max, symbol,
                         strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance,
                         block_chance, parry_chance, shield_defense)
                     VALUES ($id,$n,$t,$hp,$a,$d,$xp,$g,$gm,$s,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$bc,$pc,$sd)";

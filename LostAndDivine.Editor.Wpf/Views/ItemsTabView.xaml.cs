@@ -109,13 +109,20 @@ public partial class ItemsTabView : UserControl
             Db.EnsureId(_dt, "I");
             using var conn = _db.OpenContent();
             using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM items"; del.ExecuteNonQuery(); }
+            var ids = new List<string>();
+            foreach (DataRow row in _dt.Rows)
+            {
+                if (row.RowState == DataRowState.Deleted) continue;
+                var id = row["id"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(id)) ids.Add(id!);
+            }
+            Db.DeleteMissingRows(conn, transaction, "items", "id", ids);
             foreach (DataRow row in _dt.Rows)
             {
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO items (id, name, type, value, damage_min, damage_max, defense, max_health_bonus, max_mana_bonus, heal_amount, restore_mana, stock, description,
+                cmd.CommandText = @"INSERT OR REPLACE INTO items (id, name, type, value, damage_min, damage_max, defense, max_health_bonus, max_mana_bonus, heal_amount, restore_mana, stock, description,
                         bonus_strength, bonus_endurance, bonus_agility, bonus_cunning, bonus_intellect, bonus_wisdom,
                         bonus_phys_attack, bonus_mag_attack, bonus_defense, bonus_resistance,
                         bonus_attack_speed, bonus_crit_chance, bonus_crit_damage, bonus_evade_chance,

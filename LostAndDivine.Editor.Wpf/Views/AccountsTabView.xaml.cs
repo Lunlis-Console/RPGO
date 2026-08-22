@@ -267,7 +267,14 @@ public partial class AccountsTabView : UserControl
 
             using var conn = _db.OpenGame();
             using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM accounts"; del.ExecuteNonQuery(); }
+            var logins = new List<string>();
+            foreach (DataRow dr in _dt.Rows)
+            {
+                if (dr.RowState == DataRowState.Deleted) continue;
+                var login = dr["login"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(login)) logins.Add(login!);
+            }
+            Db.DeleteMissingRows(conn, transaction, "accounts", "login", logins);
             foreach (DataRow dr in _dt.Rows)
             {
                 if (dr.RowState == DataRowState.Deleted) continue;
@@ -278,7 +285,7 @@ public partial class AccountsTabView : UserControl
                     : hashes.TryGetValue(login, out var h) ? h : Db.HashPassword("123");
 
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO accounts (login, password_hash, player_name, level, experience,
+                cmd.CommandText = @"INSERT OR REPLACE INTO accounts (login, password_hash, player_name, level, experience,
                         health, max_health, phys_attack, phys_defense, gold, created_at, last_login,
                         weapon_id, armor_id, accessory_id,
                         strength, endurance, agility, cunning, intellect, wisdom,

@@ -135,7 +135,14 @@ public partial class QuestsTabView : UserControl
             Db.EnsureId(_dt, "Q");
             using var conn = _db.OpenContent();
             using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand()) { del.CommandText = "DELETE FROM quests_def"; del.ExecuteNonQuery(); }
+            var questIds = new List<string>();
+            foreach (DataRow row in _dt.Rows)
+            {
+                if (row.RowState == DataRowState.Deleted) continue;
+                var id = row["id"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(id)) questIds.Add(id!);
+            }
+            Db.DeleteMissingRows(conn, transaction, "quests_def", "id", questIds);
             foreach (DataRow row in _dt.Rows)
             {
                 if (row.RowState == DataRowState.Deleted) continue;
@@ -171,7 +178,7 @@ public partial class QuestsTabView : UserControl
                     objectives = JsonSerializer.Serialize(new[] { obj }, Db.QuestJsonOpts);
                 }
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable, objectives)
+                cmd.CommandText = @"INSERT OR REPLACE INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable, objectives)
                     VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc,$tz,$tx,$tyy,$ag,$gn,$is,$loc,$rep,$obj)";
                 cmd.Parameters.AddWithValue("$id", row["id"]);
                 cmd.Parameters.AddWithValue("$t", row["title"] ?? "");

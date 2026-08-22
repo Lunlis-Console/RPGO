@@ -1,5 +1,6 @@
 using System.Data;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using LostAndDivine.Shared;
 using LostAndDivine.Shared.Migrations;
@@ -357,6 +358,26 @@ namespace LostAndDivine.Editor;
     public static int ToInt(object? v) => int.TryParse(v?.ToString(), out int r) ? r : 0;
     public static double ToDouble(object? v) => double.TryParse(v?.ToString(), System.Globalization.CultureInfo.InvariantCulture, out double r) ? r : 0;
     public static int QuestFlag(object? v) => v is bool b ? (b ? 1 : 0) : ToInt(v);
+
+    /// <summary>
+    /// Удаляет из таблицы только строки, чей PK отсутствует в <paramref name="ids"/>.
+    /// Безопасная замена "DELETE FROM table": не стирает весь столбец целиком и не ломает
+    /// identity/FK для строк, которые редактор не трогал (аудит P1-8).
+    /// </summary>
+    public static void DeleteMissingRows(SqliteConnection conn, SqliteTransaction tx, string table, string pk, IEnumerable<string> ids)
+    {
+        var list = ids.ToList();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        if (list.Count == 0)
+            cmd.CommandText = $"DELETE FROM {table}";
+        else
+        {
+            var inList = string.Join(",", list.Select(x => "'" + x.Replace("'", "''") + "'"));
+            cmd.CommandText = $"DELETE FROM {table} WHERE {pk} NOT IN ({inList})";
+        }
+        cmd.ExecuteNonQuery();
+    }
 
     public static string NameById(List<(string Id, string Name)> refs, string id)
     {
