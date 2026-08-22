@@ -1,4 +1,5 @@
-﻿using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using LostAndDivine.ClientMonoGame.Windows;
 using LostAndDivine.ClientMonoGame.Screens;
@@ -110,7 +111,7 @@ public sealed class GameClient
     // Атака
     public event Action<string, string?, int?, int?>? PlayerAttackPerformed; // (hand, skillId, targetX, targetY)
     public event Action<string, string, string?, int?, int?, int?>? RemotePlayerAttack; // (playerName, hand, skillId, targetX, targetY, buffDurationMs)
-    public event Action<string, string>? RemotePlayerFacing; // (playerName, facing)
+    public event Action<string, Facing>? RemotePlayerFacing; // (playerName, facing)
 
     // Окна
     public event Action<StatusData>? StatusDetailsUpdated;
@@ -211,7 +212,7 @@ public sealed class GameClient
     internal void RaiseProjectileSpawned(string id, double sx, double sy, double tx, double ty, string vt, int fm) => Ui(() => ProjectileSpawned?.Invoke(id, sx, sy, tx, ty, vt, fm));
     internal void RaiseRemotePlayerAttack(string playerName, string hand, string? skillId, int? targetX, int? targetY, int? buffDurationMs) => Ui(() => RemotePlayerAttack?.Invoke(playerName, hand, skillId, targetX, targetY, buffDurationMs));
     internal void RaisePlayerAttackPerformed(string hand, string? skillId, int? targetX = null, int? targetY = null) => Ui(() => PlayerAttackPerformed?.Invoke(hand, skillId, targetX, targetY));
-    internal void RaiseRemotePlayerFacing(string playerName, string facing) => Ui(() => RemotePlayerFacing?.Invoke(playerName, facing));
+    internal void RaiseRemotePlayerFacing(string playerName, Facing facing) => Ui(() => RemotePlayerFacing?.Invoke(playerName, facing));
     internal void RaiseProjectileHit(string id, double x, double y) => Ui(() => ProjectileHit?.Invoke(id, x, y));
     internal void RaiseCharacterListUpdated(CharacterSlot[] chars) => Ui(() => CharacterListUpdated?.Invoke(chars));
 

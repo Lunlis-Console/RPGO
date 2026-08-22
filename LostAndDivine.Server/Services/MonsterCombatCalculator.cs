@@ -165,15 +165,15 @@ public class MonsterCombatCalculator
         }
     }
 
-    private static List<(int x, int y)> GetCleavePositions(int px, int py, string facing)
+    private static List<(int x, int y)> GetCleavePositions(int px, int py, Facing facing)
     {
         return facing switch
         {
-            "up"    => new List<(int, int)> { (px - 1, py - 1), (px, py - 1), (px + 1, py - 1) },
-            "down"  => new List<(int, int)> { (px - 1, py + 1), (px, py + 1), (px + 1, py + 1) },
-            "left"  => new List<(int, int)> { (px - 1, py - 1), (px - 1, py), (px - 1, py + 1) },
-            "right" => new List<(int, int)> { (px + 1, py - 1), (px + 1, py), (px + 1, py + 1) },
-            _       => new List<(int, int)>()
+            Facing.Up    => new List<(int, int)> { (px - 1, py - 1), (px, py - 1), (px + 1, py - 1) },
+            Facing.Down  => new List<(int, int)> { (px - 1, py + 1), (px, py + 1), (px + 1, py + 1) },
+            Facing.Left  => new List<(int, int)> { (px - 1, py - 1), (px - 1, py), (px - 1, py + 1) },
+            Facing.Right => new List<(int, int)> { (px + 1, py - 1), (px + 1, py), (px + 1, py + 1) },
+            _            => new List<(int, int)>()
         };
     }
 }

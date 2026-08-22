@@ -8,7 +8,7 @@ public sealed class PlayerWorldState
 {
     public int X { get; set; }
     public int Y { get; set; }
-    public string Facing { get; set; } = "down";
+    public Facing Facing { get; set; } = Facing.Down;
     public string CurrentZoneId { get; set; } = BalanceStatic.MainZoneId;
     public Guid? PartyId { get; set; }
     public bool IsTrading { get; set; }

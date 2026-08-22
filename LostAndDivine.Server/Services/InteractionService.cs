@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Network;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 
@@ -153,10 +154,10 @@ public class InteractionService
                     player.Movement.Stop();
                     player.X = destX;
                     player.Y = destY;
-                    if (dx == 1) player.Facing = "right";
-                    else if (dx == -1) player.Facing = "left";
-                    else if (dy == 1) player.Facing = "down";
-                    else if (dy == -1) player.Facing = "up";
+                    if (dx == 1) player.Facing = Facing.Right;
+                    else if (dx == -1) player.Facing = Facing.Left;
+                    else if (dy == 1) player.Facing = Facing.Down;
+                    else if (dy == -1) player.Facing = Facing.Up;
                     Log.Debug($"{player.Name} прошёл через дверь ({player.Interaction.X},{player.Interaction.Y}) -> ({destX},{destY})");
                     _svc.Hub.MarkEntityStateDirty(player.CurrentZoneId);
                     await _svc.Hub.BroadcastMapAsync();
@@ -441,10 +442,10 @@ public class InteractionService
 
             int dx = next.X - pl.X;
             int dy = next.Y - pl.Y;
-            if (dx == 1) pl.Facing = "right";
-            else if (dx == -1) pl.Facing = "left";
-            else if (dy == 1) pl.Facing = "down";
-            else if (dy == -1) pl.Facing = "up";
+            if (dx == 1) pl.Facing = Facing.Right;
+            else if (dx == -1) pl.Facing = Facing.Left;
+            else if (dy == 1) pl.Facing = Facing.Down;
+            else if (dy == -1) pl.Facing = Facing.Up;
 
             pl.X = next.X;
             pl.Y = next.Y;

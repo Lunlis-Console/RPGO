@@ -1,4 +1,5 @@
-﻿using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Shared;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using LostAndDivine.ClientMonoGame.Windows;
 using LostAndDivine.ClientMonoGame.Screens;
@@ -805,7 +806,13 @@ internal static class ClientMessageHandlerRegistry
         if (m.Data is JsonElement pfEl)
         {
             string pfName = pfEl.TryGetProperty("PlayerName", out var pfn) ? (pfn.GetString() ?? "") : "";
-            string pfFacing = pfEl.TryGetProperty("Facing", out var pff) ? (pff.GetString() ?? "down") : "down";
+            Facing pfFacing = Facing.Down;
+            if (pfEl.TryGetProperty("Facing", out var pff))
+            {
+                var raw = pff.GetString();
+                if (!string.IsNullOrEmpty(raw) && Enum.TryParse<Facing>(raw, true, out var parsed))
+                    pfFacing = parsed;
+            }
             if (!string.IsNullOrEmpty(pfName) && pfName != c.PlayerName)
                 c.RaiseRemotePlayerFacing(pfName, pfFacing);
         }

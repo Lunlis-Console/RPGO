@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using LostAndDivine.ClientMonoGame.Data;
 using LostAndDivine.ClientMonoGame.Networking;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.ClientMonoGame.Rendering;
@@ -327,7 +328,7 @@ public class MapRenderer
 
     // Направление взгляда локального игрока ("down" | "up" | "left" | "right").
     // Вычисляется в AdvanceVisPositions по фактическому вектору движения.
-    private string _localFacing = "down";
+    private Facing _localFacing = Facing.Down;
 
     // Игрок в данный момент движется (интерполяция не завершена).
     private bool _isMoving;
@@ -369,12 +370,12 @@ public class MapRenderer
     // Per-player movement state for remote players (visPos != visTarget)
     private readonly Dictionary<string, bool> _remoteMoving = new();
     // Callback: local player changed facing → send to server
-    internal Action<string>? OnFacingChanged;
-    private string _lastRenderFacing = "down";
+    internal Action<Facing>? OnFacingChanged;
+    private Facing _lastRenderFacing = Facing.Down;
 
 private sealed class RemotePlayerState
 {
-    public string Facing = "down";
+    public Facing Facing = Facing.Down;
     public string WeaponSubtype = "";
     public string OffWeaponSubtype = "";
     public string ShieldSubtype = "";
@@ -389,7 +390,7 @@ private sealed class RemotePlayerState
     public int DeathY;
 }
 
-    public void UpdateRemotePlayer(string name, string facing, string weaponSub, string offWeaponSub, string shieldSub, bool twoHanded, bool isDead, int deathX, int deathY)
+    public void UpdateRemotePlayer(string name, Facing facing, string weaponSub, string offWeaponSub, string shieldSub, bool twoHanded, bool isDead, int deathX, int deathY)
     {
         if (!_remotePlayers.TryGetValue(name, out var state))
         {
@@ -472,7 +473,7 @@ private sealed class RemotePlayerState
         return new Point(_selectedEntityX, _selectedEntityY);
     }
 
-    public void UpdateRemotePlayerFacing(string name, string facing)
+    public void UpdateRemotePlayerFacing(string name, Facing facing)
     {
         if (_remotePlayers.TryGetValue(name, out var state))
             state.Facing = facing;
@@ -484,7 +485,7 @@ private sealed class RemotePlayerState
     //  - когда стоит и действует с выбранной целью (атака монстра,
     //    сбор/лут предмета) — поворот в её сторону.
     // Хорошая основа для будущих анимаций.
-    private string GetLocalFacing()
+    private Facing GetLocalFacing()
     {
         if (_isMoving) return _localFacing;
 
@@ -515,9 +516,9 @@ private sealed class RemotePlayerState
                 int manhattan = Math.Abs(ddx) + Math.Abs(ddy);
                 if ((manhattan <= 1 || _mainAttackActive || _offAttackActive) && (ddx != 0 || ddy != 0))
                 {
-                    string dir = (Math.Abs(ddx) > Math.Abs(ddy))
-                        ? (ddx < 0 ? "left" : "right")
-                        : (ddy < 0 ? "up" : "down");
+                    Facing dir = (Math.Abs(ddx) > Math.Abs(ddy))
+                        ? (ddx < 0 ? Facing.Left : Facing.Right)
+                        : (ddy < 0 ? Facing.Up : Facing.Down);
                     _localFacing = dir;
                     return dir;
                 }
@@ -567,7 +568,7 @@ private sealed class RemotePlayerState
                     {
                         int dist = Math.Abs(newMe.X - oldMe.X) + Math.Abs(newMe.Y - oldMe.Y);
                         teleported = dist > 1;
-                        if (teleported && !string.IsNullOrEmpty(newMe.Facing))
+                        if (teleported)
                             _localFacing = newMe.Facing;
                     }
                 }
@@ -603,10 +604,10 @@ private sealed class RemotePlayerState
                     if (name == _playerName && (Math.Abs(p.X - e.X) + Math.Abs(p.Y - e.Y) > 1))
                     {
                         teleported = true;
-                        if (!string.IsNullOrEmpty(e.Facing)) _localFacing = e.Facing;
+                        _localFacing = e.Facing;
                     }
                     p.X = e.X; p.Y = e.Y;
-                    if (!string.IsNullOrEmpty(e.Facing)) p.Facing = e.Facing;
+                    p.Facing = e.Facing;
                 }
                 else
                 {
@@ -2045,7 +2046,7 @@ private sealed class RemotePlayerState
             float py = _gridOY + (v.Y - startY) * _cellH;
 
             bool isLocal = p.Name == _playerName;
-            string facing = isLocal ? GetLocalFacing() : "down";
+            Facing facing = isLocal ? GetLocalFacing() : Facing.Down;
             if (isLocal && facing != _lastRenderFacing)
             {
                 _lastRenderFacing = facing;
@@ -2087,10 +2088,11 @@ private sealed class RemotePlayerState
             }
 
             DateTime? deathAnimStart = null;
+            string facingStr = facing.ToString().ToLowerInvariant();
 
             if (isLocal && _isDead)
             {
-                playerAnim = SpriteCache.GetPlayerDeathAnimation(facing);
+                playerAnim = SpriteCache.GetPlayerDeathAnimation(facingStr);
                 deathAnimStart = _deathAnimStart;
             }
             else if (deadRemote != null)
@@ -2100,20 +2102,20 @@ private sealed class RemotePlayerState
                 if (mainAttackActive)
                 {
                     playerAnim = weaponSub == "bow"
-                        ? SpriteCache.GetPlayerRangeAttackAnimation(facing)
+                        ? SpriteCache.GetPlayerRangeAttackAnimation(facingStr)
                         : isTwoHanded
-                            ? SpriteCache.GetPlayerTwoHandAttackAnimation(facing)
-                            : SpriteCache.GetPlayerAttackAnimation(facing);
+                            ? SpriteCache.GetPlayerTwoHandAttackAnimation(facingStr)
+                            : SpriteCache.GetPlayerAttackAnimation(facingStr);
                 }
                 else
-                    playerAnim = SpriteCache.GetPlayerSecondAttackAnimation(facing);
+                    playerAnim = SpriteCache.GetPlayerSecondAttackAnimation(facingStr);
                 if (playerAnim != null) useAttackAnim = true;
-                else playerAnim = SpriteCache.GetPlayerAnimation(facing);
+                else playerAnim = SpriteCache.GetPlayerAnimation(facingStr);
             }
             else
                 playerAnim = moving
-                    ? SpriteCache.GetPlayerAnimation(facing)
-                    : SpriteCache.GetAnimation($"player_idle_{facing}") ?? SpriteCache.GetPlayerAnimation(facing);
+                    ? SpriteCache.GetPlayerAnimation(facingStr)
+                    : SpriteCache.GetAnimation($"player_idle_{facingStr}") ?? SpriteCache.GetPlayerAnimation(facingStr);
 
             var er = EntityRect(px, py, _cellW, _cellH);
             if (playerAnim != null)
@@ -2121,19 +2123,19 @@ private sealed class RemotePlayerState
                 int frame = ComputeAnimFrame(playerAnim, isLocal, deathAnimStart, useAttackAnim, mainAttackActive, offAttackStart, mainAttackStart, p.Name);
                 var src = playerAnim.GetSourceRect(frame);
                 sb.Draw(playerAnim.Sheet, er, src, Color.White);
-                DrawWeaponOverlay(sb, er, weaponSub, facing, moving, mainAttackActive, offAttackActive, mainAttackStart, offAttackStart, isLocal, isTwoHanded);
-                DrawShieldOverlay(sb, er, shieldSub, facing, moving, mainAttackActive, mainAttackStart, isTwoHanded);
-                DrawOffWeaponOverlay(sb, er, offWeaponSub, facing, moving, offAttackActive, mainAttackActive, mainAttackStart, offAttackStart, weaponSub, isTwoHanded);
+                DrawWeaponOverlay(sb, er, weaponSub, facingStr, moving, mainAttackActive, offAttackActive, mainAttackStart, offAttackStart, isLocal, isTwoHanded);
+                DrawShieldOverlay(sb, er, shieldSub, facingStr, moving, mainAttackActive, mainAttackStart, isTwoHanded);
+                DrawOffWeaponOverlay(sb, er, offWeaponSub, facingStr, moving, offAttackActive, mainAttackActive, mainAttackStart, offAttackStart, weaponSub, isTwoHanded);
             }
             else
             {
-                var playerSprite = SpriteCache.GetPlayerSprite(facing) ?? SpriteCache.GetPlayerSprite("down");
+                var playerSprite = SpriteCache.GetPlayerSprite(facingStr) ?? SpriteCache.GetPlayerSprite("down");
                 if (playerSprite != null)
                 {
                     sb.Draw(playerSprite, er, Color.White);
-                    DrawStaticWeaponOverlay(sb, er, weaponSub, facing, moving, isTwoHanded);
-                    DrawStaticShieldOverlay(sb, er, shieldSub, facing, moving, isTwoHanded);
-                    DrawStaticOffWeaponOverlay(sb, er, offWeaponSub, facing, moving, isTwoHanded);
+                    DrawStaticWeaponOverlay(sb, er, weaponSub, facingStr, moving, isTwoHanded);
+                    DrawStaticShieldOverlay(sb, er, shieldSub, facingStr, moving, isTwoHanded);
+                    DrawStaticOffWeaponOverlay(sb, er, offWeaponSub, facingStr, moving, isTwoHanded);
                 }
                 else
                 {
@@ -2532,8 +2534,8 @@ private sealed class RemotePlayerState
                     _isMoving = moving;
                     if (moving && (vx != 0f || vy != 0f))
                     {
-                        if (Math.Abs(vx) > Math.Abs(vy)) _localFacing = vx < 0 ? "left" : "right";
-                        else _localFacing = vy < 0 ? "up" : "down";
+                        if (Math.Abs(vx) > Math.Abs(vy)) _localFacing = vx < 0 ? Facing.Left : Facing.Right;
+                        else _localFacing = vy < 0 ? Facing.Up : Facing.Down;
                     }
                 }
                 else if (key.StartsWith("player:"))

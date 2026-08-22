@@ -53,7 +53,7 @@ public class PlayerPosition
     public int Level { get; set; }
     public int Health { get; set; }
     public int MaxHealth { get; set; }
-    public string Facing { get; set; } = "down";
+    public Facing Facing { get; set; } = Facing.Down;
     public string WeaponSubtype { get; set; } = "";
     public string OffWeaponSubtype { get; set; } = "";
     public string ShieldSubtype { get; set; } = "";
@@ -134,7 +134,7 @@ public class ChestPosition
         public bool IsPlayer { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
-        public string Facing { get; set; } = "down";
+        public Facing Facing { get; set; } = Facing.Down;
     }
 
     public class EntityStateMessage

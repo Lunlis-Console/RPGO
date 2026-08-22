@@ -51,7 +51,7 @@ public class Player : ICombatant
     // State
     public int X { get => _state.X; set => _state.X = value; }
     public int Y { get => _state.Y; set => _state.Y = value; }
-    public string Facing { get => _state.Facing; set => _state.Facing = value; }
+    public Facing Facing { get => _state.Facing; set => _state.Facing = value; }
     public string CurrentZoneId { get => _state.CurrentZoneId; set => _state.CurrentZoneId = value; }
     public Guid? PartyId { get => _state.PartyId; set => _state.PartyId = value; }
     public bool IsTrading { get => _state.IsTrading; set => _state.IsTrading = value; }

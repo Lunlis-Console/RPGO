@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 
@@ -14,9 +15,13 @@ public class PlayerFacingHandler : BaseHandler
     {
         if (player == null) return;
 
-        string facing = "down";
+        Facing facing = Facing.Down;
         if (message.Data is JsonElement el && el.TryGetProperty("Facing", out var fEl))
-            facing = fEl.GetString() ?? "down";
+        {
+            var raw = fEl.GetString();
+            if (!string.IsNullOrEmpty(raw) && Enum.TryParse<Facing>(raw, true, out var parsed))
+                facing = parsed;
+        }
 
         player.Facing = facing;
 

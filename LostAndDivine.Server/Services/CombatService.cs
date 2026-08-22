@@ -287,9 +287,9 @@ public class CombatService
         int dy = monster.Y - pl.Y;
         int dist = Math.Abs(dx) + Math.Abs(dy);
         if (Math.Abs(dx) >= Math.Abs(dy))
-            pl.Facing = dx > 0 ? "right" : "left";
+            pl.Facing = dx > 0 ? Facing.Right : Facing.Left;
         else
-            pl.Facing = dy > 0 ? "down" : "up";
+            pl.Facing = dy > 0 ? Facing.Down : Facing.Up;
 
         string subtype = pl.Equipment.GetWeaponSubtype();
         WeaponCategory category = pl.Equipment.GetWeaponCategory();
@@ -443,9 +443,9 @@ public class CombatService
         if (weaponRange > 1 && !isEvaded)
         {
             if (Math.Abs(dx) >= Math.Abs(dy))
-                pl.Facing = dx > 0 ? "right" : "left";
+                pl.Facing = dx > 0 ? Facing.Right : Facing.Left;
             else
-                pl.Facing = dy > 0 ? "down" : "up";
+                pl.Facing = dy > 0 ? Facing.Down : Facing.Up;
 
             string visualType = category == WeaponCategory.Bow ? "arrow" : "magic_bolt";
             var proj = _svc.Projectiles.Spawn(pl, monster, visualType, dmgToMonster, isCrit, attackHand);
@@ -708,9 +708,9 @@ public class CombatService
         bool isRangedAttack = offWeaponRange > 1 && dist > 1;
 
         if (Math.Abs(dx) >= Math.Abs(dy))
-            pl.Facing = dx > 0 ? "right" : "left";
+            pl.Facing = dx > 0 ? Facing.Right : Facing.Left;
         else
-            pl.Facing = dy > 0 ? "down" : "up";
+            pl.Facing = dy > 0 ? Facing.Down : Facing.Up;
 
         if (isRangedAttack)
         {
@@ -1078,9 +1078,9 @@ public class CombatService
 
         (int tx1, int ty1, int tx2, int ty2) = pl.Facing switch
         {
-            "right" => (pl.X + range, pl.Y + range, pl.X + range, pl.Y - range),
-            "left" => (pl.X - range, pl.Y + range, pl.X - range, pl.Y - range),
-            "down" => (pl.X + range, pl.Y + range, pl.X - range, pl.Y + range),
+            Facing.Right => (pl.X + range, pl.Y + range, pl.X + range, pl.Y - range),
+            Facing.Left => (pl.X - range, pl.Y + range, pl.X - range, pl.Y - range),
+            Facing.Down => (pl.X + range, pl.Y + range, pl.X - range, pl.Y + range),
             _ => (pl.X + range, pl.Y - range, pl.X - range, pl.Y - range)
         };
         await _svc.Projectiles.BroadcastArrowVisual(pl.X, pl.Y, tx1, ty1, visualType);
@@ -1102,12 +1102,12 @@ public class CombatService
         }
     }
 
-    private static bool InFacingCone(string facing, int dx, int dy) => facing switch
+    private static bool InFacingCone(Facing facing, int dx, int dy) => facing switch
     {
-        "right" => dx > 0 && Math.Abs(dy) <= Math.Max(1, dx),
-        "left" => dx < 0 && Math.Abs(dy) <= Math.Max(1, -dx),
-        "down" => dy > 0 && Math.Abs(dx) <= Math.Max(1, dy),
-        "up" => dy < 0 && Math.Abs(dx) <= Math.Max(1, -dy),
+        Facing.Right => dx > 0 && Math.Abs(dy) <= Math.Max(1, dx),
+        Facing.Left => dx < 0 && Math.Abs(dy) <= Math.Max(1, -dx),
+        Facing.Down => dy > 0 && Math.Abs(dx) <= Math.Max(1, dy),
+        Facing.Up => dy < 0 && Math.Abs(dx) <= Math.Max(1, -dy),
         _ => false
     };
 }

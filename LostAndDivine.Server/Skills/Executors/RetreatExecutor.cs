@@ -1,5 +1,6 @@
 ﻿using System;
 using LostAndDivine.Server.Network;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server.Skills.Executors;
@@ -36,9 +37,9 @@ public sealed class RetreatExecutor : SkillExecutorBase
             // Если цель на той же клетке — назад по facing
             (dx, dy) = pl.Facing switch
             {
-                "left" => (-1, 0),
-                "right" => (1, 0),
-                "up" => (0, -1),
+                Facing.Left => (-1, 0),
+                Facing.Right => (1, 0),
+                Facing.Up => (0, -1),
                 _ => (0, 1)
             };
             // Отскок от facing: reverse
