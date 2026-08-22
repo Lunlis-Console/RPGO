@@ -1,4 +1,6 @@
-﻿using LostAndDivine.Shared.Models;
+﻿using LostAndDivine.Server.Instances;
+using LostAndDivine.Server.Services;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Utils;
 
 namespace LostAndDivine.Server;
@@ -16,8 +18,13 @@ public class PathfindingService
         _quests = quests;
     }
 
-    /// <summary>Полный доступ к сервисам (зоны, порталы, склад NPC). Ставится после создания GameServices.</summary>
-    public GameServices? Services { get; set; }
+    private ZoneManager? _zones;
+    private StorageService? _storage;
+    private InstanceManager? _instances;
+    public void Configure(ZoneManager? zones, StorageService? storage, InstanceManager? instances)
+    {
+        _zones = zones; _storage = storage; _instances = instances;
+    }
 
     public List<(int X, int Y)> FindPath(int startX, int startY, int targetX, int targetY)
         => FindPath(startX, startY, targetX, targetY, Balance.MainZoneId);
@@ -29,7 +36,7 @@ public class PathfindingService
     /// </summary>
     public List<(int X, int Y)> FindPath(int startX, int startY, int targetX, int targetY, string zoneId)
     {
-        var zoneMap = Services?.Zones.GetOrCreateMap(zoneId) ?? _world.Map;
+        var zoneMap = _zones?.GetOrCreateMap(zoneId) ?? _world.Map;
         var blocked = BuildBlockedCells(zoneId);
 
         return Shared.Utils.Pathfinding.FindPath(startX, startY, targetX, targetY,
@@ -54,24 +61,24 @@ public class PathfindingService
         blocked.Add((_merchant.MerchantX, _merchant.MerchantY));
         blocked.Add((_quests.BoardX, _quests.BoardY));
 
-        if (Services != null)
+        if (_zones != null)
         {
             // Порталы зоны.
-            foreach (var p in Services.Zones.GetPortalsForZone(zoneId))
+            foreach (var p in _zones.GetPortalsForZone(zoneId))
                 blocked.Add((p.FromX, p.FromY));
 
             // Склад (главная зона).
-            if (zoneId == Balance.MainZoneId)
-                blocked.Add((Services.Storage.StorageX, Services.Storage.StorageY));
+            if (zoneId == Balance.MainZoneId && _storage != null)
+                blocked.Add((_storage.StorageX, _storage.StorageY));
 
             // NPC зоны (из Tiled; позиции авторитетнее, чем в БД).
-            foreach (var n in Services.Zones.GetTiledNpcs(zoneId))
+            foreach (var n in _zones.GetTiledNpcs(zoneId))
                 blocked.Add((n.X, n.Y));
 
             // Сундук и выходной портал текущего инстанса.
             if (zoneId.StartsWith("instance:"))
             {
-                var inst = Services.Instances.FindInstanceByZoneId(zoneId);
+                var inst = _instances?.FindInstanceByZoneId(zoneId);
                 if (inst != null)
                 {
                     blocked.Add((inst.EffectiveChestX, inst.EffectiveChestY));

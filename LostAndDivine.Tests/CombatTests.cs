@@ -27,7 +27,6 @@ public class CombatTests
         svc.MonsterAttacks = monsterAttacks;
         svc.MonsterCombat = monsterCombat;
         _monsters.SetServices(svc);
-        Program.Services = svc;
     }
     private static Monster CreateMonster(int level, int str, int sta, int agi, double evade, double crit, int hp)
         => new()

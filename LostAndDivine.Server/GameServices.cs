@@ -90,7 +90,6 @@ public sealed class GameServices : IGameServices
         StorageService storage)
     {
         World = world;
-        pathfinding.Services = this;
         Hub = hub;
         Sectors = sectors;
         Monsters = monsters;

@@ -19,7 +19,6 @@ partial class Program
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool SetConsoleCP(uint codePage);
-    public static GameServices Services { get; internal set; } = null!;
     private static GameServerHost? _host;
     private static TestBot? _testBot;
     private static readonly object _botLock = new();
@@ -164,44 +163,47 @@ partial class Program
         var storage = new StorageService(world, hub);
 
         // GameServices собирает по крупицам сервисы воедино
-        Services = new GameServices(world, hub, sectorWorld, monsters, loot, corpses, quests, merchant, collectibles,
+        var services = new GameServices(world, hub, sectorWorld, monsters, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
             auth: null!, zones: zones, persistence, clientBuild, storage);
 
         // Спавн-точки Tiled-карт сохраняются для корректного /reload
-        Services.SetSpawnData(spawns, allCollectibleSpawns);
+        services.SetSpawnData(spawns, allCollectibleSpawns);
 
         // Внедряем зависимости, насыщаем GameServices
         killService.SetHub(hub);
         projectiles.SetHub(hub);
         dialogue.SetHub(hub);
         party.SetHub(hub);
-        world.SetDependencies(hub, player => { Services.Persistence.EnqueueSave(player); return true; });
+        world.SetDependencies(hub, player => { services.Persistence.EnqueueSave(player); return true; });
 
         // Циклы с рекурсивной зависимостью: GameServices сам себя,
         // поэтому IGameServices сделано через Lazy<>
-        var combat = new CombatService(Services);
-        var pvp = new PvPService(Services);
-        var hazard = new HazardService(Services);
-        var interactions = new InteractionService(Services);
-        var playerDeath = new PlayerDeathService(Services);
-        var monsterCombat = new MonsterCombatCalculator(Services);
-        var monsterAttacks = new MonsterAttackService(Services);
-        var auth = new AuthService(Services);
-        var instances = new InstanceManager(Services);
+        var combat = new CombatService(services);
+        var pvp = new PvPService(services);
+        var hazard = new HazardService(services);
+        var interactions = new InteractionService(services);
+        var playerDeath = new PlayerDeathService(services);
+        var monsterCombat = new MonsterCombatCalculator(services);
+        var monsterAttacks = new MonsterAttackService(services);
+        var auth = new AuthService(services);
+        var instances = new InstanceManager(services);
         instances.LoadAll();
         instances.ApplyTiledPortals(zones.GetAllTiledNpcs());
 
         // GameServices собирает по крупицам сервисы воедино
-        Services.Combat = combat;
-        Services.PvP = pvp;
-        Services.Hazard = hazard;
-        Services.Interactions = interactions;
-        Services.PlayerDeath = playerDeath;
-        Services.MonsterCombat = monsterCombat;
-        Services.MonsterAttacks = monsterAttacks;
-        Services.Instances = instances;
-        Services.Auth = auth;
+        services.Combat = combat;
+        services.PvP = pvp;
+        services.Hazard = hazard;
+        services.Interactions = interactions;
+        services.PlayerDeath = playerDeath;
+        services.MonsterCombat = monsterCombat;
+        services.MonsterAttacks = monsterAttacks;
+        services.Instances = instances;
+        services.Auth = auth;
+
+        // PathfindingService собран до InstanceManager — передаём зависимости явно.
+        services.Pathfinding.Configure(services.Zones, services.Storage, services.Instances);
 
         // Подгружаем карты всех подземелий для быстрой загрузки
         var dungeonFiles = Directory.GetFiles(contentDir, "dungeon_*.tmj", SearchOption.TopDirectoryOnly);
@@ -243,13 +245,13 @@ partial class Program
         storage.SetPosition(storageX, storageY);
         Log.Info($"Склад размещён на ({storageX}, {storageY})");
 
-        hub.SetServices(Services);
-        monsters.SetServices(Services);
-        dialogue.SetServices(Services);
-        projectiles.SetServices(Services);
-        killService.SetGameServices(Services);
+        hub.SetServices(services);
+        monsters.SetServices(services);
+        dialogue.SetServices(services);
+        projectiles.SetServices(services);
+        killService.SetGameServices(services);
 
-        Services.MessageHandlers.RegisterAll(Services);
+        services.MessageHandlers.RegisterAll(services);
         hub.LoadNpcCache();
         persistence.Start();
 
@@ -262,16 +264,16 @@ partial class Program
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
-            ShutdownServer();
+            ShutdownServer(services);
         };
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
             // Последний шанс: принудительно сбрасываем очередь на диск
-            try { Services?.Persistence.FlushNow(); } catch { }
+            try { services?.Persistence.FlushNow(); } catch { }
         };
 
         // Запуск игрового мира
-        _host = new GameServerHost(Services);
+        _host = new GameServerHost(services);
         _ = Task.Run(() => _host.StartAsync());
 
         TcpListener server = new TcpListener(IPAddress.Any, Balance.ServerPort);
@@ -294,10 +296,10 @@ partial class Program
         if (args.Any(a => a.Equals("--reload", StringComparison.OrdinalIgnoreCase)))
         {
             Log.Info("Флаг --reload: перезагрузка данных после старта...");
-            try { await Services.ReloadContent(); }
+            try { await services.ReloadContent(); }
             catch (Exception ex) { Log.Error($"Ошибка при --reload: {ex.Message}", ex); }
         }
-        _ = Task.Run(() => ServerConsoleLoop());
+        _ = Task.Run(() => ServerConsoleLoop(services));
 
         while (true)
         {
@@ -324,11 +326,11 @@ partial class Program
             ClientConnection connection = new ClientConnection(client);
             world.AddClient(connection);
 
-            _ = Task.Run(() => HandleClientAsync(connection));
+            _ = Task.Run(() => HandleClientAsync(connection, services));
         }
     }
 
-    private static async Task HandleClientAsync(ClientConnection connection)
+    private static async Task HandleClientAsync(ClientConnection connection, GameServices services)
     {
         Player? player = null;
         bool authenticated = false;
@@ -352,20 +354,20 @@ partial class Program
                 if (messages == 1)
                     Log.Info($"Клиент подключился: {connection.Endpoint}");
 
-                if (await Services.ClientBuild.HandleUnauthenticatedAsync(connection, message, Services.Hub))
+                if (await services.ClientBuild.HandleUnauthenticatedAsync(connection, message, services.Hub))
                     continue;
 
                 // Аутентификация клиента на подключение: ReconnectHandler
                 // Аутентифицирует сессию в том состоянии как и сохраняли.
                 if (message.Type == GameMessageType.Reconnect)
                 {
-                    if (Services.MessageHandlers.TryGet(GameMessageType.Reconnect, out var reconnectHandler))
+                    if (services.MessageHandlers.TryGet(GameMessageType.Reconnect, out var reconnectHandler))
                         await reconnectHandler.Handle(connection, message, null);
                     authenticated = connection.Player != null;
                     continue;
                 }
 
-                authenticated = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
+                authenticated = await services.Auth.HandleAuthMessage(connection, message, services.Hub);
             }
 
             while (true)
@@ -378,7 +380,7 @@ partial class Program
                 }
 
                 messages++;
-                player = await ProcessMessage(connection, message, player ?? connection.Player);
+                player = await ProcessMessage(connection, message, player ?? connection.Player, services);
             }
         }
         catch (Exception ex)
@@ -393,29 +395,29 @@ partial class Program
             if (player != null)
             {
                 _connectionGuard.RecordSuccess(ConnectionGuard.NormalizeIp(connection.Endpoint));
-                var tradeSession = Services.Trade.GetSession(player.Id);
-                if (tradeSession != null) Services.Trade.CancelSession(tradeSession, "Отключение клиента");
+                var tradeSession = services.Trade.GetSession(player.Id);
+                if (tradeSession != null) services.Trade.CancelSession(tradeSession, "Отключение клиента");
                 player.IsTrading = false;
 
-                bool stillInWorld = Services.World.TryGetPlayerByName(player.Name, out var wp)
+                bool stillInWorld = services.World.TryGetPlayerByName(player.Name, out var wp)
                     && ReferenceEquals(wp, player);
                 if (stillInWorld)
                 {
                     // Логик отключения: игрок вышел из мира (вылетел, упал, убился),
                     // ждём переподключения канала для сессии восстания.
                     // ждём переподключения канала для сессии восстания.
-                    Services.World.MarkPendingReconnect(player);
-                    Services.World.RemoveClient(connection);
+                    services.World.MarkPendingReconnect(player);
+                    services.World.RemoveClient(connection);
                     Log.Info($"Игрок {player.Name} отключился (ждём переподключения канала)");
                 }
                 else
                 {
                     // Однако: LogoutHandler не ставил галку на мир и плавно гасит.
-                    await Services.Party.LeavePartyAsync(player);
-                    Services.Instances.RemovePlayer(player);
-                    Services.Persistence.EnqueueSave(player);
+                    await services.Party.LeavePartyAsync(player);
+                    services.Instances.RemovePlayer(player);
+                    services.Persistence.EnqueueSave(player);
                     Log.Info($"Игрок {player.Name} вышел из мира (logout)");
-                    await Services.Hub.BroadcastMapAsync();
+                    await services.Hub.BroadcastMapAsync();
                 }
             }
             else if (messages == 0)
@@ -427,19 +429,19 @@ partial class Program
         }
     }
 
-    private static async Task<Player?> ProcessMessage(ClientConnection connection, GameMessage message, Player? player)
+    private static async Task<Player?> ProcessMessage(ClientConnection connection, GameMessage message, Player? player, GameServices services)
     {
         try
         {
             if (message.Type is GameMessageType.Register or GameMessageType.LoginAuth or GameMessageType.CharacterSelect or GameMessageType.CharacterCreate or GameMessageType.CharacterDelete)
             {
-                var isAuth = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
+                var isAuth = await services.Auth.HandleAuthMessage(connection, message, services.Hub);
                 if (isAuth)
                     player = connection.Player;
                 return player;
             }
 
-            if (Services.MessageHandlers.TryGet(message.Type, out var handler))
+            if (services.MessageHandlers.TryGet(message.Type, out var handler))
             {
                 await handler.Handle(connection, message, player);
                 return player;
@@ -480,7 +482,7 @@ partial class Program
     /// Серверная консоль: читает команды из stdin (пока Serilog пишет в stdout и
     /// сам не блокируется) и выполняет их.
     /// </summary>
-    private static async Task ServerConsoleLoop()
+    private static async Task ServerConsoleLoop(GameServices services)
     {
         Log.Info("Консоль сервера: введите 'help' для списка команд.");
 
@@ -499,7 +501,7 @@ partial class Program
                 line = line.Trim();
                 if (line.Length == 0) continue;
 
-                try { await HandleServerCommand(line); }
+                try { await HandleServerCommand(line, services); }
                 catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
             }
             return;
@@ -523,7 +525,7 @@ partial class Program
                 buffer.Clear();
 
                 if (line.Length == 0) continue;
-                try { await HandleServerCommand(line); }
+                try { await HandleServerCommand(line, services); }
                 catch (Exception ex) { Log.Error($"[Console] Ошибка: {ex.Message}", ex); }
             }
             else if (key.Key == ConsoleKey.Backspace)
@@ -550,7 +552,7 @@ partial class Program
         }
     }
 
-    private static async Task HandleServerCommand(string line)
+    private static async Task HandleServerCommand(string line, GameServices services)
     {
         var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         string cmd = parts[0].ToLowerInvariant();
@@ -567,7 +569,7 @@ partial class Program
                 break;
 
             case "players":
-                var online = Services.World.GetPlayersSnapshot();
+                var online = services.World.GetPlayersSnapshot();
                 if (online.Count == 0)
                 {
                     Log.Info("Онлайн: пусто");
@@ -580,7 +582,7 @@ partial class Program
                 break;
 
             case "reload":
-                await Services.ReloadContent();
+                await services.ReloadContent();
                 break;
 
             case "bot":
@@ -640,7 +642,7 @@ partial class Program
             case "stop":
             case "exit":
             case "quit":
-                ShutdownServer();
+                ShutdownServer(services);
                 break;
 
             default:
@@ -655,19 +657,19 @@ partial class Program
     /// Грациозный выход: сохраняем всех онлайн-игроков и вызволяем
     /// наружные сервисы плавно слиться с локаций.
     /// </summary>
-    private static void ShutdownServer()
+    private static void ShutdownServer(GameServices services)
     {
         try
         {
             Log.Info("  (набирается в чате и прочих окнах без помех взаимодействия)");
-            foreach (var conn in Services.World.GetAllConnectionsSnapshot())
+            foreach (var conn in services.World.GetAllConnectionsSnapshot())
             {
                 if (conn.Player == null) continue;
-                try { Services.Persistence.EnqueueSave(conn.Player); }
+                try { services.Persistence.EnqueueSave(conn.Player); }
                 catch (Exception ex) { Log.Warn($"Ошибка сохранения {conn.Player.Name} при выходе: {ex.Message}"); }
             }
             _host?.Stop();
-            Services.Persistence.Stop();
+            services.Persistence.Stop();
             Log.Info("Сервер остановлен. До свидания!");
         }
         catch (Exception ex)
