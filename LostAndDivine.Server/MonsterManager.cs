@@ -313,6 +313,7 @@ public class MonsterManager
                 if (distToSpawn <= 1)
                 {
                     m.X = m.SpawnX; m.Y = m.SpawnY;
+                    _svc.Hub.MarkEntityStateDirty(m.ZoneId);
                     m.Health = m.MaxHealth;
                     m.ReturningToSpawn = false; m.StuckTicks = 0;
                     m.AggroTarget = null; m.DamageTracker.Clear();
@@ -327,7 +328,7 @@ public class MonsterManager
                 int nx = m.X + mx, ny = m.Y + my;
                 if (nx >= 0 && nx < ctx.MapWidth && ny >= 0 && ny < ctx.MapHeight
                     && !ctx.IsBlocked(nx, ny) && !ctx.IsOccupied(nx, ny))
-                { m.X = nx; m.Y = ny; }
+                { m.X = nx; m.Y = ny; _svc.Hub.MarkEntityStateDirty(m.ZoneId); }
                 m.LastMoveTime = now.AddMilliseconds(GetMovePhase(m));
                 continue;
             }
@@ -388,7 +389,7 @@ public class MonsterManager
                     if (tnx >= 0 && tnx < ctx.MapWidth && tny >= 0 && tny < ctx.MapHeight
                         && Math.Abs(tnx - m.SpawnX) <= m.WanderRadius && Math.Abs(tny - m.SpawnY) <= m.WanderRadius
                         && !ctx.IsBlocked(tnx, tny) && !ctx.IsOccupied(tnx, tny))
-                    { m.X = tnx; m.Y = tny; moved = true; }
+                    { m.X = tnx; m.Y = tny; moved = true; _svc.Hub.MarkEntityStateDirty(m.ZoneId); }
                 }
                 if (moved) { m.StuckTicks = 0; anyMoved = true; }
                 else
@@ -413,6 +414,7 @@ public class MonsterManager
             if (Math.Abs(wnx - m.SpawnX) > m.WanderRadius || Math.Abs(wny - m.SpawnY) > m.WanderRadius) continue;
             if (ctx.IsBlocked(wnx, wny) || ctx.IsOccupied(wnx, wny)) continue;
             m.X = wnx; m.Y = wny;
+            _svc.Hub.MarkEntityStateDirty(m.ZoneId);
             m.LastMoveTime = now.AddMilliseconds(_world.NextRandom(0, Balance.MonsterSpawnJitterMaxMs));
             anyMoved = true;
         }

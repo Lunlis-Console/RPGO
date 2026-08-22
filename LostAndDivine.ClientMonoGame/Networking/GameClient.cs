@@ -56,6 +56,7 @@ public sealed class GameClient
     public event Action? WelcomeReceived;
     public event Action<ChangelogData>? ChangelogReceived;
     public event Action<WorldMap>? MapUpdated;
+    public event Action<EntityStateMessage>? EntityStateReceived;
     public event Action<StatusData>? StatusUpdated;
     public event Action<InventoryData>? InventoryUpdated;
     public event Action<List<QuestInfo>, List<QuestInfo>, List<QuestInfo>>? QuestLogUpdated;
@@ -160,6 +161,7 @@ public sealed class GameClient
         ChangelogReceived?.Invoke(data);
     });
     internal void RaiseMapUpdated(WorldMap map) => Ui(() => MapUpdated?.Invoke(map));
+    internal void RaiseEntityStateReceived(EntityStateMessage msg) => Ui(() => EntityStateReceived?.Invoke(msg));
     internal void RaiseChatReceived(string channel, string name, string text, bool isAdmin) => Ui(() => ChatReceived?.Invoke(channel, name, text, isAdmin));
     internal void RaiseErrorReceived(string text) => Ui(() => ErrorReceived?.Invoke(text));
     internal void RaiseStatusUpdated(StatusData st) => Ui(() => StatusUpdated?.Invoke(st));

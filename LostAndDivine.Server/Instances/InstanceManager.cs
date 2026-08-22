@@ -596,6 +596,7 @@ public class InstanceManager
         player.Y = instance._spawnY > 0 ? instance._spawnY : instance.Template.SpawnY + instance.OffsetY;
         player.Combat.Cancel();
         player.Movement.Stop();
+        _svc.Hub.MarkEntityStateDirty(player.CurrentZoneId);
 
         await _svc.Hub.SendZoneTransition(conn, player);
 

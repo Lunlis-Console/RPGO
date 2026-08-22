@@ -17,8 +17,62 @@ public sealed class GameServer : INetworkHub
 
     // Zone-level dirty tracking: only broadcast to clients in zones that changed
     private readonly ConcurrentDictionary<string, byte> _dirtyZones = new();
+    private readonly ConcurrentDictionary<string, byte> _entityDirty = new();
 
     public void MarkZoneDirty(string zoneId) => _dirtyZones[zoneId] = 0;
+    public void MarkEntityStateDirty(string zoneId) => _entityDirty[zoneId] = 0;
+
+    /// <summary>
+    /// Лёгкая рассылка позиций сущностей (Вариант 4): несёт только X/Y/Facing игроков
+    /// и монстров зоны, независимо от «грязных зон». Позволяет движение/телепорт всегда
+    /// доходить до клиента, не пересобирая тяжёлую WorldMap на каждый шаг.
+    /// </summary>
+    public async Task BroadcastEntityStatesAsync()
+    {
+        var zones = _entityDirty.Keys.ToList();
+        if (zones.Count == 0) return;
+        var svc = _svc;
+        var clients = _world.GetClientsSnapshot()
+            .Where(c => c.Player != null && c.WelcomeSent).ToList();
+        var playersByZone = clients.Where(c => c.Player != null)
+            .GroupBy(c => c.Player!.CurrentZoneId)
+            .ToDictionary(g => g.Key, g => g.Select(c => c.Player!).ToList());
+        var monstersByZone = new Dictionary<string, List<MonsterPosition>>();
+        foreach (var m in svc.Monsters.GetMonsterPositions().Concat(svc.Instances.GetAllMonstersPositions()))
+        {
+            if (!monstersByZone.TryGetValue(m.ZoneId, out var list)) monstersByZone[m.ZoneId] = list = new();
+            list.Add(m);
+        }
+
+        foreach (var zone in zones)
+        {
+            var state = new EntityStateMessage { ZoneId = zone, Entries = new() };
+            if (playersByZone.TryGetValue(zone, out var pls))
+                foreach (var p in pls)
+                    state.Entries.Add(new EntityStateEntry
+                    {
+                        Name = p.Name,
+                        IsPlayer = true,
+                        X = p.X,
+                        Y = p.Y,
+                        Facing = p.Facing
+                    });
+            if (monstersByZone.TryGetValue(zone, out var mons))
+                foreach (var m in mons)
+                    state.Entries.Add(new EntityStateEntry
+                    {
+                        Id = m.Id.ToString(),
+                        IsPlayer = false,
+                        X = m.X,
+                        Y = m.Y
+                    });
+            _entityDirty.TryRemove(zone, out _);
+            if (state.Entries.Count == 0) continue;
+            var msg = new GameMessage { Type = "entity_state", Data = state };
+            foreach (var client in clients.Where(c => c.Player != null && c.Player.CurrentZoneId == zone))
+                await SendToClientSafe(client, msg);
+        }
+    }
 
     public GameServer(GameWorld world)
     {

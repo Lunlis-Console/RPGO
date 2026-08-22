@@ -18,6 +18,7 @@ internal static class ClientMessageHandlerRegistry
         ["welcome"] = HandleWelcome,
         ["changelog"] = HandleChangelog,
         ["map_update"] = HandleMapUpdate,
+        ["entity_state"] = HandleEntityState,
         ["chat"] = HandleChat,
         ["error"] = HandleError,
         ["status_response"] = HandleStatusResponse,
@@ -152,6 +153,12 @@ internal static class ClientMessageHandlerRegistry
             c.CurrentMap = map;
             c.RaiseMapUpdated(map);
         }
+    }
+
+    private static void HandleEntityState(GameClient c, GameMessage m)
+    {
+        var state = m.Deserialize<EntityStateMessage>();
+        if (state != null) c.RaiseEntityStateReceived(state);
     }
 
     private static void HandleChat(GameClient c, GameMessage m)

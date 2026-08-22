@@ -127,8 +127,24 @@ public class ChestPosition
     public bool IsLocked { get; set; }
 }
 
-/// <summary>
-/// DTO одного сектора открытого мира (main). Тайлы/препятствия/объекты лежат в
+    public class EntityStateEntry
+    {
+        public string? Id { get; set; }
+        public string? Name { get; set; }
+        public bool IsPlayer { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public string Facing { get; set; } = "down";
+    }
+
+    public class EntityStateMessage
+    {
+        public string ZoneId { get; set; } = "";
+        public List<EntityStateEntry> Entries { get; set; } = new();
+    }
+
+    /// <summary>
+    /// DTO одного сектора открытого мира (main). Тайлы/препятствия/объекты лежат в
 /// локальных координатах сектора (0..SectorSize-1); глобальная клетка:
 /// X = Col * SectorSize + localX, Y = Row * SectorSize + localY.
 /// </summary>

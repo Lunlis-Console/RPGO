@@ -583,6 +583,56 @@ private sealed class RemotePlayerState
         }
     }
 
+    public void MergeEntityState(EntityStateMessage state)
+    {
+        if (state == null) return;
+        bool teleported = false;
+        lock (_stateLock)
+        {
+            if (_currentMap == null || _currentMap.ZoneId != state.ZoneId) return;
+            var playerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var monsterIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var e in state.Entries)
+            {
+                if (e.IsPlayer)
+                {
+                    var name = e.Name ?? "";
+                    playerNames.Add(name);
+                    var p = _currentMap.Players.FirstOrDefault(x => x.Name == name);
+                    if (p == null) { p = new PlayerPosition { Name = name }; _currentMap.Players.Add(p); }
+                    if (name == _playerName && (Math.Abs(p.X - e.X) + Math.Abs(p.Y - e.Y) > 1))
+                    {
+                        teleported = true;
+                        if (!string.IsNullOrEmpty(e.Facing)) _localFacing = e.Facing;
+                    }
+                    p.X = e.X; p.Y = e.Y;
+                    if (!string.IsNullOrEmpty(e.Facing)) p.Facing = e.Facing;
+                }
+                else
+                {
+                    var id = e.Id ?? "";
+                    monsterIds.Add(id);
+                    var m = _currentMap.Monsters.FirstOrDefault(x => x.Id.ToString() == id);
+                    if (m == null)
+                    {
+                        if (Guid.TryParse(id, out var gid)) { m = new MonsterPosition { Id = gid }; _currentMap.Monsters.Add(m); }
+                        else continue;
+                    }
+                    m.X = e.X; m.Y = e.Y;
+                }
+            }
+            _currentMap.Players.RemoveAll(p => !playerNames.Contains(p.Name));
+            _currentMap.Monsters.RemoveAll(m => !monsterIds.Contains(m.Id.ToString()));
+            RebuildSpatialHash(_currentMap);
+        }
+        if (teleported)
+        {
+            ClearSelection();
+            _returning = false;
+        }
+        UpdateVisualInterpolation(_currentMap);
+    }
+
     public void ClearMap()
     {
         lock (_stateLock)

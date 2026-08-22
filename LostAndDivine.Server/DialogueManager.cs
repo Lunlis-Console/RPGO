@@ -329,6 +329,7 @@ public class DialogueManager
         player.CurrentZoneId = zoneId;
         player.X = x;
         player.Y = y;
+        _hub.MarkEntityStateDirty(zoneId);
 
         var zone = _svc.Zones.GetZone(zoneId);
         string zoneName = zone?.Name ?? zoneId;

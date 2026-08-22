@@ -176,6 +176,7 @@ public class GameScreen : IScreen
             }
             HazardRenderer.Sync(map.Hazards);
         };
+        _client.EntityStateReceived += state => _mapRenderer.MergeEntityState(state);
         _client.ZoneChanged += (zoneId, zoneName, pvp) =>
         {
             _currentZoneId = zoneId;

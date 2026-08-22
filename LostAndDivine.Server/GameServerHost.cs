@@ -38,6 +38,7 @@ public class GameServerHost
         long lastHazard = 0, lastDebuff = 0, lastInstance = 0;
         long lastRegen = 0, lastCorpse = 0, lastSession = 0;
         long lastRespawn = 0;
+        long lastEntityState = 0;
         long lastDisconnectSweep = 0;
 
         while (!ct.IsCancellationRequested)
@@ -85,12 +86,16 @@ public class GameServerHost
             if (now - lastMonsterWander >= Balance.LoopMonsterWanderMs)
             {
                 lastMonsterWander = now;
-                try
-                {
-                    bool moved = _svc.Monsters.WanderStep();
-                    if (moved) await _svc.Hub.BroadcastMapAsync();
-                }
+                try { _svc.Monsters.WanderStep(); }
                 catch (Exception ex) { Log.Error("[Tick] MonsterWander", ex); }
+            }
+
+            // 50ms — лёгкая рассылка позиций сущностей (Вариант 4)
+            if (now - lastEntityState >= 50)
+            {
+                lastEntityState = now;
+                try { await _svc.Hub.BroadcastEntityStatesAsync(); }
+                catch (Exception ex) { Log.Error("[Tick] EntityState", ex); }
             }
 
             // 1000ms — hazards, debuffs, instances

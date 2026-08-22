@@ -158,6 +158,7 @@ public class InteractionService
                     else if (dy == 1) player.Facing = "down";
                     else if (dy == -1) player.Facing = "up";
                     Log.Debug($"{player.Name} прошёл через дверь ({player.Interaction.X},{player.Interaction.Y}) -> ({destX},{destY})");
+                    _svc.Hub.MarkEntityStateDirty(player.CurrentZoneId);
                     await _svc.Hub.BroadcastMapAsync();
                     break;
                 }

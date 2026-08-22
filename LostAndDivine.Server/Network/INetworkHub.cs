@@ -33,4 +33,6 @@ public interface INetworkHub
     NpcPosition? FindNpcAt(string zoneId, int x, int y);
     NpcPosition? FindNpcById(string zoneId, string npcId);
     void MarkZoneDirty(string zoneId);
+    void MarkEntityStateDirty(string zoneId);
+    Task BroadcastEntityStatesAsync();
 }
