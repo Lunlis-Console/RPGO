@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Tiled;
 
 namespace LostAndDivine.Editor.Views;
@@ -164,7 +165,7 @@ public sealed class MapPickerWindow : Window
                     {
                         Display = $"Открытый мир: сектор {col}_{row}",
                         FilePath = f,
-                        ZoneId = "main",
+                        ZoneId = ZoneIds.Main,
                         SectorCol = col,
                         SectorRow = row
                     });

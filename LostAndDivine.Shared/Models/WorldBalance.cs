@@ -1,3 +1,5 @@
+using LostAndDivine.Shared;
+
 namespace LostAndDivine.Shared.Models;
 
 /// <summary>
@@ -6,8 +8,8 @@ namespace LostAndDivine.Shared.Models;
 /// </summary>
 public static class WorldBalance
 {
-    public const string MainZoneId = "main";
-    public const string StartZoneId = "airship_basement";
+    public const string MainZoneId = ZoneIds.Main;
+    public const string StartZoneId = ZoneIds.Start;
 
     public const int SectorSize = 100;
     public const int SectorCols = 30;
