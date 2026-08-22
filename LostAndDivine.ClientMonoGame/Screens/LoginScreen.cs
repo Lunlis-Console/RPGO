@@ -8,17 +8,18 @@ namespace LostAndDivine.ClientMonoGame.Screens;
 
 public class LoginScreen : IScreen
 {
-    private readonly string[] _labels = { "IP:", "Логин:", "Пароль:" };
-    private readonly string[] _defaults = { "127.0.0.1", "", "" };
-    private readonly string[] _values = new string[3];
+    private readonly string[] _labels = { "Логин:", "Пароль:" };
+    private readonly string[] _defaults = { "", "" };
+    private readonly string[] _values = new string[2];
+    private string _serverIp = "127.0.0.1";
 
     private int _selectedField = -1;
     private string _statusMessage = "Не подключено";
     private Color _statusColor = Color.Red;
     private DateTime _lastActionTime = DateTime.MinValue;
 
-    private readonly string[] _buttonLabels = { "Подключиться", "Вход", "Регистрация", "Тест. аккаунт", "Обновления" };
-    private Rectangle[] _buttonRects = new Rectangle[5];
+    private readonly string[] _buttonLabels = { "Вход", "Регистрация", "Тест. аккаунт" };
+    private         Rectangle[] _buttonRects = new Rectangle[3];
     private         Rectangle[] _fieldRects = new Rectangle[3];
 
     private KeyboardState _prevKeyboard;
@@ -28,9 +29,10 @@ public class LoginScreen : IScreen
 
     public LoginScreen(string? statusMessage = null)
     {
-        Array.Copy(_defaults, _values, 3);
-        _values[0] = SettingsManager.Load().ServerIp;
+        Array.Copy(_defaults, _values, 2);
+        _serverIp = SettingsManager.Load().ServerIp;
         RebuildLayout();
+        _ = AutoConnectAsync();
 
         if (!string.IsNullOrWhiteSpace(statusMessage))
         {
@@ -66,8 +68,6 @@ public class LoginScreen : IScreen
         _buttonRects[0] = new Rectangle(centerX + 160, startY, 130, 30);
         _buttonRects[1] = new Rectangle(centerX + 160, startY + 38, 130, 30);
         _buttonRects[2] = new Rectangle(centerX + 160, startY + 76, 130, 30);
-        _buttonRects[3] = new Rectangle(centerX + 160, startY + 114, 130, 30);
-        _buttonRects[4] = new Rectangle(centerX + 160, startY + 152, 130, 30);
 
         int iconSize = 36;
         _settingsIconRect = new Rectangle(w - iconSize - 12, 12, iconSize, iconSize);
@@ -135,7 +135,7 @@ public class LoginScreen : IScreen
         if (mouse.LeftButton == ButtonState.Pressed && _prevMouse.LeftButton == ButtonState.Released)
         {
             _selectedField = -1;
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 2; i++)
             {
                 if (_fieldRects[i].Contains(mouse.X, mouse.Y))
                     _selectedField = i;
@@ -144,7 +144,7 @@ public class LoginScreen : IScreen
             // Клик по кнопкам
             if ((DateTime.Now - _lastActionTime).TotalMilliseconds > 1500)
             {
-                for (int i = 0; i < 5; i++)
+                for (int i = 0; i < 3; i++)
                 {
                     if (_buttonRects[i].Contains(mouse.X, mouse.Y))
                     {
@@ -161,7 +161,7 @@ public class LoginScreen : IScreen
 
         // Enter для быстрого входа
         if (keyboard.IsKeyDown(Keys.Enter) && _prevKeyboard.IsKeyUp(Keys.Enter))
-            HandleButton(1);
+            HandleButton(0);
 
         _prevKeyboard = keyboard;
         _prevMouse = mouse;
@@ -173,35 +173,18 @@ public class LoginScreen : IScreen
         var network = GameMain.Instance?.Network;
         if (client == null || network == null) return;
 
-        string ip = string.IsNullOrWhiteSpace(_values[0]) ? "127.0.0.1" : _values[0].Trim();
+        string ip = string.IsNullOrWhiteSpace(_serverIp) ? "127.0.0.1" : _serverIp.Trim();
 
         switch (index)
         {
-            case 0: // Подключиться
-                _statusMessage = "Подключение...";
-                _statusColor = Color.Yellow;
-                bool ok = await network.ConnectAsync(ip, 7777);
-                if (ok)
-                {
-                    SaveServerIp(ip);
-                    _statusMessage = "Подключено";
-                    _statusColor = Color.LimeGreen;
-                }
-                else
-                {
-                    _statusMessage = "Ошибка подключения";
-                    _statusColor = Color.Red;
-                }
-                break;
-
-            case 1: // Вход
-                if (string.IsNullOrWhiteSpace(_values[1]) || _values[1].Length < 3)
+            case 0: // Вход
+                if (string.IsNullOrWhiteSpace(_values[0]) || _values[0].Length < 3)
                 {
                     _statusMessage = "Логин должен быть не менее 3 символов";
                     _statusColor = Color.OrangeRed;
                     return;
                 }
-                if (string.IsNullOrWhiteSpace(_values[2]))
+                if (string.IsNullOrWhiteSpace(_values[1]))
                 {
                     _statusMessage = "Пароль не может быть пустым";
                     _statusColor = Color.OrangeRed;
@@ -218,14 +201,14 @@ public class LoginScreen : IScreen
                     }
                     SaveServerIp(ip);
                 }
-                client.Authenticate(_values[1], _values[2]);
+                client.Authenticate(_values[0], _values[1]);
                 _statusMessage = "Авторизация...";
                 _statusColor = Color.Yellow;
                 break;
 
-            case 2: // Регистрация
+            case 1: // Регистрация
             {
-                string? valError = ValidateRegistration(_values[1], _values[2]);
+                string? valError = ValidateRegistration(_values[0], _values[1]);
                 if (valError != null)
                 {
                     _statusMessage = valError;
@@ -245,19 +228,18 @@ public class LoginScreen : IScreen
                 }
                 await client.SendAsync("register", new
                 {
-                    Login = _values[1],
-                    Password = _values[2],
-                    PlayerName = _values[1]
+                    Login = _values[0],
+                    Password = _values[1],
+                    PlayerName = _values[0]
                 });
                 _statusMessage = "Регистрация...";
                 _statusColor = Color.Yellow;
             }
                 break;
 
-            case 3: // Тестовый аккаунт (test / 123)
-                _values[0] = ip;
-                _values[1] = "test";
-                _values[2] = "123";
+            case 2: // Тестовый аккаунт (test / 123)
+                _values[0] = "test";
+                _values[1] = "123";
                 if (!network.IsConnected)
                 {
                     bool connected3 = await network.ConnectAsync(ip, 7777);
@@ -269,22 +251,9 @@ public class LoginScreen : IScreen
                     }
                     SaveServerIp(ip);
                 }
-                client.Authenticate(_values[1], _values[2]);
+                client.Authenticate(_values[0], _values[1]);
                 _statusMessage = "Авторизация (test)...";
                 _statusColor = Color.Yellow;
-                break;
-
-            case 4: // Проверить обновления
-                _statusMessage = "Проверка обновлений...";
-                _statusColor = Color.Yellow;
-                var upd = await UpdateManager.CheckForUpdatesAsync(ip);
-                _statusMessage = upd.Message;
-                _statusColor = upd.Message.StartsWith("Ошибка", StringComparison.Ordinal) ? Color.Red : Color.LimeGreen;
-                if (upd.RestartRequired)
-                {
-                    UpdateManager.RestartToApply();
-                    Environment.Exit(0);
-                }
                 break;
         }
     }
@@ -326,12 +295,12 @@ public class LoginScreen : IScreen
             DrawBorder(spriteBatch, _fieldRects[i], _selectedField == i ? Color.DodgerBlue : new Color(80, 80, 100));
 
             // Field text
-            var displayText = i == 2 ? new string('*', _values[i].Length) : _values[i];
+            var displayText = i == 1 ? new string('*', _values[i].Length) : _values[i];
             spriteBatch.DrawString(font, displayText, new Vector2(_fieldRects[i].X + 5, _fieldRects[i].Y + 5), Color.White);
         }
 
         // Кнопки
-        var btnBgColors = new[] { new Color(0, 120, 215), new Color(0, 180, 100), new Color(255, 170, 0), new Color(150, 80, 200), new Color(0, 150, 190) };
+        var btnBgColors = new[] { new Color(0, 180, 100), new Color(255, 170, 0), new Color(150, 80, 200) };
 
         for (int i = 0; i < 5; i++)
         {
@@ -394,6 +363,30 @@ public class LoginScreen : IScreen
 
     private static void DrawBorder(SpriteBatch sb, Rectangle rect, Color color, int thickness = 1)
         => UIHelper.DrawRectOutline(sb, rect, color, thickness);
+
+    private async Task AutoConnectAsync()
+    {
+        try
+        {
+            var network = GameMain.Instance?.Network;
+            if (network == null || network.IsConnected) return;
+            _statusMessage = "Подключение...";
+            _statusColor = Color.Yellow;
+            bool ok = await network.ConnectAsync(_serverIp, 7777);
+            if (ok)
+            {
+                SaveServerIp(_serverIp);
+                _statusMessage = "Подключено";
+                _statusColor = Color.LimeGreen;
+            }
+            else
+            {
+                _statusMessage = "Сервер недоступен (адрес — в настройках)";
+                _statusColor = Color.Red;
+            }
+        }
+        catch { }
+    }
 
     private static void SaveServerIp(string ip)
     {
