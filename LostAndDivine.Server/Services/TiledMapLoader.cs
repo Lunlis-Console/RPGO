@@ -58,8 +58,8 @@ public class TiledTileset
 /// <summary>Точка спавна из Tiled: координата в тайлах + имя сущности (шаблон монстра / коллекционка).</summary>
 public record TiledSpawn(int X, int Y, string Name, string Type);
 
-/// <summary>Позиция NPC из Tiled: координата в тайлах, имя (id записи npcs или instance_template_id) и тип.</summary>
-public record TiledNpc(int X, int Y, string Name, string Type, string ZoneId);
+/// <summary>Позиция NPC из Tiled: координата в тайлах, имя (id записи npcs или instance_template_id), тип и направление взгляда.</summary>
+public record TiledNpc(int X, int Y, string Name, string Type, string ZoneId, string Facing = "down");
 
 /// <summary>Дверь из Tiled: координата в тайлах (клетка-преграда) и отображаемое имя.</summary>
 public record TiledDoor(int X, int Y, string Name);
@@ -379,10 +379,24 @@ public static class TiledMapLoader
                 else continue;
 
                 if (tx < 0 || ty < 0 || tx >= map.Width || ty >= map.Height) continue;
-                result.Add(new TiledNpc(tx, ty, obj.Name ?? "", obj.Type ?? "", zoneId));
+                string facing = GetPropertyString(obj, "facing");
+                if (string.IsNullOrWhiteSpace(facing)) facing = "down";
+                result.Add(new TiledNpc(tx, ty, obj.Name ?? "", obj.Type ?? "", zoneId, facing));
             }
         }
         return result;
+    }
+
+    private static string? GetPropertyString(TiledObject obj, string name)
+    {
+        foreach (var prop in obj.Properties)
+        {
+            if (!string.Equals(prop.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+            if (prop.Value.ValueKind == JsonValueKind.String)
+                return prop.Value.GetString();
+            return prop.Value.ToString();
+        }
+        return null;
     }
 
     private static int? GetPropertyInt(TiledObject obj, string name)

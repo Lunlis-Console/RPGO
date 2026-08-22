@@ -1932,11 +1932,37 @@ private sealed class RemotePlayerState
             sb.Draw(SpriteCache.Pixel, new Rectangle((int)px, (int)py, (int)_cellW, (int)_cellH), tint);
     }
 
+    // Сущность рисуется с базовыми анимациями тела игрока (idle/walk) вместо статичной картинки.
+    // Без оружия/щита — это просто «живой» персонаж. Направление задаётся параметром facing.
+    private void DrawAnimatedNpc(SpriteBatch sb, int wx, int wy, string facing, int startX, int startY, int endX, int endY)
+    {
+        if (wx < startX || wx > endX || wy < startY || wy > endY) return;
+        float px = _gridOX + (wx - startX) * _cellW;
+        float py = _gridOY + (wy - startY) * _cellH;
+        var er = EntityRect(px, py, _cellW, _cellH);
+        string f = string.IsNullOrWhiteSpace(facing) ? "down" : facing.ToLowerInvariant();
+        var anim = SpriteCache.GetAnimation($"player_idle_{f}") ?? SpriteCache.GetPlayerAnimation(f);
+        if (anim != null)
+        {
+            int frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / anim.FrameDuration) % anim.FrameCount;
+            var src = anim.GetSourceRect(frame);
+            sb.Draw(anim.Sheet, er, src, Color.White);
+        }
+        else
+        {
+            var sprite = SpriteCache.GetPlayerSprite(f) ?? SpriteCache.GetPlayerSprite("down");
+            if (sprite != null)
+                sb.Draw(sprite, er, Color.White);
+            else
+                DrawStatic(sb, SpriteCache.GetTraderSprite(), wx, wy, startX, startY, endX, endY, Color.LightBlue);
+        }
+    }
+
     private void DrawStaticEntities(SpriteBatch sb, WorldMap map, int startX, int startY, int endX, int endY)
     {
         if (map.Merchant != null && map.Merchant.X >= startX && map.Merchant.X <= endX && map.Merchant.Y >= startY && map.Merchant.Y <= endY)
         {
-            DrawStatic(sb, SpriteCache.GetTraderSprite(), map.Merchant.X, map.Merchant.Y, startX, startY, endX, endY, Color.White);
+            DrawAnimatedNpc(sb, map.Merchant.X, map.Merchant.Y, map.Merchant.Facing, startX, startY, endX, endY);
             var mFont = SpriteCache.FontSmall ?? SpriteCache.Font;
             if (mFont != null)
             {
@@ -1985,7 +2011,7 @@ private sealed class RemotePlayerState
         foreach (var npc in map.Npcs ?? Enumerable.Empty<NpcPosition>())
         {
             if (npc.Type == "merchant" || npc.Type == "board") continue;
-            DrawStatic(sb, SpriteCache.GetTraderSprite(), npc.X, npc.Y, startX, startY, endX, endY, Color.LightBlue);
+            DrawAnimatedNpc(sb, npc.X, npc.Y, npc.Facing, startX, startY, endX, endY);
             if (npc.X >= startX && npc.X <= endX && npc.Y >= startY && npc.Y <= endY)
             {
                 var npcFont = SpriteCache.FontSmall ?? SpriteCache.Font;

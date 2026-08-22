@@ -134,7 +134,8 @@ public sealed class GameServer : INetworkHub
                 X = tiledNpc?.X ?? n.X,
                 Y = tiledNpc?.Y ?? n.Y,
                 ZoneId = tiledNpc?.ZoneId ?? Balance.MainZoneId,
-                HasDialogue = svc.Dialogue.GetTree(n.Id) != null
+                HasDialogue = svc.Dialogue.GetTree(n.Id) != null,
+                Facing = tiledNpc?.Facing ?? "down"
             });
         }
 
@@ -160,7 +161,8 @@ public sealed class GameServer : INetworkHub
                     X = t.X,
                     Y = t.Y,
                     ZoneId = t.ZoneId,
-                    HasDialogue = false
+                    HasDialogue = false,
+                    Facing = t.Facing
                 });
             }
             else
@@ -1134,7 +1136,7 @@ public sealed class GameServer : INetworkHub
             string.Equals(n.Type, "merchant", StringComparison.OrdinalIgnoreCase));
         if (mt != null)
         {
-            var pos = new MerchantPosition { X = mt.X, Y = mt.Y, Name = defaultMerchant.Name };
+            var pos = new MerchantPosition { X = mt.X, Y = mt.Y, Name = defaultMerchant.Name, Facing = mt.Facing };
             pos.QuestIndicator = GetQuestIndicator(mt.Name, player);
             return pos;
         }

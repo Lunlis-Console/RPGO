@@ -68,6 +68,9 @@ public class MerchantPosition
     public int Y { get; set; }
     public string Name { get; set; } = "Торговец";
     public string? QuestIndicator { get; set; }
+
+    // Направление взгляда торговца ("down" | "up" | "left" | "right") для базовой анимации тела.
+    public string Facing { get; set; } = "down";
 }
 
 public class CollectiblePosition
@@ -103,6 +106,10 @@ public class NpcPosition
     public string ZoneId { get; set; } = BalanceStatic.MainZoneId;
     public bool HasDialogue { get; set; }
     public string? QuestIndicator { get; set; }
+
+    // Направление взгляда NPC ("down" | "up" | "left" | "right"),
+    // используется для выбора базовой анимации тела (как у игрока).
+    public string Facing { get; set; } = "down";
 }
 
 public class PortalPosition
