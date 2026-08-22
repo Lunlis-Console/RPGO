@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -53,7 +53,7 @@ public class SelectTargetHandler : BaseHandler
         Log.Debug($"{player.Name} выбрал цель: {target.Name} ({target.X},{target.Y})");
         await SendToClient(connection, new GameMessage
         {
-            Type = "combat_state",
+            Type = GameMessageType.CombatState,
             Data = new
             {
                 InCombat = true,
@@ -76,7 +76,7 @@ public class SelectTargetHandler : BaseHandler
         });
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Бой", Text = $"Цель: {target.Name} [{target.Level}] ({target.Health}/{target.MaxHealth}) — автоатака начнётся при приближении." }
         });
     }

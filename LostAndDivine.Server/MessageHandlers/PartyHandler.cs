@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using System.Text.Json;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -14,12 +14,12 @@ public class PartyHandler : BaseHandler
     {
         if (player == null) return;
 
-        string action = message.Type;
+        GameMessageType action = message.Type;
         JsonElement el = default;
         if (message.Data is JsonElement je && je.ValueKind != JsonValueKind.Undefined)
             el = je;
 
-        if (action == "party_invite")
+        if (action == GameMessageType.PartyInvite)
         {
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
@@ -72,18 +72,18 @@ public class PartyHandler : BaseHandler
             {
                 await SendToClient(targetConn, new GameMessage
                 {
-                    Type = "party_invite_received",
+                    Type = GameMessageType.PartyInviteReceived,
                     Data = new { InviterName = player.Name, InviterId = player.Id }
                 });
             }
 
             await SendToClient(connection, new GameMessage
             {
-                Type = "party_invite_sent",
+                Type = GameMessageType.PartyInviteSent,
                 Data = new { TargetName = target.Name }
             });
         }
-        else if (action == "party_accept")
+        else if (action == GameMessageType.PartyAccept)
         {
             string inviterName = el.TryGetProperty("InviterName", out var inv) ? inv.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(inviterName)) return;
@@ -120,7 +120,7 @@ public class PartyHandler : BaseHandler
                 await Svc.Party.SendPartyUpdateAsync(party);
             }
         }
-        else if (action == "party_decline")
+        else if (action == GameMessageType.PartyDecline)
         {
             string inviterName = el.TryGetProperty("InviterName", out var inv) ? inv.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(inviterName)) return;
@@ -132,12 +132,12 @@ public class PartyHandler : BaseHandler
             {
                 await SendToClient(inviterConn, new GameMessage
                 {
-                    Type = "party_invite_declined",
+                    Type = GameMessageType.PartyInviteDeclined,
                     Data = new { TargetName = player.Name }
                 });
             }
         }
-        else if (action == "party_transfer")
+        else if (action == GameMessageType.PartyTransfer)
         {
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
@@ -192,7 +192,7 @@ public class PartyHandler : BaseHandler
             if (targetConn != null)
                 await SendToClient(targetConn, GameMessage.SystemChat("Вы теперь лидер группы."));
         }
-        else if (action == "party_kick")
+        else if (action == GameMessageType.PartyKick)
         {
             string targetName = el.TryGetProperty("TargetName", out var tn) ? tn.GetString() ?? "" : "";
             if (string.IsNullOrEmpty(targetName))
@@ -249,7 +249,7 @@ public class PartyHandler : BaseHandler
             {
                 await SendToClient(targetConn, new GameMessage
                 {
-                    Type = "party_disbanded",
+                    Type = GameMessageType.PartyDisbanded,
                     Data = (object?)null
                 });
                 await SendToClient(targetConn, GameMessage.SystemChat($"Вы исключены из группы ({party.LeaderName})."));
@@ -264,7 +264,7 @@ public class PartyHandler : BaseHandler
                 await Svc.Party.DisbandAndNotifyAsync(party.Id);
             }
         }
-        else if (action == "party_leave")
+        else if (action == GameMessageType.PartyLeave)
         {
             if (!player.PartyId.HasValue)
             {
@@ -300,7 +300,7 @@ public class PartyHandler : BaseHandler
     {
         await SendToClient(connection, new GameMessage
         {
-            Type = "party_disbanded",
+            Type = GameMessageType.PartyDisbanded,
             Data = (object?)null
         });
     }

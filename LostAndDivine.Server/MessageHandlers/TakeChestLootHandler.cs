@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -80,7 +80,7 @@ public class TakeChestLootHandler : BaseHandler
         string lootText = takenNames.Count > 0 ? string.Join(", ", takenNames) : "Ничего не выбрано";
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы забрали: {lootText}" }
         });
         await SendInventoryAndStatus(connection, player);

@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -49,7 +49,7 @@ public class InteractTargetHandler : BaseHandler
 
             await SendToClient(connection, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new
                 {
                     InCombat = true,
@@ -63,7 +63,7 @@ public class InteractTargetHandler : BaseHandler
             });
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = $"Бой: {interMonster.Name} [{interMonster.Level}] ({interMonster.Health}/{interMonster.MaxHealth})" }
             });
             await BroadcastMapAsync();
@@ -98,7 +98,7 @@ public class InteractTargetHandler : BaseHandler
                 player.Combat.EnterPlayer(targetPlayer.Id, player.Movement);
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "combat_state",
+                    Type = GameMessageType.CombatState,
                     Data = new
                     {
                         InCombat = true,
@@ -113,7 +113,7 @@ public class InteractTargetHandler : BaseHandler
                 });
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Бой", Text = $"PvP бой: {targetPlayer.Name} [{targetPlayer.Level}] ({targetPlayer.Health}/{targetPlayer.MaxHealth + targetPlayer.Equipment.GetBonusMaxHealth()})" }
                 });
             }
@@ -181,7 +181,7 @@ public class InteractTargetHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Путь не найден!" }
             });
         }

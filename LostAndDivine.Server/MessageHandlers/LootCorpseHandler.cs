@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -73,7 +73,7 @@ public class LootCorpseHandler : BaseHandler
             player.Interaction.CorpseId = corpseId;
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Вы подходите к трупу..." }
             });
             return;
@@ -109,7 +109,7 @@ public class LootCorpseHandler : BaseHandler
             Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — нет персонального лута");
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "У этого трупа нет лута для вас." }
             });
             await hub.SendInventoryAndStatus(connection, player);
@@ -122,7 +122,7 @@ public class LootCorpseHandler : BaseHandler
             Log.Debug($"{player.Name} открыл труп {corpse.MonsterName} — лут уже забран");
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Вы уже забрали весь свой лут." }
             });
             await hub.SendInventoryAndStatus(connection, player);
@@ -139,7 +139,7 @@ public class LootCorpseHandler : BaseHandler
             Log.Info($"{player.Name} забрал {gold} зол. с трупа {corpse.MonsterName}{pctText} (только золото, предметов нет)");
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = $"Вы забрали {gold} золота{pctText}." }
             });
             await hub.SendInventoryAndStatus(connection, player);
@@ -149,7 +149,7 @@ public class LootCorpseHandler : BaseHandler
         Log.Debug($"{player.Name} открыл труп {corpse.MonsterName}: {myLoot.Items.Count} предм., {myLoot.Gold} зол.");
         await hub.SendToClient(connection, new GameMessage
         {
-            Type = "loot_corpse",
+            Type = GameMessageType.LootCorpse,
             Data = new
             {
                 CorpseId = corpse.Id.ToString(),

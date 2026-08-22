@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -71,12 +71,12 @@ public class BuybackHandler : BaseHandler
         Log.Info($"{player.Name} выкупил {first.Name} x{toBuy} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы выкупили {first.Name} x{toBuy} за {totalCost} золота" }
         });
         await SendToClient(connection, new GameMessage
         {
-            Type = "shop_update",
+            Type = GameMessageType.ShopUpdate,
             Data = new { PlayerGold = player.Gold, Buyback = player.BuybackItems.Select(b => new
             {
                 b.Id, b.Name, b.Type,

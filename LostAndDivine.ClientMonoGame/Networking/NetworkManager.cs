@@ -124,7 +124,7 @@ public class NetworkManager
     {
         switch (message.Type)
         {
-            case "pong":
+            case GameMessageType.Pong:
                 {
                     var pong = message.Deserialize<PongMessage>();
                     if (pong != null && _pingTimestamps.TryRemove(pong.Seq, out long sentMs))
@@ -135,7 +135,7 @@ public class NetworkManager
                 _missedPongs = 0;
                 _lastPongTime = DateTime.UtcNow;
                 return true;
-            case "ping":
+            case GameMessageType.Ping:
                 // Сервер просит подтвердить живость канала: отвечаем pong с тем же Seq.
                 {
                     var serverPing = message.Deserialize<PingMessage>();
@@ -144,11 +144,11 @@ public class NetworkManager
                 }
                 return true;
 
-            case "kick":
+            case GameMessageType.Kick:
                 SystemMessage?.Invoke("Вы были отключены");
                 return true;
 
-            case "reconnect_ok":
+            case GameMessageType.ReconnectOk:
                 var response = message.Deserialize<ReconnectResponse>();
                 if (response?.Success == true && response.Player != null)
                 {
@@ -171,7 +171,7 @@ public class NetworkManager
                 }
                 return true;
 
-            case "reconnect_fail":
+            case GameMessageType.ReconnectFail:
                 var fail = message.Deserialize<ReconnectResponse>();
                 SystemMessage?.Invoke($"Реконнект не удался: {fail?.Reason ?? "unknown"}");
                 // Терминальная ошибка: сервер не принял старую сессию (токен истёк,
@@ -194,7 +194,7 @@ public class NetworkManager
                 long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 _pingTimestamps[_lastPingSeq] = nowMs;
                 var ping = new PingMessage(_lastPingSeq, nowMs);
-                await SendAsync(new GameMessage { Type = "ping", Data = ping });
+                await SendAsync(new GameMessage { Type = GameMessageType.Ping, Data = ping });
 
                 await Task.Delay(5000, token);
                 if (DateTime.UtcNow - _lastPongTime > TimeSpan.FromSeconds(15))
@@ -230,7 +230,7 @@ public class NetworkManager
         {
             await SendAsync(new GameMessage
             {
-                Type = "pong",
+                Type = GameMessageType.Pong,
                 Data = new PongMessage(seq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             });
         }
@@ -294,7 +294,7 @@ public class NetworkManager
                     try
                     {
                         var req = new ReconnectRequest(_playerId, _sessionToken ?? "", _lastPingSeq);
-                        await SendAsync(new GameMessage { Type = "reconnect", Data = req });
+                        await SendAsync(new GameMessage { Type = GameMessageType.Reconnect, Data = req });
                         return;
                     }
                     catch (Exception ex)

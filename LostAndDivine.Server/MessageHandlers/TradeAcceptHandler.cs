@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -60,7 +60,7 @@ public class TradeAcceptHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "trade_open",
+            Type = GameMessageType.TradeOpen,
             Data = new
             {
                 SessionId = session.Id.ToString(),
@@ -79,7 +79,7 @@ public class TradeAcceptHandler : BaseHandler
         {
             await SendToClient(inviterConn, new GameMessage
             {
-                Type = "trade_open",
+                Type = GameMessageType.TradeOpen,
                 Data = new
                 {
                     SessionId = session.Id.ToString(),

@@ -1,6 +1,7 @@
-﻿using LostAndDivine.Shared.Models;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Server.Network;
 
+using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server;
 
 public class PartyManager
@@ -160,7 +161,7 @@ public class PartyManager
             {
                 await _hub.SendToClient(conn, new GameMessage
                 {
-                    Type = "party_update",
+                    Type = GameMessageType.PartyUpdate,
                     Data = info
                 });
             }
@@ -198,7 +199,7 @@ public class PartyManager
                     {
                         await _hub.SendToClient(conn, new GameMessage
                         {
-                            Type = "party_disbanded",
+                            Type = GameMessageType.PartyDisbanded,
                             Data = (object?)null
                         });
                     }

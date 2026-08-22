@@ -33,7 +33,7 @@ public class InspectHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "inspect_response",
+            Type = GameMessageType.InspectResponse,
             Data = new
             {
                 target.Name,

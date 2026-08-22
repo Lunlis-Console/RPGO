@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -15,7 +15,7 @@ public class ShopRequestHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "shop_response",
+            Type = GameMessageType.ShopResponse,
             Data = new
             {
                 MerchantX = Svc.Merchant.MerchantX,

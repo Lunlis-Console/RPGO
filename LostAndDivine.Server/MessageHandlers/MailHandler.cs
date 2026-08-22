@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Repositories;
+using LostAndDivine.Server.Repositories;
 
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
@@ -35,7 +35,7 @@ public class MailHandler : BaseHandler
         var mails = MailRepository.GetInbox(player.Name);
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_list",
+            Type = GameMessageType.MailList,
             Data = new { Folder = "inbox", Mails = mails.Select(m => MapMail(m)).ToList() }
         });
     }
@@ -45,7 +45,7 @@ public class MailHandler : BaseHandler
         var mails = MailRepository.GetOutbox(player.Name);
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_list",
+            Type = GameMessageType.MailList,
             Data = new { Folder = "outbox", Mails = mails.Select(m => MapMail(m)).ToList() }
         });
     }
@@ -110,7 +110,7 @@ public class MailHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_result",
+            Type = GameMessageType.MailResult,
             Data = new { Success = true, Message = "Письмо отправлено.", MailId = id }
         });
 
@@ -125,7 +125,7 @@ public class MailHandler : BaseHandler
                 int unread = MailRepository.CountUnread(recipient);
                 await SendToClient(recipientConn, new GameMessage
                 {
-                    Type = "mail_unread",
+                    Type = GameMessageType.MailUnread,
                     Data = new { Count = unread }
                 });
                 await SendChatToAsync(recipientConn, Shared.Network.ChatChannel.System, "Почта",
@@ -153,14 +153,14 @@ public class MailHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_detail",
+            Type = GameMessageType.MailDetail,
             Data = MapMail(mail)
         });
 
         if (isRecipient)
         {
             int unread = MailRepository.CountUnread(player.Name);
-            await SendToClient(connection, new GameMessage { Type = "mail_unread", Data = new { Count = unread } });
+            await SendToClient(connection, new GameMessage { Type = GameMessageType.MailUnread, Data = new { Count = unread } });
         }
     }
 
@@ -192,13 +192,13 @@ public class MailHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_result",
+            Type = GameMessageType.MailResult,
             Data = new { Success = true, Message = "Вложение получено." }
         });
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_detail",
+            Type = GameMessageType.MailDetail,
             Data = MapMail(mail)
         });
 
@@ -219,12 +219,12 @@ public class MailHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_result",
+            Type = GameMessageType.MailResult,
             Data = new { Success = true, Message = "Письмо удалено." }
         });
 
         int unread = MailRepository.CountUnread(player.Name);
-        await SendToClient(connection, new GameMessage { Type = "mail_unread", Data = new { Count = unread } });
+        await SendToClient(connection, new GameMessage { Type = GameMessageType.MailUnread, Data = new { Count = unread } });
     }
 
     private static object MapMail(MailData m) => new

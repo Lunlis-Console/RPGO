@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -23,7 +23,7 @@ public class CollectHandler : BaseHandler
         InventoryHelper.AddItem(player, lootItem);
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
         });
 
@@ -35,7 +35,7 @@ public class CollectHandler : BaseHandler
                 : $"[Задание] {title}: {current}/{target}";
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = msg }
             });
         }

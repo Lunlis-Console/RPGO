@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 
@@ -123,7 +123,7 @@ public class PvPService
             {
                 var hitMsg = new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = damage, IsCrit = hitCrit }
                 };
                 await _svc.Hub.SendToClient(targetClient, hitMsg);
@@ -172,7 +172,7 @@ public class PvPService
         await MessageHandlers.UseSkillHandler.SendSkillQueue(atkClient, pl, _svc.Hub);
         await _svc.Hub.SendToClient(atkClient, new GameMessage
         {
-            Type = "skill_cooldown",
+            Type = GameMessageType.SkillCooldown,
             Data = new { SkillId = skill.Id, RemainingMs = (int)(skill.CooldownMs * pl.GetSkillRankCdMult(skill.Id)), TotalMs = (int)(skill.CooldownMs * pl.GetSkillRankCdMult(skill.Id)) }
         });
 
@@ -180,7 +180,7 @@ public class PvPService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "main", TargetX = target.X, TargetY = target.Y }
         });
 
@@ -200,7 +200,7 @@ public class PvPService
         if (targetClient != null)
             await _svc.Hub.SendToClient(targetClient, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
             });
 
@@ -225,7 +225,7 @@ public class PvPService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "main", TargetX = target.X, TargetY = target.Y }
         });
 
@@ -247,7 +247,7 @@ public class PvPService
         if (targetClient != null)
             await _svc.Hub.SendToClient(targetClient, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
             });
     }
@@ -266,7 +266,7 @@ public class PvPService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "main", TargetX = target.X, TargetY = target.Y }
         });
 
@@ -293,7 +293,7 @@ public class PvPService
         if (targetClient != null)
             await _svc.Hub.SendToClient(targetClient, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
             });
     }
@@ -430,7 +430,7 @@ public class PvPService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = attackHand, TargetX = target.X, TargetY = target.Y }
         });
 
@@ -491,7 +491,7 @@ public class PvPService
             {
                 var hitMsg = new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = finalDmg, IsCrit = isCrit }
                 };
                 await _svc.Hub.SendToClient(targetClient, hitMsg);
@@ -504,7 +504,7 @@ public class PvPService
 
         await _svc.Hub.SendToClient(atkClient, new GameMessage
         {
-            Type = "combat_state",
+            Type = GameMessageType.CombatState,
             Data = new
             {
                 InCombat = true,
@@ -534,7 +534,7 @@ public class PvPService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "off", TargetX = target.X, TargetY = target.Y }
         });
 
@@ -598,7 +598,7 @@ public class PvPService
             {
                 var hitMsg = new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = finalDmg, IsCrit = isCrit }
                 };
                 await _svc.Hub.SendToClient(targetClient, hitMsg);
@@ -611,7 +611,7 @@ public class PvPService
 
         await _svc.Hub.SendToClient(atkClient, new GameMessage
         {
-            Type = "combat_state",
+            Type = GameMessageType.CombatState,
             Data = new
             {
                 InCombat = true,

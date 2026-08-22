@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -53,13 +53,13 @@ public class TradeRequestHandler : BaseHandler
 
         await SendToClient(targetConn, new GameMessage
         {
-            Type = "trade_request_received",
+            Type = GameMessageType.TradeRequestReceived,
             Data = new { InviterName = player.Name }
         });
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "trade_request_sent",
+            Type = GameMessageType.TradeRequestSent,
             Data = new { TargetName = target.Name }
         });
 

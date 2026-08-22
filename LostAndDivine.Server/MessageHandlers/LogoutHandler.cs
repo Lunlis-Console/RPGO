@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -26,7 +26,7 @@ public class LogoutHandler : BaseHandler
 
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Ваш прогресс сохранён. До встречи!" }
             });
         }

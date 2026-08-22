@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -41,7 +41,7 @@ public class UnequipHandler : BaseHandler
         Log.Debug($"{player.Name} снял {item.Name}");
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы сняли {item.Name}" }
         });
         await SendInventoryAndStatus(connection, player, fromUnequip: true);

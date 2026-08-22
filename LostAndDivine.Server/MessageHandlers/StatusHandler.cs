@@ -15,7 +15,7 @@ public class StatusHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "status_response",
+            Type = GameMessageType.StatusResponse,
             Data = new
             {
                 player.Name,

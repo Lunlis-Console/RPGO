@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Commands;
@@ -21,7 +21,7 @@ public class AuthService
     {
         switch (message.Type)
         {
-            case "register":
+            case GameMessageType.Register:
                 string registerJson = JsonSerializer.Serialize(message.Data);
                 var registerData = JsonSerializer.Deserialize<RegisterCommand>(registerJson);
 
@@ -37,7 +37,7 @@ public class AuthService
                     {
                         await hub.SendToClient(connection, new GameMessage
                         {
-                            Type = "auth_response",
+                            Type = GameMessageType.AuthResponse,
                             Data = new { Success = true, Message = "Регистрация успешна! Теперь войдите в аккаунт." }
                         });
                         Log.Info($"Зарегистрирован новый аккаунт: {account.Login}");
@@ -47,14 +47,14 @@ public class AuthService
                     {
                         await hub.SendToClient(connection, new GameMessage
                         {
-                            Type = "auth_response",
+                            Type = GameMessageType.AuthResponse,
                             Data = new { Success = false, Message = "Ошибка регистрации. Логин уже занят." }
                         });
                     }
                 }
                 break;
 
-            case "login_auth":
+            case GameMessageType.LoginAuth:
                 string loginJson = JsonSerializer.Serialize(message.Data);
                 var loginData = JsonSerializer.Deserialize<LoginAuthCommand>(loginJson);
 
@@ -68,7 +68,7 @@ public class AuthService
                         {
                             await hub.SendToClient(connection, new GameMessage
                             {
-                                Type = "auth_response",
+                                Type = GameMessageType.AuthResponse,
                                 Data = new { Success = false, Message = $"Вы заблокированы. Причина: {account.BanReason}" }
                             });
                             Log.Info($"Заблокированный игрок пытался войти: {account.Login}");
@@ -84,7 +84,7 @@ public class AuthService
 
                         await hub.SendToClient(connection, new GameMessage
                         {
-                            Type = "auth_response",
+                            Type = GameMessageType.AuthResponse,
                             Data = new
                             {
                                 Success = true,
@@ -108,20 +108,20 @@ public class AuthService
                     {
                         await hub.SendToClient(connection, new GameMessage
                         {
-                            Type = "auth_response",
+                            Type = GameMessageType.AuthResponse,
                             Data = new { Success = false, Message = "Неверный логин или пароль!" }
                         });
                     }
                 }
                 break;
 
-            case "character_select":
+            case GameMessageType.CharacterSelect:
                 return await HandleCharacterSelect(connection, message, hub);
 
-            case "character_create":
+            case GameMessageType.CharacterCreate:
                 return await HandleCharacterCreate(connection, message, hub);
 
-            case "character_delete":
+            case GameMessageType.CharacterDelete:
                 await HandleCharacterDelete(connection, message, hub);
                 break;
         }
@@ -140,7 +140,7 @@ public class AuthService
         {
             await _svc.Hub.SendToClient(connection, new GameMessage
             {
-                Type = "auth_response",
+                Type = GameMessageType.AuthResponse,
                 Data = new { Success = false, Message = "Этот персонаж уже в игре." }
             });
             return false;
@@ -158,13 +158,13 @@ public class AuthService
 
         await _svc.Hub.SendToClient(connection, new GameMessage
         {
-            Type = "auth_response",
+            Type = GameMessageType.AuthResponse,
             Data = new { Success = true, Message = $"Добро пожаловать, {player.Name}!", session_token = playerSessionToken, player_id = player.Id }
         });
 
         await _svc.Hub.SendToClient(connection, new GameMessage
         {
-            Type = "welcome",
+                            Type = GameMessageType.Welcome,
             Data = new { Message = $"Добро пожаловать, {player.Name}!", PlayerName = player.Name, ClassName = player.Class.DisplayName() }
         });
 
@@ -186,7 +186,7 @@ public class AuthService
         int unreadCount = MailRepository.CountUnread(player.Name);
         await _svc.Hub.SendToClient(connection, new GameMessage
         {
-            Type = "mail_unread",
+                            Type = GameMessageType.MailUnread,
             Data = new { Count = unreadCount }
         });
 
@@ -203,7 +203,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Имя персонажа не указано" }
             });
             return false;
@@ -214,7 +214,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Персонаж не найден" }
             });
             return false;
@@ -234,7 +234,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Имя должно быть от 3 до 20 символов" }
             });
             return false;
@@ -244,7 +244,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Имя: только латинские буквы и цифры" }
             });
             return false;
@@ -254,7 +254,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Имя уже занято" }
             });
             return false;
@@ -264,7 +264,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Не авторизован" }
             });
             return false;
@@ -276,7 +276,7 @@ public class AuthService
         var characters = CharacterRepository.ListForAccount(connection.AuthenticatedLogin);
         await hub.SendToClient(connection, new GameMessage
         {
-            Type = "character_list",
+            Type = GameMessageType.CharacterList,
             Data = new
             {
                 Created = true,
@@ -304,7 +304,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Неверный запрос" }
             });
             return;
@@ -315,7 +315,7 @@ public class AuthService
         {
             await hub.SendToClient(connection, new GameMessage
             {
-                Type = "character_list",
+                            Type = GameMessageType.CharacterList,
                 Data = new { Error = "Персонаж не найден" }
             });
             return;
@@ -326,7 +326,7 @@ public class AuthService
         var characters = CharacterRepository.ListForAccount(connection.AuthenticatedLogin);
         await hub.SendToClient(connection, new GameMessage
         {
-            Type = "character_list",
+            Type = GameMessageType.CharacterList,
             Data = new
             {
                 Deleted = true,

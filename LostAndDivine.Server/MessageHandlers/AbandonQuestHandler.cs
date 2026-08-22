@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -43,7 +43,7 @@ public class AbandonQuestHandler : BaseHandler
         Log.Info($"{player.Name} отказался от задания {def?.Title ?? questId}");
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы отказались от задания: {def?.Title ?? questId}." }
         });
 

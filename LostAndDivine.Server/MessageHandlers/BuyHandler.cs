@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -50,12 +50,12 @@ public class BuyHandler : BaseHandler
         Log.Info($"{player.Name} купил {template.Name} x{qty} за {totalCost} золота");
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы купили {template.Name} x{qty} за {totalCost} золота" }
         });
         await SendToClient(connection, new GameMessage
         {
-            Type = "shop_update",
+            Type = GameMessageType.ShopUpdate,
             Data = new { PlayerGold = player.Gold }
         });
         await SendInventoryAndStatus(connection, player);

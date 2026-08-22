@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -85,7 +85,7 @@ public class TradeOfferHandler : BaseHandler
         {
             await SendToClient(otherConn, new GameMessage
             {
-                Type = "trade_offer_update",
+                Type = GameMessageType.TradeOfferUpdate,
                 Data = new
                 {
                     IsFromMe = false,
@@ -98,7 +98,7 @@ public class TradeOfferHandler : BaseHandler
         {
             await SendToClient(myConn, new GameMessage
             {
-                Type = "trade_offer_update",
+                Type = GameMessageType.TradeOfferUpdate,
                 Data = new
                 {
                     IsFromMe = true,

@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Commands;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -25,7 +25,7 @@ public class MoveToHandler : BaseHandler
             player.IsTrading = false;
             await SendToClient(connection, new GameMessage
             {
-                Type = "trade_close",
+                Type = GameMessageType.TradeClose,
                 Data = new { Message = "Обмен отменён: вы отошли." }
             });
             var other = session?.GetOther(player);
@@ -36,7 +36,7 @@ public class MoveToHandler : BaseHandler
                 if (otherConn != null)
                     await SendToClient(otherConn, new GameMessage
                     {
-                        Type = "trade_close",
+                        Type = GameMessageType.TradeClose,
                         Data = new { Message = $"Обмен отменён: {player.Name} отошёл." }
                     });
             }
@@ -51,7 +51,7 @@ public class MoveToHandler : BaseHandler
             await UseSkillHandler.SendSkillQueue(connection, player, Hub);
             await SendToClient(connection, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
             });
         }

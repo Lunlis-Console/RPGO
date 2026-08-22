@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -78,7 +78,7 @@ public class TakeQuestHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = $"Задание принято: {def.Title} — уже выполнено! Сдайте его на доске." }
             });
         }
@@ -86,7 +86,7 @@ public class TakeQuestHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = $"Задание принято: {def.Title} — {def.Description} (прогресс: {currentProgress}/{def.Target})" }
             });
         }

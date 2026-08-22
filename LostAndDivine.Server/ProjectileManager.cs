@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Shared.Models;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using LostAndDivine.Server.Network;
 
@@ -94,7 +94,7 @@ public class ProjectileManager
 
                 var killDmgMsg = new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = shownDmg, IsCrit = proj.IsCrit, Hand = "main", IsSkill = proj.SkillName != null }
                 };
                 await svc.KillService.ResolveMonsterKill(owner, monster, proj.Damage, true, killDmgMsg, isProjectile: true);
@@ -107,7 +107,7 @@ public class ProjectileManager
 
                 var dmgMsg = new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = proj.Damage, IsCrit = proj.IsCrit, Hand = proj.AttackHand, IsSkill = proj.SkillName != null }
                 };
                 await _hub.SendToClient(client, dmgMsg);
@@ -115,14 +115,14 @@ public class ProjectileManager
                 await _hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
                 await _hub.SendToClient(client, new GameMessage
                 {
-                    Type = "combat_state",
+                    Type = GameMessageType.CombatState,
                     Data = new { InCombat = true, TargetId = monster.Id.ToString(), TargetName = monster.Name, TargetHp = monster.Health, TargetMaxHp = monster.MaxHealth }
                 });
             }
 
             var hitMsg = new GameMessage
             {
-                Type = "projectile_hit",
+                Type = GameMessageType.ProjectileHit,
                 Data = new { Id = proj.Id.ToString(), X = monster.X, Y = monster.Y }
             };
             await _hub.SendToClient(client, hitMsg);
@@ -137,7 +137,7 @@ public class ProjectileManager
         if (_hub == null) return;
         var msg = new GameMessage
         {
-            Type = "projectile_spawn",
+            Type = GameMessageType.ProjectileSpawn,
             Data = new
             {
                 Id = proj.Id.ToString(),
@@ -159,7 +159,7 @@ public class ProjectileManager
         string id = Guid.NewGuid().ToString("N")[..8];
         var spawnMsg = new GameMessage
         {
-            Type = "projectile_spawn",
+            Type = GameMessageType.ProjectileSpawn,
             Data = new
             {
                 Id = id,
@@ -180,7 +180,7 @@ public class ProjectileManager
             {
                 var hitMsg = new GameMessage
                 {
-                    Type = "projectile_hit",
+                    Type = GameMessageType.ProjectileHit,
                     Data = new { Id = id, X = targetX, Y = targetY }
                 };
                 await _hub.SendToAllAsync(hitMsg);

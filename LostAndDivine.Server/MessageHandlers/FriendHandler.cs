@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using System.Text.Json;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -123,7 +123,7 @@ public class FriendHandler : BaseHandler
     {
         await SendToClient(connection, new GameMessage
         {
-            Type = "friend_result",
+            Type = GameMessageType.FriendResult,
             Data = new FriendResult { Success = success, Message = message }
         });
     }

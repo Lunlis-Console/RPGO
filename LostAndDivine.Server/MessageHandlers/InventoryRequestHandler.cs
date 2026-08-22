@@ -15,7 +15,7 @@ public class InventoryRequestHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "inventory_response",
+            Type = GameMessageType.InventoryResponse,
             Data = new
             {
                 Items = player.Inventory,

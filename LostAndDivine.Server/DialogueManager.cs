@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using LostAndDivine.Server.Network;
@@ -215,7 +215,7 @@ public class DialogueManager
                 return true;
             case DialogueActionType.OpenInstances:
                 await CloseDialogue(client, player);
-                await _hub.SendToClient(client, new GameMessage { Type = "instance_window_open", Data = new { } });
+                await _hub.SendToClient(client, new GameMessage { Type = GameMessageType.InstanceWindowOpen, Data = new { } });
                 return true;
             case DialogueActionType.GiveItem:
             {
@@ -297,7 +297,7 @@ public class DialogueManager
 
         await _hub.SendToClient(client, new GameMessage
         {
-            Type = "dialogue_open",
+            Type = GameMessageType.DialogueOpen,
             Data = data
         });
     }
@@ -308,7 +308,7 @@ public class DialogueManager
         player.Dialogue.Clear();
         await _hub.SendToClient(client, new GameMessage
         {
-            Type = "dialogue_close",
+            Type = GameMessageType.DialogueClose,
             Data = null
         });
     }
@@ -370,7 +370,7 @@ public class DialogueManager
                 Log.Debug($"{player.Name} открыл магазин");
                 await _hub.SendToClient(client, new GameMessage
                 {
-                    Type = "shop_response",
+                    Type = GameMessageType.ShopResponse,
                     Data = new
                     {
                         MerchantX = _merchant.MerchantX,

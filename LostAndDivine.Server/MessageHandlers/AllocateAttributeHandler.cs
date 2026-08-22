@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -53,7 +53,7 @@ public class AllocateAttributeHandler : BaseHandler
         Svc.Persistence.EnqueueSave(player);
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"+1 {attrName}. Осталось очков: {player.AttributePoints}" }
         });
         await SendInventoryAndStatus(connection, player);

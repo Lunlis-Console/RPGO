@@ -19,7 +19,7 @@ public class InstanceListRequestHandler : BaseHandler
             .ToList();
         await SendToClient(connection, new GameMessage
         {
-            Type = "instance_list",
+            Type = GameMessageType.InstanceList,
             Data = new { Instances = list }
         });
     }

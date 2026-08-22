@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;
 
+using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.Skills.Executors;
 
 /// <summary>Общий расчёт урона навыка лука (PvE/PvP).</summary>
@@ -84,7 +85,7 @@ internal static class BowShotHelper
             {
                 await svc.SendToC(targetClient, new GameMessage
                 {
-                    Type = "damage",
+                    Type = GameMessageType.Damage,
                     Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true }
                 });
                 await svc.ChatToC(targetClient, "Бой", $"{pl.Name}: «{skillName}» — {hitDmg} урона{critT}.");

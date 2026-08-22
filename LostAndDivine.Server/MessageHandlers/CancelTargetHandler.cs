@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -23,7 +23,7 @@ public class CancelTargetHandler : BaseHandler
             await UseSkillHandler.SendSkillQueue(connection, player, Hub);
             await SendToClient(connection, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
             });
         }

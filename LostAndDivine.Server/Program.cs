@@ -357,9 +357,9 @@ partial class Program
 
                 // Аутентификация клиента на подключение: ReconnectHandler
                 // Аутентифицирует сессию в том состоянии как и сохраняли.
-                if (message.Type == "reconnect")
+                if (message.Type == GameMessageType.Reconnect)
                 {
-                    if (Services.MessageHandlers.TryGet("reconnect", out var reconnectHandler))
+                    if (Services.MessageHandlers.TryGet(GameMessageType.Reconnect, out var reconnectHandler))
                         await reconnectHandler.Handle(connection, message, null);
                     authenticated = connection.Player != null;
                     continue;
@@ -431,7 +431,7 @@ partial class Program
     {
         try
         {
-            if (message.Type is "register" or "login_auth" or "character_select" or "character_create" or "character_delete")
+            if (message.Type is GameMessageType.Register or GameMessageType.LoginAuth or GameMessageType.CharacterSelect or GameMessageType.CharacterCreate or GameMessageType.CharacterDelete)
             {
                 var isAuth = await Services.Auth.HandleAuthMessage(connection, message, Services.Hub);
                 if (isAuth)

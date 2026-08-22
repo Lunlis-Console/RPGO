@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -146,7 +146,7 @@ public sealed class DuelExecutor : SkillExecutorBase
         {
             string bt = blocked ? " (блок)" : "";
             await svc.ChatToC(atkClient, "Бой", $"«ЭТО ДУЭЛЬ!» — наказание за смену таргета: {hitDmg} урона{bt} {target.Name}!");
-            var dmgMsg = new GameMessage { Type = "damage", Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false, IsSkill = true } };
+            var dmgMsg = new GameMessage { Type = GameMessageType.Damage, Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = false, IsSkill = true } };
             await svc.SendToC(atkClient, dmgMsg);
             var tgtConn = svc.World.FindClientByPlayer(target);
             if (tgtConn != null)
@@ -169,10 +169,10 @@ public sealed class DuelExecutor : SkillExecutorBase
         if (target.Health <= 0) return true;
         await svc.SendToC(atkClient, new GameMessage
         {
-            Type = "combat_state", Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
+            Type = GameMessageType.CombatState, Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
         });
         if (targetClient != null)
-            await svc.SendToC(targetClient, new GameMessage { Type = "combat_state", Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true } });
+            await svc.SendToC(targetClient, new GameMessage { Type = GameMessageType.CombatState, Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true } });
         return true;
     }
 }

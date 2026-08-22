@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
@@ -20,7 +20,7 @@ public class UseSkillHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = "Вы оглушены и не можете применять навыки!" }
             });
             return;
@@ -41,7 +41,7 @@ public class UseSkillHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = $"«{skill.Name}» не изучен." }
             });
             return;
@@ -57,7 +57,7 @@ public class UseSkillHandler : BaseHandler
                 {
                     await SendToClient(connection, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Бой", Text = $"«{skill.Name}» ещё на перезарядке." }
                     });
                     return;
@@ -67,7 +67,7 @@ public class UseSkillHandler : BaseHandler
                 {
                     await SendToClient(connection, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
                     });
                     return;
@@ -85,20 +85,20 @@ public class UseSkillHandler : BaseHandler
 
                     await Svc.Hub.SendToAllAsync(new GameMessage
                     {
-                        Type = "player_attack",
+                        Type = GameMessageType.PlayerAttack,
                         Data = new { PlayerName = player.Name, Hand = "main", SkillId = "SK0002", BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
                     });
                 }
 
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Бой", Text = $"Применён навык «{skill.Name}»!" }
                 });
                 int effectiveCd = (int)(skill.CooldownMs * player.GetSkillRankCdMult(skill.Id));
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "skill_cooldown",
+                    Type = GameMessageType.SkillCooldown,
                     Data = new { SkillId = skill.Id, RemainingMs = effectiveCd, TotalMs = effectiveCd }
                 });
                 await Svc.Hub.SendStatusAsync(connection, player);
@@ -110,7 +110,7 @@ public class UseSkillHandler : BaseHandler
             {
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
                 });
                 return;
@@ -121,7 +121,7 @@ public class UseSkillHandler : BaseHandler
             player.QueuedSkillIds.Add(skill.Id);
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = $"Навык «{skill.Name}» заготовлен — применится в начале боя." }
             });
             await SendSkillQueue(connection, player, Hub);
@@ -133,7 +133,7 @@ public class UseSkillHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = $"«{skill.Name}»: недостаточно маны ({player.Mana}/{skill.MpCost})." }
             });
             return;
@@ -143,7 +143,7 @@ public class UseSkillHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Бой", Text = $"«{skill.Name}» уже в очереди." }
             });
             return;
@@ -152,7 +152,7 @@ public class UseSkillHandler : BaseHandler
         player.QueuedSkillIds.Add(skill.Id);
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Бой", Text = $"«{skill.Name}» добавлен в очередь ({player.QueuedSkillIds.Count} в очереди)." }
         });
         await SendSkillQueue(connection, player, Hub);
@@ -162,7 +162,7 @@ public class UseSkillHandler : BaseHandler
     {
         await hub.SendToClient(connection, new GameMessage
         {
-            Type = "skill_queue",
+            Type = GameMessageType.SkillQueue,
             Data = new { Skills = player.QueuedSkillIds.ToList() }
         });
     }

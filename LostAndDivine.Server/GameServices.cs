@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Instances;
+using LostAndDivine.Server.Instances;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
@@ -137,7 +137,7 @@ public sealed class GameServices : IGameServices
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Система", Text = "Обновление завершено." }
                 });
             }
@@ -149,7 +149,7 @@ public sealed class GameServices : IGameServices
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Система", Text = "Ошибка обновления: " + ex.Message }
                 });
             }
@@ -216,7 +216,7 @@ public sealed class GameServices : IGameServices
             // вокруг игроков. В обратном порядке клиент принял бы 3x3 до сброса, а после
             // сброса повторные запросы этих секторов сервер бы проигнорировал
             // (дедупликация HasSectorSent) — карта застревала бы на 501/510.
-            await Hub.SendToAllAsync(new GameMessage { Type = "sectors_reloaded", Data = new { } });
+            await Hub.SendToAllAsync(new GameMessage { Type = GameMessageType.SectorsReloaded, Data = new { } });
 
             // Онлайн-игрокам повторно шлём свежие секторы вокруг их позиций.
             foreach (var conn in World.GetAllConnectionsSnapshot())
@@ -232,7 +232,7 @@ public sealed class GameServices : IGameServices
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Система", Text = "Секторы обновлены." }
                 });
             }
@@ -244,7 +244,7 @@ public sealed class GameServices : IGameServices
             {
                 await Hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Система", Text = "Ошибка перезагрузки секторов: " + ex.Message }
                 });
             }

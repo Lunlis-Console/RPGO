@@ -27,7 +27,7 @@ public class PlayerFacingHandler : BaseHandler
 
         await Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_facing",
+            Type = GameMessageType.PlayerFacing,
             Data = new { PlayerName = player.Name, Facing = facing }
         });
     }

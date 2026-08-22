@@ -15,7 +15,7 @@ public class SkillsRequestHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "skills_response",
+            Type = GameMessageType.SkillsResponse,
             Data = new
             {
                 Skills = skills.Select(s => new

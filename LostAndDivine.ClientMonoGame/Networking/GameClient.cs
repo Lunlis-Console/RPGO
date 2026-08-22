@@ -223,6 +223,9 @@ public sealed class GameClient
     internal void RaiseUnknownMessage(GameMessage message) => Ui(() => UnknownMessage?.Invoke(message));
 
     public Task SendAsync(string type, object? data)
+        => SendAsync(GameMessageTypeJsonConverter.FromWire(type), data);
+
+    public Task SendAsync(GameMessageType type, object? data)
     {
         // Используем NetworkManager для отправки
         var msg = new GameMessage { Type = type, Data = data };

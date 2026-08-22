@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -38,7 +38,7 @@ public sealed class StorageService
         var items = LoadFromDb(player.Name);
         await _hub.SendToClient(client, new GameMessage
         {
-            Type = "storage_open",
+            Type = GameMessageType.StorageOpen,
             Data = new { Items = items, Slots = Balance.StorageSlots }
         });
     }
@@ -115,7 +115,7 @@ public sealed class StorageService
     {
         await _hub.SendToClient(client, new GameMessage
         {
-            Type = "storage_update",
+            Type = GameMessageType.StorageUpdate,
             Data = new { Items = storageItems, Slots = Balance.StorageSlots }
         });
     }

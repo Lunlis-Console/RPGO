@@ -1,11 +1,13 @@
 ﻿using System.Text.Json.Serialization;
+using LostAndDivine.Shared.Network;
 
 namespace LostAndDivine.Shared.Models;
 
 public class GameMessage
 {
+    [JsonConverter(typeof(GameMessageTypeJsonConverter))]
     [JsonPropertyName("t")]
-    public string Type { get; set; } = "";
+    public GameMessageType Type { get; set; } = GameMessageType.Unknown;
 
     [JsonPropertyName("d")]
     public object? Data { get; set; }
@@ -13,21 +15,21 @@ public class GameMessage
     /// <summary>Сброс боевого состояния (выход из боя).</summary>
     public static GameMessage ResetCombat() => new()
     {
-        Type = "combat_state",
+        Type = GameMessageType.CombatState,
         Data = new { InCombat = false, TargetId = (string?)null, TargetName = (string?)null, TargetHp = 0, TargetMaxHp = 0 }
     };
 
     /// <summary>Обновление HP монстра.</summary>
     public static GameMessage CombatUpdate(string name, int health, int maxHealth) => new()
     {
-        Type = "combat_update",
+        Type = GameMessageType.CombatUpdate,
         Data = new { MonsterName = name, MonsterHealth = health, MonsterMaxHealth = maxHealth }
     };
 
     /// <summary>Сообщение в чат.</summary>
     public static GameMessage Chat(string name, string text) => new()
     {
-        Type = "chat",
+        Type = GameMessageType.Chat,
         Data = new { Name = name, Text = text }
     };
 
@@ -37,28 +39,28 @@ public class GameMessage
     /// <summary>Урон (монстр>игрок или игрок>монстр).</summary>
     public static GameMessage Damage(string target, string? monsterId, int x, int y, int amount, bool isCrit, string? playerName = null, string? result = null) => new()
     {
-        Type = "damage",
+        Type = GameMessageType.Damage,
         Data = new { Target = target, PlayerName = playerName, MonsterId = monsterId, X = x, Y = y, Amount = amount, IsCrit = isCrit, Result = result }
     };
 
     /// <summary>Обновление дебаффов цели (монстра) для HUD.</summary>
     public static GameMessage TargetDebuffUpdate(object debuffs) => new()
     {
-        Type = "target_debuff_update",
+        Type = GameMessageType.TargetDebuffUpdate,
         Data = new { Debuffs = debuffs }
     };
 
     /// <summary>Уведомление клиенту о смерти игрока (death screen + задержка).</summary>
     public static GameMessage PlayerDeath(int lostGold) => new()
     {
-        Type = "player_death",
+        Type = GameMessageType.PlayerDeath,
         Data = new { LostGold = lostGold }
     };
 
     /// <summary>Сообщение об ошибке.</summary>
     public static GameMessage Error(string code, string message) => new()
     {
-        Type = "error",
+        Type = GameMessageType.Error,
         Data = new { Code = code, Message = message }
     };
 
@@ -67,7 +69,7 @@ public class GameMessage
         int targetHp = 0, int targetMaxHp = 0, int targetX = 0, int targetY = 0, bool isPvP = false,
         object? targetDebuffs = null) => new()
     {
-        Type = "combat_state",
+        Type = GameMessageType.CombatState,
         Data = new
         {
             InCombat = inCombat,

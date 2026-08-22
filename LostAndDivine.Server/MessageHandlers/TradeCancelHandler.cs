@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -24,7 +24,7 @@ public class TradeCancelHandler : BaseHandler
 
         var closeMsg = new GameMessage
         {
-            Type = "trade_close",
+            Type = GameMessageType.TradeClose,
             Data = new { Message = "Обмен отменён." }
         };
 

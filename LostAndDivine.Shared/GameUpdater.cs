@@ -55,7 +55,7 @@ public static class GameUpdater
             await client.ConnectAsync(ip, Port, ct);
             var stream = client.GetStream();
 
-            await Send(stream, new GameMessage { Type = "update_check", Data = new UpdateCheckRequest { Version = localVersion } });
+            await Send(stream, new GameMessage { Type = GameMessageType.UpdateCheck, Data = new UpdateCheckRequest { Version = localVersion } });
             var infoMsg = await Receive<GameMessage>(stream, ct);
             var info = Deserialize<UpdateInfo>(infoMsg?.Data);
             if (info == null || info.Files == null || info.Files.Count == 0)
@@ -125,7 +125,7 @@ public static class GameUpdater
             using var client = new TcpClient { NoDelay = true };
             await client.ConnectAsync(ip, Port, ct);
             var stream = client.GetStream();
-            await Send(stream, new GameMessage { Type = "changelog", Data = new { } });
+            await Send(stream, new GameMessage { Type = GameMessageType.Changelog, Data = new { } });
             var msg = await Receive<GameMessage>(stream, ct);
             return Deserialize<ChangelogData>(msg?.Data);
         }
@@ -160,7 +160,7 @@ public static class GameUpdater
 
     private static async Task DownloadFileAsync(NetworkStream stream, UpdateFileEntry entry, Action<string> report, CancellationToken ct)
     {
-        await Send(stream, new GameMessage { Type = "update_file", Data = new UpdateFileRequest { Path = entry.Path } });
+            await Send(stream, new GameMessage { Type = GameMessageType.UpdateFile, Data = new UpdateFileRequest { Path = entry.Path } });
 
         string target = Path.Combine(StagingDir, entry.Path);
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
@@ -174,9 +174,9 @@ public static class GameUpdater
             var msg = await Receive<GameMessage>(stream, ct);
             if (msg == null)
                 throw new IOException($"Нет ответа сервера для {entry.Path}");
-            if (msg.Type == "update_file_missing")
+            if (msg.Type == GameMessageType.UpdateFileMissing)
                 throw new IOException($"Файл не найден на сервере: {entry.Path}");
-            if (msg.Type != "update_file_chunk")
+            if (msg.Type != GameMessageType.UpdateFileChunk)
                 continue;
 
             var chunk = Deserialize<UpdateFileChunk>(msg.Data);

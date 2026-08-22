@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -47,7 +47,7 @@ public class ResetAttributesHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Атрибуты сброшены! Возвращено {totalSpent} очков." }
         });
         await SendInventoryAndStatus(connection, player);

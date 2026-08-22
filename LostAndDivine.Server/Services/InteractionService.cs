@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Shared;
@@ -42,12 +42,12 @@ public class InteractionService
                     Log.Debug($"{player.Name} начал бой с {monster.Name}");
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Бой", Text = $"Бой: {monster.Name} [{monster.Level}] ({monster.Health}/{monster.MaxHealth})" }
                     });
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "combat_state",
+                        Type = GameMessageType.CombatState,
                         Data = new
                         {
                             InCombat = true,
@@ -73,7 +73,7 @@ public class InteractionService
             case "blacksmith":
                 await _svc.Hub.SendToClient(client, new GameMessage
                 {
-                    Type = "enhancement_open",
+                    Type = GameMessageType.EnhancementOpen,
                     Data = null
                 });
                 await ChatTo(client, ChatChannel.System, "Система", "Кузнец: принеси камень усиления, чтобы заточить снаряжение.");
@@ -84,12 +84,12 @@ public class InteractionService
                 await _svc.Hub.SendQuestLog(client, player);
                 await _svc.Hub.SendToClient(client, new GameMessage
                 {
-                    Type = "open_board",
+                    Type = GameMessageType.OpenBoard,
                     Data = null
                 });
                 await _svc.Hub.SendToClient(client, new GameMessage
                 {
-                    Type = "chat",
+                    Type = GameMessageType.Chat,
                     Data = new { Name = "Система", Text = "Доска заданий открыта." }
                 });
                 break;
@@ -172,7 +172,7 @@ public class InteractionService
                     Log.Debug($"{player.Name} собрал {lootItem.Name}");
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Система", Text = $"[Сбор] Вы собрали: {lootItem.Name}!" }
                     });
                     var collectResults = _svc.Quests.IncrementCollectProgress(player, lootItem.Id);
@@ -183,7 +183,7 @@ public class InteractionService
                             : $"[Задание] {title}: {current}/{target}";
                         await _svc.Hub.SendToClient(client, new GameMessage
                         {
-                            Type = "chat",
+                            Type = GameMessageType.Chat,
                             Data = new { Name = "Система", Text = msg }
                         });
                     }
@@ -194,7 +194,7 @@ public class InteractionService
                 {
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Система", Text = "Здесь нечего собирать." }
                     });
                 }
@@ -209,7 +209,7 @@ public class InteractionService
                     else
                         await _svc.Hub.SendToClient(client, new GameMessage
                         {
-                            Type = "chat",
+                            Type = GameMessageType.Chat,
                             Data = new { Name = "Система", Text = "Труп исчез или уже собран." }
                         });
                 }
@@ -222,7 +222,7 @@ public class InteractionService
                     Log.Debug($"{player.Name} подошёл к {nearPlayer.Name}");
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Система", Text = $"Вы подошли к {nearPlayer.Name}. Используйте кнопки группы или обмена." }
                     });
                 }
@@ -230,7 +230,7 @@ public class InteractionService
                 {
                     await _svc.Hub.SendToClient(client, new GameMessage
                     {
-                        Type = "chat",
+                        Type = GameMessageType.Chat,
                         Data = new { Name = "Система", Text = "Игрок не найден." }
                     });
                 }
@@ -244,7 +244,7 @@ public class InteractionService
                     {
                         var msg = new GameMessage
                         {
-                            Type = "take_loot",
+                            Type = GameMessageType.TakeLoot,
                             Data = new
                             {
                                 CorpseId = corpse.Id.ToString(),
@@ -258,7 +258,7 @@ public class InteractionService
                     else
                         await _svc.Hub.SendToClient(client, new GameMessage
                         {
-                            Type = "chat",
+                            Type = GameMessageType.Chat,
                             Data = new { Name = "Система", Text = "Труп исчез или уже собран." }
                         });
                 }
@@ -298,7 +298,7 @@ public class InteractionService
         Log.Debug($"{player.Name} открыл магазин");
         await _svc.Hub.SendToClient(client, new GameMessage
         {
-            Type = "shop_response",
+            Type = GameMessageType.ShopResponse,
             Data = new
             {
                 MerchantX = _svc.Merchant.MerchantX,
@@ -493,14 +493,14 @@ public class InteractionService
                             if (plConn != null)
                                 await _svc.Hub.SendToClient(plConn, new GameMessage
                                 {
-                                    Type = "trade_close",
+                                    Type = GameMessageType.TradeClose,
                                     Data = new { Message = "Обмен отменён: слишком далеко." }
                                 });
                             var otherConn = _svc.World.FindClientByPlayer(other);
                             if (otherConn != null)
                                 await _svc.Hub.SendToClient(otherConn, new GameMessage
                                 {
-                                    Type = "trade_close",
+                                    Type = GameMessageType.TradeClose,
                                     Data = new { Message = $"Обмен отменён: {pl.Name} слишком далеко." }
                                 });
                         }

@@ -27,7 +27,7 @@ public class UnequipAllHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Нет надетого снаряжения." }
             });
             return;
@@ -41,7 +41,7 @@ public class UnequipAllHandler : BaseHandler
         Log.Debug($"{player.Name} снял всё снаряжение ({worn.Count} предметов)");
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы сняли всё снаряжение ({worn.Count} шт.)" }
         });
         await SendInventoryAndStatus(connection, player, fromUnequip: true);

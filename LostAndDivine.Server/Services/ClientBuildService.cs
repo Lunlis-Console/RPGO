@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using System.Security.Cryptography;
@@ -94,19 +94,19 @@ public class ClientBuildService
     {
         switch (message.Type)
         {
-            case "update_check":
+            case GameMessageType.UpdateCheck:
             {
                 var check = Deserialize<UpdateCheckRequest>(message.Data);
                 await hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "update_info",
+                            Type = GameMessageType.UpdateInfo,
                     Data = Info ?? new UpdateInfo()
                 });
                 Log.Info($"Клиент проверил версию: локальная '{check?.Version}', серверная '{Info?.Version}'");
                 return true;
             }
 
-            case "update_file":
+            case GameMessageType.UpdateFile:
             {
                 var req = Deserialize<UpdateFileRequest>(message.Data);
                 if (req == null || string.IsNullOrEmpty(req.Path))
@@ -117,7 +117,7 @@ public class ClientBuildService
                 {
                     await hub.SendToClient(connection, new GameMessage
                     {
-                        Type = "update_file_missing",
+                            Type = GameMessageType.UpdateFileMissing,
                         Data = new { Path = req.Path }
                     });
                     return true;
@@ -150,7 +150,7 @@ public class ClientBuildService
                         if (read == 0) break;
                         await hub.SendToClient(connection, new GameMessage
                         {
-                            Type = "update_file_chunk",
+                            Type = GameMessageType.UpdateFileChunk,
                             Data = new UpdateFileChunk
                             {
                                 Path = req.Path,
@@ -168,14 +168,14 @@ public class ClientBuildService
                 return true;
             }
 
-            case "changelog":
+            case GameMessageType.Changelog:
             {
                 // История изменений доступна без входа в игру (её показывает лаунчер).
                 if (Changelog != null)
                 {
                     await hub.SendToClient(connection, new GameMessage
                     {
-                        Type = "changelog",
+                            Type = GameMessageType.Changelog,
                         Data = new ChangelogData
                         {
                             Version = Info?.Version ?? Changelog.Version,
@@ -187,19 +187,19 @@ public class ClientBuildService
                 {
                     await hub.SendToClient(connection, new GameMessage
                     {
-                        Type = "changelog",
+                            Type = GameMessageType.Changelog,
                         Data = new ChangelogData { Version = Info?.Version ?? "", Entries = new() }
                     });
                 }
                 return true;
             }
 
-            case "ping":
+            case GameMessageType.Ping:
             {
                 var ping = Deserialize<PingMessage>(message.Data);
                 await hub.SendToClient(connection, new GameMessage
                 {
-                    Type = "pong",
+                            Type = GameMessageType.Pong,
                     Data = new PongMessage(ping?.Seq ?? 0, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                 });
                 return true;
@@ -215,7 +215,7 @@ public class ClientBuildService
         if (Changelog == null) return;
         await hub.SendToClient(connection, new GameMessage
         {
-            Type = "changelog",
+            Type = GameMessageType.Changelog,
             Data = new ChangelogData
             {
                 Version = Info?.Version ?? Changelog.Version,

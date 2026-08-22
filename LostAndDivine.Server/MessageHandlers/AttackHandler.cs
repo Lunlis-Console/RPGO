@@ -1,7 +1,8 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 
+using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server.MessageHandlers;
 
 /// <summary>
@@ -16,7 +17,7 @@ public class AttackHandler : BaseHandler
         if (player == null) return;
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = "Нажмите ЛКМ на монстра, чтобы выбрать цель для атаки." }
         });
     }

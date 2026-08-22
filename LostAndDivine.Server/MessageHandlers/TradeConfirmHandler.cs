@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -45,7 +45,7 @@ public class TradeConfirmHandler : BaseHandler
 
         var myUpdate = new GameMessage
         {
-            Type = "trade_confirm_update",
+            Type = GameMessageType.TradeConfirmUpdate,
             Data = new
             {
                 YouConfirmed = confirmed,
@@ -55,7 +55,7 @@ public class TradeConfirmHandler : BaseHandler
 
         var otherUpdate = new GameMessage
         {
-            Type = "trade_confirm_update",
+            Type = GameMessageType.TradeConfirmUpdate,
             Data = new
             {
                 YouConfirmed = isInitiator ? session.PartnerConfirmed : session.InitiatorConfirmed,
@@ -121,7 +121,7 @@ public class TradeConfirmHandler : BaseHandler
 
         var completeMsg = new GameMessage
         {
-            Type = "trade_complete",
+            Type = GameMessageType.TradeComplete,
             Data = new { Success = true, Message = "Обмен успешно завершён!" }
         };
 
@@ -173,7 +173,7 @@ public class TradeConfirmHandler : BaseHandler
 
         var errorMsg = new GameMessage
         {
-            Type = "trade_complete",
+            Type = GameMessageType.TradeComplete,
             Data = new { Success = false, Message = msg }
         };
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Hosting;
 using LostAndDivine.Server.Network;
 
 using LostAndDivine.Server.Services;
@@ -108,7 +108,7 @@ public class HeartbeatHandler : BackgroundService
             conn.LastPingSeq = seq;
             await _hub.SendToClient(conn, new GameMessage
             {
-                Type = "ping",
+                Type = GameMessageType.Ping,
                 Data = new PingMessage(seq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
             });
         }

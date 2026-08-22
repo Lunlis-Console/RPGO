@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -38,14 +38,14 @@ public class UseItemHandler : BaseHandler
             Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {healed} HP");
             var healMsg = new GameMessage
             {
-                Type = "heal",
+                Type = GameMessageType.Heal,
                 Data = new { Target = "player", PlayerName = player.Name, X = player.X, Y = player.Y, Amount = healed }
             };
             await SendToClient(connection, healMsg);
             await Hub.SendDamageNearbyAsync(player.X, player.Y, healMsg, player);
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {healed} HP. ({player.Health}/{effectiveMax})" }
             });
             await SendInventoryAndStatus(connection, player);
@@ -65,7 +65,7 @@ public class UseItemHandler : BaseHandler
             Log.Debug($"{player.Name} использовал {item.Name}, восстановлено {restored} MP");
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = $"Вы использовали {item.Name}. Восстановлено {restored} MP. ({player.Mana}/{effectiveMaxMana})" }
             });
             await SendInventoryAndStatus(connection, player);
@@ -90,7 +90,7 @@ public class UseItemHandler : BaseHandler
                 : $"[Задание] {title}: {current}/{target}";
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = msg }
             });
         }

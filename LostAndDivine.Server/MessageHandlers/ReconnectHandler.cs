@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Server.Services;
@@ -27,7 +27,7 @@ public class ReconnectHandler : BaseHandler
         {
             await SendToClient(connection, new GameMessage
             {
-                Type = "reconnect_fail",
+                Type = GameMessageType.ReconnectFail,
                 Data = new ReconnectResponse(false, "token_expired", null)
             });
             return;
@@ -39,7 +39,7 @@ public class ReconnectHandler : BaseHandler
             Log.Info($"[Reconnect] Kicking old session for {playerName}");
             await SendToClient(existingConn, new GameMessage
             {
-                Type = "kick",
+                Type = GameMessageType.Kick,
                 Data = new { Reason = "reconnect" }
             });
             World.RemoveClient(existingConn);
@@ -54,7 +54,7 @@ public class ReconnectHandler : BaseHandler
             {
                 await SendToClient(connection, new GameMessage
                 {
-                    Type = "reconnect_fail",
+                    Type = GameMessageType.ReconnectFail,
                     Data = new ReconnectResponse(false, "player_not_found", null)
                 });
                 return;
@@ -78,7 +78,7 @@ public class ReconnectHandler : BaseHandler
         var state = BuildPlayerState(loadedPlayer);
         await SendToClient(connection, new GameMessage
         {
-            Type = "reconnect_ok",
+            Type = GameMessageType.ReconnectOk,
             Data = new ReconnectResponse(true, null, state, newToken, loadedPlayer.Id)
         });
 
@@ -94,7 +94,7 @@ public class ReconnectHandler : BaseHandler
         int unreadCount = MailRepository.CountUnread(playerName);
         await SendToClient(connection, new GameMessage
         {
-            Type = "mail_unread",
+            Type = GameMessageType.MailUnread,
             Data = new { Count = unreadCount }
         });
 

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -68,7 +68,7 @@ public sealed class GameServer : INetworkHub
                     });
             _entityDirty.TryRemove(zone, out _);
             if (state.Entries.Count == 0) continue;
-            var msg = new GameMessage { Type = "entity_state", Data = state };
+            var msg = new GameMessage { Type = GameMessageType.EntityState, Data = state };
             foreach (var client in clients.Where(c => c.Player != null && c.Player.CurrentZoneId == zone))
                 await SendToClientSafe(client, msg);
         }
@@ -380,7 +380,7 @@ public sealed class GameServer : INetworkHub
 
             sendTasks.Add(SendToClientSafe(client, new GameMessage
             {
-                Type = "map_update",
+                Type = GameMessageType.MapUpdate,
                 Data = mapData
             }));
         }
@@ -536,7 +536,7 @@ public sealed class GameServer : INetworkHub
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "quest_log",
+            Type = GameMessageType.QuestLog,
             Data = new
             {
                 Available = svc.Quests.GetAvailableQuests(player).Select(d =>
@@ -565,7 +565,7 @@ public sealed class GameServer : INetworkHub
     {
         await SendToClient(connection, new GameMessage
         {
-            Type = "hotbar_response",
+            Type = GameMessageType.HotbarResponse,
             Data = new { Slots = player.HotbarSlots }
         });
     }
@@ -576,7 +576,7 @@ public sealed class GameServer : INetworkHub
         var skills = DatabaseManager.LoadSkills();
         await SendToClient(connection, new GameMessage
         {
-            Type = "skills_response",
+            Type = GameMessageType.SkillsResponse,
             Data = new
             {
                 Skills = skills.Select(s => new
@@ -607,7 +607,7 @@ public sealed class GameServer : INetworkHub
         bool isAdmin = _world.TryGetPlayerByName(playerName, out var sender) && sender!.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = playerName, Text = text, IsAdmin = isAdmin }
         });
     }
@@ -617,7 +617,7 @@ public sealed class GameServer : INetworkHub
         bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender!.IsAdmin;
         await BroadcastAsync(new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Channel = channel.ToString(), Name = from, Text = text, IsAdmin = isAdmin }
         });
     }
@@ -627,7 +627,7 @@ public sealed class GameServer : INetworkHub
         bool isAdmin = _world.TryGetPlayerByName(from, out var sender) && sender!.IsAdmin;
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Channel = channel.ToString(), Name = from, Text = text, To = to, IsAdmin = isAdmin }
         });
     }
@@ -636,7 +636,7 @@ public sealed class GameServer : INetworkHub
     {
         await SendToClient(connection, new GameMessage
         {
-            Type = "status_response",
+            Type = GameMessageType.StatusResponse,
             Data = new
             {
                 player.Name,
@@ -699,7 +699,7 @@ public sealed class GameServer : INetworkHub
         _svc.Debuffs.RefreshDualWieldBuff(player);
         await SendToClient(connection, new GameMessage
         {
-            Type = "inventory_response",
+            Type = GameMessageType.InventoryResponse,
             Data = new
             {
                 PlayerLevel = player.Level,
@@ -719,7 +719,7 @@ public sealed class GameServer : INetworkHub
         });
         await SendToClient(connection, new GameMessage
         {
-            Type = "status_response",
+            Type = GameMessageType.StatusResponse,
             Data = new
             {
                 player.Name,
@@ -795,7 +795,7 @@ public sealed class GameServer : INetworkHub
     public Task SendError(ClientConnection connection, string code, string message)
         => SendToClient(connection, new GameMessage
         {
-            Type = "error",
+            Type = GameMessageType.Error,
             Data = new { Code = code, Message = message }
         });
 
@@ -841,7 +841,7 @@ public sealed class GameServer : INetworkHub
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "friend_list",
+            Type = GameMessageType.FriendList,
             Data = new FriendListData { Friends = friends }
         });
     }
@@ -1015,7 +1015,7 @@ public sealed class GameServer : INetworkHub
         connection.SessionToken = null;
         await SendToClient(connection, new GameMessage
         {
-            Type = "kick",
+            Type = GameMessageType.Kick,
             Data = new { Reason = reason }
         });
         _world.DisconnectPlayer(connection);
@@ -1032,7 +1032,7 @@ public sealed class GameServer : INetworkHub
         bool isMainZone = player.CurrentZoneId == Balance.MainZoneId;
         await SendToClient(connection, new GameMessage
         {
-            Type = "zone_transition",
+            Type = GameMessageType.ZoneTransition,
             Data = new
             {
                 ZoneId = player.CurrentZoneId,
@@ -1072,7 +1072,7 @@ public sealed class GameServer : INetworkHub
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "sector_data",
+            Type = GameMessageType.SectorData,
             Data = new SectorData
             {
                 ZoneId = Balance.MainZoneId,

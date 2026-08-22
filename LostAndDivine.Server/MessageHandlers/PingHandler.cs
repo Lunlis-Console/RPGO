@@ -20,7 +20,7 @@ public class PingHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "pong",
+            Type = GameMessageType.Pong,
             Data = new PongMessage(ping.Seq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
         });
     }

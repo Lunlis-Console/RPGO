@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
@@ -397,7 +397,7 @@ public class InstanceManager
             {
                 await _svc.Hub.SendToClient(mc, new GameMessage
                 {
-                    Type = "instance_invite_received",
+                    Type = GameMessageType.InstanceInviteReceived,
                     Data = new { LeaderName = leader.Name, TemplateName = template.Name, TemplateId = templateId }
                 });
             }
@@ -522,7 +522,7 @@ public class InstanceManager
         }
         await _svc.Hub.SendToClient(leaderConn, new GameMessage
         {
-            Type = "instance_invite_update",
+            Type = GameMessageType.InstanceInviteUpdate,
             Data = new { TemplateName = session.TemplateName, Members = members }
         });
     }
@@ -603,7 +603,7 @@ public class InstanceManager
         // Клиент закрывает окна (диалог стража, окно инстансов) после входа
         await _svc.Hub.SendToClient(conn, new GameMessage
         {
-            Type = "instance_started",
+            Type = GameMessageType.InstanceStarted,
             Data = new
             {
                 TemplateName = instance.Template.Name,
@@ -1086,7 +1086,7 @@ public class InstanceManager
 
         await _svc.Hub.SendToClient(conn, new GameMessage
         {
-            Type = "loot_corpse",
+            Type = GameMessageType.LootCorpse,
             Data = new
             {
                 CorpseId = "chest_" + inst.Id,

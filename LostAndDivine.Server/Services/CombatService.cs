@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -44,7 +44,7 @@ public class CombatService
         if (buffDurationMs.HasValue) data["BuffDurationMs"] = buffDurationMs.Value;
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = data
         });
     }
@@ -54,7 +54,7 @@ public class CombatService
         int effectiveCdMs = (int)(skill.CooldownMs * cdMult);
         await _svc.Hub.SendToClient(client, new GameMessage
         {
-            Type = "skill_cooldown",
+            Type = GameMessageType.SkillCooldown,
             Data = new { SkillId = skill.Id, RemainingMs = effectiveCdMs, TotalMs = effectiveCdMs }
         });
     }
@@ -63,7 +63,7 @@ public class CombatService
     {
         var dmgMsg = new GameMessage
         {
-            Type = "damage",
+            Type = GameMessageType.Damage,
             Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmg, IsCrit = isCrit, Hand = hand, IsSkill = isSkill }
         };
         await _svc.Hub.SendToClient(client, dmgMsg);
@@ -474,7 +474,7 @@ public class CombatService
         {
             var killDmgMsg = !isEvaded ? new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + dmgToMonster), IsCrit = isCrit, Hand = attackHand }
             } : null;
             await _svc.KillService.ResolveMonsterKill(pl, monster, dmgToMonster, !isEvaded, killDmgMsg);
@@ -497,7 +497,7 @@ public class CombatService
         {
             var dmgMsg = new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = dmgToMonster, IsCrit = isCrit, Hand = attackHand }
             };
             await _svc.Hub.SendToClient(client, dmgMsg);
@@ -507,7 +507,7 @@ public class CombatService
         await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
         await _svc.Hub.SendToClient(client, new GameMessage
         {
-            Type = "combat_state",
+            Type = GameMessageType.CombatState,
             Data = new { InCombat = true, TargetId = monster.Id.ToString(), TargetName = monster.Name, TargetHp = monster.Health, TargetMaxHp = monster.MaxHealth }
         });
 
@@ -517,7 +517,7 @@ public class CombatService
             pl.LastDamagedTime = DateTime.UtcNow;
             var hitMsg = new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "player", PlayerName = pl.Name, MonsterId = monster.Id.ToString(), X = pl.X, Y = pl.Y, Amount = dmgToPlayer, IsCrit = false }
             };
             await _svc.Hub.SendToClient(client, hitMsg);
@@ -557,7 +557,7 @@ public class CombatService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "main", TargetX = monster.X, TargetY = monster.Y }
         });
 
@@ -597,7 +597,7 @@ public class CombatService
                 $"«ЭТО ДУЭЛЬ!» — наказание за смену таргета: {hitDmg} урона{blockText} {monster.Name}!");
             var dmgMsg = new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = hitDmg, IsCrit = false, Hand = "main" }
             };
             await _svc.Hub.SendToClient(client, dmgMsg);
@@ -616,7 +616,7 @@ public class CombatService
         {
             var killDmgMsg = !evaded ? new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = false, Hand = "main" }
             } : null;
             await _svc.KillService.ResolveMonsterKill(pl, monster, hitDmg, !evaded, killDmgMsg);
@@ -739,7 +739,7 @@ public class CombatService
 
         await _svc.Hub.SendToAllAsync(new GameMessage
         {
-            Type = "player_attack",
+            Type = GameMessageType.PlayerAttack,
             Data = new { PlayerName = pl.Name, Hand = "off", TargetX = offMonster.X, TargetY = offMonster.Y }
         });
 
@@ -785,7 +785,7 @@ public class CombatService
 
         var dmgMsg = new GameMessage
         {
-            Type = "damage",
+            Type = GameMessageType.Damage,
             Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = meleeDmg, IsCrit = meleeCrit, Hand = "off" }
         };
         await _svc.Hub.SendToClient(client, dmgMsg);
@@ -804,7 +804,7 @@ public class CombatService
 
             var killMsg = new GameMessage
             {
-                Type = "damage",
+                Type = GameMessageType.Damage,
                 Data = new { Target = "monster", MonsterId = offMonster.Id.ToString(), X = offMonster.X, Y = offMonster.Y, Amount = Math.Max(0, offMonster.Health + meleeDmg), IsCrit = meleeCrit, Hand = "off" }
             };
             await _svc.KillService.ResolveMonsterKill(pl, offMonster, meleeDmg, true, killMsg);
@@ -814,7 +814,7 @@ public class CombatService
             await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(offMonster.Name, offMonster.Health, offMonster.MaxHealth));
             await _svc.Hub.SendToClient(client, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = true, TargetId = offMonster.Id.ToString(), TargetName = offMonster.Name, TargetHp = offMonster.Health, TargetMaxHp = offMonster.MaxHealth }
             });
         }
@@ -917,7 +917,7 @@ public class CombatService
 
             _ = _svc.Hub.SendToAllAsync(new GameMessage
             {
-                Type = "player_attack",
+                Type = GameMessageType.PlayerAttack,
                 Data = new { PlayerName = pl.Name, Hand = "main", SkillId = SkillIds.Flurry, BuffDurationMs = Balance.AttackSpeedBonusDurationMs }
             });
         }
@@ -925,7 +925,7 @@ public class CombatService
         await MessageHandlers.UseSkillHandler.SendSkillQueue(client, pl, _svc.Hub);
         await _svc.Hub.SendToClient(client, new GameMessage
         {
-            Type = "skill_cooldown",
+            Type = GameMessageType.SkillCooldown,
             Data = new { SkillId = skill.Id, RemainingMs = (int)(skill.CooldownMs * pl.GetSkillRankCdMult(skill.Id)), TotalMs = (int)(skill.CooldownMs * pl.GetSkillRankCdMult(skill.Id)) }
         });
         await ChatTo(client, ChatChannel.Combat, "Бой", $"Применён навык «{skill.Name}»!");

@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Shared.Models;
+using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
@@ -25,11 +25,11 @@ public class TestBot : IDisposable
     private string _lastPartyInviter = "";
     private string _lastTradeInviter = "";
 
-    private static readonly HashSet<string> _noisyTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<GameMessageType> _noisyTypes = new()
     {
-        "map_update", "status_response", "pong", "player_facing", "player_move",
-        "player_hp", "hotbar_response", "inventory_response", "quest_log",
-        "skills_response", "equipment_response", "spell_response", "quest_update"
+        GameMessageType.MapUpdate, GameMessageType.StatusResponse, GameMessageType.Pong, GameMessageType.PlayerFacing, GameMessageType.PlayerMove,
+        GameMessageType.PlayerHp, GameMessageType.HotbarResponse, GameMessageType.InventoryResponse, GameMessageType.QuestLog,
+        GameMessageType.SkillsResponse, GameMessageType.EquipmentResponse, GameMessageType.SpellResponse, GameMessageType.QuestUpdate
     };
 
     public bool IsConnected => _client?.Connected == true;
@@ -57,7 +57,7 @@ public class TestBot : IDisposable
 
             await SendAsync(new GameMessage
             {
-                Type = "login_auth",
+                Type = GameMessageType.LoginAuth,
                 Data = new { Login = _login, Password = _password }
             });
 
@@ -97,7 +97,7 @@ public class TestBot : IDisposable
     {
         switch (msg.Type)
         {
-            case "auth_response":
+            case GameMessageType.AuthResponse:
                 if (msg.Data is JsonElement ae)
                 {
                     bool ok = ae.TryGetProperty("Success", out var s) && s.GetBoolean();
@@ -110,24 +110,24 @@ public class TestBot : IDisposable
                             break;
                         }
                         if (firstChar != null)
-                            await SendAsync(new GameMessage { Type = "character_select", Data = new { Name = firstChar } });
+                            await SendAsync(new GameMessage { Type = GameMessageType.CharacterSelect, Data = new { Name = firstChar } });
                     }
                 }
                 break;
-            case "welcome":
+            case GameMessageType.Welcome:
                 Log.Info($"[Бот {Name}] Вошёл в мир");
                 break;
-            case "party_invite_received":
+            case GameMessageType.PartyInviteReceived:
                 _lastPartyInviter = GetProp(msg.Data, "InviterName") ?? "";
                 Log.Info($"[Бот {Name}] Приглашение в группу от: {_lastPartyInviter} — принимаю автоматически");
-                await SendAsync(new GameMessage { Type = "party_accept", Data = new { InviterName = _lastPartyInviter } });
+                await SendAsync(new GameMessage { Type = GameMessageType.PartyAccept, Data = new { InviterName = _lastPartyInviter } });
                 break;
-            case "trade_request_received":
+            case GameMessageType.TradeRequestReceived:
                 _lastTradeInviter = GetProp(msg.Data, "InviterName") ?? "";
                 Log.Info($"[Бот {Name}] Запрос обмена от: {_lastTradeInviter} — принимаю автоматически");
-                await SendAsync(new GameMessage { Type = "trade_accept", Data = new { InviterName = _lastTradeInviter } });
+                await SendAsync(new GameMessage { Type = GameMessageType.TradeAccept, Data = new { InviterName = _lastTradeInviter } });
                 break;
-            case "mail_unread":
+            case GameMessageType.MailUnread:
                 Log.Info($"[Бот {Name}] Непрочитанных писем: {GetProp(msg.Data, "Count") ?? "?"}");
                 break;
             default:
@@ -152,7 +152,7 @@ public class TestBot : IDisposable
                 var seq = Interlocked.Increment(ref _pingSeq);
                 await SendAsync(new GameMessage
                 {
-                    Type = "ping",
+                    Type = GameMessageType.Ping,
                     Data = new PingMessage(seq, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
                 });
             }
@@ -188,64 +188,64 @@ public class TestBot : IDisposable
             case "say":
                 string text = parts.Length > 1 ? cmd.Substring(cmd.IndexOf(' ') + 1).Trim() : "";
                 if (text.Length == 0) { Log.Warn($"[Бот {Name}] bot say <текст>"); break; }
-                await SendAsync(new GameMessage { Type = "say", Data = text });
+                await SendAsync(new GameMessage { Type = GameMessageType.Say, Data = text });
                 Log.Info($"[Бот {Name}] Сказал: {text}");
                 break;
 
             case "whisper":
                 if (parts.Length < 3) { Log.Warn($"[Бот {Name}] bot whisper <игрок> <текст>"); break; }
                 string wMsg = cmd.Substring(cmd.IndexOf(' ', cmd.IndexOf(' ') + 1) + 1).Trim();
-                await SendAsync(new GameMessage { Type = "say", Data = $"/w {parts[1]} {wMsg}" });
+                await SendAsync(new GameMessage { Type = GameMessageType.Say, Data = $"/w {parts[1]} {wMsg}" });
                 Log.Info($"[Бот {Name}] Шепнул {parts[1]}: {wMsg}");
                 break;
 
             case "invite":
                 if (parts.Length < 2) { Log.Warn($"[Бот {Name}] bot invite <игрок>"); break; }
-                await SendAsync(new GameMessage { Type = "party_invite", Data = new { TargetName = parts[1] } });
+                await SendAsync(new GameMessage { Type = GameMessageType.PartyInvite, Data = new { TargetName = parts[1] } });
                 Log.Info($"[Бот {Name}] Пригласил в группу: {parts[1]}");
                 break;
 
             case "accept":
                 string inviter = parts.Length > 1 ? parts[1] : _lastPartyInviter;
                 if (inviter.Length == 0) { Log.Warn($"[Бот {Name}] Нет активного приглашения"); break; }
-                await SendAsync(new GameMessage { Type = "party_accept", Data = new { InviterName = inviter } });
+                await SendAsync(new GameMessage { Type = GameMessageType.PartyAccept, Data = new { InviterName = inviter } });
                 Log.Info($"[Бот {Name}] Принял приглашение от: {inviter}");
                 break;
 
             case "decline":
                 inviter = parts.Length > 1 ? parts[1] : _lastPartyInviter;
                 if (inviter.Length == 0) { Log.Warn($"[Бот {Name}] Нет активного приглашения"); break; }
-                await SendAsync(new GameMessage { Type = "party_decline", Data = new { InviterName = inviter } });
+                await SendAsync(new GameMessage { Type = GameMessageType.PartyDecline, Data = new { InviterName = inviter } });
                 Log.Info($"[Бот {Name}] Отклонил приглашение от: {inviter}");
                 break;
 
             case "leave":
-                await SendAsync(new GameMessage { Type = "party_leave" });
+                await SendAsync(new GameMessage { Type = GameMessageType.PartyLeave });
                 Log.Info($"[Бот {Name}] Вышел из группы");
                 break;
 
             case "trade":
                 if (parts.Length < 2) { Log.Warn($"[Бот {Name}] bot trade <игрок>"); break; }
-                await SendAsync(new GameMessage { Type = "trade_request", Data = new { TargetName = parts[1] } });
+                await SendAsync(new GameMessage { Type = GameMessageType.TradeRequest, Data = new { TargetName = parts[1] } });
                 Log.Info($"[Бот {Name}] Запросил обмен с: {parts[1]}");
                 break;
 
             case "trade_accept":
                 string trader = parts.Length > 1 ? parts[1] : _lastTradeInviter;
                 if (trader.Length == 0) { Log.Warn($"[Бот {Name}] Нет активного запроса обмена"); break; }
-                await SendAsync(new GameMessage { Type = "trade_accept", Data = new { InviterName = trader } });
+                await SendAsync(new GameMessage { Type = GameMessageType.TradeAccept, Data = new { InviterName = trader } });
                 Log.Info($"[Бот {Name}] Принял обмен с: {trader}");
                 break;
 
             case "trade_decline":
                 trader = parts.Length > 1 ? parts[1] : _lastTradeInviter;
                 if (trader.Length == 0) { Log.Warn($"[Бот {Name}] Нет активного запроса обмена"); break; }
-                await SendAsync(new GameMessage { Type = "trade_decline", Data = new { InviterName = trader } });
+                await SendAsync(new GameMessage { Type = GameMessageType.TradeDecline, Data = new { InviterName = trader } });
                 Log.Info($"[Бот {Name}] Отклонил обмен с: {trader}");
                 break;
 
             case "trade_cancel":
-                await SendAsync(new GameMessage { Type = "trade_cancel" });
+                await SendAsync(new GameMessage { Type = GameMessageType.TradeCancel });
                 Log.Info($"[Бот {Name}] Прервал обмен");
                 break;
 
@@ -271,7 +271,7 @@ public class TestBot : IDisposable
                 }
                 await SendAsync(new GameMessage
                 {
-                    Type = "mail",
+                    Type = GameMessageType.Mail,
                     Data = new { Action = "send", RecipientName = parts[1], Subject = subject, Body = "", GoldAmount = 0, Attachments = attachments }
                 });
                 Log.Info($"[Бот {Name}] Отправил письмо: {parts[1]}, тема «{subject}», вложений: {attachments.Count}");
@@ -280,12 +280,12 @@ public class TestBot : IDisposable
             case "move":
                 if (parts.Length < 3 || !int.TryParse(parts[1], out int mx) || !int.TryParse(parts[2], out int my))
                 { Log.Warn($"[Бот {Name}] bot move <x> <y>"); break; }
-                await SendAsync(new GameMessage { Type = "move_to", Data = new { X = mx, Y = my } });
+                await SendAsync(new GameMessage { Type = GameMessageType.MoveTo, Data = new { X = mx, Y = my } });
                 Log.Info($"[Бот {Name}] Идёт в ({mx}, {my})");
                 break;
 
             case "logout":
-                await SendAsync(new GameMessage { Type = "logout" });
+                await SendAsync(new GameMessage { Type = GameMessageType.Logout });
                 Log.Info($"[Бот {Name}] Выходит из игры");
                 break;
 

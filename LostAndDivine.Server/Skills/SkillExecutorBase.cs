@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using LostAndDivine.Server.Network;
 using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
@@ -153,7 +153,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         await svc.SendToC(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
         await svc.SendToC(client, new GameMessage
         {
-            Type = "combat_state",
+            Type = GameMessageType.CombatState,
             Data = new { InCombat = true, TargetId = monster.Id.ToString(), TargetName = monster.Name, TargetHp = monster.Health, TargetMaxHp = monster.MaxHealth }
         });
 
@@ -171,7 +171,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
 
     protected static GameMessage KillDamageMsg(Monster monster, int hitDmg, bool hitCrit, string hand) => new()
     {
-        Type = "damage",
+        Type = GameMessageType.Damage,
         Data = new { Target = "monster", MonsterId = monster.Id.ToString(), X = monster.X, Y = monster.Y, Amount = Math.Max(0, monster.Health + hitDmg), IsCrit = hitCrit, Hand = hand, IsSkill = true }
     };
 
@@ -217,7 +217,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         {
             string critT = hitCrit ? " (КРИТ!)" : "", blockT = blocked ? " (блок)" : "";
             await svc.ChatToC(atkClient, "Бой", $"«{skill.Name}» — первый удар: {hitDmg} урона{critT}{blockT} {target.Name}.");
-            var dmgMsg = new GameMessage { Type = "damage", Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } };
+            var dmgMsg = new GameMessage { Type = GameMessageType.Damage, Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } };
             await svc.SendToC(atkClient, dmgMsg);
             await svc.SendDmgNearbyTo(dmgMsg, target);
         }
@@ -225,7 +225,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         var targetClient = svc.World.FindClientByPlayer(target);
         if (targetClient != null)
         {
-            await svc.SendToC(targetClient, new GameMessage { Type = "damage", Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } });
+            await svc.SendToC(targetClient, new GameMessage { Type = GameMessageType.Damage, Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } });
             await svc.ChatToC(targetClient, "Бой", $"{pl.Name} применил «{skill.Name}»: {hitDmg} урона вам.");
             await svc.SendMyStatus(targetClient, target);
         }
@@ -296,7 +296,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         {
             string critT = hitCrit ? " (КРИТ!)" : "", blockT = blocked ? " (блок)" : "";
             await svc.ChatToC(atkClient, "Бой", $"«{skillName}»: {hitDmg} урона{critT}{blockT} {target.Name}.");
-            var dmgMsg = new GameMessage { Type = "damage", Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } };
+            var dmgMsg = new GameMessage { Type = GameMessageType.Damage, Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } };
             await svc.SendToC(atkClient, dmgMsg);
             await svc.SendDmgNearbyTo(dmgMsg, target);
         }
@@ -304,7 +304,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         var targetClient = svc.World.FindClientByPlayer(target);
         if (targetClient != null)
         {
-            await svc.SendToC(targetClient, new GameMessage { Type = "damage", Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } });
+            await svc.SendToC(targetClient, new GameMessage { Type = GameMessageType.Damage, Data = new { Target = "player", PlayerName = target.Name, X = target.X, Y = target.Y, Amount = hitDmg, IsCrit = hitCrit, IsSkill = true } });
             await svc.ChatToC(targetClient, "Бой", $"{pl.Name}: {hitDmg} урона «{skillName}».");
             await svc.SendMyStatus(targetClient, target);
         }
@@ -342,7 +342,7 @@ public abstract class SkillExecutorBase : BaseSkillExecutor
         if (targetClient != null)
             _ = svc.SendToC(targetClient, new GameMessage
             {
-                Type = "combat_state",
+                Type = GameMessageType.CombatState,
                 Data = new { InCombat = true, TargetId = pl.Id.ToString(), TargetName = pl.Name, TargetHp = pl.Health, TargetMaxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth(), IsPvP = true }
             });
     }

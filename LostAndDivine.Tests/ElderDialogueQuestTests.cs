@@ -36,6 +36,8 @@ public class ElderDialogueQuestTests
         public NpcPosition? FindNpcAt(string zoneId, int x, int y) => null;
         public NpcPosition? FindNpcById(string zoneId, string npcId) => null;
         public void MarkZoneDirty(string zoneId) { }
+        public void MarkEntityStateDirty(string zoneId) { }
+        public Task BroadcastEntityStatesAsync() => Task.CompletedTask;
     }
 
     private static string ContentDbPath()

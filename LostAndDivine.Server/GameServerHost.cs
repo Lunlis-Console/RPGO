@@ -1,7 +1,8 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 
+using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server;
 
 /// <summary>
@@ -266,7 +267,7 @@ public class GameServerHost
                     {
                         var healMsg = new GameMessage
                         {
-                            Type = "heal",
+                            Type = GameMessageType.Heal,
                             Data = new { Target = "player", PlayerName = pl.Name, X = pl.X, Y = pl.Y, Amount = heal }
                         };
                         await _svc.Hub.SendToClient(conn, healMsg);
@@ -276,7 +277,7 @@ public class GameServerHost
                     {
                         var manaMsg = new GameMessage
                         {
-                            Type = "mana_regen",
+                            Type = GameMessageType.ManaRegen,
                             Data = new { X = pl.X, Y = pl.Y, Amount = manaTick }
                         };
                         await _svc.Hub.SendToClient(conn, manaMsg);

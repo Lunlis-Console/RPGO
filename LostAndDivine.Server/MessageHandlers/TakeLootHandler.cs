@@ -1,4 +1,4 @@
-﻿using LostAndDivine.Server.Network;
+using LostAndDivine.Server.Network;
 using LostAndDivine.Server.Services;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -86,7 +86,7 @@ public class TakeLootHandler : BaseHandler
             player.Interaction.ItemIds = selectedIds;
             await SendToClient(connection, new GameMessage
             {
-                Type = "chat",
+                Type = GameMessageType.Chat,
                 Data = new { Name = "Система", Text = "Вы подходите к трупу..." }
             });
             return;
@@ -153,7 +153,7 @@ public class TakeLootHandler : BaseHandler
 
         await SendToClient(connection, new GameMessage
         {
-            Type = "chat",
+            Type = GameMessageType.Chat,
             Data = new { Name = "Система", Text = $"Вы забрали: {lootText}" }
         });
         await SendInventoryAndStatus(connection, player);
