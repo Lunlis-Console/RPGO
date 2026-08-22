@@ -11,6 +11,7 @@ public class SettingsManager
     public int Height { get; set; } = 720;
     public string Mode { get; set; } = "windowed"; // windowed | fullscreen | borderless
     public string ServerIp { get; set; } = "127.0.0.1";
+    public int ServerPort { get; set; } = 7777;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {

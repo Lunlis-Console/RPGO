@@ -15,7 +15,7 @@ namespace LostAndDivine.Shared;
 /// </summary>
 public static class GameUpdater
 {
-    private const int Port = 7777;
+    private const int DefaultPort = 7777;
 
     public static string BaseDir => AppDomain.CurrentDomain.BaseDirectory;
     public static string VersionFile => Path.Combine(BaseDir, "version.json");
@@ -39,7 +39,7 @@ public static class GameUpdater
     /// Проверяет обновления и применяет их при наличии. Возвращает флаг необходимости
     /// перезапуска (обновление уже записано в staging и готово к применению).
     /// </summary>
-    public static async Task<GameUpdateResult> CheckAndApplyAsync(string ip, IProgress<string>? progress = null, CancellationToken ct = default)
+    public static async Task<GameUpdateResult> CheckAndApplyAsync(string ip, IProgress<string>? progress = null, CancellationToken ct = default, int port = DefaultPort)
     {
         var report = new Action<string>(m => { Log(m); progress?.Report(m); });
 
@@ -52,7 +52,7 @@ public static class GameUpdater
         try
         {
             using var client = new TcpClient { NoDelay = true };
-            await client.ConnectAsync(ip, Port, ct);
+            await client.ConnectAsync(ip, port, ct);
             var stream = client.GetStream();
 
             await Send(stream, new GameMessage { Type = GameMessageType.UpdateCheck, Data = new UpdateCheckRequest { Version = localVersion } });
@@ -117,13 +117,13 @@ public static class GameUpdater
     }
 
     /// <summary>Запрашивает у сервера историю изменений (changelog) без входа в игру.</summary>
-    public static async Task<ChangelogData?> FetchChangelogAsync(string ip, CancellationToken ct = default)
+    public static async Task<ChangelogData?> FetchChangelogAsync(string ip, CancellationToken ct = default, int port = DefaultPort)
     {
         if (string.IsNullOrWhiteSpace(ip)) return null;
         try
         {
             using var client = new TcpClient { NoDelay = true };
-            await client.ConnectAsync(ip, Port, ct);
+            await client.ConnectAsync(ip, port, ct);
             var stream = client.GetStream();
             await Send(stream, new GameMessage { Type = GameMessageType.Changelog, Data = new { } });
             var msg = await Receive<GameMessage>(stream, ct);

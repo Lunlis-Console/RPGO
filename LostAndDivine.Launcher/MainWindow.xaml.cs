@@ -13,6 +13,7 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<ChangelogItem> _changelog = new();
     private string _serverIp = "127.0.0.1";
+    private int _serverPort = 7777;
     private bool _busy;
     private bool _restarting;
 
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
         ChangelogList.ItemsSource = _changelog;
 
         _serverIp = ReadServerIp();
+        _serverPort = ReadServerPort();
         ServerIpBox.Text = _serverIp;
         VersionLabel.Text = $"локальная v{GameUpdater.LocalVersion}";
 
@@ -54,7 +56,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var cl = await GameUpdater.FetchChangelogAsync(_serverIp);
+            var cl = await GameUpdater.FetchChangelogAsync(_serverIp, port: _serverPort);
             _changelog.Clear();
             if (cl?.Entries != null)
             {
@@ -84,7 +86,7 @@ public partial class MainWindow : Window
         try
         {
             var progress = new Progress<string>(m => StatusLabel.Text = m);
-            var result = await GameUpdater.CheckAndApplyAsync(_serverIp, progress);
+            var result = await GameUpdater.CheckAndApplyAsync(_serverIp, progress, port: _serverPort);
             StatusLabel.Text = result.Message;
             VersionLabel.Text = $"локальная v{GameUpdater.LocalVersion}";
             if (result.RestartRequired)
@@ -145,6 +147,22 @@ public partial class MainWindow : Window
         }
         catch { }
         return "127.0.0.1";
+    }
+
+    private static int ReadServerPort()
+    {
+        try
+        {
+            string path = Path.Combine(AppContext.BaseDirectory, "settings.json");
+            if (File.Exists(path))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(path));
+                if (doc.RootElement.TryGetProperty("ServerPort", out var v) && v.TryGetInt32(out var p) && p > 0 && p <= 65535)
+                    return p;
+            }
+        }
+        catch { }
+        return 7777;
     }
 
     private void SaveServerIp(string ip)

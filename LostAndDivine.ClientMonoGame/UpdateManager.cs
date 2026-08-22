@@ -33,11 +33,12 @@ public static class UpdateManager
                 return false; // dev-сборка без version.json: авто-апдейт не запускаем
 
             string ip = SettingsManager.Load().ServerIp;
+            int port = SettingsManager.Load().ServerPort;
             if (string.IsNullOrWhiteSpace(ip))
                 return false;
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-            return GameUpdater.CheckAndApplyAsync(ip, null, cts.Token).GetAwaiter().GetResult().RestartRequired;
+            return GameUpdater.CheckAndApplyAsync(ip, null, cts.Token, port).GetAwaiter().GetResult().RestartRequired;
         }
         catch (Exception ex)
         {
@@ -49,7 +50,7 @@ public static class UpdateManager
     /// <summary>Ручная проверка обновлений (из экрана логина).</summary>
     public static async Task<UpdateCheckResult> CheckForUpdatesAsync(string ip, CancellationToken ct = default)
     {
-        var r = await GameUpdater.CheckAndApplyAsync(ip, null, ct);
+        var r = await GameUpdater.CheckAndApplyAsync(ip, null, ct, SettingsManager.Load().ServerPort);
         return new UpdateCheckResult { RestartRequired = r.RestartRequired, Message = r.Message };
     }
 

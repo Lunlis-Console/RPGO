@@ -12,6 +12,7 @@ public class LoginScreen : IScreen
     private readonly string[] _defaults = { "", "" };
     private readonly string[] _values = new string[2];
     private string _serverIp = "127.0.0.1";
+    private int _serverPort = 7777;
 
     private int _selectedField = -1;
     private string _statusMessage = "Не подключено";
@@ -30,7 +31,9 @@ public class LoginScreen : IScreen
     public LoginScreen(string? statusMessage = null)
     {
         Array.Copy(_defaults, _values, 2);
-        _serverIp = SettingsManager.Load().ServerIp;
+        var settings = SettingsManager.Load();
+        _serverIp = settings.ServerIp;
+        _serverPort = settings.ServerPort;
         RebuildLayout();
         _ = AutoConnectAsync();
 
@@ -192,7 +195,7 @@ public class LoginScreen : IScreen
                 }
                 if (!network.IsConnected)
                 {
-                    bool connected = await network.ConnectAsync(ip, 7777);
+                    bool connected = await network.ConnectAsync(ip, _serverPort);
                     if (!connected)
                     {
                         _statusMessage = "Ошибка подключения";
@@ -217,7 +220,7 @@ public class LoginScreen : IScreen
                 }
                 if (!network.IsConnected)
                 {
-                    bool connected2 = await network.ConnectAsync(ip, 7777);
+                    bool connected2 = await network.ConnectAsync(ip, _serverPort);
                     if (!connected2)
                     {
                         _statusMessage = "Ошибка подключения";
@@ -242,7 +245,7 @@ public class LoginScreen : IScreen
                 _values[1] = "123";
                 if (!network.IsConnected)
                 {
-                    bool connected3 = await network.ConnectAsync(ip, 7777);
+                    bool connected3 = await network.ConnectAsync(ip, _serverPort);
                     if (!connected3)
                     {
                         _statusMessage = "Ошибка подключения";
@@ -372,7 +375,7 @@ public class LoginScreen : IScreen
             if (network == null || network.IsConnected) return;
             _statusMessage = "Подключение...";
             _statusColor = Color.Yellow;
-            bool ok = await network.ConnectAsync(_serverIp, 7777);
+            bool ok = await network.ConnectAsync(_serverIp, _serverPort);
             if (ok)
             {
                 SaveServerIp(_serverIp);
