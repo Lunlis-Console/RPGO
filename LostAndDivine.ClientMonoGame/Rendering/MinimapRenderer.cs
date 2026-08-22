@@ -36,6 +36,9 @@ public class MinimapRenderer
     // клеток вокруг игрока (зум внутри миникарты ~120%).
     private const int FocusWindow = 83;
     private int _winX0, _winY0, _lastWinX, _lastWinY;
+    // Последняя известная позиция игрока — для выгрузки далеко ушедших секторов (P1-5).
+    private int _lastCenterX, _lastCenterY;
+    private bool _hasCenter;
     // Данные карты обновляются с сетевого потока (по частям), а читаются
     // с потока отрисовки — без лока возможен разрыв: новые данные при старых
     // размерах, что даёт IndexOutOfRange в RebuildTerrain.
@@ -133,6 +136,23 @@ public class MinimapRenderer
             _sectors[(sector.Col, sector.Row)] = sector;
             _sectorMode = true;
             _terrainDirty = true;
+
+            // P1-5: миникарта рисует только окно FocusWindow вокруг игрока (<= 1-2 сектора
+            // в каждую сторону), поэтому держать ВСЕ открытые секторы в её кэше нет смысла —
+            // это дублировало до 510 SectorData. Выгружаем ушедшие за окрестность;
+            // незагруженный сектор всё равно рисуется как «пустота» (существующее поведение).
+            if (_hasCenter)
+            {
+                int pc = _lastCenterX / BalanceStatic.SectorSize;
+                int pr = _lastCenterY / BalanceStatic.SectorSize;
+                const int radius = 3; // ~7x7 секторов — с запасом на окно миникарты
+                var toRemove = new List<(int Col, int Row)>();
+                foreach (var key in _sectors.Keys)
+                    if (Math.Max(Math.Abs(key.Col - pc), Math.Abs(key.Row - pr)) > radius)
+                        toRemove.Add(key);
+                foreach (var k in toRemove)
+                    _sectors.Remove(k);
+            }
         }
     }
 
@@ -269,6 +289,7 @@ public class MinimapRenderer
         int winH = Math.Min(FocusWindow, map.Height);
         _winX0 = Math.Clamp(centerX - winW / 2, 0, map.Width - winW);
         _winY0 = Math.Clamp(centerY - winH / 2, 0, map.Height - winH);
+        lock (_lock) { _lastCenterX = centerX; _lastCenterY = centerY; _hasCenter = centerX >= 0 && centerY >= 0; }
         if (_terrainDirty || _winX0 != _lastWinX || _winY0 != _lastWinY)
         {
             _terrainDirty = false;
