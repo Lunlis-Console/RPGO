@@ -16,6 +16,7 @@ obj/
 *.log
 *.txt
 !README.txt
+!version.txt
 game.db-journal
 *~lock.*
 .DocumentLayout*.json

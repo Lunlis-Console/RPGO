@@ -6,14 +6,11 @@ param(
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
-# Version default = commit count (same as build-client-build.ps1) so the
-# installer version matches the client version.
+# Version: if provided, use as-is. Otherwise bump the monotonic build number
+# (P2-9) so each published installer/client gets a strictly greater version.
+. "$PSScriptRoot\version.ps1"
 if (-not $Version) {
-    try {
-        $commitCount = (& git rev-list --count HEAD 2>$null | Out-String).Trim()
-        if ($commitCount -match '^\d+$') { $Version = "0.1.$commitCount" }
-        else { throw "git rev-list returned: '$commitCount'" }
-    } catch { $Version = "0.1.0" }
+    $Version = Step-Version
 }
 Write-Host "Installer version: $Version"
 

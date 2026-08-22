@@ -19,22 +19,12 @@ $publishDir = Join-Path $env:TEMP "lost-and-divine-client-publish"
 $launcherPublishDir = Join-Path $env:TEMP "lost-and-divine-launcher-publish"
 $combinedDir = Join-Path $env:TEMP "lost-and-divine-combined"
 
-# --- version: param has priority, otherwise commit count (deterministic) ---
+# --- version: param has priority, иначе монотонный номер из version.txt (P2-9) ---
+# Версия больше НЕ берётся из git commit-count (не монотонен при rebase/сжатии
+# и ломает порядок обновлений). Источник истины — version.txt (растёт только вверх).
+. "$PSScriptRoot\version.ps1"
 if (-not $Version) {
-    try {
-        $commitCount = (& git rev-list --count HEAD 2>$null | Out-String).Trim()
-        if ($commitCount -match '^\d+$') {
-            $Version = "0.1.$commitCount"
-        } else {
-            throw "git rev-list returned: '$commitCount'"
-        }
-    } catch {
-        if (Test-Path (Join-Path $clientBuildDir "version.txt")) {
-            $parts = ((Get-Content (Join-Path $clientBuildDir "version.txt")).Trim() -split '\.')
-            if ($parts.Count -ge 3) { $parts[2] = [int]$parts[2] + 1; $Version = $parts -join '.' }
-            else { $Version = "0.1.0" }
-        } else { $Version = "0.1.0" }
-    }
+    $Version = Get-Version
 }
 Write-Host "Client version: $Version"
 

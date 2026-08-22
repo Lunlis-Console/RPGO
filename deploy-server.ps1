@@ -9,17 +9,22 @@
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
+# --- P2-9: единый монотонный номер версии на весь деплой (клиент + установщик) ---
+. "$root\version.ps1"
+$deployVersion = Step-Version
+Write-Host "=== Deploy version: $deployVersion ==="
+
 Write-Host "=== 0. Building client ==="
 # Запускаем дочерним процессом (powershell -File), иначе $LASTEXITCODE
 # отражает код последней нативной команды внутри скрипта (например, robocopy
 # возвращает 1 даже при успехе), а не код завершения самого скрипта.
-powershell -NoProfile -ExecutionPolicy Bypass -File "$root\build-client-build.ps1" -RequireKey
+powershell -NoProfile -ExecutionPolicy Bypass -File "$root\build-client-build.ps1" -RequireKey -Version $deployVersion
 if ($LASTEXITCODE -ne 0) { throw "Client build failed (signing key on flash drive required)" }
 Write-Host "  Client zip: dist\LostAndDivine-client-win-x64.zip (для раздачи друзьям)"
 
 Write-Host "`n=== 0.1. Building installer (Setup.exe) ==="
 # install_source уже собран выше (build-client-build.ps1) — не пересобираем клиент.
-powershell -NoProfile -ExecutionPolicy Bypass -File "$root\build-installer.ps1" -SkipClientBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File "$root\build-installer.ps1" -SkipClientBuild -Version $deployVersion
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "Установщик не собран (нужен Inno Setup или ключ -SkipClientBuild). Сервер всё равно задеплоен."
 }
