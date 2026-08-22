@@ -669,14 +669,16 @@ private sealed class RemotePlayerState
             }
             _currentMap.Players.RemoveAll(p => !playerNames.Contains(p.Name));
             _currentMap.Monsters.RemoveAll(m => !monsterIds.Contains(m.Id.ToString()));
-            RebuildSpatialHash(_currentMap);
         }
         if (teleported)
         {
             ClearSelection();
             _returning = false;
         }
-        UpdateVisualInterpolation(_currentMap);
+        // Пространственный хеш и интерполяция пересобираются в render-цикле (Draw ->
+        // UpdateVisualInterpolation), чтобы сетевой поток не делал тяжёлую работу при
+        // каждой рассылке EntityState — иначе при движении игрока (рассылки ~50 мс)
+        // возникал конфликт за _stateLock с потоком отрисовки и анимации дёргались.
     }
 
     public void ClearMap()
@@ -1447,6 +1449,13 @@ private sealed class RemotePlayerState
             }
         }
         AdvanceVisPositions();
+        // Пространственный хеш для hit-testing пересобираем здесь (раз в кадр отрисовки),
+        // а не в MergeEntityState — чтобы тяжёлая пересборка не выполнялась на сетевом
+        // потоке при каждой рассылке EntityState (причина дёрганья анимаций при движении).
+        lock (_stateLock)
+        {
+            RebuildSpatialHash(map);
+        }
     }
 
     private void DrawTiles(SpriteBatch sb, WorldMap map, float offsetX, float offsetY, float areaW, float areaH)
@@ -2676,15 +2685,27 @@ private sealed class RemotePlayerState
     private static double EstimateCadenceMs(string key)
     {
         if (key.StartsWith("monster:")) return 1500;
-        if (key.StartsWith("npc:")) return 450;
-        int mi = 0;
+        // Бродячие NPC ходят с той же скоростью, что и игрок (каденс = MoveIntervalMs),
+        // чтобы визуально не «спешили» относительно персонажа.
+        if (key.StartsWith("npc:"))
+        {
+            int mi = 0;
+            try
+            {
+                var st = GameMain.Instance?.Client.Status;
+                if (st != null && st.MoveIntervalMs > 0) mi = st.MoveIntervalMs;
+            }
+            catch { }
+            return mi > 0 ? mi : 500;
+        }
+        int pmi = 0;
         try
         {
             var st = GameMain.Instance?.Client.Status;
-            if (st != null && st.MoveIntervalMs > 0) mi = st.MoveIntervalMs;
+            if (st != null && st.MoveIntervalMs > 0) pmi = st.MoveIntervalMs;
         }
         catch { }
-        return mi > 0 ? mi : 500;
+        return pmi > 0 ? pmi : 500;
     }
 
     private void SetVisTarget(string key, int tx, int ty)

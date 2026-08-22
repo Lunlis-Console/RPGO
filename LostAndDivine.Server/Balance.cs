@@ -154,7 +154,10 @@ public static class Balance
     // Блуждающие NPC ("wanderer"): мирные жители/заключённые, просто ходят по локации.
     public const int WandererWanderRadius = 4;
     public const int WandererWanderSkipChance = 35;
-    public const int WandererMoveIntervalMs = 450;
+    // Каденс ходьбы бродяги равен MoveIntervalMs игрока (500 мс при Speed 1), чтобы
+    // визуально не «спешить». Должен быть >= клиентского каденса интерполяции,
+    // иначе шаг сервера догоняет незавершённую клиентскую анимацию (дёрганье).
+    public const int WandererMoveIntervalMs = 500;
     public const int WandererMoveJitterMaxMs = 2500;
 
     public const int MonsterAttrBase = 1;
