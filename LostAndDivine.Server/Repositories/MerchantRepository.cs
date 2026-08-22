@@ -1,3 +1,5 @@
+using LostAndDivine.Shared.Data;
+
 namespace LostAndDivine.Server.Repositories;
 
 internal static class MerchantRepository
@@ -24,21 +26,11 @@ internal static class MerchantRepository
         {
             using var connection = Db.OpenContent();
             using var transaction = connection.BeginTransaction();
-            using (var del = connection.CreateCommand())
-            {
-                del.CommandText = "DELETE FROM merchant_stock WHERE npc_id = $npc";
-                del.Parameters.AddWithValue("$npc", npcId);
-                del.ExecuteNonQuery();
-            }
+            ContentStore.DeleteMerchantStock(connection, transaction, npcId);
             foreach (var (itemId, stock) in items)
             {
                 if (string.IsNullOrWhiteSpace(itemId)) continue;
-                using var cmd = connection.CreateCommand();
-                cmd.CommandText = "INSERT INTO merchant_stock (npc_id, item_id, stock) VALUES ($npc, $item, $stock)";
-                cmd.Parameters.AddWithValue("$npc", npcId);
-                cmd.Parameters.AddWithValue("$item", itemId);
-                cmd.Parameters.AddWithValue("$stock", Math.Max(1, stock));
-                cmd.ExecuteNonQuery();
+                ContentStore.InsertMerchantStock(connection, transaction, npcId, itemId, stock);
             }
             transaction.Commit();
         }

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using LostAndDivine.Shared.Data;
 
 namespace LostAndDivine.Editor.Views;
 
@@ -169,20 +170,10 @@ public sealed class MerchantAssortmentWindow : Window
         {
             using var conn = _db.OpenContent();
             using var transaction = conn.BeginTransaction();
-            using (var del = conn.CreateCommand())
-            {
-                del.CommandText = "DELETE FROM merchant_stock WHERE npc_id = $npc";
-                del.Parameters.AddWithValue("$npc", _npcId);
-                del.ExecuteNonQuery();
-            }
+            ContentStore.DeleteMerchantStock(conn, transaction, _npcId);
             foreach (var row in _stock)
             {
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "INSERT INTO merchant_stock (npc_id, item_id, stock) VALUES ($npc, $item, $stock)";
-                cmd.Parameters.AddWithValue("$npc", _npcId);
-                cmd.Parameters.AddWithValue("$item", row.Id);
-                cmd.Parameters.AddWithValue("$stock", Math.Max(1, row.Stock));
-                cmd.ExecuteNonQuery();
+                ContentStore.InsertMerchantStock(conn, transaction, _npcId, row.Id, row.Stock);
             }
             transaction.Commit();
             Close();

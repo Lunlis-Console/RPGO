@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using LostAndDivine.Shared.Data;
 using Microsoft.Data.Sqlite;
 
 namespace LostAndDivine.Editor.Views;
@@ -142,7 +143,7 @@ public partial class QuestsTabView : UserControl
                 var id = row["id"]?.ToString();
                 if (!string.IsNullOrWhiteSpace(id)) questIds.Add(id!);
             }
-            Db.DeleteMissingRows(conn, transaction, "quests_def", "id", questIds);
+            ContentStore.DeleteMissingRows(conn, transaction, "quests_def", "id", questIds);
             foreach (DataRow row in _dt.Rows)
             {
                 if (row.RowState == DataRowState.Deleted) continue;
@@ -177,36 +178,31 @@ public partial class QuestsTabView : UserControl
                     }
                     objectives = JsonSerializer.Serialize(new[] { obj }, Db.QuestJsonOpts);
                 }
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT OR REPLACE INTO quests_def (id, title, description, type, target_monster_id, target_item_id, target_npc_id, target, xp_reward, gold_reward, chain_id, step, prerequisite_quest_id, min_level, item_reward_id, item_reward_count, target_zone_id, target_x, target_y, auto_grant, giver_npc_id, is_story, location, repeatable, objectives)
-                    VALUES ($id,$t,$d,$ty,$tm,$ti,$tn,$tg,$xp,$g,$ch,$st,$pr,$ml,$ri,$rc,$tz,$tx,$tyy,$ag,$gn,$is,$loc,$rep,$obj)";
-                cmd.Parameters.AddWithValue("$id", row["id"]);
-                cmd.Parameters.AddWithValue("$t", row["title"] ?? "");
-                cmd.Parameters.AddWithValue("$d", row["description"] ?? "");
-                cmd.Parameters.AddWithValue("$ty", type);
-                cmd.Parameters.AddWithValue("$tm", monsterId);
-                cmd.Parameters.AddWithValue("$ti", itemId);
-                cmd.Parameters.AddWithValue("$tn", npcId);
-                cmd.Parameters.AddWithValue("$tg", Db.ToInt(row["target"]));
-                cmd.Parameters.AddWithValue("$xp", Db.ToInt(row["xp_reward"]));
-                cmd.Parameters.AddWithValue("$g", Db.ToInt(row["gold_reward"]));
-                cmd.Parameters.AddWithValue("$ch", row["chain_id"] ?? "");
-                cmd.Parameters.AddWithValue("$st", Db.ToInt(row["step"]));
-                cmd.Parameters.AddWithValue("$pr", row["prereq"] ?? "");
-                cmd.Parameters.AddWithValue("$ml", Db.ToInt(row["min_level"]));
-                cmd.Parameters.AddWithValue("$ri", Db.IdByName(_db.RewardItemRefs, row["item_reward"]?.ToString() ?? ""));
-                cmd.Parameters.AddWithValue("$rc", Db.ToInt(row["item_reward_count"]));
-                cmd.Parameters.AddWithValue("$tz", row["target_zone"] ?? "");
-                cmd.Parameters.AddWithValue("$tx", Db.ToInt(row["target_x"]));
-                cmd.Parameters.AddWithValue("$tyy", Db.ToInt(row["target_y"]));
-                cmd.Parameters.AddWithValue("$ag", row["auto_grant"] is bool ag && ag ? 1 : 0);
-                cmd.Parameters.AddWithValue("$gn", giverId);
-                cmd.Parameters.AddWithValue("$is", row["is_story"] is bool ist && ist ? 1 : 0);
-                cmd.Parameters.AddWithValue("$rep", row["is_story"] is bool iss && iss ? 0
-                    : (row["repeatable"] is bool repb && repb ? 1 : 0));
-                cmd.Parameters.AddWithValue("$loc", row["location"] ?? "");
-                cmd.Parameters.AddWithValue("$obj", objectives);
-                cmd.ExecuteNonQuery();
+                ContentStore.UpsertQuest(conn, transaction,
+                    row["id"]?.ToString() ?? "",
+                    row["title"]?.ToString() ?? "",
+                    row["description"]?.ToString() ?? "",
+                    type,
+                    monsterId, itemId, npcId,
+                    Db.ToInt(row["target"]),
+                    Db.ToInt(row["xp_reward"]),
+                    Db.ToInt(row["gold_reward"]),
+                    row["chain_id"]?.ToString() ?? "",
+                    Db.ToInt(row["step"]),
+                    row["prereq"]?.ToString() ?? "",
+                    Db.ToInt(row["min_level"]),
+                    Db.IdByName(_db.RewardItemRefs, row["item_reward"]?.ToString() ?? ""),
+                    Db.ToInt(row["item_reward_count"]),
+                    row["target_zone"]?.ToString() ?? "",
+                    Db.ToInt(row["target_x"]),
+                    Db.ToInt(row["target_y"]),
+                    row["auto_grant"] is bool ag && ag ? 1 : 0,
+                    giverId,
+                    row["is_story"] is bool ist && ist ? 1 : 0,
+                    row["location"]?.ToString() ?? "",
+                    (row["is_story"] is bool iss && iss) ? 0
+                        : (row["repeatable"] is bool repb && repb ? 1 : 0),
+                    objectives);
             }
             transaction.Commit();
             _db.LoadQuestRefs();

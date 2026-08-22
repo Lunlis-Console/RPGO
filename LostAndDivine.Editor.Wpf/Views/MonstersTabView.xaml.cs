@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using LostAndDivine.Shared.Data;
 using Microsoft.Data.Sqlite;
 
 namespace LostAndDivine.Editor.Views;
@@ -96,51 +97,19 @@ public partial class MonstersTabView : UserControl
                 var id = row["id"]?.ToString();
                 if (!string.IsNullOrWhiteSpace(id)) monsterIds.Add(id!);
             }
-            Db.DeleteMissingRows(conn, transaction, "monsters", "id", monsterIds);
-            using (var delDrops = conn.CreateCommand()) { delDrops.CommandText = "DELETE FROM monster_drops"; delDrops.ExecuteNonQuery(); }
+            ContentStore.DeleteMissingRows(conn, transaction, "monsters", "id", monsterIds);
+            ContentStore.DeleteAllMonsterDrops(conn, transaction);
             foreach (DataRow row in _dt.Rows)
             {
                 if (row.RowState == DataRowState.Deleted) continue;
                 if (string.IsNullOrWhiteSpace(row["id"]?.ToString())) continue;
                 string monsterId = row["id"].ToString()!;
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = @"INSERT OR REPLACE INTO monsters (id, name, tier, health, phys_attack, phys_defense, xp_reward, gold_reward, gold_max, symbol,
-                        strength, endurance, agility, cunning, intellect, wisdom, crit_chance, crit_damage, evade_chance,
-                        block_chance, parry_chance, shield_defense)
-                    VALUES ($id,$n,$t,$hp,$a,$d,$xp,$g,$gm,$s,$str,$sta,$agi,$cun,$wis,$wil,$cc,$cd,$ec,$bc,$pc,$sd)";
-                cmd.Parameters.AddWithValue("$id", monsterId);
-                cmd.Parameters.AddWithValue("$n", row["name"] ?? "");
-                cmd.Parameters.AddWithValue("$t", Db.ToInt(row["tier"]));
-                cmd.Parameters.AddWithValue("$hp", Db.ToInt(row["health"]));
-                cmd.Parameters.AddWithValue("$a", Db.ToInt(row["phys_attack"]));
-                cmd.Parameters.AddWithValue("$d", Db.ToInt(row["phys_defense"]));
-                cmd.Parameters.AddWithValue("$xp", Db.ToInt(row["xp_reward"]));
-                cmd.Parameters.AddWithValue("$g", Db.ToInt(row["gold_reward"]));
-                cmd.Parameters.AddWithValue("$gm", Db.ToInt(row["gold_max"]));
-                cmd.Parameters.AddWithValue("$s", (row["symbol"]?.ToString() ?? "M").Length > 0 ? row["symbol"].ToString()![0].ToString() : "M");
-                cmd.Parameters.AddWithValue("$str", Db.ToInt(row["strength"]));
-                cmd.Parameters.AddWithValue("$sta", Db.ToInt(row["endurance"]));
-                cmd.Parameters.AddWithValue("$agi", Db.ToInt(row["agility"]));
-                cmd.Parameters.AddWithValue("$cun", Db.ToInt(row["cunning"]));
-                cmd.Parameters.AddWithValue("$wis", Db.ToInt(row["intellect"]));
-                cmd.Parameters.AddWithValue("$wil", Db.ToInt(row["wisdom"]));
-                cmd.Parameters.AddWithValue("$cc", Db.ToDouble(row["crit_chance"]));
-                cmd.Parameters.AddWithValue("$cd", Db.ToDouble(row["crit_damage"]));
-                cmd.Parameters.AddWithValue("$ec", Db.ToDouble(row["evade_chance"]));
-                cmd.Parameters.AddWithValue("$bc", Db.ToDouble(row["block_chance"]));
-                cmd.Parameters.AddWithValue("$pc", Db.ToDouble(row["parry_chance"]));
-                cmd.Parameters.AddWithValue("$sd", Db.ToInt(row["shield_defense"]));
-                cmd.ExecuteNonQuery();
+                ContentStore.UpsertMonster(conn, transaction, row);
 
                 foreach (var (itemId, chance) in ParseDrops(row["__drops"]?.ToString()))
                 {
                     if (string.IsNullOrWhiteSpace(itemId)) continue;
-                    using var dropCmd = conn.CreateCommand();
-                    dropCmd.CommandText = "INSERT INTO monster_drops (monster_id, item_id, drop_chance) VALUES ($mid, $iid, $dc)";
-                    dropCmd.Parameters.AddWithValue("$mid", monsterId);
-                    dropCmd.Parameters.AddWithValue("$iid", itemId);
-                    dropCmd.Parameters.AddWithValue("$dc", Math.Clamp(chance, 0, 100));
-                    dropCmd.ExecuteNonQuery();
+                    ContentStore.InsertMonsterDrop(conn, transaction, monsterId, itemId, chance);
                 }
             }
             transaction.Commit();

@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using LostAndDivine.Shared.Data;
 
 namespace LostAndDivine.Editor.Views;
 
@@ -84,11 +85,7 @@ public partial class NpcsTabView : UserControl
             foreach (var (key, value) in new[] { ("width", WorldWidth.Text.Trim()), ("height", WorldHeight.Text.Trim()) })
             {
                 if (!int.TryParse(value, out int v) || v <= 0) continue;
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "UPDATE world_config SET value = $v WHERE key = $k";
-                cmd.Parameters.AddWithValue("$k", key);
-                cmd.Parameters.AddWithValue("$v", v.ToString());
-                cmd.ExecuteNonQuery();
+                ContentStore.UpdateWorldConfig(conn, null, key, v.ToString());
             }
             _db.LoadNpcRefs();
             _db.BuildNpcZoneMapFromTiled();
@@ -101,42 +98,33 @@ public partial class NpcsTabView : UserControl
     private void SaveNpcsLocal(List<NpcRecord> npcs)
     {
         var dataMap = new Dictionary<string, string>();
+        var posMap = new Dictionary<string, (int X, int Y)>();
         using (var readConn = _db.OpenContent())
         {
             using var cmd = readConn.CreateCommand();
-            cmd.CommandText = "SELECT id, data FROM npcs";
+            cmd.CommandText = "SELECT id, data, x, y FROM npcs";
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                if (!reader.IsDBNull(1)) dataMap[reader.GetString(0)] = reader.GetString(1);
+                string id = reader.GetString(0);
+                if (!reader.IsDBNull(1)) dataMap[id] = reader.GetString(1);
+                int x = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
+                int y = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
+                posMap[id] = (x, y);
             }
         }
 
         using var conn = _db.OpenContent();
         using var transaction = conn.BeginTransaction();
         if (npcs.Count == 0)
-        {
-            using var del = conn.CreateCommand();
-            del.CommandText = "DELETE FROM npcs";
-            del.ExecuteNonQuery();
-        }
+            ContentStore.DeleteMissingRows(conn, transaction, "npcs", "id", new List<string>());
         else
-        {
-            var ids = string.Join(",", npcs.Select(n => "'" + n.Id.Replace("'", "''") + "'"));
-            using var del = conn.CreateCommand();
-            del.CommandText = $"DELETE FROM npcs WHERE id NOT IN ({ids})";
-            del.ExecuteNonQuery();
-        }
+            ContentStore.DeleteMissingRows(conn, transaction, "npcs", "id", npcs.Select(n => n.Id));
         foreach (var n in npcs)
         {
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO npcs (id, name, type, location, data) VALUES ($id,$n,$t,$l,$d)";
-            cmd.Parameters.AddWithValue("$id", n.Id);
-            cmd.Parameters.AddWithValue("$n", n.Name);
-            cmd.Parameters.AddWithValue("$t", n.Type);
-            cmd.Parameters.AddWithValue("$l", n.Location ?? "");
-            cmd.Parameters.AddWithValue("$d", dataMap.TryGetValue(n.Id, out var data) ? (object)data : DBNull.Value);
-            cmd.ExecuteNonQuery();
+            var (exX, exY) = posMap.TryGetValue(n.Id, out var p) ? p : (0, 0);
+            string? data = dataMap.TryGetValue(n.Id, out var d) ? d : null;
+            ContentStore.UpsertNpc(conn, transaction, n.Id, n.Name, n.Type, exX, exY, n.Location ?? "", data);
         }
         transaction.Commit();
     }
@@ -203,11 +191,7 @@ public partial class NpcsTabView : UserControl
         if (dlg.ShowDialog() != true) return;
 
         using var conn = _db.OpenContent();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE npcs SET location = $z WHERE id = $i";
-        cmd.Parameters.AddWithValue("$z", dlg.PlacedZoneId);
-        cmd.Parameters.AddWithValue("$i", id);
-        cmd.ExecuteNonQuery();
+        ContentStore.UpdateNpcLocation(conn, null, id, dlg.PlacedZoneId);
 
         _db.LoadNpcRefs();
         _db.BuildNpcZoneMapFromTiled();

@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using LostAndDivine.Shared.Data;
 using LostAndDivine.Shared.Models;
 
 namespace LostAndDivine.Server.Repositories;
@@ -8,7 +9,7 @@ internal static class NpcRepository
     internal static void SaveSingle(string id, string name, string type, int x, int y, string? data)
     {
         using var conn = Db.OpenContent();
-        Upsert(conn, id, name, type, x, y, data);
+        Upsert(conn, null, id, name, type, x, y, data);
     }
 
     internal static List<NpcRecord> LoadAll()
@@ -44,23 +45,24 @@ internal static class NpcRepository
         }
         foreach (var n in npcs)
         {
-            Upsert(conn, n.Id, n.Name, n.Type, n.X, n.Y, n.Data);
+            Upsert(conn, transaction, n.Id, n.Name, n.Type, n.X, n.Y, n.Data);
         }
         transaction.Commit();
     }
 
-    private static void Upsert(SqliteConnection connection, string id, string name, string type, int x, int y, string? data)
+    // Единый upsert через ContentStore; сохраняет location, которую manage-ит редактор
+    // (P1-7: устранение дрейфа npcs x,y vs location между Server и Editor).
+    private static void Upsert(SqliteConnection connection, SqliteTransaction? tx, string id, string name, string type, int x, int y, string? data)
     {
-        var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            INSERT INTO npcs (id, name, type, x, y, data) VALUES ($id,$n,$t,$x,$y,$d)
-            ON CONFLICT(id) DO UPDATE SET name=$n, type=$t, x=$x, y=$y, data=$d";
-        cmd.Parameters.AddWithValue("$id", id);
-        cmd.Parameters.AddWithValue("$n", name);
-        cmd.Parameters.AddWithValue("$t", type);
-        cmd.Parameters.AddWithValue("$x", x);
-        cmd.Parameters.AddWithValue("$y", y);
-        cmd.Parameters.AddWithValue("$d", (object?)data ?? DBNull.Value);
-        cmd.ExecuteNonQuery();
+        string? existingLocation = null;
+        using (var r = connection.CreateCommand())
+        {
+            r.Transaction = tx;
+            r.CommandText = "SELECT location FROM npcs WHERE id = $id";
+            r.Parameters.AddWithValue("$id", id);
+            var v = r.ExecuteScalar();
+            if (v != null && v != DBNull.Value) existingLocation = v.ToString();
+        }
+        ContentStore.UpsertNpc(connection, tx, id, name, type, x, y, existingLocation, data);
     }
 }

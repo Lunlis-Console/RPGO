@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using LostAndDivine.Shared;
+using LostAndDivine.Shared.Data;
 using LostAndDivine.Shared.Migrations;
 using LostAndDivine.Shared.Models;
 using Microsoft.Data.Sqlite;
@@ -365,19 +366,7 @@ namespace LostAndDivine.Editor;
     /// identity/FK для строк, которые редактор не трогал (аудит P1-8).
     /// </summary>
     public static void DeleteMissingRows(SqliteConnection conn, SqliteTransaction tx, string table, string pk, IEnumerable<string> ids)
-    {
-        var list = ids.ToList();
-        using var cmd = conn.CreateCommand();
-        cmd.Transaction = tx;
-        if (list.Count == 0)
-            cmd.CommandText = $"DELETE FROM {table}";
-        else
-        {
-            var inList = string.Join(",", list.Select(x => "'" + x.Replace("'", "''") + "'"));
-            cmd.CommandText = $"DELETE FROM {table} WHERE {pk} NOT IN ({inList})";
-        }
-        cmd.ExecuteNonQuery();
-    }
+        => ContentStore.DeleteMissingRows(conn, tx, table, pk, ids);
 
     /// <summary>
     /// Сохраняет JSON диалога NPC (поле data). Транзакционный целевой UPDATE —
@@ -388,11 +377,7 @@ namespace LostAndDivine.Editor;
     {
         using var conn = OpenContent();
         using var tx = conn.BeginTransaction();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "UPDATE npcs SET data = $d WHERE id = $id";
-        cmd.Parameters.AddWithValue("$d", json);
-        cmd.Parameters.AddWithValue("$id", id);
-        int affected = cmd.ExecuteNonQuery();
+        int affected = ContentStore.UpdateNpcDialogue(conn, tx, id, json);
         if (affected > 0) tx.Commit();
         else tx.Rollback();
         return affected;
