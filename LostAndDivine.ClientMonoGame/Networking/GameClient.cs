@@ -320,7 +320,7 @@ public sealed class GameClient
             if (field?.GetValue(this) is not MulticastDelegate md) continue;
             foreach (var handler in md.GetInvocationList())
             {
-                if (handler.Target == target)
+                if (SubscriptionMatcher.IsOwnedBy(handler, target))
                     evt.RemoveEventHandler(this, handler);
             }
         }
