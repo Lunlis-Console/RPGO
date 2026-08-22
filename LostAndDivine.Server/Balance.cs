@@ -151,6 +151,12 @@ public static class Balance
     public const int MonsterMoveMaxMs = 1250;
     public const int MonsterSpawnJitterMaxMs = 2000;
 
+    // Блуждающие NPC ("wanderer"): мирные жители/заключённые, просто ходят по локации.
+    public const int WandererWanderRadius = 4;
+    public const int WandererWanderSkipChance = 35;
+    public const int WandererMoveIntervalMs = 450;
+    public const int WandererMoveJitterMaxMs = 2500;
+
     public const int MonsterAttrBase = 1;
     public const int MonsterAttrDivisor = 2;
     public const int MonsterAgilityPerTier = 1;

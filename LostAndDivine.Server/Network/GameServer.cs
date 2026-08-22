@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using LostAndDivine.Server.Services;
+using LostAndDivine.Shared;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
 
@@ -53,6 +54,13 @@ public sealed class GameServer : INetworkHub
             list.Add(m);
         }
 
+        var wanderersByZone = new Dictionary<string, List<NpcPosition>>();
+        foreach (var w in svc.Wanderers.GetPositions())
+        {
+            if (!wanderersByZone.TryGetValue(w.ZoneId, out var list)) wanderersByZone[w.ZoneId] = list = new();
+            list.Add(w);
+        }
+
         foreach (var kv in snapshot)
         {
             var zone = kv.Key;
@@ -76,6 +84,24 @@ public sealed class GameServer : INetworkHub
                         X = m.X,
                         Y = m.Y
                     });
+            if (wanderersByZone.TryGetValue(zone, out var wans))
+                foreach (var w in wans)
+                {
+                    Facing f = Facing.Down;
+                    if (!string.IsNullOrEmpty(w.Facing) && Enum.TryParse<Facing>(w.Facing, true, out var parsed))
+                        f = parsed;
+                    state.Entries.Add(new EntityStateEntry
+                    {
+                        Id = w.Id,
+                        Name = w.Name,
+                        IsPlayer = false,
+                        IsNpc = true,
+                        IsMoving = w.IsMoving,
+                        X = w.X,
+                        Y = w.Y,
+                        Facing = f
+                    });
+                }
             // удаляем только если версия совпала — иначе зона помечена снова после snapshot (телепорт)
             if (_entityDirty.TryGetValue(zone, out var cur) && cur == kv.Value)
                 _entityDirty.TryRemove(zone, out _);
@@ -96,6 +122,15 @@ public sealed class GameServer : INetworkHub
     public void LoadNpcCache()
     {
         _npcCache = BuildNpcCache(_svc);
+    }
+
+    /// <summary>Блуждающие NPC (тип "wanderer") из текущего кеша — для WandererManager.</summary>
+    public List<NpcPosition> GetWanderers()
+    {
+        if (_npcCache == null) return new List<NpcPosition>();
+        return _npcCache
+            .Where(n => string.Equals(n.Type, "wanderer", StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     /// <summary>
@@ -135,7 +170,8 @@ public sealed class GameServer : INetworkHub
                 Y = tiledNpc?.Y ?? n.Y,
                 ZoneId = tiledNpc?.ZoneId ?? Balance.MainZoneId,
                 HasDialogue = svc.Dialogue.GetTree(n.Id) != null,
-                Facing = tiledNpc?.Facing ?? "down"
+                Facing = tiledNpc?.Facing ?? "down",
+                WanderRadius = n.WanderRadius
             });
         }
 

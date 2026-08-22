@@ -53,6 +53,10 @@ public class MapRenderer
         public double DurMs;
     }
     private readonly Dictionary<string, VisTween> _visTween = new();
+    // Флаг «реально движется» по текущему tween'у — для NPC, чтобы walk-анимация
+    // играла только во время скольжения между клетками (как у игрока), а не по
+    // серверному флагу IsMoving, который висит и на паузах между шагами.
+    private readonly Dictionary<string, bool> _entityMoving = new();
 
     private byte[]? _tileData;
     private int _tileMapWidth;
@@ -623,6 +627,7 @@ private sealed class RemotePlayerState
             if (_currentMap == null || _currentMap.ZoneId != state.ZoneId) return;
             var playerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var monsterIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var npcIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var e in state.Entries)
             {
                 if (e.IsPlayer)
@@ -638,6 +643,16 @@ private sealed class RemotePlayerState
                     }
                     p.X = e.X; p.Y = e.Y;
                     p.Facing = e.Facing;
+                }
+                else if (e.IsNpc)
+                {
+                    var id = e.Id ?? "";
+                    npcIds.Add(id);
+                    var n = _currentMap.Npcs.FirstOrDefault(x => x.Id == id);
+                    if (n == null) continue;
+                    n.X = e.X; n.Y = e.Y;
+                    n.Facing = e.Facing.ToString().ToLowerInvariant();
+                    n.IsMoving = e.IsMoving;
                 }
                 else
                 {
@@ -1412,6 +1427,12 @@ private sealed class RemotePlayerState
             SetVisTarget(k, m.X, m.Y);
             liveKeys.Add(k);
         }
+        foreach (var n in map.Npcs ?? Enumerable.Empty<NpcPosition>())
+        {
+            var k = $"npc:{n.Id}";
+            SetVisTarget(k, n.X, n.Y);
+            liveKeys.Add(k);
+        }
         lock (_stateLock)
         {
             foreach (var k in _visTarget.Keys.ToList())
@@ -1934,14 +1955,19 @@ private sealed class RemotePlayerState
 
     // Сущность рисуется с базовыми анимациями тела игрока (idle/walk) вместо статичной картинки.
     // Без оружия/щита — это просто «живой» персонаж. Направление задаётся параметром facing.
-    private void DrawAnimatedNpc(SpriteBatch sb, int wx, int wy, string facing, int startX, int startY, int endX, int endY)
+    // isMoving включает walk-анимацию (актуально для блуждающих NPC "wanderer").
+    private void DrawAnimatedNpc(SpriteBatch sb, float cellX, float cellY, string facing, bool isMoving, int startX, int startY, int endX, int endY)
     {
+        int wx = (int)Math.Round(cellX), wy = (int)Math.Round(cellY);
         if (wx < startX || wx > endX || wy < startY || wy > endY) return;
-        float px = _gridOX + (wx - startX) * _cellW;
-        float py = _gridOY + (wy - startY) * _cellH;
+        float px = _gridOX + (cellX - startX) * _cellW;
+        float py = _gridOY + (cellY - startY) * _cellH;
         var er = EntityRect(px, py, _cellW, _cellH);
         string f = string.IsNullOrWhiteSpace(facing) ? "down" : facing.ToLowerInvariant();
-        var anim = SpriteCache.GetAnimation($"player_idle_{f}") ?? SpriteCache.GetPlayerAnimation(f);
+        // walk при движении, иначе idle
+        var anim = isMoving
+            ? SpriteCache.GetPlayerAnimation(f)
+            : SpriteCache.GetAnimation($"player_idle_{f}") ?? SpriteCache.GetPlayerAnimation(f);
         if (anim != null)
         {
             int frame = (int)(DateTime.UtcNow.TimeOfDay.TotalSeconds / anim.FrameDuration) % anim.FrameCount;
@@ -1962,7 +1988,7 @@ private sealed class RemotePlayerState
     {
         if (map.Merchant != null && map.Merchant.X >= startX && map.Merchant.X <= endX && map.Merchant.Y >= startY && map.Merchant.Y <= endY)
         {
-            DrawAnimatedNpc(sb, map.Merchant.X, map.Merchant.Y, map.Merchant.Facing, startX, startY, endX, endY);
+            DrawAnimatedNpc(sb, map.Merchant.X, map.Merchant.Y, map.Merchant.Facing, false, startX, startY, endX, endY);
             var mFont = SpriteCache.FontSmall ?? SpriteCache.Font;
             if (mFont != null)
             {
@@ -2011,33 +2037,36 @@ private sealed class RemotePlayerState
         foreach (var npc in map.Npcs ?? Enumerable.Empty<NpcPosition>())
         {
             if (npc.Type == "merchant" || npc.Type == "board") continue;
-            DrawAnimatedNpc(sb, npc.X, npc.Y, npc.Facing, startX, startY, endX, endY);
-            if (npc.X >= startX && npc.X <= endX && npc.Y >= startY && npc.Y <= endY)
+            (float X, float Y) v;
+            lock (_stateLock) { if (!_visPos.TryGetValue($"npc:{npc.Id}", out v)) v = (npc.X, npc.Y); }
+            int wx = (int)Math.Round(v.X), wy = (int)Math.Round(v.Y);
+            if (wx < startX || wx > endX || wy < startY || wy > endY) continue;
+            bool moving = _entityMoving.TryGetValue(npc.Id, out var em) && em;
+            DrawAnimatedNpc(sb, v.X, v.Y, npc.Facing, moving, startX, startY, endX, endY);
+
+            var npcFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+            if (npcFont != null)
             {
-                var npcFont = SpriteCache.FontSmall ?? SpriteCache.Font;
-                if (npcFont != null)
+                var nSize = npcFont.MeasureString(npc.Name);
+                float npx = _gridOX + (v.X - startX) * _cellW + _cellW / 2;
+                float npy = _gridOY + (v.Y - startY) * _cellH - nSize.Y - 4;
+                sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2 + 1, npy + 1), Color.Black);
+                sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2, npy), Color.White);
+            }
+            if (!string.IsNullOrEmpty(npc.QuestIndicator))
+            {
+                var iFont = SpriteCache.FontSmall ?? SpriteCache.Font;
+                if (iFont != null)
                 {
-                    var nSize = npcFont.MeasureString(npc.Name);
-                    float npx = _gridOX + (npc.X - startX) * _cellW + _cellW / 2;
-                    float npy = _gridOY + (npc.Y - startY) * _cellH - nSize.Y - 4;
-                    sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2 + 1, npy + 1), Color.Black);
-                    sb.DrawString(npcFont, npc.Name, new Vector2(npx - nSize.X / 2, npy), Color.White);
-                }
-                if (!string.IsNullOrEmpty(npc.QuestIndicator))
-                {
-                    var iFont = SpriteCache.FontSmall ?? SpriteCache.Font;
-                    if (iFont != null)
-                    {
-                        string icon = npc.QuestIndicator == "available" ? "!" : "?";
-                        Color iconColor = npc.QuestIndicator == "ready" ? Color.Yellow
-                                        : npc.QuestIndicator == "available" ? Color.Yellow
-                                        : new Color(160, 160, 160);
-                        var sz = iFont.MeasureString(icon);
-                        var nSz = iFont.MeasureString(npc.Name);
-                        float px = _gridOX + (npc.X - startX) * _cellW + _cellW / 2 - sz.X;
-                        float py = _gridOY + (npc.Y - startY) * _cellH - sz.Y * 2 - 4 - nSz.Y - 4;
-                        sb.DrawString(iFont, icon, new Vector2(px, py), iconColor, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
-                    }
+                    string icon = npc.QuestIndicator == "available" ? "!" : "?";
+                    Color iconColor = npc.QuestIndicator == "ready" ? Color.Yellow
+                                    : npc.QuestIndicator == "available" ? Color.Yellow
+                                    : new Color(160, 160, 160);
+                    var sz = iFont.MeasureString(icon);
+                    var nSz = iFont.MeasureString(npc.Name);
+                    float px = _gridOX + (v.X - startX) * _cellW + _cellW / 2 - sz.X;
+                    float py = _gridOY + (v.Y - startY) * _cellH - sz.Y * 2 - 4 - nSz.Y - 4;
+                    sb.DrawString(iFont, icon, new Vector2(px, py), iconColor, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
                 }
             }
         }
@@ -2598,6 +2627,10 @@ private sealed class RemotePlayerState
                 {
                     _remoteMoving[key.Substring(7)] = moving;
                 }
+                else if (key.StartsWith("npc:"))
+                {
+                    _entityMoving[key.Substring(4)] = moving;
+                }
             }
         }
     }
@@ -2605,6 +2638,7 @@ private sealed class RemotePlayerState
     private static double EstimateCadenceMs(string key)
     {
         if (key.StartsWith("monster:")) return 1500;
+        if (key.StartsWith("npc:")) return 450;
         int mi = 0;
         try
         {

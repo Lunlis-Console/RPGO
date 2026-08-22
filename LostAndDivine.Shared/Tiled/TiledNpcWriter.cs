@@ -77,31 +77,34 @@ public static class TiledNpcWriter
 
     private static (int Start, int End)? FindObjectBlock(string text, string npcId)
     {
-        var m = Regex.Match(text, "\"name\":\"" + Regex.Escape(npcId) + "\",");
+        var rx = new Regex("\"name\":\"" + Regex.Escape(npcId) + "\",");
+        var m = rx.Match(text);
         if (!m.Success) return null;
         int start = text.LastIndexOf('{', m.Index);
         if (start < 0) return null;
-        int end = text.IndexOf('}', m.Index);
+        int end = MatchCloseBrace(text, start);
         if (end < 0) return null;
-        return IsObjectBlock(text.Substring(start, end - start + 1)) ? (start, end) : null;
+        // Формат-независимая проверка: это объект NPC (есть name, координаты и type),
+        // а не слой/тайлсет. Так ручное редактирование в Tiled не ломает удаление.
+        if (!IsNpcObjectBlock(text.Substring(start, end - start + 1), npcId)) return null;
+        return (start, end);
     }
 
-    private static bool IsObjectBlock(string block)
-        => Regex.IsMatch(block, @"^\{\r?\n\s*""height"":\d+,\r?\n\s*""id"":\d+,\r?\n\s*""name"":");
+    /// <summary>Объект NPC — содержит нужный name и координаты/тип (отличает от слоёв/тайлсетов).</summary>
+    private static bool IsNpcObjectBlock(string block, string npcId)
+    {
+        if (!Regex.IsMatch(block, "\"name\":\"" + Regex.Escape(npcId) + "\","))
+            return false;
+        return block.Contains("\"x\":") && block.Contains("\"y\":") && block.Contains("\"type\":");
+    }
 
     private static string RemoveAllBlocks(string text, string npcId)
     {
-        var rx = new Regex("\"name\":\"" + Regex.Escape(npcId) + "\",");
         for (int guard = 0; guard < 1000; guard++)
         {
-            var m = rx.Match(text);
-            if (!m.Success) return text;
-            int start = text.LastIndexOf('{', m.Index);
-            if (start < 0) return text;
-            int end = text.IndexOf('}', m.Index);
-            if (end < 0) return text;
-            if (!IsObjectBlock(text.Substring(start, end - start + 1))) return text;
-            text = DeleteBlock(text, start, end);
+            var found = FindObjectBlock(text, npcId);
+            if (found == null) return text;
+            text = DeleteBlock(text, found.Value.Start, found.Value.End);
         }
         return text;
     }

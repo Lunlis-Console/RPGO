@@ -90,6 +90,8 @@ public class GameServerHost
                 lastMonsterWander = now;
                 try { _svc.Monsters.WanderStep(); }
                 catch (Exception ex) { Log.Error("[Tick] MonsterWander", ex); }
+                try { _svc.Wanderers.WanderStep(); }
+                catch (Exception ex) { Log.Error("[Tick] WandererWander", ex); }
             }
 
             // 50ms — лёгкая рассылка позиций сущностей (Вариант 4)

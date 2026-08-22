@@ -14,8 +14,7 @@
             <TextBox x:Name="WorldHeight" Width="50" VerticalContentAlignment="Center" ToolTip="Высота мира (клеток)"/>
             <Button x:Name="AddBtn" Content="Добавить NPC" Margin="12,0,6,0" Padding="10,3"/>
             <Button x:Name="DeleteBtn" Content="Удалить" Margin="0,0,6,0" Padding="10,3"/>
-            <Button x:Name="DialogueBtn" Content="Редактор диалогов (выбранный NPC)..." Margin="0,0,6,0" Padding="10,3"/>
-            <Button x:Name="PlaceBtn" Content="Разместить на карте..." Margin="0,0,6,0" Padding="10,3"/>
+            <Button x:Name="EditBtn" Content="Редактировать" Margin="0,0,6,0" Padding="10,3"/>
             <Button x:Name="SaveBtn" Content="Сохранить NPC и мир" Margin="20,0,0,0" Padding="10,3" FontWeight="Bold"/>
         </StackPanel>
         <DataGrid x:Name="Grid" Grid.Row="1" AutoGenerateColumns="True"

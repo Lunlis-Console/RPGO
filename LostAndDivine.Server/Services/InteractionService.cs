@@ -111,6 +111,16 @@ public class InteractionService
                 }
                 break;
 
+            case "wanderer":
+                {
+                    // Блуждающий житель/заключённый: если у него задан диалог — проигрываем,
+                    // иначе просто «нечего сказать». Боевой логики нет.
+                    if (await TryStartDialogue(player, client, player.CurrentZoneId, player.Interaction.X, player.Interaction.Y))
+                        break;
+                    await ChatTo(client, ChatChannel.System, "Система", "Нечего сказать.");
+                }
+                break;
+
             case "chest":
                 await _svc.Instances.TryOpenChest(player, client);
                 break;

@@ -16,7 +16,10 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Restore
-        run: dotnet restore
+        run: |
+          dotnet restore LostAndDivine.Server/LostAndDivine.Server.csproj
+          dotnet restore LostAndDivine.ClientMonoGame/LostAndDivine.ClientMonoGame.csproj
+          dotnet restore LostAndDivine.Tests/LostAndDivine.Tests.csproj
       - name: Build Server
         run: dotnet build LostAndDivine.Server --no-restore -c Release
       - name: Build Client

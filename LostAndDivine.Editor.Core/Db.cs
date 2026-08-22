@@ -90,10 +90,11 @@ namespace LostAndDivine.Editor;
         string stamp = $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid().ToString("N")[..4]}";
         string backupPath = LiveContentDbFile + ".publishbak_" + stamp;
 
-        using var live = new SqliteConnection($"Data Source={LiveContentDbFile}");
+        // Pooling=false обязателен: пул Sqlite переиспользует соединение вместе с
+        // ранее сделанным ATTACH staging, и повторная публикация падает с
+        // "SQLite Error 1: database staging is already in use".
+        using var live = new SqliteConnection($"Data Source={LiveContentDbFile};Pooling=false");
         live.Open();
-        using var staging = new SqliteConnection($"Data Source={ContentDbFile}");
-        staging.Open();
 
         // Бэкап живого content.db перед перезаписью
         using (var bk = live.CreateCommand())
@@ -102,7 +103,9 @@ namespace LostAndDivine.Editor;
             bkSafe(bk);
         }
 
-        // Подключаем staging как вторую БД и копируем таблицы в транзакции
+        // Подключаем staging (content.editor.db) как вторую БД и копируем таблицы в
+        // транзакции. Отдельное соединение к тому же файлу не открываем — это тоже
+        // могло давать "already in use".
         using (var attach = live.CreateCommand())
         {
             attach.CommandText = $"ATTACH DATABASE '{ContentDbFile.Replace("\\", "/").Replace("'", "''")}' AS staging";
@@ -114,9 +117,9 @@ namespace LostAndDivine.Editor;
         {
             // Пропускаем таблицы, которых нет в staging
             bool inStaging;
-            using (var c = staging.CreateCommand())
+            using (var c = live.CreateCommand())
             {
-                c.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name=$t";
+                c.CommandText = "SELECT name FROM staging.sqlite_master WHERE type='table' AND name=$t";
                 c.Parameters.AddWithValue("$t", table);
                 inStaging = c.ExecuteScalar() != null;
             }
@@ -130,6 +133,12 @@ namespace LostAndDivine.Editor;
             ins.ExecuteNonQuery();
         }
         tx.Commit();
+
+        using (var detach = live.CreateCommand())
+        {
+            detach.CommandText = "DETACH DATABASE staging";
+            detach.ExecuteNonQuery();
+        }
 
         Console.WriteLine($"[Editor] Контент опубликован в {LiveContentDbFile} (бэкап: {backupPath})");
     }
@@ -202,7 +211,7 @@ namespace LostAndDivine.Editor;
         _npcZoneByName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var npcTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "npc", "merchant", "board", "instance_portal", "dummy"
+            "npc", "merchant", "board", "instance_portal", "dummy", "wanderer"
         };
 
         foreach (var file in FindTiledZoneMaps())

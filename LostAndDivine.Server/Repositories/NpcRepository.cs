@@ -6,10 +6,10 @@ namespace LostAndDivine.Server.Repositories;
 
 internal static class NpcRepository
 {
-    internal static void SaveSingle(string id, string name, string type, int x, int y, string? data)
+    internal static void SaveSingle(string id, string name, string type, int x, int y, string? data, int wanderRadius = 0)
     {
         using var conn = Db.OpenContent();
-        Upsert(conn, null, id, name, type, x, y, data);
+        Upsert(conn, null, id, name, type, x, y, data, wanderRadius);
     }
 
     internal static List<NpcRecord> LoadAll()
@@ -17,7 +17,7 @@ internal static class NpcRepository
         var list = new List<NpcRecord>();
         using var conn = Db.OpenContent();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, type, x, y, data FROM npcs ORDER BY id";
+        cmd.CommandText = "SELECT id, name, type, x, y, data, wander_radius FROM npcs ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
@@ -29,6 +29,7 @@ internal static class NpcRepository
                 X = reader.GetInt32(3),
                 Y = reader.GetInt32(4),
                 Data = reader.IsDBNull(5) ? null : reader.GetString(5),
+                WanderRadius = reader.IsDBNull(6) ? 0 : reader.GetInt32(6),
             });
         }
         return list;
@@ -45,14 +46,14 @@ internal static class NpcRepository
         }
         foreach (var n in npcs)
         {
-            Upsert(conn, transaction, n.Id, n.Name, n.Type, n.X, n.Y, n.Data);
+            Upsert(conn, transaction, n.Id, n.Name, n.Type, n.X, n.Y, n.Data, n.WanderRadius);
         }
         transaction.Commit();
     }
 
     // Единый upsert через ContentStore; сохраняет location, которую manage-ит редактор
     // (P1-7: устранение дрейфа npcs x,y vs location между Server и Editor).
-    private static void Upsert(SqliteConnection connection, SqliteTransaction? tx, string id, string name, string type, int x, int y, string? data)
+    private static void Upsert(SqliteConnection connection, SqliteTransaction? tx, string id, string name, string type, int x, int y, string? data, int wanderRadius)
     {
         string? existingLocation = null;
         using (var r = connection.CreateCommand())
@@ -63,6 +64,6 @@ internal static class NpcRepository
             var v = r.ExecuteScalar();
             if (v != null && v != DBNull.Value) existingLocation = v.ToString();
         }
-        ContentStore.UpsertNpc(connection, tx, id, name, type, x, y, existingLocation, data);
+        ContentStore.UpsertNpc(connection, tx, id, name, type, x, y, existingLocation, data, wanderRadius);
     }
 }

@@ -13,7 +13,8 @@ public enum NpcType
     Dummy = 5,
     Blacksmith = 6,
     Storage = 7,
-    Collectible = 8
+    Collectible = 8,
+    Wanderer = 9
 }
 
 public static class NpcTypeExtensions
@@ -28,6 +29,7 @@ public static class NpcTypeExtensions
         "blacksmith" => NpcType.Blacksmith,
         "storage" => NpcType.Storage,
         "collectible" => NpcType.Collectible,
+        "wanderer" => NpcType.Wanderer,
         _ => NpcType.Unknown
     };
     public static string ToDisplayString(this NpcType t) => t switch
@@ -40,6 +42,7 @@ public static class NpcTypeExtensions
         NpcType.Blacksmith => "blacksmith",
         NpcType.Storage => "storage",
         NpcType.Collectible => "collectible",
+        NpcType.Wanderer => "wanderer",
         _ => "unknown"
     };
 }

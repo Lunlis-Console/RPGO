@@ -91,7 +91,7 @@ public class ElderDialogueQuestTests
             .GetValue(dm)!;
         cache["N0003"] = tree!;
 
-        var svc = new GameServices(world, hub, null!, null!, null!, null!, qm, merchant, null!, null!, dm, null!, null!, null!, pathfinding, null!, null!, null!, null!, null!, null!);
+        var svc = new GameServices(world, hub, null!, null!, null!, null!, null!, qm, merchant, null!, null!, dm, null!, null!, null!, pathfinding, null!, null!, null!, null!, null!, null!);
         dm.SetHub(hub);
         dm.SetServices(svc);
         return (dm, qm);

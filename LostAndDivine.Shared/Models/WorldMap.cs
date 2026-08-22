@@ -110,6 +110,14 @@ public class NpcPosition
     // Направление взгляда NPC ("down" | "up" | "left" | "right"),
     // используется для выбора базовой анимации тела (как у игрока).
     public string Facing { get; set; } = "down";
+
+    // Движется ли NPC в данный момент (для выбора walk-анимации вместо idle).
+    // Актуально для блуждающих NPC (тип "wanderer").
+    public bool IsMoving { get; set; }
+
+    // Радиус блуждания (для типа "wanderer"): на сколько клеток от точки спавна
+    // можно отходить. 0 — использовать глобальный Balance.WandererWanderRadius.
+    public int WanderRadius { get; set; }
 }
 
 public class PortalPosition
@@ -139,6 +147,8 @@ public class ChestPosition
         public string? Id { get; set; }
         public string? Name { get; set; }
         public bool IsPlayer { get; set; }
+        public bool IsNpc { get; set; }
+        public bool IsMoving { get; set; }
         public int X { get; set; }
         public int Y { get; set; }
         public Facing Facing { get; set; } = Facing.Down;

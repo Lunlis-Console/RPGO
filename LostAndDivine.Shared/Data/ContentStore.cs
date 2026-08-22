@@ -52,13 +52,13 @@ public static class ContentStore
     /// <summary>Полный upsert NPC: пишет ВСЕ колонки (id,name,type,x,y,location,data),
     /// сохраняя те, что текущая сторона не меняет (P1-7: устраняет дрейф x,y vs location).</summary>
     public static void UpsertNpc(SqliteConnection conn, SqliteTransaction? tx,
-        string id, string name, string type, int x, int y, string? location, string? data)
+        string id, string name, string type, int x, int y, string? location, string? data, int wanderRadius = 0)
     {
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         cmd.CommandText = @"
-            INSERT INTO npcs (id, name, type, x, y, location, data) VALUES ($id,$n,$t,$x,$y,$l,$d)
-            ON CONFLICT(id) DO UPDATE SET name=$n, type=$t, x=$x, y=$y, location=$l, data=$d";
+            INSERT INTO npcs (id, name, type, x, y, location, data, wander_radius) VALUES ($id,$n,$t,$x,$y,$l,$d,$wr)
+            ON CONFLICT(id) DO UPDATE SET name=$n, type=$t, x=$x, y=$y, location=$l, data=$d, wander_radius=$wr";
         cmd.Parameters.AddWithValue("$id", id);
         cmd.Parameters.AddWithValue("$n", name);
         cmd.Parameters.AddWithValue("$t", type);
@@ -66,6 +66,7 @@ public static class ContentStore
         cmd.Parameters.AddWithValue("$y", y);
         cmd.Parameters.AddWithValue("$l", (object?)location ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$d", (object?)data ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$wr", wanderRadius);
         cmd.ExecuteNonQuery();
     }
 

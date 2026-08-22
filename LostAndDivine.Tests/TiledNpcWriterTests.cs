@@ -174,7 +174,7 @@ public class TiledNpcWriterTests
             {
                 string name = o.GetProperty("name").GetString() ?? "";
                 string type = o.TryGetProperty("type", out var t) ? (t.GetString() ?? "") : "";
-                if (type is "npc" or "merchant" or "board" or "instance_portal" or "dummy" or "storage")
+                if (type is "npc" or "merchant" or "board" or "instance_portal" or "dummy" or "storage" or "wanderer")
                     result.Add((name, o.GetProperty("x").GetInt32(), o.GetProperty("y").GetInt32(), type));
             }
         }

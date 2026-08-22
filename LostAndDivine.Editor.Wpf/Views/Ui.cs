@@ -42,13 +42,14 @@ public static class Ui
 
     public static readonly string[] QuestTypes = { "kill", "collect", "talk", "travel", "use", "explore" };
 
-    public static readonly string[] NpcTypes = { "npc", "merchant", "board", "instance_portal", "dummy", "storage" };
+    public static readonly string[] NpcTypes = { "npc", "merchant", "board", "instance_portal", "dummy", "storage", "wanderer" };
 
     /// <summary>Привязывает DataTable к гриду (автогенерация колонок).</summary>
     public static void Bind(DataGrid grid, DataTable dt)
     {
-        grid.ItemsSource = dt.DefaultView;
+        grid.Columns.Clear();
         grid.AutoGenerateColumns = true;
+        grid.ItemsSource = dt.DefaultView;
     }
 
     public static DataView? View(DataGrid grid) => grid.ItemsSource as DataView;

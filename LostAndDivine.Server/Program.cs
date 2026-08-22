@@ -68,6 +68,7 @@ partial class Program
 
         // Базовые сервисы (создаются раньше зависимостей)
         var monsters = new MonsterManager(world);
+        var wanderers = new WandererManager(world);
         var loot = new LootManager(world);
         var corpses = new CorpseManager();
         var quests = new QuestManager(world);
@@ -169,7 +170,7 @@ partial class Program
         var storage = new StorageService(world, hub);
 
         // GameServices собирает по крупицам сервисы воедино
-        var services = new GameServices(world, hub, sectorWorld, monsters, loot, corpses, quests, merchant, collectibles,
+        var services = new GameServices(world, hub, sectorWorld, monsters, wanderers, loot, corpses, quests, merchant, collectibles,
             trade, dialogue, party, projectiles, killService, pathfinding, debuffs,
             auth: null!, zones: zones, persistence, clientBuild, storage);
 
@@ -230,12 +231,14 @@ partial class Program
 
         hub.SetServices(services);
         monsters.SetServices(services);
+        wanderers.SetServices(services);
         dialogue.SetServices(services);
         projectiles.SetServices(services);
         killService.SetGameServices(services);
 
         services.MessageHandlers.RegisterAll(services);
         hub.LoadNpcCache();
+        services.InitializeWanderers();
         persistence.Start();
 
         // Heartbeat-сервис: эмитирует keep-alive (~60с) и убивает

@@ -120,9 +120,9 @@ public class DbTests
         conn.Open();
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "CREATE TABLE npcs(id TEXT PRIMARY KEY, name TEXT, type TEXT, x INT, y INT, location TEXT, data TEXT)";
+            cmd.CommandText = "CREATE TABLE npcs(id TEXT PRIMARY KEY, name TEXT, type TEXT, x INT, y INT, location TEXT, data TEXT, wander_radius INT)";
             cmd.ExecuteNonQuery();
-            cmd.CommandText = "INSERT INTO npcs(id,name,type,x,y,location,data) VALUES('N1','N1','npc',5,7,'ZoneA','{}')";
+            cmd.CommandText = "INSERT INTO npcs(id,name,type,x,y,location,data,wander_radius) VALUES('N1','N1','npc',5,7,'ZoneA','{}',0)";
             cmd.ExecuteNonQuery();
         }
 

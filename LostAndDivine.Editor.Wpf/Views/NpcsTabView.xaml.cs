@@ -18,16 +18,11 @@ public partial class NpcsTabView : UserControl
         InitializeComponent();
         AddBtn.Click += (s, e) => Ui.AddRowWithId(Grid, _dt, "N");
         DeleteBtn.Click += (s, e) => Ui.DeleteSelectedRow(Grid);
-        DialogueBtn.Click += (s, e) => OpenDialogueEditor();
-        PlaceBtn.Click += (s, e) => PlaceSelectedNpcOnMap();
+        EditBtn.Click += (s, e) => EditSelected();
         SaveBtn.Click += (s, e) => SaveWorld();
         Grid.MouseDoubleClick += (s, e) =>
         {
-            if (e.OriginalSource is TextBlock or Border)
-            {
-                if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift)) PlaceSelectedNpcOnMap();
-                else OpenDialogueEditor();
-            }
+            if (e.OriginalSource is TextBlock or Border) EditSelected();
         };
     }
 
@@ -47,17 +42,19 @@ public partial class NpcsTabView : UserControl
         _dt.Columns.Add("name", typeof(string));
         _dt.Columns.Add("type", typeof(string));
         _dt.Columns.Add("location", typeof(string));
+        _dt.Columns.Add("wander_radius", typeof(int));
 
         using var conn = _db.OpenContent();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT id, name, type, location FROM npcs ORDER BY id";
+        cmd.CommandText = "SELECT id, name, type, location, wander_radius FROM npcs ORDER BY id";
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
             string id = reader.GetString(0);
             string loc = _db.NpcLocationById(id);
             if (string.IsNullOrWhiteSpace(loc) && !reader.IsDBNull(3)) loc = reader.GetString(3);
-            _dt.Rows.Add(id, reader.GetString(1), reader.GetString(2), loc);
+            int radius = reader.IsDBNull(4) ? 0 : reader.GetInt32(4);
+            _dt.Rows.Add(id, reader.GetString(1), reader.GetString(2), loc, radius);
         }
         Ui.Bind(Grid, _dt);
         Ui.ShowOnly(Grid, "id", "name", "type", "location");
@@ -78,7 +75,7 @@ public partial class NpcsTabView : UserControl
                 string name = row["name"]?.ToString() ?? "";
                 string type = row["type"]?.ToString() ?? "";
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type)) continue;
-                npcs.Add(new NpcRecord { Id = row["id"]?.ToString() ?? "", Name = name, Type = type, Location = row["location"]?.ToString() ?? "" });
+                npcs.Add(new NpcRecord { Id = row["id"]?.ToString() ?? "", Name = name, Type = type, Location = row["location"]?.ToString() ?? "", WanderRadius = ToInt(row["wander_radius"]) });
             }
             SaveNpcsLocal(npcs);
             using var conn = _db.OpenContent();
@@ -120,22 +117,30 @@ public partial class NpcsTabView : UserControl
             ContentStore.DeleteMissingRows(conn, transaction, "npcs", "id", new List<string>());
         else
             ContentStore.DeleteMissingRows(conn, transaction, "npcs", "id", npcs.Select(n => n.Id));
-        foreach (var n in npcs)
-        {
-            var (exX, exY) = posMap.TryGetValue(n.Id, out var p) ? p : (0, 0);
-            string? data = dataMap.TryGetValue(n.Id, out var d) ? d : null;
-            ContentStore.UpsertNpc(conn, transaction, n.Id, n.Name, n.Type, exX, exY, n.Location ?? "", data);
-        }
+            foreach (var n in npcs)
+            {
+                var (exX, exY) = posMap.TryGetValue(n.Id, out var p) ? p : (0, 0);
+                string? data = dataMap.TryGetValue(n.Id, out var d) ? d : null;
+                ContentStore.UpsertNpc(conn, transaction, n.Id, n.Name, n.Type, exX, exY, n.Location ?? "", data, n.WanderRadius);
+            }
         transaction.Commit();
     }
 
-    private void OpenDialogueEditor()
+    private void EditSelected()
     {
         if (Ui.SelectedRow(Grid) is not DataRow row)
         {
-            _win.Status("Выберите NPC в таблице, затем нажмите «Редактор диалогов...»");
+            _win.Status("Выберите NPC в таблице, затем дважды кликните по нему");
             return;
         }
+        Ui.Commit(Grid);
+        var dlg = new NpcEditorWindow(_db, row, s => _win.Status(s), OpenDialogueEditor, PlaceNpcOnMap, DuplicateAndPlaceNpc);
+        dlg.Owner = Window.GetWindow(this);
+        dlg.ShowDialog();
+    }
+
+    private void OpenDialogueEditor(DataRow row)
+    {
         string id = row["id"]?.ToString() ?? "";
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -148,13 +153,8 @@ public partial class NpcsTabView : UserControl
         _win.Status("Диалоги закрыты");
     }
 
-    private void PlaceSelectedNpcOnMap()
+    private void PlaceNpcOnMap(DataRow row)
     {
-        if (Ui.SelectedRow(Grid) is not DataRow row)
-        {
-            _win.Status("Выберите NPC в таблице, затем нажмите «Разместить на карте...»");
-            return;
-        }
         Ui.Commit(Grid);
         string name = row["name"]?.ToString() ?? "";
         string type = row["type"]?.ToString() ?? "";
@@ -164,9 +164,16 @@ public partial class NpcsTabView : UserControl
             return;
         }
         string id = row["id"]?.ToString() ?? "";
-        if (string.IsNullOrWhiteSpace(id))
+        bool hadId = !string.IsNullOrWhiteSpace(id);
+
+        // Сначала сохраняем строку в БД, иначе после размещения новый NPC
+        // «исчезнет»: UpdateNpcLocation не создаёт запись, а LoadWorld прочитает
+        // только то, что уже лежит в npcs.
+        SaveWorld();
+
+        if (!hadId)
         {
-            SaveWorld();
+            id = "";
             foreach (DataRow r in _dt.Rows)
             {
                 if (r.RowState == DataRowState.Deleted) continue;
@@ -190,6 +197,17 @@ public partial class NpcsTabView : UserControl
         dlg.Owner = Window.GetWindow(this);
         if (dlg.ShowDialog() != true) return;
 
+        if (dlg.Cleared)
+        {
+            using var c = _db.OpenContent();
+            ContentStore.UpdateNpcLocation(c, null, id, "");
+            _db.LoadNpcRefs();
+            _db.BuildNpcZoneMapFromTiled();
+            LoadWorld();
+            _win.Status($"NPC {id} удалён со всех карт (размещение очищено)");
+            return;
+        }
+
         using var conn = _db.OpenContent();
         ContentStore.UpdateNpcLocation(conn, null, id, dlg.PlacedZoneId);
 
@@ -197,6 +215,59 @@ public partial class NpcsTabView : UserControl
         _db.BuildNpcZoneMapFromTiled();
         LoadWorld();
         _win.Status($"NPC {id} размещён в зоне {dlg.PlacedZoneId} на клетке {dlg.PlacedTileX},{dlg.PlacedTileY}");
+    }
+
+    /// <summary>Создаёт независимую копию выбранного NPC (новый id, копия диалога/типа/радиуса)
+    /// и сразу открывает окно размещения на карте. Удобно для расстановки нескольких
+    /// однотипных бродяг (например, заключённых в камерах) без ручного дублирования строк.</summary>
+    private void DuplicateAndPlaceNpc(DataRow sourceRow)
+    {
+        Ui.Commit(Grid);
+        string srcId = sourceRow["id"]?.ToString() ?? "";
+        string name = sourceRow["name"]?.ToString() ?? "";
+        string type = sourceRow["type"]?.ToString() ?? "";
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(type))
+        {
+            _win.Status("Заполните имя и тип исходного NPC перед дублированием");
+            return;
+        }
+        int radius = ToInt(sourceRow["wander_radius"]);
+
+        // Копируем диалог (data) исходника, чтобы у копии было своё содержимое.
+        string? data = null;
+        using (var conn = _db.OpenContent())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT data FROM npcs WHERE id = $id";
+            cmd.Parameters.AddWithValue("$id", srcId);
+            var v = cmd.ExecuteScalar();
+            if (v != null && v != System.DBNull.Value) data = v.ToString();
+        }
+
+        string newId = Db.NextId(_dt, "N");
+
+        using (var conn = _db.OpenContent())
+        using (var tx = conn.BeginTransaction())
+        {
+            ContentStore.UpsertNpc(conn, tx, newId, name, type, 0, 0, "", data, radius);
+            tx.Commit();
+        }
+        _db.LoadNpcRefs();
+        _db.BuildNpcZoneMapFromTiled();
+        LoadWorld();
+
+        DataRow? newRow = null;
+        foreach (DataRow r in _dt.Rows)
+        {
+            if (r.RowState == DataRowState.Deleted) continue;
+            if ((r["id"]?.ToString() ?? "") == newId) { newRow = r; break; }
+        }
+        if (newRow == null)
+        {
+            _win.Status("Не удалось создать копию NPC");
+            return;
+        }
+        PlaceNpcOnMap(newRow);
     }
 
     private int GetWorldConfigInt(string key, int defaultValue)
@@ -219,5 +290,8 @@ public partial class NpcsTabView : UserControl
         public string Name { get; init; } = "";
         public string Type { get; init; } = "";
         public string? Location { get; init; }
+        public int WanderRadius { get; init; }
     }
+
+    private static int ToInt(object? v) => int.TryParse(v?.ToString(), out int r) ? r : 0;
 }

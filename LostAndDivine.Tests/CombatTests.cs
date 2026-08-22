@@ -1,5 +1,6 @@
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Server;
+using LostAndDivine.Server.Services;
 
 namespace LostAndDivine.Tests;
 
@@ -15,6 +16,7 @@ public class CombatTests
         var quests = new QuestManager(world);
         var merchant = new MerchantManager(world);
         var svc = new GameServices(world, null!, null!, _monsters,
+            new WandererManager(world),
             new LootManager(world), new CorpseManager(),
             quests, merchant,
             new CollectibleManager(world), new TradeManager(),

@@ -18,6 +18,7 @@ public sealed class GameServices : IGameServices
     public INetworkHub Hub { get; }
     public SectorWorld Sectors { get; }
     public MonsterManager Monsters { get; }
+    public WandererManager Wanderers { get; }
     public LootManager Loot { get; }
     public CorpseManager Corpses { get; }
     public QuestManager Quests { get; }
@@ -79,6 +80,7 @@ public sealed class GameServices : IGameServices
         INetworkHub hub,
         SectorWorld sectors,
         MonsterManager monsters,
+        WandererManager wanderers,
         LootManager loot,
         CorpseManager corpses,
         QuestManager quests,
@@ -101,6 +103,7 @@ public sealed class GameServices : IGameServices
         Hub = hub;
         Sectors = sectors;
         Monsters = monsters;
+        Wanderers = wanderers;
         Loot = loot;
         Corpses = corpses;
         Quests = quests;
@@ -120,6 +123,15 @@ public sealed class GameServices : IGameServices
         ClientBuild = clientBuild;
         Storage = storage;
         MessageHandlers = new MessageHandlerRegistry();
+    }
+
+    /// <summary>Переинициализирует блуждающих NPC из свежего кеша (после /reload).</summary>
+    public void InitializeWanderers()
+    {
+        if (Hub is not GameServer hub) return;
+        var wanderers = hub.GetWanderers();
+        if (wanderers.Count > 0)
+            Wanderers.Initialize(wanderers);
     }
 
     public async Task ReloadContent(ClientConnection? connection = null)
@@ -146,6 +158,7 @@ public sealed class GameServices : IGameServices
             foreach (var (zoneId, spawns) in collectibleSpawnsCopy)
                 Collectibles.Initialize(spawns, zoneId);
             Hub.LoadNpcCache();
+            InitializeWanderers();
             await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
 
             if (connection != null)
@@ -232,6 +245,7 @@ public sealed class GameServices : IGameServices
             RelocateStorage();
 
             Hub.LoadNpcCache();
+            InitializeWanderers();
 
             // Сначала сообщаем клиентам о перезагрузке (они сбрасывают кэш карты мира
             // и запрашивают полный слепок), и только потом рассылаем свежие секторы

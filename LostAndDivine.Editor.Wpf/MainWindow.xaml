@@ -3,10 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:LostAndDivine.Editor.Views"
         Title="Редактор LostAndDivine"
-        Width="1280" Height="760"
-        MinWidth="1000" MinHeight="560"
+        Width="1640" Height="1000"
+        MinWidth="1280" MinHeight="760"
         WindowStartupLocation="CenterScreen">
     <Grid>
+        <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+        </Grid.LayoutTransform>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>

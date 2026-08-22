@@ -82,7 +82,7 @@ public static class TiledMapLoader
     /// <summary>Типы Tiled-объектов, относящиеся к NPC/спец-объектам, а не к спавнам монстров.</summary>
     private static readonly HashSet<string> NonSpawnTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        "portal", "npc", "merchant", "board", "blacksmith", "instance_portal", "dummy", "storage"
+        "portal", "npc", "merchant", "board", "blacksmith", "instance_portal", "dummy", "storage", "wanderer"
     };
 
     public static TiledMapData Load(string jsonPath)

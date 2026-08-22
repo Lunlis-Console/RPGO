@@ -44,6 +44,8 @@ public sealed class MapPickerWindow : Window
     public string PlacedZoneId { get; private set; } = "";
     public int PlacedTileX { get; private set; }
     public int PlacedTileY { get; private set; }
+    /// <summary>true, если пользователь нажал «Очистить» — NPC удалён со всех карт.</summary>
+    public bool Cleared { get; private set; }
 
     public MapPickerWindow(string npcId, string npcName, string npcType, string contentDir)
     {
@@ -68,7 +70,7 @@ public sealed class MapPickerWindow : Window
         DockPanel.SetDock(mapLabel, Dock.Left);
         var hint = new TextBlock
         {
-            Text = "Клик по клетке — выбор, колесо — масштаб, двойной клик — разместить",
+            Text = "Клик по клетке — выбор, колесо — прокрутка, Ctrl+колесо — масштаб, двойной клик — разместить",
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right,
             Foreground = System.Windows.Media.Brushes.Gray
@@ -107,8 +109,15 @@ public sealed class MapPickerWindow : Window
         };
         _view.PreviewMouseWheel += (s, e) =>
         {
-            Zoom(e.Delta > 0 ? 1.25 : 0.8);
-            e.Handled = true;
+            // Зум только при зажатом Ctrl. Иначе колесо панорамирует карту —
+            // это просто прокрутка одного Bitmap'а и работает плавно. Раньше
+            // колесо вызывало Zoom -> полный ререндер тайлов на каждый «тик»,
+            // из-за чего скролл лагал.
+            if (Keyboard.Modifiers == ModifierKeys.Control)
+            {
+                Zoom(e.Delta > 0 ? 1.25 : 0.8);
+                e.Handled = true;
+            }
         };
         Grid.SetRow(_scroll, 1);
 
@@ -116,10 +125,13 @@ public sealed class MapPickerWindow : Window
         var bottom = new DockPanel { Margin = new Thickness(8, 4, 8, 8) };
         _placeBtn = new Button { Content = "Разместить здесь", Width = 160, Height = 32, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Right, IsEnabled = false };
         _placeBtn.Click += (s, e) => Place();
+        var clear = new Button { Content = "Очистить размещение", Width = 170, Height = 32, Margin = new Thickness(8, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        clear.Click += (s, e) => ClearPlacement();
         var cancel = new Button { Content = "Отмена", Width = 100, Height = 32, Margin = new Thickness(8, 0, 0, 0), HorizontalAlignment = HorizontalAlignment.Right };
         cancel.Click += (s, e) => Close();
         DockPanel.SetDock(_info, Dock.Left);
         bottom.Children.Add(_placeBtn);
+        bottom.Children.Add(clear);
         bottom.Children.Add(cancel);
         bottom.Children.Add(_info);
         Grid.SetRow(bottom, 2);
@@ -216,7 +228,7 @@ public sealed class MapPickerWindow : Window
             {
                 var npcTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    "npc", "merchant", "board", "instance_portal", "dummy", "storage"
+                    "npc", "merchant", "board", "instance_portal", "dummy", "storage", "wanderer"
                 };
                 foreach (var layer in layers.EnumerateArray())
                 {
@@ -288,16 +300,34 @@ public sealed class MapPickerWindow : Window
         _minScale = Math.Max(fit * 0.2, 0.02);
         _scale = Math.Clamp(fit, _minScale, _maxScale);
         RenderTiles();
+        _scroll.ScrollToHome();
         UpdateInfo();
     }
 
     private void Zoom(double factor)
     {
         if (_current == null) return;
+        double oldScale = _scale;
         double ns = Math.Clamp(_scale * factor, _minScale, _maxScale);
         if (Math.Abs(ns - _scale) < 0.0001) return;
+
+        // Позиция курсора в координатах bitmap'а (до зума), чтобы после
+        // перерисовки та же точка осталась под курсором (зум к курсору, а
+        // не к левому верхнему углу).
+        var m = Mouse.GetPosition(_view);
+        double contentX = m.X;
+        double contentY = m.Y;
+        double viewX = m.X - _scroll.HorizontalOffset;
+        double viewY = m.Y - _scroll.VerticalOffset;
+
         _scale = ns;
         RenderTiles();
+
+        double ratio = _scale / oldScale;
+        double newX = contentX * ratio - viewX;
+        double newY = contentY * ratio - viewY;
+        _scroll.ScrollToHorizontalOffset(newX);
+        _scroll.ScrollToVerticalOffset(newY);
         UpdateInfo();
     }
 
@@ -350,7 +380,6 @@ public sealed class MapPickerWindow : Window
         _overlay.Width = bw;
         _overlay.Height = bh;
         DrawOverlay();
-        _scroll.ScrollToHome();
     }
 
     private TsInfo? FindTileset(MapData map, long gid)
@@ -460,6 +489,7 @@ public sealed class MapPickerWindow : Window
         "instance_portal" => new SolidColorBrush(System.Windows.Media.Color.FromRgb(147, 112, 219)),
         "dummy" => new SolidColorBrush(System.Windows.Media.Color.FromRgb(128, 128, 128)),
         "storage" => new SolidColorBrush(System.Windows.Media.Color.FromRgb(205, 133, 63)),
+        "wanderer" => new SolidColorBrush(System.Windows.Media.Color.FromRgb(60, 200, 120)),
         _ => new SolidColorBrush(System.Windows.Media.Color.FromRgb(50, 205, 50))
     };
 
@@ -518,6 +548,24 @@ public sealed class MapPickerWindow : Window
         PlacedZoneId = _current.ZoneId;
         PlacedTileX = x;
         PlacedTileY = y;
+        DialogResult = true;
+    }
+
+    private void ClearPlacement()
+    {
+        try
+        {
+            // Полностью убираем NPC со всех Tiled-карт (аналог «разместить», но без
+            // последующей вставки) — размещение очищается.
+            TiledNpcWriter.RemoveFromAllMaps(_contentDir, _npcId);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Не удалось очистить карту:\n" + ex.Message,
+                "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        Cleared = true;
         DialogResult = true;
     }
 
