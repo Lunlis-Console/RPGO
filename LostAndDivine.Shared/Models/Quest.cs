@@ -46,7 +46,13 @@ public class QuestObjective
     public string Target { get; set; } = "";              // Монстр / предмет / NPC / зона
     public int TargetX { get; set; }                      // Точка на карте (travel)
     public int TargetY { get; set; }
-    public int Count { get; set; } = 1;                   // Сколько нужно выполнить
+    // Инвариант (P2-2): цель требует хотя бы 1 выполнение.
+    private int _count = 1;
+    public int Count
+    {
+        get => _count;
+        set => _count = Math.Max(1, value);
+    }
 
     /// <summary>
     /// Стадия цели: цели одной стадии выполняются параллельно, цель стадии N

@@ -7,9 +7,32 @@ public class CharacterModel
     public CharacterClass Class { get; set; }
     public int X { get; set; } = -1;
     public int Y { get; set; } = -1;
-    public int Health { get; set; } = 100;
-    public int MaxHealth { get; set; } = 100;
-    public int Mana { get; set; } = 100;
+    // Инварианты (P2-2): Health/Mana >= 0; при уменьшении MaxHealth Health поджимается.
+    private int _characterHealth = 100;
+    private int _characterMaxHealth = 100;
+    private int _characterMana = 100;
+
+    public int Health
+    {
+        get => _characterHealth;
+        set => _characterHealth = Math.Max(0, value);
+    }
+
+    public int MaxHealth
+    {
+        get => _characterMaxHealth;
+        set
+        {
+            _characterMaxHealth = Math.Max(1, value);
+            if (_characterHealth > _characterMaxHealth) _characterHealth = _characterMaxHealth;
+        }
+    }
+
+    public int Mana
+    {
+        get => _characterMana;
+        set => _characterMana = Math.Max(0, value);
+    }
     public int Level { get; set; } = 1;
     public int Experience { get; set; }
     public int Gold { get; set; }
@@ -43,7 +66,14 @@ public class Account
     public DateTime LastLogin { get; set; } = DateTime.Now;
     public bool IsAdmin { get; set; }
     public bool IsBanned { get; set; }
-    public string BanReason { get; set; } = "";
+
+    // Инвариант (P2-2): причина бана не может быть null.
+    private string _banReason = "";
+    public string BanReason
+    {
+        get => _banReason;
+        set => _banReason = value ?? "";
+    }
 }
 
 public class CharacterInfo

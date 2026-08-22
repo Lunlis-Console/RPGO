@@ -7,8 +7,26 @@ public class Monster : ICombatant
     public string Name { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
-    public int Health { get; set; }
-    public int MaxHealth { get; set; }
+    // Инварианты (P2-2): Health >= 0; при уменьшении MaxHealth Health поджимается.
+    private int _monsterHealth;
+    private int _monsterMaxHealth;
+
+    public int Health
+    {
+        get => _monsterHealth;
+        set => _monsterHealth = Math.Max(0, value);
+    }
+
+    public int MaxHealth
+    {
+        get => _monsterMaxHealth;
+        set
+        {
+            _monsterMaxHealth = Math.Max(1, value);
+            if (_monsterHealth > _monsterMaxHealth) _monsterHealth = _monsterMaxHealth;
+        }
+    }
+
     public int XpReward { get; set; }
     public int GoldReward { get; set; }
     public char Symbol { get; set; } = 'M';
@@ -105,8 +123,26 @@ public class MonsterPosition
     public string Name { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
-    public int Health { get; set; }
-    public int MaxHealth { get; set; }
+    // Инварианты (P2-2): Health >= 0; при уменьшении MaxHealth Health поджимается.
+    private int _mpHealth;
+    private int _mpMaxHealth;
+
+    public int Health
+    {
+        get => _mpHealth;
+        set => _mpHealth = Math.Max(0, value);
+    }
+
+    public int MaxHealth
+    {
+        get => _mpMaxHealth;
+        set
+        {
+            _mpMaxHealth = Math.Max(1, value);
+            if (_mpHealth > _mpMaxHealth) _mpHealth = _mpMaxHealth;
+        }
+    }
+
     public char Symbol { get; set; } = 'M';
     public int Level { get; set; }
     public bool IsMannequin { get; set; }
