@@ -379,6 +379,25 @@ namespace LostAndDivine.Editor;
         cmd.ExecuteNonQuery();
     }
 
+    /// <summary>
+    /// Сохраняет JSON диалога NPC (поле data). Транзакционный целевой UPDATE —
+    /// не трогает остальные колонки NPC. Возвращает число затронутых строк
+    /// (0, если NPC с таким id не найден). P2-5: убран инлайн-SQL из редактора диалогов.
+    /// </summary>
+    public int UpdateNpcData(string id, string json)
+    {
+        using var conn = OpenContent();
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE npcs SET data = $d WHERE id = $id";
+        cmd.Parameters.AddWithValue("$d", json);
+        cmd.Parameters.AddWithValue("$id", id);
+        int affected = cmd.ExecuteNonQuery();
+        if (affected > 0) tx.Commit();
+        else tx.Rollback();
+        return affected;
+    }
+
     public static string NameById(List<(string Id, string Name)> refs, string id)
     {
         var found = refs.FirstOrDefault(r => r.Id == id);
