@@ -95,6 +95,20 @@ public class MapRenderer
     public void SetSectorData(SectorData sector)
     {
         if (sector.TileData == null) return;
+
+        // Текущий сектор игрока нужен для выгрузки далеко ушедших секторов (P1-4).
+        // Считываем вне блокировки — это эвристика кэша, расхождение некритично.
+        int playerCol = -1, playerRow = -1;
+        if (_currentMap?.ZoneId == BalanceStatic.MainZoneId)
+        {
+            int px = GetPlayerX(), py = GetPlayerY();
+            if (px >= 0 && py >= 0)
+            {
+                playerCol = px / BalanceStatic.SectorSize;
+                playerRow = py / BalanceStatic.SectorSize;
+            }
+        }
+
         lock (_stateLock)
         {
             // Секторы приходят только для main; принимаем даже если текущая карта
@@ -102,6 +116,22 @@ public class MapRenderer
             // zone_transition). Использование гейтится зоной в DrawTiles/IsBlocked.
             _sectors[(sector.Col, sector.Row)] = sector;
             _sectorMode = true;
+
+            // P1-4: держим в RAM только окрестность игрока (viewport). Без этого
+            // открытый мир копил все 510 секторов. Слепок для окна карты мира хранится
+            // отдельно в WorldMapWindow, поэтому здесь выгрузка не влияет на него.
+            if (playerCol >= 0)
+            {
+                const int radius = 2; // 5x5 = 25 секторов максимум в кэше рендера
+                var toRemove = new System.Collections.Generic.List<(int Col, int Row)>();
+                foreach (var key in _sectors.Keys)
+                {
+                    if (System.Math.Max(System.Math.Abs(key.Col - playerCol), System.Math.Abs(key.Row - playerRow)) > radius)
+                        toRemove.Add(key);
+                }
+                foreach (var k in toRemove)
+                    _sectors.Remove(k);
+            }
         }
     }
 

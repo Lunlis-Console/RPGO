@@ -1034,10 +1034,11 @@ public class GameScreenMediator
     }
 
     /// <summary>
-    /// Слепок карты мира: один раз за «сессию» (вход в игру / /reload / /reloadmap)
-    /// запрашивает все секторы открытого мира, чтобы окно карты было готово сразу,
-    /// а не заполнялось построчно при открытии. Сервер дедуплицирует уже отправленные
-    /// секторы, повторные запросы лишний трафик не дают.
+    /// Открытый мир (main): вместо загрузки всех 510 секторов целиком в RAM при входе
+    /// (P1-4 — это держало весь слепок карты мира в памяти и генерировало лишний трафик
+    /// на каждом login/reload), запрашиваем только окрестность игрока (viewport 3x3).
+    /// Остальные секторы подгружаются по мере перемещения через RequestSectorsAround,
+    /// а MapRenderer выгружает ушедшие за viewport секторы из кэша рендера.
     /// </summary>
     private void PreloadWorldMap()
     {
@@ -1046,14 +1047,8 @@ public class GameScreenMediator
         var st = _client.Status;
         if (st == null || st.X < 0 || st.Y < 0) return;
         _owner.WorldMapPreloaded = true;
-        for (int r = 0; r < BalanceStatic.SectorRows; r++)
-        {
-            for (int c = 0; c < BalanceStatic.SectorCols; c++)
-            {
-                _ = _client.SendAsync("sector_request", new { Col = c, Row = r });
-            }
-        }
-        Logger.Debug("WorldMap: запрошены все секторы открытого мира (слепок).");
+        RequestSectorsAround();
+        Logger.Debug("WorldMap: запрошены секторы открытого мира вокруг игрока (viewport 3x3).");
     }
 
     private void ApplySettings()
