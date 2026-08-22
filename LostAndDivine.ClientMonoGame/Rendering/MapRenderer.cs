@@ -2559,6 +2559,11 @@ private sealed class RemotePlayerState
                 var key = kv.Key;
                 int tx = kv.Value.X, ty = kv.Value.Y;
                 bool isLocal = key == $"player:{_playerName}";
+                // Удалённые NPC/монстры ходят строго по 4 сторонам. Если сервер прислал
+                // сразу два шага (например, вправо затем вниз — диагональная дельта √2 < 1.5,
+                // не попадающая под телепорт), интерполируем по L-пути, а не по прямой
+                // наискосок.
+                bool orthogonal = key.StartsWith("npc:") || key.StartsWith("monster:");
 
                 _visTween.TryGetValue(key, out var tween);
                 double cadence = EstimateCadenceMs(key);
@@ -2582,12 +2587,19 @@ private sealed class RemotePlayerState
                 {
                     _visPos.TryGetValue(key, out var cur);
                     float dCells = MathF.Sqrt((tx - cur.X) * (tx - cur.X) + (ty - cur.Y) * (ty - cur.Y));
+                    float dur = dCells;
+                    if (orthogonal)
+                    {
+                        // Манхэттенское расстояние — постоянная скорость по L-пути
+                        // (по одной оси за раз), а не по диагонали.
+                        dur = Math.Abs(tx - cur.X) + Math.Abs(ty - cur.Y);
+                    }
                     tween = new VisTween
                     {
                         FromX = cur.X, FromY = cur.Y,
                         ToX = tx, ToY = ty,
                         Start = now,
-                        DurMs = cadence * Math.Max(0.01f, dCells)
+                        DurMs = cadence * Math.Max(0.01f, dur)
                     };
                     _visTween[key] = tween;
                 }
@@ -2595,8 +2607,34 @@ private sealed class RemotePlayerState
                 double elapsed = (now - tween.Start).TotalMilliseconds;
                 float t = (float)Math.Clamp(elapsed / tween.DurMs, 0.0, 1.0);
                 double s = t * t * (3f - 2f * t); // smoothstep — плавный разгон/торможение
-                float px = (float)(tween.FromX + (tween.ToX - tween.FromX) * s);
-                float py = (float)(tween.FromY + (tween.ToY - tween.FromY) * s);
+                float dx = tween.ToX - tween.FromX;
+                float dy = tween.ToY - tween.FromY;
+                float px, py;
+                if (orthogonal && dx != 0 && dy != 0)
+                {
+                    // L-путь: сначала по X до целевой колонки, затем по Y — строго 4 направления.
+                    float ax = Math.Abs(dx), ay = Math.Abs(dy);
+                    float fx = ax / (ax + ay);
+                    if (t < fx)
+                    {
+                        float u = fx > 0 ? t / fx : 1f;
+                        double su = u * u * (3f - 2f * u);
+                        px = (float)(tween.FromX + dx * su);
+                        py = tween.FromY;
+                    }
+                    else
+                    {
+                        float u = (1f - fx) > 0 ? (t - fx) / (1f - fx) : 1f;
+                        double su = u * u * (3f - 2f * u);
+                        px = tween.ToX;
+                        py = (float)(tween.FromY + dy * su);
+                    }
+                }
+                else
+                {
+                    px = (float)(tween.FromX + dx * s);
+                    py = (float)(tween.FromY + dy * s);
+                }
 
                 float vx = (float)((tween.ToX - tween.FromX) / tween.DurMs);
                 float vy = (float)((tween.ToY - tween.FromY) / tween.DurMs);
