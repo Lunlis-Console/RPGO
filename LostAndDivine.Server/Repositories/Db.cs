@@ -15,15 +15,16 @@ internal static class Db
     static Db()
     {
         RuntimePath = ResolveDbPath("game.db");
-        ConnectionString = $"Data Source={RuntimePath}";
+        ConnectionString = $"Data Source={RuntimePath};Pooling=True;Cache=Shared";
         ContentPath = ResolveDbPath("content.db");
-        ContentConnectionString = $"Data Source={ContentPath}";
+        ContentConnectionString = $"Data Source={ContentPath};Pooling=True;Cache=Shared";
     }
 
     internal static SqliteConnection Open()
     {
         var conn = new SqliteConnection(ConnectionString);
         conn.Open();
+        ApplyPragmas(conn);
         return conn;
     }
 
@@ -31,7 +32,16 @@ internal static class Db
     {
         var conn = new SqliteConnection(ContentConnectionString);
         conn.Open();
+        ApplyPragmas(conn);
         return conn;
+    }
+
+    private static void ApplyPragmas(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        // WAL для 2000 CCU: писатели не блокируют читателей, busy_timeout спасает от SQLITE_BUSY
+        cmd.CommandText = "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON; PRAGMA cache_size=-64000;";
+        try { cmd.ExecuteNonQuery(); } catch { /* pragma not critical on older sqlite */ }
     }
 
     private static string ResolveDbPath(string fileName)

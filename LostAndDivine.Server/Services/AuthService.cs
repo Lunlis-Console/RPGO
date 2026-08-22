@@ -11,6 +11,7 @@ namespace LostAndDivine.Server;
 public class AuthService
 {
     private readonly GameServices _svc;
+    private static readonly object _spawnLock = new();
 
     public AuthService(IGameServices svc)
     {
@@ -135,8 +136,23 @@ public class AuthService
         if (ch == null)
             return false;
 
-        var existingSession = _svc.World.GetConnectionByPlayerName(ch.Name);
-        if (existingSession != null)
+        Player player;
+        lock (_spawnLock)
+        {
+            var existingSession = _svc.World.GetConnectionByPlayerName(ch.Name);
+            if (existingSession != null)
+            {
+                // нельзя сделать await внутри lock — отложим отправку
+                player = null!;
+            }
+            else
+            {
+                player = PlayerFactory.FromCharacter(ch, _svc);
+                player.IsAdmin = connection.IsAdmin;
+                _svc.World.AddPlayer(player);
+            }
+        }
+        if (player == null)
         {
             await _svc.Hub.SendToClient(connection, new GameMessage
             {
@@ -145,11 +161,6 @@ public class AuthService
             });
             return false;
         }
-
-        var player = PlayerFactory.FromCharacter(ch, _svc);
-        player.IsAdmin = connection.IsAdmin;
-
-        _svc.World.AddPlayer(player);
         connection.Player = player;
         connection.LastPongReceived = DateTime.UtcNow;
 

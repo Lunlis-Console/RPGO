@@ -122,8 +122,11 @@ public class HazardService
             case HazardKind.Acid:
                 if (h.DotDamagePerTick > 0)
                 {
-                    p.Health -= h.DotDamagePerTick;
-                    p.LastDamagedTime = DateTime.UtcNow;
+                    lock (p.Sync)
+                    {
+                        p.Health -= h.DotDamagePerTick;
+                        p.LastDamagedTime = DateTime.UtcNow;
+                    }
                     if (!_svc.Debuffs.HasDebuff(p, DebuffType.Slow))
                         _svc.Debuffs.ApplyDebuff(p, ActiveDebuff.Create(DebuffType.Slow, Balance.AcidSlowValue,
                             Balance.TrapDurationMs, "trap", "Кислота", "−10% скорости."));

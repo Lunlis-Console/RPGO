@@ -21,6 +21,8 @@ public class UpdateInfo
     public List<UpdateFileEntry> Files { get; set; } = new();
     /// <summary>Base64-подпись манифеста (RSA-SHA256) приватным ключом сборки. Null/пусто = неподписанный билд.</summary>
     public string? Signature { get; set; }
+    /// <summary>Минимальная требуемая версия клиента (floor) — если локальная &lt; MinVersion, обновление обязательно (P1-9, печать есть).</summary>
+    public string? MinVersion { get; set; }
 }
 
 /// <summary>Запрос на скачивание файла (клиент -> сервер).</summary>

@@ -4,7 +4,7 @@ using System.Net.Sockets;
 
 namespace LostAndDivine.Server;
 
-public class ClientConnection
+public class ClientConnection : IDisposable
 {
     public TcpClient Client { get; }
     public string Endpoint { get; }
@@ -12,6 +12,15 @@ public class ClientConnection
     public string? AuthenticatedLogin { get; set; }
     public bool IsAdmin { get; set; }
     public SemaphoreSlim WriteLock { get; } = new(1, 1);
+    private bool _disposed;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        try { WriteLock.Dispose(); } catch { }
+        try { Client.Dispose(); } catch { }
+    }
 
     // Heartbeat tracking
     public DateTime LastPongReceived { get; set; } = DateTime.UtcNow;

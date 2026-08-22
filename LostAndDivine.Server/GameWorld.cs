@@ -23,6 +23,7 @@ public sealed class GameMap
 
     /// <summary>Точки, недоступные для прохода (препятствия/здания).</summary>
     private readonly HashSet<(int X, int Y)> _obstacles = new();
+    private readonly object _obstacleLock = new();
 
     /// <summary>Тайл-карта: плоский массив tileType по [y * Width + x]. null — карта не загружена.</summary>
     private byte[]? _tiles;
@@ -66,11 +67,13 @@ public sealed class GameMap
 
     public byte[]? GetObjectTiles() => _objectTiles;
 
-    public void AddObstacle(int x, int y) => _obstacles.Add((x, y));
+    public void AddObstacle(int x, int y) { lock (_obstacleLock) _obstacles.Add((x, y)); }
 
-    public void ClearObstacles() => _obstacles.Clear();
+    public void RemoveObstacle(int x, int y) { lock (_obstacleLock) _obstacles.Remove((x, y)); }
 
-    public bool IsObstacle(int x, int y) => _obstacles.Contains((x, y));
+    public void ClearObstacles() { lock (_obstacleLock) _obstacles.Clear(); }
+
+    public bool IsObstacle(int x, int y) { lock (_obstacleLock) return _obstacles.Contains((x, y)); }
 
     /// <summary>
     /// Плоский массив Width*Height: 1 — клетка непроходима, 0 — свободна.
@@ -79,10 +82,13 @@ public sealed class GameMap
     public byte[] GetObstacleData()
     {
         var data = new byte[Width * Height];
-        foreach (var (x, y) in _obstacles)
+        lock (_obstacleLock)
         {
-            if (x >= 0 && y >= 0 && x < Width && y < Height)
-                data[y * Width + x] = 1;
+            foreach (var (x, y) in _obstacles)
+            {
+                if (x >= 0 && y >= 0 && x < Width && y < Height)
+                    data[y * Width + x] = 1;
+            }
         }
         return data;
     }
@@ -94,8 +100,11 @@ public sealed class GameMap
         var clone = new GameMap(Width, Height);
         if (_tiles != null) clone.SetTiles((byte[])_tiles.Clone());
         if (_objectTiles != null) clone.SetObjectTiles((byte[])_objectTiles.Clone());
-        foreach (var (x, y) in _obstacles)
-            clone.AddObstacle(x, y);
+        lock (_obstacleLock)
+        {
+            foreach (var (x, y) in _obstacles)
+                clone.AddObstacle(x, y);
+        }
         return clone;
     }
 
@@ -238,6 +247,18 @@ public sealed class GameWorld
             catch (Exception ex) { Log.Error($"[World] Save on disconnect failed for {connection.Player.Name}", ex); }
         }
         lock (_lock) _clients.Remove(connection);
+        try { connection.Dispose(); } catch { }
+    }
+
+    /// <summary>Атомарно проверяет лимит и добавляет клиента (P1-7). Возвращает false если лимит достигнут.</summary>
+    public bool TryAddClientWithLimit(int maxConnections, ClientConnection connection)
+    {
+        lock (_lock)
+        {
+            if (_clients.Count >= maxConnections) return false;
+            _clients.Add(connection);
+            return true;
+        }
     }
 
     public List<ClientConnection> GetClientsSnapshot()

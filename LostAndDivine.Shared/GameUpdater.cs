@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using LostAndDivine.Shared.Models;
 using LostAndDivine.Shared.Network;
@@ -35,6 +37,49 @@ public static class GameUpdater
     /// <summary>Хук логирования (по умолчанию — Console).</summary>
     public static Action<string> Log { get; set; } = m => Console.WriteLine(m);
 
+    /// <summary>TLS pin — отпечаток публичного ключа сервера (SPKI SHA256). Для TCP с подписью манифеста уже хватает, но если сервер перейдёт на TLS — проверим что сертификат подписан тем же ключом что и манифест (SigningKeys).</summary>
+    private static string? _pinnedSpkiHash;
+    private static string PinnedSpkiHash => _pinnedSpkiHash ??= ComputeSpkiHash(SigningKeys.PublicKeyPem);
+
+    private static string ComputeSpkiHash(string pem)
+    {
+        try
+        {
+            using var rsa = RSA.Create();
+            rsa.ImportFromPem(pem);
+            var spki = rsa.ExportSubjectPublicKeyInfo();
+            return Convert.ToHexString(SHA256.HashData(spki));
+        }
+        catch { return ""; }
+    }
+
+    private static bool ValidatePin(object sender, X509Certificate? cert, X509Chain? chain, SslPolicyErrors errors)
+    {
+        if (cert == null) return false;
+        try
+        {
+            // Берём SPKI из сертификата и сравниваем с пином из SigningKeys
+            var cert2 = new X509Certificate2(cert);
+            var spki = cert2.PublicKey.EncodedKeyValue.RawData;
+            var hash = Convert.ToHexString(SHA256.HashData(spki));
+            bool ok = string.Equals(hash, PinnedSpkiHash, StringComparison.OrdinalIgnoreCase);
+            if (!ok) Log($"[TLS pin] отпечаток не совпал: {hash} != {PinnedSpkiHash}");
+            return ok;
+        }
+        catch (Exception ex) { Log($"[TLS pin] ошибка проверки: {ex.Message}"); return false; }
+    }
+
+    private static async Task<Stream> WrapWithTlsIfNeeded(TcpClient client, string ip, CancellationToken ct)
+    {
+        // Для plain TCP (порт 7777) — просто возвращаем NetworkStream. Если сервер когда-то включит TLS (LAD_USE_TLS=1),
+        // клиент автоматом перейдёт на SslStream с пином.
+        if (Environment.GetEnvironmentVariable("LAD_USE_TLS") != "1") return client.GetStream();
+        var net = client.GetStream();
+        var ssl = new SslStream(net, false, ValidatePin);
+        await ssl.AuthenticateAsClientAsync(ip, null, System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13, false);
+        return ssl;
+    }
+
     /// <summary>
     /// Проверяет обновления и применяет их при наличии. Возвращает флаг необходимости
     /// перезапуска (обновление уже записано в staging и готово к применению).
@@ -53,7 +98,7 @@ public static class GameUpdater
         {
             using var client = new TcpClient { NoDelay = true };
             await client.ConnectAsync(ip, port, ct);
-            var stream = client.GetStream();
+            var stream = await WrapWithTlsIfNeeded(client, ip, ct);
 
             await Send(stream, new GameMessage { Type = GameMessageType.UpdateCheck, Data = new UpdateCheckRequest { Version = localVersion } });
             var infoMsg = await Receive<GameMessage>(stream, ct);
@@ -70,8 +115,12 @@ public static class GameUpdater
             if (CompareVersions(info.Version, localVersion) < 0)
                 return new GameUpdateResult { Message = $"Обновление отклонено: сервер предлагает более старую версию ({info.Version} < {localVersion})." };
 
-            if (string.Equals(info.Version, localVersion, StringComparison.OrdinalIgnoreCase))
+            // MinVersion floor (P5): если локальная ниже пола — форсим обновление даже если версия совпадает
+            bool belowFloor = !string.IsNullOrWhiteSpace(info.MinVersion) && CompareVersions(localVersion, info.MinVersion) < 0;
+            if (string.Equals(info.Version, localVersion, StringComparison.OrdinalIgnoreCase) && !belowFloor)
                 return new GameUpdateResult { Message = $"Обновление не требуется — версия актуальна (v{localVersion})" };
+            if (belowFloor)
+                report($"[Update] Версия v{localVersion} ниже минимально требуемой v{info.MinVersion} — форсим обновление");
 
             report($"Найдено обновление: v{localVersion} -> v{info.Version}");
 
@@ -124,7 +173,7 @@ public static class GameUpdater
         {
             using var client = new TcpClient { NoDelay = true };
             await client.ConnectAsync(ip, port, ct);
-            var stream = client.GetStream();
+            var stream = await WrapWithTlsIfNeeded(client, ip, ct);
             await Send(stream, new GameMessage { Type = GameMessageType.Changelog, Data = new { } });
             var msg = await Receive<GameMessage>(stream, ct);
             return Deserialize<ChangelogData>(msg?.Data);
@@ -158,7 +207,7 @@ public static class GameUpdater
         }
     }
 
-    private static async Task DownloadFileAsync(NetworkStream stream, UpdateFileEntry entry, Action<string> report, CancellationToken ct)
+    private static async Task DownloadFileAsync(Stream stream, UpdateFileEntry entry, Action<string> report, CancellationToken ct)
     {
             await Send(stream, new GameMessage { Type = GameMessageType.UpdateFile, Data = new UpdateFileRequest { Path = entry.Path } });
 
@@ -271,10 +320,10 @@ public static class GameUpdater
         return 0;
     }
 
-    private static Task Send(NetworkStream stream, GameMessage msg)
+    private static Task Send(Stream stream, GameMessage msg)
         => NetworkHelper.SendAsync(stream, msg);
 
-    private static Task<T?> Receive<T>(NetworkStream stream, CancellationToken ct)
+    private static Task<T?> Receive<T>(Stream stream, CancellationToken ct)
         => NetworkHelper.ReceiveAsync<T>(stream, ct);
 
     private static T? Deserialize<T>(object? data)

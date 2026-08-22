@@ -24,12 +24,34 @@ public static class DatabaseManager
 
         bool contentExisted = File.Exists(Db.ContentPath);
         // Если живого content.db нет, берём его из staging-копии редактора
-        // (content.editor.db), чтобы клон/другой ПК сразу получал актуальный контент.
+        // (content.editor.db) атомарно через VACUUM INTO под ContentLock,
+        // чтобы избежать half-copy при конкурентном старте Editor+Server (P1-2).
         if (!contentExisted)
         {
             string editorContent = Path.Combine(Path.GetDirectoryName(Db.ContentPath) ?? ".", "content.editor.db");
             if (File.Exists(editorContent))
-                File.Copy(editorContent, Db.ContentPath);
+            {
+                lock (Db.ContentLock)
+                {
+                    if (!File.Exists(Db.ContentPath))
+                    {
+                        try
+                        {
+                            using var srcConn = new SqliteConnection($"Data Source={editorContent}");
+                            srcConn.Open();
+                            using var cmd = srcConn.CreateCommand();
+                            string safePath = Db.ContentPath.Replace("'", "''");
+                            cmd.CommandText = $"VACUUM INTO '{safePath}'";
+                            cmd.ExecuteNonQuery();
+                        }
+                        catch
+                        {
+                            // fallback для очень старого SQLite без VACUUM INTO
+                            try { File.Copy(editorContent, Db.ContentPath); } catch { }
+                        }
+                    }
+                }
+            }
         }
         DbMigrationRunner.RunMigrations(Db.ContentConnectionString, allowDestructiveReset);
         if (!contentExisted)

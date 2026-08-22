@@ -9,6 +9,8 @@ public record TileConfig(int TileWidth, string TilesetId, string? ObjectTilesetI
 
 /// <summary>
 /// Менеджер зон: загружает зоны и порталы из БД, предоставляет GameMap для каждой зоны.
+/// Thread-safe: все доступы под lock(_lock), т.к. ClearTiledRegistrations мутирует
+/// пока InteractionService.Tick читает FindPortal/GetAllTiledNpcs (P0-3).
 /// </summary>
 public class ZoneManager
 {
@@ -22,14 +24,24 @@ public class ZoneManager
     private readonly Dictionary<string, TileConfig> _tileConfig = new();
     private readonly Dictionary<string, List<TiledNpc>> _tiledNpcs = new();
     private GameMap? _mainMap;
+    private readonly object _lock = new();
 
-    public IReadOnlyDictionary<string, Zone> Zones => _zones;
-    public IReadOnlyList<WorldPortal> Portals => _portals;
+    public IReadOnlyDictionary<string, Zone> Zones
+    {
+        get { lock (_lock) return new Dictionary<string, Zone>(_zones); }
+    }
+    public IReadOnlyList<WorldPortal> Portals
+    {
+        get { lock (_lock) return new List<WorldPortal>(_portals); }
+    }
 
     public void RegisterZone(string id, int width, int height)
     {
-        _zones[id] = new Zone { Id = id, Name = id, Width = width, Height = height, SpawnX = width / 2, SpawnY = height / 2 };
-        _maps[id] = new GameMap(width, height);
+        lock (_lock)
+        {
+            _zones[id] = new Zone { Id = id, Name = id, Width = width, Height = height, SpawnX = width / 2, SpawnY = height / 2 };
+            _maps[id] = new GameMap(width, height);
+        }
     }
 
     /// <summary>
@@ -39,25 +51,28 @@ public class ZoneManager
     /// </summary>
     public void ConfigureMainZone((int X, int Y) spawn)
     {
-        if (!_zones.ContainsKey(Balance.MainZoneId))
+        lock (_lock)
         {
-            _zones[Balance.MainZoneId] = new Zone
+            if (!_zones.ContainsKey(Balance.MainZoneId))
             {
-                Id = Balance.MainZoneId,
-                Name = Balance.MainZoneId,
-                Width = Balance.MainWorldWidth,
-                Height = Balance.MainWorldHeight,
-                SpawnX = spawn.X,
-                SpawnY = spawn.Y
-            };
-            _maps[Balance.MainZoneId] = _mainMap ?? new GameMap(Balance.MainWorldWidth, Balance.MainWorldHeight);
-        }
-        else if (_zones.TryGetValue(Balance.MainZoneId, out var zone))
-        {
-            zone.Width = Balance.MainWorldWidth;
-            zone.Height = Balance.MainWorldHeight;
-            zone.SpawnX = spawn.X;
-            zone.SpawnY = spawn.Y;
+                _zones[Balance.MainZoneId] = new Zone
+                {
+                    Id = Balance.MainZoneId,
+                    Name = Balance.MainZoneId,
+                    Width = Balance.MainWorldWidth,
+                    Height = Balance.MainWorldHeight,
+                    SpawnX = spawn.X,
+                    SpawnY = spawn.Y
+                };
+                _maps[Balance.MainZoneId] = _mainMap ?? new GameMap(Balance.MainWorldWidth, Balance.MainWorldHeight);
+            }
+            else if (_zones.TryGetValue(Balance.MainZoneId, out var zone))
+            {
+                zone.Width = Balance.MainWorldWidth;
+                zone.Height = Balance.MainWorldHeight;
+                zone.SpawnX = spawn.X;
+                zone.SpawnY = spawn.Y;
+            }
         }
         Log.Info($"Зона 'main': {Balance.MainWorldWidth}x{Balance.MainWorldHeight}, спавн ({spawn.X}, {spawn.Y})");
     }
@@ -66,72 +81,96 @@ public class ZoneManager
     /// Главная зона использует карту мира (GameWorld.Map): тайлы и препятствия
     /// должны быть общими для рендера, патфайндинга и движения.
     /// </summary>
-    public void SetMainMap(GameMap map) => _mainMap = map;
+    public void SetMainMap(GameMap map) { lock (_lock) _mainMap = map; }
 
     public void LoadAll()
     {
-        _zones.Clear();
-        _maps.Clear();
-        _portals.Clear();
-        _portalLookup.Clear();
-        _portalsByZone.Clear();
-        _doors.Clear();
-
-        foreach (var zone in ZoneRepository.LoadAll())
+        lock (_lock)
         {
-            _zones[zone.Id] = zone;
-            _maps[zone.Id] = new GameMap(zone.Width, zone.Height);
+            _zones.Clear();
+            _maps.Clear();
+            _portals.Clear();
+            _portalLookup.Clear();
+            _portalsByZone.Clear();
+            _doors.Clear();
+
+            foreach (var zone in ZoneRepository.LoadAll())
+            {
+                _zones[zone.Id] = zone;
+                _maps[zone.Id] = new GameMap(zone.Width, zone.Height);
+            }
+
+            if (_mainMap != null)
+                _maps[Balance.MainZoneId] = _mainMap;
+
+            foreach (var portal in ZoneRepository.LoadPortals())
+            {
+                _portals.Add(portal);
+                _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+
+                if (!_portalsByZone.ContainsKey(portal.FromZone))
+                    _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+                _portalsByZone[portal.FromZone].Add(portal);
+            }
+
+            Log.Info($"Загружено {_zones.Count} зон, {_portals.Count} порталов");
         }
-
-        if (_mainMap != null)
-            _maps[Balance.MainZoneId] = _mainMap;
-
-        foreach (var portal in ZoneRepository.LoadPortals())
-        {
-            _portals.Add(portal);
-            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
-
-            if (!_portalsByZone.ContainsKey(portal.FromZone))
-                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
-            _portalsByZone[portal.FromZone].Add(portal);
-        }
-
-        Log.Info($"Загружено {_zones.Count} зон, {_portals.Count} порталов");
     }
 
-    public Zone? GetZone(string id) => _zones.TryGetValue(id, out var zone) ? zone : null;
+    public Zone? GetZone(string id) { lock (_lock) return _zones.TryGetValue(id, out var zone) ? zone : null; }
 
     public GameMap? GetMap(string zoneId)
     {
-        if (_maps.TryGetValue(zoneId, out var map)) return map;
-        if (_instanceMaps.TryGetValue(zoneId, out var imap)) return imap;
-        return null;
+        lock (_lock)
+        {
+            if (_maps.TryGetValue(zoneId, out var map)) return map;
+            if (_instanceMaps.TryGetValue(zoneId, out var imap)) return imap;
+            return null;
+        }
     }
 
-    public bool IsPvPEnabled(string zoneId) => _zones.TryGetValue(zoneId, out var zone) && zone.PvpEnabled;
+    public bool IsPvPEnabled(string zoneId) { lock (_lock) return _zones.TryGetValue(zoneId, out var zone) && zone.PvpEnabled; }
 
     public WorldPortal? FindPortal(string zone, int x, int y)
-        => _portalLookup.TryGetValue((zone, x, y), out var portal) ? portal : null;
+    {
+        lock (_lock) return _portalLookup.TryGetValue((zone, x, y), out var portal) ? portal : null;
+    }
 
     public List<WorldPortal> GetPortalsForZone(string zoneId)
-        => _portalsByZone.TryGetValue(zoneId, out var list) ? list : new List<WorldPortal>();
+    {
+        lock (_lock) return _portalsByZone.TryGetValue(zoneId, out var list) ? new List<WorldPortal>(list) : new List<WorldPortal>();
+    }
 
     public IReadOnlyDictionary<string, List<WorldPortal>> GetAllPortalsByZone()
-        => _portalsByZone;
+    {
+        lock (_lock)
+        {
+            // snapshot
+            var copy = new Dictionary<string, List<WorldPortal>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in _portalsByZone)
+                copy[kv.Key] = new List<WorldPortal>(kv.Value);
+            return copy;
+        }
+    }
 
     public TiledDoor? FindDoor(string zone, int x, int y)
-        => _doors.TryGetValue((zone, x, y), out var door) ? door : null;
+    {
+        lock (_lock) return _doors.TryGetValue((zone, x, y), out var door) ? door : null;
+    }
 
     public IReadOnlyDictionary<string, List<TiledDoor>> GetAllDoorsByZone()
     {
-        var byZone = new Dictionary<string, List<TiledDoor>>();
-        foreach (var kv in _doors)
+        lock (_lock)
         {
-            if (!byZone.ContainsKey(kv.Key.Zone))
-                byZone[kv.Key.Zone] = new List<TiledDoor>();
-            byZone[kv.Key.Zone].Add(kv.Value);
+            var byZone = new Dictionary<string, List<TiledDoor>>();
+            foreach (var kv in _doors)
+            {
+                if (!byZone.ContainsKey(kv.Key.Zone))
+                    byZone[kv.Key.Zone] = new List<TiledDoor>();
+                byZone[kv.Key.Zone].Add(kv.Value);
+            }
+            return byZone;
         }
-        return byZone;
     }
 
     /// <summary>
@@ -139,8 +178,11 @@ public class ZoneManager
     /// </summary>
     public void RegisterDoors(string zoneId, IEnumerable<TiledDoor> doors)
     {
-        foreach (var door in doors)
-            _doors[(zoneId, door.X, door.Y)] = door;
+        lock (_lock)
+        {
+            foreach (var door in doors)
+                _doors[(zoneId, door.X, door.Y)] = door;
+        }
     }
 
     /// <summary>
@@ -148,24 +190,27 @@ public class ZoneManager
     /// </summary>
     public GameMap GetOrCreateMap(string zoneId)
     {
-        if (_maps.TryGetValue(zoneId, out var map))
-            return map;
-        if (_instanceMaps.TryGetValue(zoneId, out var imap))
-            return imap;
+        lock (_lock)
+        {
+            if (_maps.TryGetValue(zoneId, out var map))
+                return map;
+            if (_instanceMaps.TryGetValue(zoneId, out var imap))
+                return imap;
 
-        var fallback = new GameMap(Balance.WorldWidth, Balance.WorldHeight);
-        _maps[zoneId] = fallback;
-        return fallback;
+            var fallback = new GameMap(Balance.WorldWidth, Balance.WorldHeight);
+            _maps[zoneId] = fallback;
+            return fallback;
+        }
     }
 
     public void RegisterInstanceZone(string zoneId, GameMap map)
     {
-        _instanceMaps[zoneId] = map;
+        lock (_lock) _instanceMaps[zoneId] = map;
     }
 
     public void UnregisterInstanceZone(string zoneId)
     {
-        _instanceMaps.Remove(zoneId);
+        lock (_lock) _instanceMaps.Remove(zoneId);
     }
 
     /// <summary>
@@ -174,26 +219,29 @@ public class ZoneManager
     /// </summary>
     public void ClearTiledRegistrations(string zoneId)
     {
-        _portals.RemoveAll(p =>
-            string.Equals(p.FromZone, zoneId, StringComparison.OrdinalIgnoreCase) &&
-            (p.Id.StartsWith("sector_", StringComparison.OrdinalIgnoreCase) ||
-             p.Id.StartsWith("tiled_", StringComparison.OrdinalIgnoreCase)));
-
-        // Пересборка lookup-структур из оставшихся порталов
-        _portalLookup.Clear();
-        _portalsByZone.Clear();
-        foreach (var portal in _portals)
+        lock (_lock)
         {
-            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
-            if (!_portalsByZone.ContainsKey(portal.FromZone))
-                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
-            _portalsByZone[portal.FromZone].Add(portal);
+            _portals.RemoveAll(p =>
+                string.Equals(p.FromZone, zoneId, StringComparison.OrdinalIgnoreCase) &&
+                (p.Id.StartsWith("sector_", StringComparison.OrdinalIgnoreCase) ||
+                 p.Id.StartsWith("tiled_", StringComparison.OrdinalIgnoreCase)));
+
+            // Пересборка lookup-структур из оставшихся порталов
+            _portalLookup.Clear();
+            _portalsByZone.Clear();
+            foreach (var portal in _portals)
+            {
+                _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+                if (!_portalsByZone.ContainsKey(portal.FromZone))
+                    _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+                _portalsByZone[portal.FromZone].Add(portal);
+            }
+
+            foreach (var key in _doors.Keys.Where(k => string.Equals(k.Zone, zoneId, StringComparison.OrdinalIgnoreCase)).ToList())
+                _doors.Remove(key);
+
+            _tiledNpcs.Remove(zoneId);
         }
-
-        foreach (var key in _doors.Keys.Where(k => string.Equals(k.Zone, zoneId, StringComparison.OrdinalIgnoreCase)).ToList())
-            _doors.Remove(key);
-
-        _tiledNpcs.Remove(zoneId);
     }
 
     /// <summary>
@@ -201,14 +249,17 @@ public class ZoneManager
     /// </summary>
     public void RegisterTiledPortals(IEnumerable<WorldPortal> portals)
     {
-        foreach (var portal in portals)
+        lock (_lock)
         {
-            _portals.Add(portal);
-            _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
+            foreach (var portal in portals)
+            {
+                _portals.Add(portal);
+                _portalLookup[(portal.FromZone, portal.FromX, portal.FromY)] = portal;
 
-            if (!_portalsByZone.ContainsKey(portal.FromZone))
-                _portalsByZone[portal.FromZone] = new List<WorldPortal>();
-            _portalsByZone[portal.FromZone].Add(portal);
+                if (!_portalsByZone.ContainsKey(portal.FromZone))
+                    _portalsByZone[portal.FromZone] = new List<WorldPortal>();
+                _portalsByZone[portal.FromZone].Add(portal);
+            }
         }
 
         var list = portals as IReadOnlyCollection<WorldPortal> ?? portals.ToList();
@@ -222,10 +273,14 @@ public class ZoneManager
     /// objectTilesetId/objectTileWidth задают слой объектов (деревья), если он есть.
     /// </summary>
     public void SetTileConfig(string zoneId, int tileWidth, string tilesetId, string? objectTilesetId = null, int objectTileWidth = 0)
-        => _tileConfig[zoneId] = new TileConfig(tileWidth, tilesetId, objectTilesetId, objectTileWidth);
+    {
+        lock (_lock) _tileConfig[zoneId] = new TileConfig(tileWidth, tilesetId, objectTilesetId, objectTileWidth);
+    }
 
     public TileConfig GetTileConfig(string zoneId)
-        => _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : new TileConfig(32, zoneId, null, 0);
+    {
+        lock (_lock) return _tileConfig.TryGetValue(zoneId, out var cfg) ? cfg : new TileConfig(32, zoneId, null, 0);
+    }
 
     /// <summary>
     /// Регистрирует позиции NPC, размещённые в Tiled-карте зоны. Позиции NPC берутся
@@ -233,21 +288,29 @@ public class ZoneManager
     /// </summary>
     public void RegisterTiledNpcs(string zoneId, IEnumerable<TiledNpc> npcs)
     {
-        var list = npcs.ToList();
-        _tiledNpcs[zoneId] = list;
-        if (list.Count > 0)
-            Log.Info($"Зарегистрировано NPC из Tiled в зоне '{zoneId}': {list.Count}");
+        lock (_lock)
+        {
+            var list = npcs.ToList();
+            _tiledNpcs[zoneId] = list;
+            if (list.Count > 0)
+                Log.Info($"Зарегистрировано NPC из Tiled в зоне '{zoneId}': {list.Count}");
+        }
     }
 
     public List<TiledNpc> GetTiledNpcs(string zoneId)
-        => _tiledNpcs.TryGetValue(zoneId, out var list) ? list : new List<TiledNpc>();
+    {
+        lock (_lock) return _tiledNpcs.TryGetValue(zoneId, out var list) ? new List<TiledNpc>(list) : new List<TiledNpc>();
+    }
 
     public IReadOnlyList<TiledNpc> GetAllTiledNpcs()
     {
-        var all = new List<TiledNpc>();
-        foreach (var list in _tiledNpcs.Values)
-            all.AddRange(list);
-        return all;
+        lock (_lock)
+        {
+            var all = new List<TiledNpc>();
+            foreach (var list in _tiledNpcs.Values)
+                all.AddRange(list);
+            return all;
+        }
     }
 
     /// <summary>
@@ -257,20 +320,23 @@ public class ZoneManager
     /// </summary>
     public GameMap CreateOrReplaceMap(string zoneId, int width, int height)
     {
-        if (zoneId == Balance.MainZoneId && _mainMap != null)
+        lock (_lock)
         {
-            if (_mainMap.Width != width || _mainMap.Height != height)
-                throw new InvalidOperationException($"Размер Tiled-карты {width}x{height} не совпадает с картой мира {_mainMap.Width}x{_mainMap.Height}");
-            return _mainMap;
-        }
+            if (zoneId == Balance.MainZoneId && _mainMap != null)
+            {
+                if (_mainMap.Width != width || _mainMap.Height != height)
+                    throw new InvalidOperationException($"Размер Tiled-карты {width}x{height} не совпадает с картой мира {_mainMap.Width}x{_mainMap.Height}");
+                return _mainMap;
+            }
 
-        var map = new GameMap(width, height);
-        _maps[zoneId] = map;
-        if (_zones.TryGetValue(zoneId, out var zone))
-        {
-            zone.Width = width;
-            zone.Height = height;
+            var map = new GameMap(width, height);
+            _maps[zoneId] = map;
+            if (_zones.TryGetValue(zoneId, out var zone))
+            {
+                zone.Width = width;
+                zone.Height = height;
+            }
+            return map;
         }
-        return map;
     }
 }

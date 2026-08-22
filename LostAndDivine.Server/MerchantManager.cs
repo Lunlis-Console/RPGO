@@ -28,6 +28,7 @@ public class MerchantManager
     private int? _tiledY;
     private string _merchantNpcId = "";
     private Dictionary<string, int> _merchantStock = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _stockLock = new();
 
     public MerchantManager(GameWorld world)
     {
@@ -45,11 +46,14 @@ public class MerchantManager
     {
         var npc = DatabaseManager.LoadNpcs().FirstOrDefault(n => n.Type == "merchant");
         _merchantNpcId = npc?.Id ?? "";
-        _merchantStock.Clear();
+        lock (_stockLock) _merchantStock.Clear();
         if (!string.IsNullOrEmpty(_merchantNpcId))
         {
-            foreach (var (itemId, stock) in DatabaseManager.LoadMerchantStock(_merchantNpcId))
-                _merchantStock[itemId] = stock;
+            lock (_stockLock)
+            {
+                foreach (var (itemId, stock) in DatabaseManager.LoadMerchantStock(_merchantNpcId))
+                    _merchantStock[itemId] = stock;
+            }
         }
         if (_tiledX.HasValue && _tiledY.HasValue)
         {
@@ -88,9 +92,25 @@ public class MerchantManager
     /// </summary>
     public int GetStock(string itemId)
     {
-        if (_merchantStock.TryGetValue(itemId, out int stock) && stock > 0) return stock;
+        lock (_stockLock)
+        {
+            if (_merchantStock.TryGetValue(itemId, out int stock) && stock > 0) return stock;
+        }
         var item = FindItem(itemId);
         return Math.Max(1, item?.Stock ?? 1);
+    }
+
+    /// <summary>Атомарно резервирует stock под покупку, защита от oversell (P1-8).</summary>
+    public bool TryReserveStock(string itemId, int qty)
+    {
+        lock (_stockLock)
+        {
+            if (!_merchantStock.TryGetValue(itemId, out int stock))
+                return true; // вне merchant_stock — без лимита (fallback)
+            if (stock < qty) return false;
+            _merchantStock[itemId] = stock - qty;
+            return true;
+        }
     }
 
     public Item CreatePlayerCopy(Item template)

@@ -23,6 +23,7 @@ partial class Program
     private static TestBot? _testBot;
     private static readonly object _botLock = new();
     private static readonly ConnectionGuard _connectionGuard = new();
+    private static readonly SemaphoreSlim _clientSemaphore = new(2000, 2000);
 
     public static double GetAttackSpeed(Player player)
         => Math.Min(Balance.MaxAttackSpeed,
@@ -48,6 +49,11 @@ partial class Program
         Console.InputEncoding = System.Text.Encoding.UTF8;
 
         Log.Init();
+
+        // P1-11: тюнинг ThreadPool под 2000 CCU — минимум потоков чтобы 50ms loop + heartbeat не голодали
+        ThreadPool.SetMinThreads(200, 200);
+        ThreadPool.GetMinThreads(out int w, out int io);
+        Log.Info($"ThreadPool min threads: worker={w}, io={io}");
 
         Log.Info("Инициализация базы данных...");
         DatabaseManager.Initialize();
@@ -219,31 +225,8 @@ partial class Program
             }
         }
 
-        // Установка сундука склада в локации
-        int storageX = merchant.MerchantX + 1;
-        int storageY = merchant.MerchantY;
-        if (world.Map.IsObstacle(storageX, storageY))
-        {
-            // Если позиция склада занята в локации
-            int[] dx = { 0, 0, -1, 1, 1, -1, 1, -1 };
-            int[] dy = { -1, 1, 0, 0, -1, -1, 1, 1 };
-            storageX = merchant.MerchantX;
-            storageY = merchant.MerchantY;
-            for (int i = 0; i < 8; i++)
-            {
-                int nx = merchant.MerchantX + dx[i];
-                int ny = merchant.MerchantY + dy[i];
-                if (!world.Map.IsObstacle(nx, ny))
-                {
-                    storageX = nx;
-                    storageY = ny;
-                    break;
-                }
-            }
-        }
-        world.Map.AddObstacle(storageX, storageY);
-        storage.SetPosition(storageX, storageY);
-        Log.Info($"Склад размещён на ({storageX}, {storageY})");
+        // Установка сундука склада в локации (единый путь через GameServices)
+        services.RelocateStorage();
 
         hub.SetServices(services);
         monsters.SetServices(services);
@@ -312,21 +295,23 @@ partial class Program
                 continue;
             }
 
-            // P2-7: глобальный предел одновременных соединений (тюнится через
-            // LAD_MAX_CONNECTIONS, по умолчанию Balance.MaxConnections).
-            if (world.GetConnectionCount() >= GetMaxConnections())
+            Log.Debug($"TCP-подключение: {client.Client.RemoteEndPoint}");
+
+            var connection = new ClientConnection(client);
+            if (!world.TryAddClientWithLimit(GetMaxConnections(), connection))
             {
-                Log.Warn($"Отклонено подключение (достигнут лимит соединений {Balance.MaxConnections}): {ip}");
+                Log.Warn($"Отклонено подключение (достигнут лимит соединений {GetMaxConnections()}): {ip}");
+                try { connection.Dispose(); } catch { }
                 try { client.Close(); } catch { }
                 continue;
             }
 
-            Log.Debug($"TCP-подключение: {client.Client.RemoteEndPoint}");
-
-            ClientConnection connection = new ClientConnection(client);
-            world.AddClient(connection);
-
-            _ = Task.Run(() => HandleClientAsync(connection, services));
+            await _clientSemaphore.WaitAsync();
+            _ = Task.Run(async () =>
+            {
+                try { await HandleClientAsync(connection, services); }
+                finally { _clientSemaphore.Release(); }
+            });
         }
     }
 

@@ -87,7 +87,7 @@ namespace LostAndDivine.Editor;
         if (!File.Exists(ContentDbFile))
             throw new InvalidOperationException("Staging content.editor.db не найден — нечего публиковать.");
 
-        string stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        string stamp = $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid().ToString("N")[..4]}";
         string backupPath = LiveContentDbFile + ".publishbak_" + stamp;
 
         using var live = new SqliteConnection($"Data Source={LiveContentDbFile}");

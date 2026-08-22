@@ -27,8 +27,11 @@ public class MonsterAttackService
             bool blocked = !evaded && !parried && Balance.RollPercent(player.GetBlockChance());
             int finalDmg = (evaded || parried || blocked) ? 0 : damage;
 
-            player.Health -= finalDmg;
-            player.LastDamagedTime = DateTime.UtcNow;
+            lock (player.Sync)
+            {
+                player.Health -= finalDmg;
+                player.LastDamagedTime = DateTime.UtcNow;
+            }
             var client = _svc.World.FindClientByPlayer(player);
             if (client == null) continue;
 
@@ -61,15 +64,24 @@ public class MonsterAttackService
             await _svc.Hub.SendToClient(client, GameMessage.CombatUpdate(monster.Name, monster.Health, monster.MaxHealth));
             await _svc.Party.SendUpdateForAsync(player);
 
-            if (player.Health <= 0)
+            bool died = false;
+            int lostGold = 0;
+            lock (player.Sync)
             {
-                int lostGold = Balance.ComputeDeathGoldLoss(player.Gold);
-                player.Gold -= lostGold;
-                player.Combat.Cancel();
-                player.Interaction.Clear();
-                player.Movement.Stop();
-                player.IsDead = true;
-                player.DeathTime = DateTime.UtcNow;
+                if (player.Health <= 0 && !player.IsDead)
+                {
+                    lostGold = Balance.ComputeDeathGoldLoss(player.Gold);
+                    player.Gold -= lostGold;
+                    player.Combat.Cancel();
+                    player.Interaction.Clear();
+                    player.Movement.Stop();
+                    player.IsDead = true;
+                    player.DeathTime = DateTime.UtcNow;
+                    died = true;
+                }
+            }
+            if (died)
+            {
                 Log.Info($"{player.Name} погиб от {monster.Name}! Потеряно {lostGold} золота. Таймер 5с.");
                 await _svc.ChatTo(client, ChatChannel.System, "Система", $"Вы погибли от {monster.Name}! Потеряно {lostGold} золота. Возрождение через 5 сек...");
                 await _svc.Hub.SendToClient(client, GameMessage.ResetCombat());

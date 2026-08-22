@@ -18,10 +18,11 @@ public class PathfindingService
         _quests = quests;
     }
 
-    private ZoneManager? _zones;
-    private StorageService? _storage;
-    private InstanceManager? _instances;
-    public void Configure(ZoneManager? zones, StorageService? storage, InstanceManager? instances)
+    private ZoneManager _zones = null!;
+    private StorageService _storage = null!;
+    private InstanceManager _instances = null!;
+    /// <summary>Явная инъекция зависимостей (P3): зоны/склад/инстансы нужны для блокировки клеток.</summary>
+    public void Configure(ZoneManager zones, StorageService storage, InstanceManager instances)
     {
         _zones = zones; _storage = storage; _instances = instances;
     }
@@ -36,7 +37,7 @@ public class PathfindingService
     /// </summary>
     public List<(int X, int Y)> FindPath(int startX, int startY, int targetX, int targetY, string zoneId)
     {
-        var zoneMap = _zones?.GetOrCreateMap(zoneId) ?? _world.Map;
+        var zoneMap = _zones != null ? _zones.GetOrCreateMap(zoneId) : _world.Map;
         var blocked = BuildBlockedCells(zoneId);
 
         return Shared.Utils.Pathfinding.FindPath(startX, startY, targetX, targetY,

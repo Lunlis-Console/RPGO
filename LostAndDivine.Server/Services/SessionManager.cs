@@ -10,8 +10,21 @@ namespace LostAndDivine.Server.Services;
 /// </summary>
 public static class SessionManager
 {
-    private static readonly string _secret = Environment.GetEnvironmentVariable("SESSION_SECRET")
-        ?? "dev-secret-change-in-production";
+    private static string? _cachedSecret;
+    private static string Secret
+    {
+        get
+        {
+            if (_cachedSecret != null) return _cachedSecret;
+            var s = Environment.GetEnvironmentVariable("SESSION_SECRET");
+            if (!string.IsNullOrEmpty(s)) { _cachedSecret = s; return s; }
+            // P1-10: нет fallback dev-secret — генерим случайный per-process, чтобы не было forge фиксированным ключом
+            _cachedSecret = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            Log.Warn("[Session] SESSION_SECRET не задан — сгенерирован случайный per-process secret (токены инвалидируются при рестарте)");
+            return _cachedSecret;
+        }
+    }
+    private static readonly object _tokenLock = new();
 
     /// <summary>
     /// Creates a new reconnect token for a player (valid 7 days).
@@ -31,18 +44,20 @@ public static class SessionManager
     }
 
     /// <summary>
-    /// Validates token and removes it (one-time use).
+    /// Validates token and removes it (one-time use) атомарно (P1-10).
     /// Returns playerName if valid, null otherwise.
     /// </summary>
     public static string? ValidateAndConsume(string token)
     {
-        if (TryValidate(token, out var playerName))
+        lock (_tokenLock)
         {
-            SessionTokenRepository.Delete(token);
-            return playerName;
+            if (TryValidate(token, out var playerName))
+            {
+                SessionTokenRepository.Delete(token);
+                return playerName;
+            }
+            return null;
         }
-
-        return null;
     }
 
     /// <summary>
@@ -83,15 +98,18 @@ public static class SessionManager
             return false;
         }
 
-        // Verify HMAC
-        var parts = token.Split(':');
-        if (parts.Length != 3) return false;
-
-        var payload = $"{parts[0]}:{parts[1]}";
+        // Безопасная реконструкция payload: токен = playerName:expiry:hmac, playerName может содержать ':',
+        // поэтому берём последний ':' для hmac, предпоследний для expiry (P1-10)
+        int lastColon = token.LastIndexOf(':');
+        if (lastColon < 0) return false;
+        int prevColon = token.LastIndexOf(':', lastColon - 1);
+        if (prevColon < 0) return false;
+        string payload = token.Substring(0, lastColon);
+        string hmacPart = token.Substring(lastColon + 1);
         var expectedHmac = ComputeHmac(payload);
 
         if (!CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(parts[2]),
+                Encoding.UTF8.GetBytes(hmacPart),
                 Encoding.UTF8.GetBytes(expectedHmac)))
         {
             return false;
@@ -103,7 +121,7 @@ public static class SessionManager
 
     private static string ComputeHmac(string payload)
     {
-        var key = Encoding.UTF8.GetBytes(_secret);
+        var key = Encoding.UTF8.GetBytes(Secret);
         using var hmac = new HMACSHA256(key);
         var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
         return Convert.ToHexString(hash);

@@ -15,12 +15,21 @@ public sealed class GameServer : INetworkHub
     private GameServices _svc = null!;
     private List<NpcPosition>? _npcCache;
 
-    // Zone-level dirty tracking: only broadcast to clients in zones that changed
-    private readonly ConcurrentDictionary<string, byte> _dirtyZones = new();
-    private readonly ConcurrentDictionary<string, byte> _entityDirty = new();
+    // Zone-level dirty tracking с версиями: защита от потери зон, помеченных после snapshot (телепорт P1-5)
+    private readonly ConcurrentDictionary<string, long> _dirtyZones = new();
+    private readonly ConcurrentDictionary<string, long> _entityDirty = new();
+    private long _dirtyVersion;
 
-    public void MarkZoneDirty(string zoneId) => _dirtyZones[zoneId] = 0;
-    public void MarkEntityStateDirty(string zoneId) => _entityDirty[zoneId] = 0;
+    public void MarkZoneDirty(string zoneId)
+    {
+        long v = System.Threading.Interlocked.Increment(ref _dirtyVersion);
+        _dirtyZones.AddOrUpdate(zoneId, v, (_, _) => v);
+    }
+    public void MarkEntityStateDirty(string zoneId)
+    {
+        long v = System.Threading.Interlocked.Increment(ref _dirtyVersion);
+        _entityDirty.AddOrUpdate(zoneId, v, (_, _) => v);
+    }
 
     /// <summary>
     /// Лёгкая рассылка позиций сущностей (Вариант 4): несёт только X/Y/Facing игроков
@@ -29,8 +38,8 @@ public sealed class GameServer : INetworkHub
     /// </summary>
     public async Task BroadcastEntityStatesAsync()
     {
-        var zones = _entityDirty.Keys.ToList();
-        if (zones.Count == 0) return;
+        var snapshot = _entityDirty.ToArray();
+        if (snapshot.Length == 0) return;
         var svc = _svc;
         var clients = _world.GetClientsSnapshot()
             .Where(c => c.Player != null && c.WelcomeSent).ToList();
@@ -44,8 +53,9 @@ public sealed class GameServer : INetworkHub
             list.Add(m);
         }
 
-        foreach (var zone in zones)
+        foreach (var kv in snapshot)
         {
+            var zone = kv.Key;
             var state = new EntityStateMessage { ZoneId = zone, Entries = new() };
             if (playersByZone.TryGetValue(zone, out var pls))
                 foreach (var p in pls)
@@ -66,7 +76,9 @@ public sealed class GameServer : INetworkHub
                         X = m.X,
                         Y = m.Y
                     });
-            _entityDirty.TryRemove(zone, out _);
+            // удаляем только если версия совпала — иначе зона помечена снова после snapshot (телепорт)
+            if (_entityDirty.TryGetValue(zone, out var cur) && cur == kv.Value)
+                _entityDirty.TryRemove(zone, out _);
             if (state.Entries.Count == 0) continue;
             var msg = new GameMessage { Type = GameMessageType.EntityState, Data = state };
             foreach (var client in clients.Where(c => c.Player != null && c.Player.CurrentZoneId == zone))
@@ -214,12 +226,13 @@ public sealed class GameServer : INetworkHub
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var sendTasks = new List<Task>(clientsCopy.Count);
-        var dirtySnapshot = _dirtyZones.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var dirtySnapshot = _dirtyZones.ToArray();
+        var dirtySet = new HashSet<string>(dirtySnapshot.Select(kv => kv.Key), StringComparer.OrdinalIgnoreCase);
 
         // Быстрый выход: если нет грязных зон и все клиенты уже получили тайлы
         // своей зоны — пересборка карты не нужна (P2-7, 500+ CCU). Избегаем
         // сбора всех монстров/NPC/порталов и рассылки по всем подключениям.
-        if (dirtySnapshot.Count == 0 &&
+        if (dirtySnapshot.Length == 0 &&
             clientsCopy.All(c => c.HasTilesSent(c.Player!.CurrentZoneId)))
             return;
 
@@ -234,7 +247,7 @@ public sealed class GameServer : INetworkHub
             // пересборка карты не нужна. Ранее пропуск срабатывал только при
             // наличии грязных зон, из-за чего при отсутствии изменений (logout и т.п.)
             // всё равно пересобиралась карта для каждого клиента (P2-7, 500+ CCU).
-            if (!dirtySnapshot.Contains(zoneId) && client.HasTilesSent(zoneId))
+            if (!dirtySet.Contains(zoneId) && client.HasTilesSent(zoneId))
                 continue;
 
             var zone = svc.Zones.GetZone(zoneId);
@@ -386,8 +399,9 @@ public sealed class GameServer : INetworkHub
         }
 
         await Task.WhenAll(sendTasks);
-        foreach (var z in dirtySnapshot)
-            _dirtyZones.TryRemove(z, out _);
+        foreach (var kv in dirtySnapshot)
+            if (_dirtyZones.TryGetValue(kv.Key, out var cur) && cur == kv.Value)
+                _dirtyZones.TryRemove(kv.Key, out _);
     }
 
     private async Task SendToClientSafe(ClientConnection client, GameMessage msg)
@@ -771,25 +785,30 @@ public sealed class GameServer : INetworkHub
         try
         {
             if (!connection.Client.Connected) return;
-            await connection.WriteLock.WaitAsync();
+            if (!await connection.WriteLock.WaitAsync(TimeSpan.FromSeconds(5)))
+            {
+                Log.Warn($"[Net] WriteLock timeout for {connection.Endpoint} — drop message {message.Type}");
+                return;
+            }
             try
             {
                 await NetworkHelper.SendAsync(connection.Client.GetStream(), message);
             }
             finally
             {
-                connection.WriteLock.Release();
+                try { connection.WriteLock.Release(); } catch { }
             }
         }
         catch { /* client disconnected or send failed — expected */ }
     }
 
-    public async Task SendToAllAsync(GameMessage message)
+    public Task SendToAllAsync(GameMessage message)
     {
-        foreach (var client in _world.GetClientsSnapshot())
-        {
-            await SendToClient(client, message);
-        }
+        var clients = _world.GetClientsSnapshot();
+        var tasks = new Task[clients.Count];
+        for (int i = 0; i < clients.Count; i++)
+            tasks[i] = SendToClient(clients[i], message);
+        return Task.WhenAll(tasks);
     }
 
     public Task SendError(ClientConnection connection, string code, string message)
@@ -799,14 +818,13 @@ public sealed class GameServer : INetworkHub
             Data = new { Code = code, Message = message }
         });
 
-    private async Task BroadcastAsync(GameMessage message)
+    private Task BroadcastAsync(GameMessage message)
     {
-        List<ClientConnection> clientsCopy = _world.GetClientsSnapshot();
-
-        foreach (var client in clientsCopy)
-        {
-            await SendToClient(client, message);
-        }
+        var clientsCopy = _world.GetClientsSnapshot();
+        var tasks = new Task[clientsCopy.Count];
+        for (int i = 0; i < clientsCopy.Count; i++)
+            tasks[i] = SendToClient(clientsCopy[i], message);
+        return Task.WhenAll(tasks);
     }
 
     public async Task SendDamageNearbyAsync(int x, int y, GameMessage damageMsg, Player? exclude)

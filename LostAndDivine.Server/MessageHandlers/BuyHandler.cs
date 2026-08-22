@@ -35,11 +35,21 @@ public class BuyHandler : BaseHandler
         if (qty > stock) qty = stock;
 
         int price = Balance.BuyPrice(template.Value);
-        int totalCost = price * qty;
+        long totalCostLong;
+        try { totalCostLong = checked((long)price * qty); }
+        catch (OverflowException) { await SendError(connection, ErrorCodes.InvalidRequest, "Слишком большое количество!"); return; }
+        if (totalCostLong > int.MaxValue) { await SendError(connection, ErrorCodes.InvalidRequest, "Слишком большое количество!"); return; }
+        int totalCost = (int)totalCostLong;
 
         if (player.Gold < totalCost)
         {
             await SendError(connection, ErrorCodes.InsufficientGold, $"Недостаточно золота! Нужно: {totalCost}");
+            return;
+        }
+
+        if (!Svc.Merchant.TryReserveStock(buyItemId, qty))
+        {
+            await SendError(connection, ErrorCodes.ItemNotFound, "Товар закончился!");
             return;
         }
 

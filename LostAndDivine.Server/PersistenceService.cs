@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Threading.Channels;
 using LostAndDivine.Server.Repositories;
 using LostAndDivine.Shared.Models;
 
@@ -9,10 +10,17 @@ namespace LostAndDivine.Server;
 /// Вместо мгновенного SavePlayerProgress при каждом action,
 /// игроки ставятся в очередь и сохраняются пачками раз в секунду.
 /// Снижает DB load в 10-50x при сохранении на каждый action.
+/// Bounded канал на 10000 защищает от OOM при 2000 CCU (P1-1/P1-3).
 /// </summary>
 public sealed class PersistenceService
 {
-    private readonly ConcurrentQueue<Player> _dirtyPlayers = new();
+    private readonly Channel<Player> _channel = Channel.CreateBounded<Player>(new BoundedChannelOptions(10000)
+    {
+        FullMode = BoundedChannelFullMode.DropOldest,
+        SingleReader = true,
+        SingleWriter = false,
+        AllowSynchronousContinuations = false
+    });
     private readonly HashSet<string> _dirtyNames = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _dirtyLock = new();
     private readonly CancellationTokenSource _cts = new();
@@ -38,24 +46,28 @@ public sealed class PersistenceService
             if (_dirtyNames.Contains(player.Name)) return;
             _dirtyNames.Add(player.Name);
         }
-        _dirtyPlayers.Enqueue(player);
+        // DropOldest при переполнении 10000 — не растём в OOM
+        _channel.Writer.TryWrite(player);
     }
 
     /// <summary>Немедленно сохранить всех грязных игроков (вызывать при shutdown).</summary>
     public void FlushNow()
     {
-        while (_dirtyPlayers.TryDequeue(out var player))
+        var drained = new List<Player>();
+        while (_channel.Reader.TryRead(out var player))
+            drained.Add(player);
+        foreach (var p in drained)
         {
             try
             {
-                DatabaseManager.SavePlayerProgress(player);
+                DatabaseManager.SavePlayerProgress(p);
             }
             catch (Exception ex)
             {
-                Log.Error($"[Persistence] Ошибка сохранения {player.Name}", ex);
+                Log.Error($"[Persistence] Ошибка сохранения {p.Name}", ex);
             }
+            lock (_dirtyLock) { _dirtyNames.Remove(p.Name); }
         }
-        lock (_dirtyLock) { _dirtyNames.Clear(); }
     }
 
     private async Task RunLoop()
@@ -79,12 +91,10 @@ public sealed class PersistenceService
     private void SaveBatch()
     {
         var batch = new List<Player>();
-        while (_dirtyPlayers.TryDequeue(out var player))
+        while (_channel.Reader.TryRead(out var player))
             batch.Add(player);
 
         if (batch.Count == 0) return;
-
-        lock (_dirtyLock) { _dirtyNames.Clear(); }
 
         foreach (var player in batch)
         {
@@ -96,6 +106,7 @@ public sealed class PersistenceService
             {
                 Log.Error($"[Persistence] Ошибка сохранения {player.Name}", ex);
             }
+            lock (_dirtyLock) { _dirtyNames.Remove(player.Name); }
         }
 
         Log.Debug($"[Persistence] Сохранено {batch.Count} игроков");

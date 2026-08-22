@@ -47,6 +47,17 @@ public static class SpriteCache
 {
     private static readonly Dictionary<string, Texture2D> _textures = new();
     private static readonly Dictionary<string, SpriteAnimation> _animations = new();
+    private static readonly Queue<string> _lru = new();
+    private const int MaxTextures = 150;
+    private static void Touch(string key)
+    {
+        _lru.Enqueue(key);
+        if (_textures.Count > MaxTextures && _lru.TryDequeue(out var oldest) && _textures.TryGetValue(oldest, out var tex))
+        {
+            try { tex.Dispose(); } catch { }
+            _textures.Remove(oldest);
+        }
+    }
     private static readonly Dictionary<string, Point> _cursorHotspots = new();
     private static readonly Dictionary<string, Point> _cursorHotspotMap = new()
     {
@@ -202,7 +213,7 @@ public static class SpriteCache
                 return null;
             }
             var tex = Texture2D.FromStream(_device, stream);
-            _textures[name] = tex;
+            _textures[name] = tex; Touch(name);
             Logger.Debug($"LoadTexture '{name}' OK ({tex.Width}x{tex.Height})");
             return tex;
         }
@@ -226,7 +237,7 @@ public static class SpriteCache
                 return null;
             }
             var tex = Texture2D.FromStream(_device, stream);
-            _textures[key] = tex;
+            _textures[key] = tex; Touch(key);
             Logger.Debug($"LoadTexture '{key}' OK ({tex.Width}x{tex.Height})");
             return tex;
         }
@@ -261,7 +272,7 @@ public static class SpriteCache
                 return null;
             }
             var tex = Texture2D.FromStream(_device, stream);
-            _textures[key] = tex;
+            _textures[key] = tex; Touch(key);
             cols = tex.Width / Math.Max(1, tileSize);
             rows = tex.Height / Math.Max(1, tileSize);
             Logger.Debug($"LoadTileset '{tilesetId}' OK ({tex.Width}x{tex.Height}, {cols}x{rows} tiles)");
@@ -566,6 +577,7 @@ public static class SpriteCache
         _animations.Clear();
         _cursorHotspots.Clear();
         _cursorHotspotMap.Clear();
+        _lru.Clear();
         _pixel = null!;
     }
 }

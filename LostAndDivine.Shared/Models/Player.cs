@@ -10,6 +10,7 @@ public class Player : ICombatant
     private readonly PlayerInventory _inventory = new();
     private readonly PlayerVitals _vitals = new();
     private readonly PlayerWorldState _state = new();
+    public readonly object Sync = new();
 
     public Player() => _combatStats = new PlayerCombatStats(this);
 
@@ -17,50 +18,50 @@ public class Player : ICombatant
     public string Name { get; set; } = "Безымянный";
     public CharacterClass Class { get; set; }
 
-    // Атрибуты
-    public int Strength { get => _attributes.Strength; set => _attributes.Strength = value; }
-    public int Endurance { get => _attributes.Endurance; set => _attributes.Endurance = value; }
-    public int Agility { get => _attributes.Agility; set => _attributes.Agility = value; }
-    public int Cunning { get => _attributes.Cunning; set => _attributes.Cunning = value; }
-    public int Intellect { get => _attributes.Intellect; set => _attributes.Intellect = value; }
-    public int Wisdom { get => _attributes.Wisdom; set => _attributes.Wisdom = value; }
-    public int AttributePoints { get => _attributes.AttributePoints; set => _attributes.AttributePoints = value; }
-    // Прогрессия
-    public int Level { get => _progression.Level; set => _progression.Level = value; }
-    public int Experience { get => _progression.Experience; set => _progression.Experience = value; }
-    public int Gold { get => _progression.Gold; set => _progression.Gold = value; }
-    public int SkillPoints { get => _progression.SkillPoints; set => _progression.SkillPoints = value; }
-    public List<string> LearnedSkills { get => _progression.LearnedSkills; set => _progression.LearnedSkills = value; }
-    public Dictionary<string,int> SkillRanks { get => _progression.SkillRanks; set => _progression.SkillRanks = value; }
-    // Vitals
-    public int Health { get => _vitals.Health; set => _vitals.Health = value; }
-    public int MaxHealth { get => _vitals.MaxHealth; set => _vitals.MaxHealth = value; }
-    public int Mana { get => _vitals.Mana; set => _vitals.Mana = value; }
-    public int MaxMana { get => _vitals.MaxMana; set => _vitals.MaxMana = value; }
-    public bool IsDead { get => _vitals.IsDead; set => _vitals.IsDead = value; }
-    public DateTime DeathTime { get => _vitals.DeathTime; set => _vitals.DeathTime = value; }
-    public DateTime LastDamagedTime { get => _vitals.LastDamagedTime; set => _vitals.LastDamagedTime = value; }
-    public DateTime LastRegenTime { get => _vitals.LastRegenTime; set => _vitals.LastRegenTime = value; }
-    public int Speed { get => _vitals.Speed; set => _vitals.Speed = value; }
-    public double AdminDamageMultiplier { get => _vitals.AdminDamageMultiplier; set => _vitals.AdminDamageMultiplier = value; }
-    // Inventory
-    public List<Item> Inventory { get => _inventory.Inventory; set => _inventory.Inventory = value; }
-    public Equipment Equipment { get => _inventory.Equipment; set => _inventory.Equipment = value; }
-    public List<string?> HotbarSlots { get => _inventory.HotbarSlots; set => _inventory.HotbarSlots = value; }
-    public List<Item> BuybackItems { get => _inventory.BuybackItems; set => _inventory.BuybackItems = value; }
-    // State
-    public int X { get => _state.X; set => _state.X = value; }
-    public int Y { get => _state.Y; set => _state.Y = value; }
-    public Facing Facing { get => _state.Facing; set => _state.Facing = value; }
-    public string CurrentZoneId { get => _state.CurrentZoneId; set => _state.CurrentZoneId = value; }
-    public Guid? PartyId { get => _state.PartyId; set => _state.PartyId = value; }
-    public bool IsTrading { get => _state.IsTrading; set => _state.IsTrading = value; }
-    public bool IsAdmin { get => _state.IsAdmin; set => _state.IsAdmin = value; }
-    public MovementState Movement { get => _state.Movement; set => _state.Movement = value; }
-    public CombatState Combat { get => _state.Combat; set => _state.Combat = value; }
-    public InteractionState Interaction { get => _state.Interaction; set => _state.Interaction = value; }
-    public DialogueState Dialogue { get => _state.Dialogue; set => _state.Dialogue = value; }
-    public List<ActiveDebuff> ActiveDebuffs { get => _state.ActiveDebuffs; set => _state.ActiveDebuffs = value; }
+    // Атрибуты — фасад, новые вызовы → Player.Attributes (P2-1)
+    [Obsolete("Используй Player.Attributes.Strength — фасад будет удалён")] public int Strength { get => _attributes.Strength; set => _attributes.Strength = value; }
+    [Obsolete("Используй Player.Attributes.Endurance")] public int Endurance { get => _attributes.Endurance; set => _attributes.Endurance = value; }
+    [Obsolete("Используй Player.Attributes.Agility")] public int Agility { get => _attributes.Agility; set => _attributes.Agility = value; }
+    [Obsolete("Используй Player.Attributes.Cunning")] public int Cunning { get => _attributes.Cunning; set => _attributes.Cunning = value; }
+    [Obsolete("Используй Player.Attributes.Intellect")] public int Intellect { get => _attributes.Intellect; set => _attributes.Intellect = value; }
+    [Obsolete("Используй Player.Attributes.Wisdom")] public int Wisdom { get => _attributes.Wisdom; set => _attributes.Wisdom = value; }
+    [Obsolete("Используй Player.Attributes.AttributePoints")] public int AttributePoints { get => _attributes.AttributePoints; set => _attributes.AttributePoints = value; }
+    // Прогрессия — фасад
+    [Obsolete("Используй Player.Progression.Level")] public int Level { get => _progression.Level; set => _progression.Level = value; }
+    [Obsolete("Используй Player.Progression.Experience")] public int Experience { get => _progression.Experience; set => _progression.Experience = value; }
+    [Obsolete("Используй Player.Progression.Gold")] public int Gold { get => _progression.Gold; set => _progression.Gold = value; }
+    [Obsolete("Используй Player.Progression.SkillPoints")] public int SkillPoints { get => _progression.SkillPoints; set => _progression.SkillPoints = value; }
+    [Obsolete("Используй Player.Progression.LearnedSkills")] public List<string> LearnedSkills { get => _progression.LearnedSkills; set => _progression.LearnedSkills = value; }
+    [Obsolete("Используй Player.Progression.SkillRanks")] public Dictionary<string,int> SkillRanks { get => _progression.SkillRanks; set => _progression.SkillRanks = value; }
+    // Vitals — фасад
+    [Obsolete("Используй Player.Vitals.Health")] public int Health { get => _vitals.Health; set => _vitals.Health = value; }
+    [Obsolete("Используй Player.Vitals.MaxHealth")] public int MaxHealth { get => _vitals.MaxHealth; set => _vitals.MaxHealth = value; }
+    [Obsolete("Используй Player.Vitals.Mana")] public int Mana { get => _vitals.Mana; set => _vitals.Mana = value; }
+    [Obsolete("Используй Player.Vitals.MaxMana")] public int MaxMana { get => _vitals.MaxMana; set => _vitals.MaxMana = value; }
+    [Obsolete("Используй Player.Vitals.IsDead")] public bool IsDead { get => _vitals.IsDead; set => _vitals.IsDead = value; }
+    [Obsolete("Используй Player.Vitals.DeathTime")] public DateTime DeathTime { get => _vitals.DeathTime; set => _vitals.DeathTime = value; }
+    [Obsolete("Используй Player.Vitals.LastDamagedTime")] public DateTime LastDamagedTime { get => _vitals.LastDamagedTime; set => _vitals.LastDamagedTime = value; }
+    [Obsolete("Используй Player.Vitals.LastRegenTime")] public DateTime LastRegenTime { get => _vitals.LastRegenTime; set => _vitals.LastRegenTime = value; }
+    [Obsolete("Используй Player.Vitals.Speed")] public int Speed { get => _vitals.Speed; set => _vitals.Speed = value; }
+    [Obsolete("Используй Player.Vitals.AdminDamageMultiplier")] public double AdminDamageMultiplier { get => _vitals.AdminDamageMultiplier; set => _vitals.AdminDamageMultiplier = value; }
+    // Inventory — фасад
+    [Obsolete("Используй Player.InventoryComponent.Inventory")] public List<Item> Inventory { get => _inventory.Inventory; set => _inventory.Inventory = value; }
+    [Obsolete("Используй Player.InventoryComponent.Equipment")] public Equipment Equipment { get => _inventory.Equipment; set => _inventory.Equipment = value; }
+    [Obsolete("Используй Player.InventoryComponent.HotbarSlots")] public List<string?> HotbarSlots { get => _inventory.HotbarSlots; set => _inventory.HotbarSlots = value; }
+    [Obsolete("Используй Player.InventoryComponent.BuybackItems")] public List<Item> BuybackItems { get => _inventory.BuybackItems; set => _inventory.BuybackItems = value; }
+    // State — фасад
+    [Obsolete("Используй Player.State.X")] public int X { get => _state.X; set => _state.X = value; }
+    [Obsolete("Используй Player.State.Y")] public int Y { get => _state.Y; set => _state.Y = value; }
+    [Obsolete("Используй Player.State.Facing")] public Facing Facing { get => _state.Facing; set => _state.Facing = value; }
+    [Obsolete("Используй Player.State.CurrentZoneId")] public string CurrentZoneId { get => _state.CurrentZoneId; set => _state.CurrentZoneId = value; }
+    [Obsolete("Используй Player.State.PartyId")] public Guid? PartyId { get => _state.PartyId; set => _state.PartyId = value; }
+    [Obsolete("Используй Player.State.IsTrading")] public bool IsTrading { get => _state.IsTrading; set => _state.IsTrading = value; }
+    [Obsolete("Используй Player.State.IsAdmin")] public bool IsAdmin { get => _state.IsAdmin; set => _state.IsAdmin = value; }
+    [Obsolete("Используй Player.State.Movement")] public MovementState Movement { get => _state.Movement; set => _state.Movement = value; }
+    [Obsolete("Используй Player.State.Combat")] public CombatState Combat { get => _state.Combat; set => _state.Combat = value; }
+    [Obsolete("Используй Player.State.Interaction")] public InteractionState Interaction { get => _state.Interaction; set => _state.Interaction = value; }
+    [Obsolete("Используй Player.State.Dialogue")] public DialogueState Dialogue { get => _state.Dialogue; set => _state.Dialogue = value; }
+    [Obsolete("Используй Player.State.ActiveDebuffs")] public List<ActiveDebuff> ActiveDebuffs { get => _state.ActiveDebuffs; set => _state.ActiveDebuffs = value; }
     public object DebuffsLock => _state.DebuffsLock;
     public List<ActiveDebuff> GetDebuffsSnapshot() => _state.GetDebuffsSnapshot();
     public System.Collections.Concurrent.ConcurrentDictionary<string,DateTime> LastSkillUse { get => _state.LastSkillUse; set => _state.LastSkillUse = value; }

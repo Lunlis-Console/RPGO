@@ -25,16 +25,26 @@ public class EquipHandler : BaseHandler
             && equipEl.TryGetProperty("FromSlot", out var fsProp) ? fsProp.GetString() : null;
 
         Item? item;
-        if (!string.IsNullOrEmpty(fromSlot))
+        bool isFromSlot = !string.IsNullOrEmpty(fromSlot);
+        if (isFromSlot)
         {
-            item = player.Equipment[fromSlot];
+            item = player.Equipment[fromSlot!];
             if (item == null)
             {
                 await SendError(connection, ErrorCodes.SlotEmpty, "Слот пуст — нечего перемещать.");
                 return;
             }
-            // Освобождаем источник до проверок (целевой слот может зависеть от этого)
-            player.Equipment[fromSlot] = null;
+            // Валидация ДО очистки слота — чтобы не потерять предмет при ошибке (P1-8)
+            if (!EquipmentSlots.IsEquippableType(item.Type))
+            {
+                await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя надеть!");
+                return;
+            }
+            if (item.RequiredLevel > player.Level)
+            {
+                await SendError(connection, ErrorCodes.ItemLevelTooLow, $"Требуется уровень {item.RequiredLevel}!");
+                return;
+            }
         }
         else
         {
@@ -46,21 +56,22 @@ public class EquipHandler : BaseHandler
                 await SendError(connection, ErrorCodes.ItemNotFound, "Предмет не найден!");
                 return;
             }
-        }
-
-        if (!EquipmentSlots.IsEquippableType(item.Type))
-        {
-            await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя надеть!");
-            return;
-        }
-
-        if (item.RequiredLevel > player.Level)
-        {
-            await SendError(connection, ErrorCodes.ItemLevelTooLow, $"Требуется уровень {item.RequiredLevel}!");
-            return;
+            if (!EquipmentSlots.IsEquippableType(item.Type))
+            {
+                await SendError(connection, ErrorCodes.ItemNotEquippable, "Этот предмет нельзя надеть!");
+                return;
+            }
+            if (item.RequiredLevel > player.Level)
+            {
+                await SendError(connection, ErrorCodes.ItemLevelTooLow, $"Требуется уровень {item.RequiredLevel}!");
+                return;
+            }
         }
 
         bool twoHanded = EquipmentSlots.IsTwoHanded(item.Type, item.TwoHanded);
+
+        // Очищаем источник только после базовой валидации — защита от потери предмета (P1-8)
+        if (isFromSlot) player.Equipment[fromSlot!] = null;
 
         // Целевой слот: явный (из клиента) или первый подходящий
         string? targetSlot = equipEl.TryGetProperty("TargetSlot", out var ts) ? ts.GetString() : null;
@@ -71,11 +82,13 @@ public class EquipHandler : BaseHandler
         {
             if (!validSlots.Contains(targetSlot))
             {
+                if (isFromSlot) player.Equipment[fromSlot!] = item;
                 await SendError(connection, ErrorCodes.InvalidRequest, "Предмет нельзя надеть в этот слот.");
                 return;
             }
             if (twoHanded && targetSlot != EquipmentSlots.RightHand)
             {
+                if (isFromSlot) player.Equipment[fromSlot!] = item;
                 await SendError(connection, ErrorCodes.InvalidRequest, "Двуручное оружие можно надеть только в правую руку.");
                 return;
             }
@@ -103,6 +116,7 @@ public class EquipHandler : BaseHandler
                     slotsToFill[i] = EquipmentSlots.RightHand;
                 else
                 {
+                    if (isFromSlot) player.Equipment[fromSlot!] = item;
                     await SendError(connection, ErrorCodes.InvalidRequest, "Слот заблокирован двуручным оружием.");
                     return;
                 }

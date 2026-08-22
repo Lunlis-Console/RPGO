@@ -17,25 +17,37 @@ namespace LostAndDivine.Shared;
 /// </summary>
 public static class SubscriptionMatcher
 {
+    private const int MaxDepth = 4;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Type, FieldInfo[]> _fieldCache = new();
+
     public static bool IsOwnedBy(Delegate? handler, object? target)
     {
         if (handler == null || target == null)
             return false;
 
-        if (ReferenceEquals(handler.Target, target))
-            return true;
+        // Мультикаст-делегат может содержать несколько invocation, проверяем каждый (P1-12 fix)
+        foreach (var d in handler.GetInvocationList())
+        {
+            if (ReferenceEquals(d.Target, target))
+                return true;
+            var captured = d.Target;
+            if (captured == null) continue;
+            if (IsCapturedBy(captured, target, 0))
+                return true;
+        }
+        return false;
+    }
 
-        var captured = handler.Target;
-        if (captured == null)
+    private static bool IsCapturedBy(object captured, object target, int depth)
+    {
+        if (depth > MaxDepth) return false;
+        var type = captured.GetType();
+        // Только closure-классы, обычные target уже проверены выше
+        if (type.Name.IndexOf('<') < 0)
             return false;
 
-        // Компилятор-generated closure-классы содержат '<' в имени (например,
-        // <>c__DisplayClass). Обычные объекты (включая методы-группы) здесь не нужны:
-        // для них сработала первая проверка handler.Target == target.
-        if (captured.GetType().Name.IndexOf('<') < 0)
-            return false;
-
-        foreach (var field in captured.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+        var fields = _fieldCache.GetOrAdd(type, t => t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic));
+        foreach (var field in fields)
         {
             object? value;
             try { value = field.GetValue(captured); }
@@ -45,9 +57,19 @@ public static class SubscriptionMatcher
                 return true;
 
             if (value is Delegate inner)
-                return IsOwnedBy(inner, target);
-        }
+            {
+                if (IsOwnedBy(inner, target))
+                    return true;
+                continue;
+            }
 
+            // Вложенный closure (depth limit + cache)
+            if (value != null && depth + 1 <= MaxDepth && value.GetType().Name.IndexOf('<') >= 0)
+            {
+                if (IsCapturedBy(value, target, depth + 1))
+                    return true;
+            }
+        }
         return false;
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using LostAndDivine.Server.Instances;
 using LostAndDivine.Server.MessageHandlers;
 using LostAndDivine.Server.Network;
@@ -29,13 +30,13 @@ public sealed class GameServices : IGameServices
     public KillService KillService { get; }
     public PathfindingService Pathfinding { get; }
     public DebuffManager Debuffs { get; }
-    public CombatService Combat { get; set; } = null!;
-    public PvPService PvP { get; set; } = null!;
-    public HazardService Hazard { get; set; } = null!;
-    public InteractionService Interactions { get; set; } = null!;
-    public AuthService Auth { get; set; } = null!;
+    public required CombatService Combat { get; set; }
+    public required PvPService PvP { get; set; }
+    public required HazardService Hazard { get; set; }
+    public required InteractionService Interactions { get; set; }
+    public required AuthService Auth { get; set; }
     public ZoneManager Zones { get; }
-    public InstanceManager Instances { get; set; } = null!;
+    public required InstanceManager Instances { get; set; }
     public PersistenceService Persistence { get; }
     public ClientBuildService ClientBuild { get; }
     public StorageService Storage { get; }
@@ -44,17 +45,23 @@ public sealed class GameServices : IGameServices
     // чтобы монстры и собираемые предметы появлялись так же, как при старте сервера.
     private List<TiledSpawn>? _monsterSpawns;
     private readonly Dictionary<string, List<TiledSpawn>> _collectibleSpawns = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _spawnLock = new();
+    private readonly SemaphoreSlim _reloadLock = new(1, 1);
+    private (int X, int Y)? _prevStoragePos;
 
     public void SetSpawnData(List<TiledSpawn>? monsterSpawns, Dictionary<string, List<TiledSpawn>> collectibleSpawns)
     {
-        _monsterSpawns = monsterSpawns;
-        _collectibleSpawns.Clear();
-        foreach (var (zoneId, list) in collectibleSpawns)
-            _collectibleSpawns[zoneId] = list;
+        lock (_spawnLock)
+        {
+            _monsterSpawns = monsterSpawns;
+            _collectibleSpawns.Clear();
+            foreach (var (zoneId, list) in collectibleSpawns)
+                _collectibleSpawns[zoneId] = list;
+        }
     }
-    public PlayerDeathService PlayerDeath { get; set; } = null!;
-    public MonsterCombatCalculator MonsterCombat { get; set; } = null!;
-    public MonsterAttackService MonsterAttacks { get; set; } = null!;
+    public required PlayerDeathService PlayerDeath { get; set; }
+    public required MonsterCombatCalculator MonsterCombat { get; set; }
+    public required MonsterAttackService MonsterAttacks { get; set; }
     public MessageHandlerRegistry MessageHandlers { get; }
 
     public Task ChatTo(ClientConnection? conn, ChatChannel channel, string name, string text)
@@ -66,6 +73,7 @@ public sealed class GameServices : IGameServices
     public Task ChatToC(ClientConnection? conn, string name, string text)
         => ChatTo(conn, ChatChannel.Combat, name, text);
 
+    [SetsRequiredMembers]
     public GameServices(
         GameWorld world,
         INetworkHub hub,
@@ -116,6 +124,7 @@ public sealed class GameServices : IGameServices
 
     public async Task ReloadContent(ClientConnection? connection = null)
     {
+        await _reloadLock.WaitAsync();
         try
         {
             Log.Info("Перезагрузка данных на сервере...");
@@ -126,8 +135,15 @@ public sealed class GameServices : IGameServices
             Quests.ReloadQuestItems();
             Dialogue.LoadAll();
             Loot.LoadFromDatabase();
-            Monsters.Initialize(_monsterSpawns);
-            foreach (var (zoneId, spawns) in _collectibleSpawns)
+            List<TiledSpawn>? monsterSpawnsCopy;
+            Dictionary<string, List<TiledSpawn>> collectibleSpawnsCopy;
+            lock (_spawnLock)
+            {
+                monsterSpawnsCopy = _monsterSpawns == null ? null : new List<TiledSpawn>(_monsterSpawns);
+                collectibleSpawnsCopy = new Dictionary<string, List<TiledSpawn>>(_collectibleSpawns, StringComparer.OrdinalIgnoreCase);
+            }
+            Monsters.Initialize(monsterSpawnsCopy);
+            foreach (var (zoneId, spawns) in collectibleSpawnsCopy)
                 Collectibles.Initialize(spawns, zoneId);
             Hub.LoadNpcCache();
             await Hub.BroadcastChatAsync("Система", "Данные обновлены (предметы, диалоги, квесты, монстры).");
@@ -153,6 +169,10 @@ public sealed class GameServices : IGameServices
                 });
             }
         }
+        finally
+        {
+            _reloadLock.Release();
+        }
     }
 
     /// <summary>
@@ -164,6 +184,7 @@ public sealed class GameServices : IGameServices
     /// </summary>
     public async Task ReloadSectors(ClientConnection? connection = null)
     {
+        await _reloadLock.WaitAsync();
         try
         {
             Log.Info("Перезагрузка секторов открытого мира...");
@@ -182,7 +203,9 @@ public sealed class GameServices : IGameServices
             var allCollectibleSpawns = new Dictionary<string, List<TiledSpawn>>(StringComparer.OrdinalIgnoreCase);
             foreach (var (zoneId, spawns) in Sectors.AllCollectibleSpawns)
                 allCollectibleSpawns[zoneId] = spawns;
-            foreach (var (zoneId, spawns) in _collectibleSpawns)
+            Dictionary<string, List<TiledSpawn>> collectibleSpawnsSnapshot;
+            lock (_spawnLock) collectibleSpawnsSnapshot = new Dictionary<string, List<TiledSpawn>>(_collectibleSpawns, StringComparer.OrdinalIgnoreCase);
+            foreach (var (zoneId, spawns) in collectibleSpawnsSnapshot)
             {
                 if (string.Equals(zoneId, Balance.MainZoneId, StringComparison.OrdinalIgnoreCase)) continue;
                 allSpawns.AddRange(spawns);
@@ -248,11 +271,19 @@ public sealed class GameServices : IGameServices
                 });
             }
         }
+        finally
+        {
+            _reloadLock.Release();
+        }
     }
 
     /// <summary>Размещает склад рядом с мерчантом и добавляет его клетку как препятствие карты мира.</summary>
-    private void RelocateStorage()
+    public void RelocateStorage()
     {
+        if (_prevStoragePos.HasValue)
+        {
+            World.Map.RemoveObstacle(_prevStoragePos.Value.X, _prevStoragePos.Value.Y);
+        }
         int storageX = Merchant.MerchantX + 1;
         int storageY = Merchant.MerchantY;
         if (World.Map.IsObstacle(storageX, storageY))
@@ -275,6 +306,7 @@ public sealed class GameServices : IGameServices
         }
         World.Map.AddObstacle(storageX, storageY);
         Storage.SetPosition(storageX, storageY);
+        _prevStoragePos = (storageX, storageY);
         Log.Info($"Склад размещён на ({storageX}, {storageY})");
     }
 }

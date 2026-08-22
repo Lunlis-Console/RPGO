@@ -69,14 +69,6 @@ public static class DbMigrationRunner
         {
             runner.MigrateUp();
         }
-        catch (Microsoft.Data.Sqlite.SqliteException ex) when (ex.Message.Contains("VersionInfo"))
-        {
-            Console.WriteLine("[Migrations] VersionInfo conflict — cleaning and retrying...");
-            CleanStaleVersionInfo(connectionString);
-            using var retryProvider = CreateServices(connectionString).BuildServiceProvider();
-            var retryRunner = retryProvider.GetRequiredService<IMigrationRunner>();
-            retryRunner.MigrateUp();
-        }
         catch (Exception ex)
         {
             Console.WriteLine($"[Migrations] Failed: {ex.Message}");
@@ -97,18 +89,20 @@ public static class DbMigrationRunner
         check.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='VersionInfo'";
         if (check.ExecuteScalar() == null) return;
 
-        var allVersions = new List<long>();
+        long totalCount;
+        long distinctCount;
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = "SELECT DISTINCT Version FROM VersionInfo ORDER BY Version";
+            cmd.CommandText = "SELECT COUNT(*), COUNT(DISTINCT Version) FROM VersionInfo";
             using var reader = cmd.ExecuteReader();
-            while (reader.Read())
-                allVersions.Add(reader.GetInt64(0));
+            reader.Read();
+            totalCount = reader.GetInt64(0);
+            distinctCount = reader.GetInt64(1);
         }
 
-        if (allVersions.Count <= 1) return;
+        if (totalCount == distinctCount) return;
 
-        Console.WriteLine($"[Migrations] Found {allVersions.Count} VersionInfo rows — removing duplicates...");
+        Console.WriteLine($"[Migrations] Found {totalCount} VersionInfo rows ({distinctCount} distinct) — removing duplicates...");
         using var tx = conn.BeginTransaction();
         using (var del = conn.CreateCommand())
         {
@@ -116,15 +110,6 @@ public static class DbMigrationRunner
             del.ExecuteNonQuery();
         }
         tx.Commit();
-    }
-
-    private static void CleanStaleVersionInfo(string connectionString)
-    {
-        using var conn = new SqliteConnection(connectionString);
-        conn.Open();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM VersionInfo";
-        cmd.ExecuteNonQuery();
     }
 
     private static void BackupBeforeMigration(string? dbPath)
@@ -138,7 +123,7 @@ public static class DbMigrationRunner
             string backupDir = Path.Combine(dbDir, "DbBackups");
             Directory.CreateDirectory(backupDir);
 
-            string stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+            string stamp = $"{DateTime.UtcNow:yyyyMMdd_HHmmss_fff}_{Guid.NewGuid().ToString("N")[..4]}";
             string baseName = Path.GetFileNameWithoutExtension(dbPath);
             string backupPath = Path.Combine(backupDir, $"{baseName}_{stamp}.bak");
 
@@ -167,7 +152,7 @@ public static class DbMigrationRunner
         const int keep = 5;
         var old = new DirectoryInfo(backupDir)
             .GetFiles($"{baseName}_*.bak")
-            .OrderByDescending(f => f.LastWriteTimeUtc)
+            .OrderByDescending(f => f.Name)
             .Skip(keep)
             .ToArray();
         foreach (var f in old)
@@ -196,8 +181,9 @@ public static class DbMigrationRunner
         using var conn = new SqliteConnection(connectionString);
         conn.Open();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'";
-        return cmd.ExecuteScalar() != null;
+        cmd.CommandText = "SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'";
+        var result = cmd.ExecuteScalar();
+        return result != null && Convert.ToInt64(result) > 0;
     }
 
     private static bool HasVersionInfo(string connectionString)

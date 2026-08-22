@@ -166,10 +166,10 @@ public class MinimapRenderer
 
         if (tileId == 0)
             return ((lx + ly) & 1) == 0 ? groundA : groundB;
-        if (tileId == 255) return MissingColor;
+        if (tileId == 255) return ((lx + ly) & 1) == 0 ? groundA : groundB; // было MissingColor — давало тёмный фон пока тайлсет не загружен
 
         var ts = GetTilesetPixels(sector);
-        if (ts == null) return MissingColor;
+        if (ts == null) return ((lx + ly) & 1) == 0 ? groundA : groundB;
 
         int tCol = (tileId - 1) % ts.Cols;
         int tRow = (tileId - 1) / ts.Cols;

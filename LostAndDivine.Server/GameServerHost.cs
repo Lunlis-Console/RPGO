@@ -6,8 +6,9 @@ using LostAndDivine.Shared.Network;
 namespace LostAndDivine.Server;
 
 /// <summary>
-/// Единый game loop: одна задача с Stopwatch, диспатч по интервалам.
-/// Заменяет 12 фоновых циклов на один.
+/// Единый game loop (P3): одна задача с Stopwatch, диспатч по интервалам.
+/// Заменяет 12 фоновых циклов (CombatService.RunCombatLoop, HazardService.RunHazardTickLoop удалены как мёртвые).
+/// Все тики (combat 200ms, move 50ms, hazard 1s, debuff 1s и т.д.) диспатчатся здесь.
 /// </summary>
 public class GameServerHost
 {
@@ -200,7 +201,7 @@ public class GameServerHost
             bool dualWieldChanged = _svc.Debuffs.CheckDualWieldBuff(pl);
             bool hasDebuffs = pl.GetDebuffsSnapshot().Count > 0;
             if (hasDebuffs)
-                _svc.Debuffs.TickDebuffs(pl);
+                await _svc.Debuffs.TickDebuffs(pl);
             if (dualWieldChanged || hasDebuffs)
             {
                 var conn = _svc.World.FindClientByPlayer(pl);
@@ -236,29 +237,36 @@ public class GameServerHost
 
             if ((now - pl.LastRegenTime).TotalMilliseconds >= tick)
             {
-                int maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
-                double hpRegenMult = 1.0 + pl.GetHealthRegenPercent() / 100.0;
-                double mpRegenMult = 1.0 + pl.GetManaRegenPercent() / 100.0;
+                int maxHp, curHp, curMana, maxMana;
+                double hpRegenMult, mpRegenMult;
+                lock (pl.Sync)
+                {
+                    maxHp = pl.MaxHealth + pl.Equipment.GetBonusMaxHealth();
+                    maxMana = pl.MaxMana + pl.Equipment.GetBonusMaxMana();
+                    curHp = pl.Health;
+                    curMana = pl.Mana;
+                    hpRegenMult = 1.0 + pl.GetHealthRegenPercent() / 100.0;
+                    mpRegenMult = 1.0 + pl.GetManaRegenPercent() / 100.0;
+                }
                 int heal = 0;
-                if (pl.Health < maxHp)
+                if (curHp < maxHp)
                 {
                     heal = plInCombat
                         ? Math.Max(Balance.PlayerRegenMinHeal, (int)(maxHp * inCombatFraction * hpRegenMult))
                         : (int)(outOfCombatHeal * hpRegenMult);
-                    pl.Health = Math.Min(maxHp, pl.Health + heal);
+                    lock (pl.Sync) pl.Health = Math.Min(maxHp, pl.Health + heal);
                 }
 
-                int maxMana = pl.MaxMana + pl.Equipment.GetBonusMaxMana();
                 int manaTick = 0;
-                if (pl.Mana < maxMana)
+                if (curMana < maxMana)
                 {
                     manaTick = plInCombat
                         ? Math.Max(Balance.ManaRegenMin, (int)(maxMana * Balance.ManaRegenInCombatFraction * mpRegenMult))
                         : (int)(Balance.ManaRegenOutOfCombat * mpRegenMult);
-                    pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
+                    lock (pl.Sync) pl.Mana = Math.Min(maxMana, pl.Mana + manaTick);
                 }
 
-                pl.LastRegenTime = now;
+                lock (pl.Sync) pl.LastRegenTime = now;
 
                 var conn = _svc.World.FindClientByPlayer(pl);
                 if (conn != null)

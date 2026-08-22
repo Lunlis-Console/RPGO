@@ -20,17 +20,29 @@ public static class ContentStore
 {
     // === универсальный хелпер (бывший Db.DeleteMissingRows, P1-8) ===
 
+    private static bool IsSafeIdentifier(string name) => System.Text.RegularExpressions.Regex.IsMatch(name, @"^[a-zA-Z_][a-zA-Z0-9_]*$");
+
     public static void DeleteMissingRows(SqliteConnection conn, SqliteTransaction tx, string table, string pk, IEnumerable<string> ids)
     {
+        if (!IsSafeIdentifier(table)) throw new ArgumentException($"Table {table} not whitelisted", nameof(table));
+        if (!IsSafeIdentifier(pk)) throw new ArgumentException($"PK {pk} not whitelisted", nameof(pk));
         var list = ids.ToList();
         using var cmd = conn.CreateCommand();
         cmd.Transaction = tx;
         if (list.Count == 0)
+        {
             cmd.CommandText = $"DELETE FROM {table}";
+        }
         else
         {
-            var inList = string.Join(",", list.Select(x => "'" + x.Replace("'", "''") + "'"));
-            cmd.CommandText = $"DELETE FROM {table} WHERE {pk} NOT IN ({inList})";
+            var paramNames = new List<string>(list.Count);
+            for (int i = 0; i < list.Count; i++)
+            {
+                string p = $"$p{i}";
+                paramNames.Add(p);
+                cmd.Parameters.AddWithValue(p, list[i]);
+            }
+            cmd.CommandText = $"DELETE FROM {table} WHERE {pk} NOT IN ({string.Join(",", paramNames)})";
         }
         cmd.ExecuteNonQuery();
     }

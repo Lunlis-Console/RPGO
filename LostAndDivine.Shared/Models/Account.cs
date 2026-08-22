@@ -92,7 +92,28 @@ public class Item
     public string Type { get; set; } = "";
     [System.Text.Json.Serialization.JsonIgnore]
     public ItemType TypeEnum { get => ItemTypeExtensions.Parse(Type); set => Type = value.ToDisplayString(); }
-    public int Quantity { get; set; } = 1;
+    private int _quantity = 1;
+    public int Quantity
+    {
+        get => _quantity;
+        set => _quantity = Math.Max(1, value);
+    }
+    private int _maxStack = 10;
+    public int MaxStack
+    {
+        get => _maxStack;
+        set
+        {
+            _maxStack = Math.Max(1, value);
+            if (_quantity > _maxStack) _quantity = _maxStack;
+        }
+    }
+    public void ValidateQuantity()
+    {
+        int max = ItemTypeExtensions.Parse(Type) is ItemType.Consumable or ItemType.Collectible or ItemType.Trophy or ItemType.Material ? 10 : 1;
+        if (_quantity > max) _quantity = max;
+        if (_quantity > _maxStack) _quantity = _maxStack;
+    }
     public int Value { get; set; }
     public int MaxHealthBonus { get; set; }
     public int MaxManaBonus { get; set; }
@@ -100,7 +121,6 @@ public class Item
     public int RestoreMana { get; set; }
     public string Description { get; set; } = "";
     public int Stock { get; set; } = 1;
-    public int MaxStack { get; set; } = 10;
     public bool IsBuyback { get; set; }
     public bool QuestItem { get; set; }
     public int Defense { get; set; }

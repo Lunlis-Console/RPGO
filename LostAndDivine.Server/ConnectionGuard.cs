@@ -25,6 +25,7 @@ public class ConnectionGuard
     private readonly int _maxStrikes;
     private readonly TimeSpan _banDuration;
     private DateTime _lastSweep = DateTime.UtcNow;
+    private readonly object _sweepLock = new();
 
     public ConnectionGuard(int maxConnectionsPerWindow = 10, int windowSeconds = 60,
         int maxStrikes = 4, int banMinutes = 15)
@@ -116,8 +117,11 @@ public class ConnectionGuard
     private void Sweep()
     {
         DateTime now = DateTime.UtcNow;
-        if (now - _lastSweep < TimeSpan.FromSeconds(1)) return;
-        _lastSweep = now;
+        lock (_sweepLock)
+        {
+            if (now - _lastSweep < TimeSpan.FromSeconds(1)) return;
+            _lastSweep = now;
+        }
 
         DateTime cutoff = now - (_banDuration + _window);
         foreach (var kv in _states)

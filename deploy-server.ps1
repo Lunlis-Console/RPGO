@@ -2,8 +2,8 @@
     [Parameter(Mandatory)]
     [string]$ServerIp,
     [string]$Runtime = "linux-x64",
-    [string]$User = "root",
-    [string]$RemoteDir = "/root/lost-and-divine"
+    [string]$User = "lostanddivine",
+    [string]$RemoteDir = "/home/lostanddivine/lost-and-divine"
 )
 
 $ErrorActionPreference = "Stop"
@@ -92,27 +92,29 @@ $sizeMB = [math]::Round((Get-Item $zipLocal).Length / 1MB, 1)
 Write-Host "  Zip: $sizeMB MB"
 
 Write-Host "`n=== 2. Uploading to $ServerIp ==="
-scp $zipLocal ${User}@${ServerIp}:/root/
+scp $zipLocal ${User}@${ServerIp}:/home/${User}/
 Write-Host "`n=== 3. Extracting and restarting on server ==="
 
 $setupScript = Join-Path $env:TEMP "lost-and-divine-setup.sh"
-@'
+@"
 #!/bin/bash
-cd /root
+set -e
+BASE="/home/${User}/lost-and-divine"
+cd /home/${User}
 
-# Backup databases if they exist
+# Backup databases if they exist (P5: rollback .bak для content.db тоже)
 if [ -d lost-and-divine ]; then
-    cp lost-and-divine/game.db /root/game.db.bak 2>/dev/null
-    cp lost-and-divine/content.db /root/content.db.bak 2>/dev/null
+    cp lost-and-divine/game.db /home/${User}/game.db.bak 2>/dev/null || true
+    cp lost-and-divine/content.db /home/${User}/content.db.bak 2>/dev/null || true
     rm -rf lost-and-divine
 fi
 
 mkdir -p lost-and-divine
 python3 << 'PYEOF'
 import zipfile, os
-z = zipfile.ZipFile("/root/LostAndDivine-server-linux-x64.zip")
+z = zipfile.ZipFile("/home/${User}/LostAndDivine-server-linux-x64.zip")
 for f in z.namelist():
-    target = os.path.join("/root/lost-and-divine", f.replace("\\", "/"))
+    target = os.path.join("/home/${User}/lost-and-divine", f.replace("\\", "/"))
     os.makedirs(os.path.dirname(target), exist_ok=True)
     if not f.endswith("/"):
         with open(target, "wb") as out:
@@ -121,24 +123,24 @@ z.close()
 PYEOF
 
 # Restore player accounts (game.db) from backup
-if [ -f /root/game.db.bak ]; then
-    cp /root/game.db.bak /root/lost-and-divine/game.db
-    rm /root/game.db.bak
+if [ -f /home/${User}/game.db.bak ]; then
+    cp /home/${User}/game.db.bak /home/${User}/lost-and-divine/game.db
+    rm /home/${User}/game.db.bak
     echo "Restored game.db from backup"
 fi
 # content.db comes FRESH from the build (content is versioned in the repo).
-# The old server content.db is kept as /root/content.db.bak for safety.
-if [ -f /root/content.db.bak ]; then
-    echo "Old content.db kept as /root/content.db.bak (NOT restored)"
+# The old server content.db is kept as /home/${User}/content.db.bak for safety.
+if [ -f /home/${User}/content.db.bak ]; then
+    echo "Old content.db kept as /home/${User}/content.db.bak (NOT restored)"
 fi
 
 cd lost-and-divine
 chmod +x LostAndDivine.Server start.sh
-echo "Server files ready in /root/lost-and-divine/"
+echo "Server files ready in /home/${User}/lost-and-divine/"
 echo "Run: screen -S lost-and-divine ./start.sh"
 '@ -replace "`r`n", "`n" | Set-Content -Path $setupScript -NoNewline
 
-scp $setupScript root@${ServerIp}:/root/lost-and-divine-setup.sh
-ssh root@${ServerIp} "sed -i 's/\r$//' /root/lost-and-divine-setup.sh; bash /root/lost-and-divine-setup.sh"
+scp $setupScript ${User}@${ServerIp}:/home/${User}/lost-and-divine-setup.sh
+ssh ${User}@${ServerIp} "sed -i 's/\r$//' /home/${User}/lost-and-divine-setup.sh; bash /home/${User}/lost-and-divine-setup.sh"
 
 Write-Host "`n=== Done ==="

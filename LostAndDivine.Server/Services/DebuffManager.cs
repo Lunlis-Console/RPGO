@@ -23,7 +23,13 @@ public class DebuffManager
         }
         Log.Debug($"ApplyDebuff player={target.Name} type={debuff.Type}");
 
-        _ = _combat?.SendTargetPlayerDebuffUpdateAsync(target);
+        if (_combat != null)
+        {
+            _ = _combat.SendTargetPlayerDebuffUpdateAsync(target).ContinueWith(t =>
+            {
+                if (t.IsFaulted) Log.Error($"[Debuff] SendUpdate failed for {target.Name}", t.Exception!);
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
         return true;
     }
 
@@ -43,7 +49,7 @@ public class DebuffManager
         return true;
     }
 
-    public async void TickDebuffs(Player target)
+    public async Task TickDebuffs(Player target)
     {
         lock (target.DebuffsLock)
         {
@@ -52,7 +58,10 @@ public class DebuffManager
             target.ActiveDebuffs.RemoveAll(d => d.RemainingMs <= 0);
         }
         if (_combat != null)
-            await _combat.SendTargetPlayerDebuffUpdateAsync(target);
+        {
+            try { await _combat.SendTargetPlayerDebuffUpdateAsync(target); }
+            catch (Exception ex) { Log.Error($"[Debuff] Tick update failed for {target.Name}", ex); }
+        }
     }
 
     public void TickDebuffs(Monster target)
