@@ -184,41 +184,22 @@ internal class GameInputHandler
 
     internal void HandleWindowToggles(KeyboardState keyboard, GameMain game,
         InventoryWindow inventory, StatusWindow status, SkillsWindow skills,
-        EquipmentWindow equipment, QuestLogWindow questLog, SocialWindow social,
-        SettingsWindow settings, WorldMapWindow worldMap)
+        EquipmentWindow equipment, QuestLogWindow questLog, WorldMapWindow worldMap)
     {
         if (Chat.IsTyping) return;
 
         if (keyboard.IsKeyDown(Keys.I) && PrevKeyboard.IsKeyUp(Keys.I))
-        {
-            inventory.Visible = !inventory.Visible;
-            if (inventory.Visible) { PositionInventoryRight(inventory, game); PushWindow(inventory); }
-        }
+            ToggleWindow(inventory, w => PositionInventoryRight((InventoryWindow)w, game));
         if (keyboard.IsKeyDown(Keys.J) && PrevKeyboard.IsKeyUp(Keys.J))
-        {
-            questLog.Visible = !questLog.Visible;
-            if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
-        }
+            ToggleWindow(questLog, w => CenterWindow(w, game));
         if (keyboard.IsKeyDown(Keys.K) && PrevKeyboard.IsKeyUp(Keys.K))
-        {
-            skills.Visible = !skills.Visible;
-            if (skills.Visible) { CenterWindow(skills, game); PushWindow(skills); }
-        }
+            ToggleWindow(skills, w => CenterWindow(w, game));
         if (keyboard.IsKeyDown(Keys.C) && PrevKeyboard.IsKeyUp(Keys.C))
-        {
-            equipment.Visible = !equipment.Visible;
-            if (equipment.Visible) { CenterWindow(equipment, game); PushWindow(equipment); }
-        }
+            ToggleWindow(equipment, w => CenterWindow(w, game));
         if (keyboard.IsKeyDown(Keys.M) && PrevKeyboard.IsKeyUp(Keys.M))
-        {
-            worldMap.Visible = !worldMap.Visible;
-            if (worldMap.Visible) { CenterWindow(worldMap, game); PushWindow(worldMap); }
-        }
+            ToggleWindow(worldMap, w => CenterWindow(w, game));
         if (keyboard.IsKeyDown(Keys.P) && PrevKeyboard.IsKeyUp(Keys.P))
-        {
-            status.Visible = !status.Visible;
-            if (status.Visible) PushWindow(status);
-        }
+            ToggleWindow(status);
     }
 
     internal void HandleIconClick(MouseState mouse, bool mouseOverAnyWindow, GameMain game,
@@ -230,48 +211,25 @@ internal class GameInputHandler
             mouse.LeftButton != ButtonState.Pressed || PrevMouse.LeftButton != ButtonState.Released)
             return;
 
+        Windows.GameWindow?[] windows = { status, inventory, skills, equipment, social, worldMap, questLog, mail, settings };
+        Action<Windows.GameWindow>?[] onShow =
+        {
+            null,
+            w => PositionInventoryRight((InventoryWindow)w, game),
+            w => CenterWindow(w, game),
+            w => CenterWindow(w, game),
+            w => ((SocialWindow)w).Open(),
+            w => CenterWindow(w, game),
+            w => CenterWindow(w, game),
+            w => ((MailWindow)w).Open(),
+            w => CenterWindow(w, game),
+        };
+
         for (int i = 0; i < 9; i++)
         {
             if (!iconRects[i].Contains(mouse.X, mouse.Y)) continue;
-            switch (i)
-            {
-                case 0:
-                    status.Visible = !status.Visible;
-                    if (status.Visible) PushWindow(status);
-                    break;
-                case 1:
-                    inventory.Visible = !inventory.Visible;
-                    if (inventory.Visible) { PositionInventoryRight(inventory, game); PushWindow(inventory); }
-                    break;
-                case 2:
-                    skills.Visible = !skills.Visible;
-                    if (skills.Visible) { CenterWindow(skills, game); PushWindow(skills); }
-                    break;
-                case 3:
-                    equipment.Visible = !equipment.Visible;
-                    if (equipment.Visible) { CenterWindow(equipment, game); PushWindow(equipment); }
-                    break;
-                case 4:
-                    if (social.Visible) social.Visible = false;
-                    else { social.Open(); PushWindow(social); }
-                    break;
-                case 5:
-                    worldMap.Visible = !worldMap.Visible;
-                    if (worldMap.Visible) { CenterWindow(worldMap, game); PushWindow(worldMap); }
-                    break;
-                case 6:
-                    questLog.Visible = !questLog.Visible;
-                    if (questLog.Visible) { CenterWindow(questLog, game); PushWindow(questLog); }
-                    break;
-                case 7:
-                    if (mail.Visible) mail.Visible = false;
-                    else { mail.Open(); PushWindow(mail); }
-                    break;
-                case 8:
-                    settings.Visible = !settings.Visible;
-                    if (settings.Visible) { CenterWindow(settings, game); PushWindow(settings); }
-                    break;
-            }
+            var w = windows[i];
+            if (w != null) ToggleWindow(w, onShow[i]);
             return;
         }
     }
@@ -381,6 +339,20 @@ internal class GameInputHandler
     {
         WindowStack.Remove(w);
         WindowStack.Add(w);
+    }
+
+    /// <summary>
+    /// Единый механизм переключения окна (P2-4): инвертирует Visible и при показе
+    /// выполняет позиционирование/открытие (onShow) и ставит окно в стек поверху.
+    /// </summary>
+    private void ToggleWindow(Windows.GameWindow w, Action<Windows.GameWindow>? onShow = null)
+    {
+        w.Visible = !w.Visible;
+        if (w.Visible)
+        {
+            onShow?.Invoke(w);
+            PushWindow(w);
+        }
     }
 
     internal void HandlePendingSkill(GameMain game)
